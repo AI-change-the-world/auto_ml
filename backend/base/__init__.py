@@ -5,7 +5,7 @@ from pydantic import BaseModel
 class Response(BaseModel):
     status: int
     message: str
-    data: Optional[dict]  = None
+    data: Optional[dict] = None
 
 
 def create_response(status: int, message: str, data: Optional[BaseModel] = None):
