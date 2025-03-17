@@ -1,0 +1,10 @@
+// this is a template
+{
+    "task":"train", // train or predict
+    "model":"yolo_v3",
+    "device":"0", // 0 or cpu or 0,1,...
+    "size": 640, // int
+    "epoch": 1, // int or null
+    "config" : "config/yolov3.cfg", // null or string
+    "weights" : "weights/yolov3.weights", // null or string
+}
