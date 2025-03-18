@@ -2,7 +2,10 @@ from fastapi import APIRouter
 
 from base import create_response
 
-router = APIRouter(prefix="/heartbeat", tags=["heartbeat"],)
+router = APIRouter(
+    prefix="/heartbeat",
+    tags=["heartbeat"],
+)
 
 
 @router.get("/")
