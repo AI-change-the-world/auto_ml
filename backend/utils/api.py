@@ -45,104 +45,134 @@ async def vram_usage(req: VRAMUsageRequest):
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv4":
             model = YOLO_MODELS[1]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv5s":
             model = YOLO_MODELS[2]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv5m":
             model = YOLO_MODELS[3]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv5l":
             model = YOLO_MODELS[4]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv5x":
             model = YOLO_MODELS[5]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv6s":
             model = YOLO_MODELS[6]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv6m":
             model = YOLO_MODELS[7]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv6l":
             model = YOLO_MODELS[8]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv7":
             model = YOLO_MODELS[9]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv8n":
             model = YOLO_MODELS[10]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv8s":
             model = YOLO_MODELS[11]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv8m":
             model = YOLO_MODELS[12]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv8l":
             model = YOLO_MODELS[13]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
         case "YOLOv8x":
             model = YOLO_MODELS[14]
             return create_response(
                 status=200,
                 message="OK",
-                data=VRAMUsageModel(total_memory= model.estimate_vram(batch_size=req.batch_size)),
+                data=VRAMUsageModel(
+                    total_memory=model.estimate_vram(batch_size=req.batch_size)
+                ),
             )
     return create_response(status=400, message="Model not found")

@@ -4,6 +4,8 @@ app = FastAPI()
 
 from heartbeat.api import router as heartbeat_router
 from utils.api import router as utils_router
+from yolo.api import router as yolo_router
 
 app.include_router(heartbeat_router)
 app.include_router(utils_router)
+app.include_router(yolo_router)

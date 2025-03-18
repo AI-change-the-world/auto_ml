@@ -1,3 +1,4 @@
 fastapi==0.115.11
 pydantic==2.10.6
+sse_starlette==2.2.1
 ultralytics==8.3.91
