@@ -1,4 +1,4 @@
-import 'package:auto_ml/components/isar/dataset.dart';
+import 'package:auto_ml/modules/isar/dataset.dart';
 import 'package:isar/isar.dart';
 
 part 'dataset_file.g.dart';

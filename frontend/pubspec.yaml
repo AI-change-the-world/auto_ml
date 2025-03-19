@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   cupertino_icons: ^1.0.8
+  dropdown_button2: ^2.3.9
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.6.1

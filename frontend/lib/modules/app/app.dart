@@ -1,5 +1,6 @@
-import 'package:auto_ml/components/sidebar/sidebar.dart';
-import 'package:auto_ml/components/sidebar/sidebar_notifier.dart';
+import 'package:auto_ml/modules/dataset/dataset_screen.dart';
+import 'package:auto_ml/modules/sidebar/sidebar.dart';
+import 'package:auto_ml/modules/sidebar/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,7 +22,7 @@ class _AppState extends ConsumerState<App> {
           Expanded(
             child: PageView(
               controller: ref.read(sidebarProvider.notifier).pageController,
-              children: [Container(), Container(), Container()],
+              children: [DatasetScreen(), Container(), Container()],
             ),
           ),
         ],

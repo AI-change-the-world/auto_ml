@@ -1,5 +1,5 @@
-import 'package:auto_ml/components/isar/dataset.dart';
-import 'package:auto_ml/components/isar/dataset_file.dart';
+import 'package:auto_ml/modules/isar/dataset.dart';
+import 'package:auto_ml/modules/isar/dataset_file.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';

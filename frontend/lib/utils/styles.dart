@@ -44,4 +44,12 @@ class Styles {
       textTheme: ButtonTextTheme.primary,
     ),
   );
+
+  static const List<Color> cardColors = [
+    Color(0xFF42A5F5), // 亮蓝色
+    Color(0xFF66BB6A), // 绿色
+    Color(0xFFFFCA28), // 黄色
+    Color(0xFFEF5350), // 红色
+    Color(0xFF78909C), // 灰蓝色
+  ];
 }
