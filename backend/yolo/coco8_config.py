@@ -2,6 +2,7 @@ from typing import Optional
 import yaml
 from pydantic import BaseModel
 
+
 class Coco8Dataset(BaseModel):
     path: str
     train: str
@@ -29,6 +30,7 @@ class Coco8Dataset(BaseModel):
 
     def __repr__(self):
         return f"Coco8Dataset(path={self.path}, train={self.train}, val={self.val}, test={self.test}, download={self.download})"
+
 
 # 示例用法
 # dataset = Coco8Dataset.from_yaml("coco8.yaml")

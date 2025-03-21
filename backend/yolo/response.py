@@ -33,10 +33,9 @@ class PredictResults(BaseModel):
     results: list[PredictResult]
 
     @classmethod
-    def from_data(cls, data:list,img:str):
-        p : PredictResults  = PredictResults(image_id=img, results=[])
+    def from_data(cls, data: list, img: str):
+        p: PredictResults = PredictResults(image_id=img, results=[])
         for r in data:
             p.results.append(PredictResult.from_dict(r))
-        
+
         return p
-            

@@ -15,3 +15,13 @@ async def predict(req: YOLORequest):
     return EventSourceResponse(
         predict(model_name=req.model, imgs=req.files), media_type="text/event-stream"
     )
+
+
+@router.post("/train")
+async def train(req: YOLORequest):
+    from yolo.train import train
+
+    return EventSourceResponse(
+        train(model_name=req.model, epochs=req.epoch, imgsz=req.size),
+        media_type="text/event-stream",
+    )
