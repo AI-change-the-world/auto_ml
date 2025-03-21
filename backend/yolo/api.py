@@ -47,7 +47,7 @@ async def train_status(uuid: str):
     from db.task_log import TaskLog
     from db import DB
 
-    task_logs = DB.task_log_box.query(TaskLog.task_id == uuid).build().find()
+    task_logs = DB.task_log_box.query(TaskLog.task_id.equals(uuid)).build().find()
     logs = YoloTrainLogs(logs=[])
     for task_log in task_logs:
         logs.logs.append(task_log.content)

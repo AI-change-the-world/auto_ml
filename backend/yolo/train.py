@@ -26,9 +26,9 @@ def __train_model(task_id: str):
     model.add_callback("on_train_epoch_end", on_train_epoch_end)  # 监听 epoch 结束
     model.train(
         data="coco8.yaml",
-        epochs=3,
+        epochs=1,
     )
-    task = DB.task_box.query(Task.task_id_property.equals(task_id)).build().find()[0]
+    task = DB.task_box.query(Task.task_id.equals(task_id)).build().find()[0]
     task.status = "complete"
     DB.task_box.put(task)
 
