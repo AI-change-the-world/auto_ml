@@ -72,6 +72,7 @@ class _InteractiveCardState extends State<InteractiveCard> {
         });
       },
       child: Transform(
+        alignment: Alignment.center,
         // duration: const Duration(milliseconds: 100),
         transform:
             Matrix4.identity()

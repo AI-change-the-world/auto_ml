@@ -91,6 +91,7 @@ class _DatasetCardState extends State<DatasetCard> {
           },
           onExit: (_) => _cardState.value = _CardState(),
           child: Transform(
+            alignment: Alignment.center,
             transform:
                 Matrix4.identity()
                   ..setEntry(3, 2, 0.0015) // 透视效果

@@ -24,9 +24,9 @@ class _DatasetScreenState extends ConsumerState<DatasetScreen> {
         var datasets = data.datasets;
         datasets = fakeDataset();
 
-        if (datasets.isEmpty) {
-          return Center(child: Text('No datasets found.'));
-        }
+        // if (datasets.isEmpty) {
+        //   return Center(child: Text('No datasets found.'));
+        // }
 
         Map<DatasetType, List<Dataset>> map = {
           if (data.selectedTypes.contains(DatasetType.image))

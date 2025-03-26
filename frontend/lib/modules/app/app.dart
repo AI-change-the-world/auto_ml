@@ -1,4 +1,5 @@
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
+import 'package:auto_ml/modules/label/label_screen.dart';
 import 'package:auto_ml/modules/sidebar/sidebar.dart';
 import 'package:auto_ml/modules/sidebar/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
@@ -21,8 +22,9 @@ class _AppState extends ConsumerState<App> {
           const Sidebar(),
           Expanded(
             child: PageView(
+              physics: const NeverScrollableScrollPhysics(),
               controller: ref.read(sidebarProvider.notifier).pageController,
-              children: [DatasetScreen(), Container(), Container()],
+              children: [DatasetScreen(), LabelScreen(), Container()],
             ),
           ),
         ],
