@@ -59,7 +59,17 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                     .read(
                                       labelNotifierProvider(widget.dl).notifier,
                                     )
-                                    .updateAnnotation(e, details);
+                                    .updateAnnotation(e, dragDetails: details);
+                              },
+                              onSizeChanged: (changedValue) {
+                                ref
+                                    .read(
+                                      labelNotifierProvider(widget.dl).notifier,
+                                    )
+                                    .updateAnnotation(
+                                      e,
+                                      sizeChanged: changedValue,
+                                    );
                               },
                             ),
                           )

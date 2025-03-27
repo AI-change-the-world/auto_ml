@@ -13,17 +13,27 @@ class Annotation {
     uuid = Uuid().v4();
   }
 
+  @override
+  bool operator ==(Object other) {
+    return other is Annotation && uuid == other.uuid;
+  }
+
+  @override
+  int get hashCode => uuid.hashCode;
+
   Annotation copyWith({
     Offset? position,
     double? width,
     double? height,
     int? id,
   }) {
-    return Annotation(
+    Annotation a = Annotation(
       position ?? this.position,
       width ?? this.width,
       height ?? this.height,
       id ?? this.id,
     );
+    a.uuid = uuid;
+    return a;
   }
 }

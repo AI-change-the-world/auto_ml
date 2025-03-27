@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:auto_ml/modules/label/models/annotation.dart';
+import 'package:auto_ml/modules/label/models/changed.dart';
 import 'package:auto_ml/modules/label/notifiers/label_state.dart';
 import 'package:auto_ml/modules/label/tools/get_image_size.dart';
 import 'package:auto_ml/modules/label/tools/label_to_annotation.dart';
@@ -14,7 +16,39 @@ class LabelNotifier
     return LabelState(dataPath: arg.$1, labelPath: arg.$2);
   }
 
-  updateAnnotation(Annotation annotation, DragUpdateDetails details) {
+  updateAnnotation(
+    Annotation annotation, {
+    DragUpdateDetails? dragDetails,
+    List<SizeChanged> sizeChanged = const [],
+  }) {
+    annotation = annotation.copyWith(
+      position: annotation.position + (dragDetails?.delta ?? Offset.zero),
+    );
+    if (sizeChanged.isNotEmpty) {
+      for (var changed in sizeChanged) {
+        if (changed.type == SizeChangedType.left) {
+          annotation.position = Offset(
+            annotation.position.dx + changed.value,
+            annotation.position.dy,
+          );
+          annotation.width = max(annotation.width - changed.value, 0);
+        }
+        if (changed.type == SizeChangedType.top) {
+          annotation.position = Offset(
+            annotation.position.dx,
+            annotation.position.dy + changed.value,
+          );
+          annotation.height = max(annotation.height - changed.value, 0);
+        }
+        if (changed.type == SizeChangedType.right) {
+          annotation.width = annotation.width + changed.value;
+        }
+        if (changed.type == SizeChangedType.bottom) {
+          annotation.height = annotation.height + changed.value;
+        }
+      }
+    }
+
     state = state.copyWith(
       currentLabels:
           state.currentLabels
@@ -22,7 +56,9 @@ class LabelNotifier
                 (e) =>
                     e.uuid == annotation.uuid
                         ? annotation.copyWith(
-                          position: annotation.position + details.delta,
+                          position: annotation.position,
+                          width: annotation.width,
+                          height: annotation.height,
                         )
                         : e,
               )
