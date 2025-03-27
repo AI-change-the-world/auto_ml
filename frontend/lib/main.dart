@@ -24,7 +24,11 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: MaterialApp(debugShowCheckedModeBanner: false, home: App()),
+      child: MaterialApp(
+        // showPerformanceOverlay: true,
+        debugShowCheckedModeBanner: false,
+        home: App(),
+      ),
     ),
   );
 }

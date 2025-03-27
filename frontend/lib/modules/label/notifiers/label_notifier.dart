@@ -16,6 +16,19 @@ class LabelNotifier
     return LabelState(dataPath: arg.$1, labelPath: arg.$2);
   }
 
+  changeCurrentAnnotation(String uuid) {
+    state = state.copyWith(
+      currentLabels:
+          state.currentLabels.map((e) {
+            if (e.uuid == uuid) {
+              return e.copyWith(selected: true);
+            } else {
+              return e.copyWith(selected: false);
+            }
+          }).toList(),
+    );
+  }
+
   updateAnnotation(
     Annotation annotation, {
     DragUpdateDetails? dragDetails,

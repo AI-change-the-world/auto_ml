@@ -7,6 +7,7 @@ class LabelState {
   String current;
   String dataPath;
   String labelPath;
+  String selectedAnnotationUuid;
 
   /// missing dataset type, such as yolo or sth else
 
@@ -19,6 +20,7 @@ class LabelState {
     required this.dataPath,
     required this.labelPath,
     this.currentLabels = const [],
+    this.selectedAnnotationUuid = "",
   }) {
     _initializeDataLabelPairs();
   }
@@ -28,12 +30,15 @@ class LabelState {
     String? dataPath,
     String? labelPath,
     List<Annotation>? currentLabels,
+    String? selectedAnnotationUuid,
   }) {
     return LabelState(
       current: current ?? this.current,
       dataPath: dataPath ?? this.dataPath,
       labelPath: labelPath ?? this.labelPath,
       currentLabels: currentLabels ?? this.currentLabels,
+      selectedAnnotationUuid:
+          selectedAnnotationUuid ?? this.selectedAnnotationUuid,
     );
   }
 

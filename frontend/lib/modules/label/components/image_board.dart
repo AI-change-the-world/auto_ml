@@ -31,49 +31,75 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
           return Center(child: Text("No data"));
         }
 
-        return Center(
-          child: InteractiveViewer(
-            transformationController: _transformationController,
-            boundaryMargin: EdgeInsets.all(0),
-            minScale: 0.5,
-            maxScale: 2.0,
-            constrained: false,
-            child: SizedBox(
-              width: data.size.width,
-              height: data.size.height,
-              child: CustomPaint(
-                size: data.size,
-                painter: _ImagePainter(
-                  data.image!,
-                  _transformationController.value,
-                ),
-                child: Stack(
-                  children:
-                      annotations
-                          .map(
-                            (e) => AnnotationWidget(
-                              transform: _transformationController.value,
-                              annotation: e,
-                              onPanUpdate: (details) {
-                                ref
-                                    .read(
-                                      labelNotifierProvider(widget.dl).notifier,
-                                    )
-                                    .updateAnnotation(e, dragDetails: details);
-                              },
-                              onSizeChanged: (changedValue) {
-                                ref
-                                    .read(
-                                      labelNotifierProvider(widget.dl).notifier,
-                                    )
-                                    .updateAnnotation(
-                                      e,
-                                      sizeChanged: changedValue,
-                                    );
-                              },
-                            ),
-                          )
-                          .toList(),
+        return GestureDetector(
+          onTap: () {
+            ref
+                .read(labelNotifierProvider(widget.dl).notifier)
+                .changeCurrentAnnotation("");
+          },
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 10),
+              child: InteractiveViewer(
+                transformationController: _transformationController,
+                boundaryMargin: EdgeInsets.all(0),
+                minScale: 0.5,
+                maxScale: 2.0,
+                constrained: false,
+                child: SizedBox(
+                  width: data.size.width,
+                  height: data.size.height,
+                  child: CustomPaint(
+                    size: data.size,
+                    painter: _ImagePainter(
+                      data.image!,
+                      _transformationController.value,
+                    ),
+                    child: Stack(
+                      children:
+                          annotations
+                              .map(
+                                (e) => AnnotationWidget(
+                                  transform: _transformationController.value,
+                                  annotation: e,
+                                  onPanUpdate: (details) {
+                                    ref
+                                        .read(
+                                          labelNotifierProvider(
+                                            widget.dl,
+                                          ).notifier,
+                                        )
+                                        .updateAnnotation(
+                                          e,
+                                          dragDetails: details,
+                                        );
+                                  },
+                                  onSizeChanged: (changedValue) {
+                                    ref
+                                        .read(
+                                          labelNotifierProvider(
+                                            widget.dl,
+                                          ).notifier,
+                                        )
+                                        .updateAnnotation(
+                                          e,
+                                          sizeChanged: changedValue,
+                                        );
+                                  },
+                                  onSelected: () {
+                                    ref
+                                        .read(
+                                          labelNotifierProvider(
+                                            widget.dl,
+                                          ).notifier,
+                                        )
+                                        .changeCurrentAnnotation(e.uuid);
+                                  },
+                                ),
+                              )
+                              .toList(),
+                    ),
+                  ),
                 ),
               ),
             ),

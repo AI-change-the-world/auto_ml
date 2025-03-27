@@ -1,4 +1,5 @@
 import 'package:auto_ml/modules/label/components/file_list.dart';
+import 'package:auto_ml/modules/label/components/icons.dart';
 import 'package:auto_ml/modules/label/components/image_board.dart';
 import 'package:auto_ml/modules/label/notifiers/label_notifier.dart';
 import 'package:file_selector/file_selector.dart';
@@ -79,15 +80,27 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
 
     final state = ref.watch(labelNotifierProvider((dataPath, labelPath)));
 
-    return Row(
+    return Column(
+      spacing: 10,
       children: [
-        FileList(
-          current: state.current,
-          data: state.dataLabelPairs,
-          dl: (dataPath, labelPath),
-        ),
+        SizedBox(height: 20, child: LayoutIcons(onIconSelected: (type) {})),
         Expanded(
-          child: ImageBoard(dl: (dataPath, labelPath), current: state.current),
+          child: Row(
+            spacing: 10,
+            children: [
+              FileList(
+                current: state.current,
+                data: state.dataLabelPairs,
+                dl: (dataPath, labelPath),
+              ),
+              Expanded(
+                child: ImageBoard(
+                  dl: (dataPath, labelPath),
+                  current: state.current,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

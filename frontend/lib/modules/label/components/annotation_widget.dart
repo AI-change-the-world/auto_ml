@@ -10,11 +10,13 @@ class AnnotationWidget extends StatelessWidget {
     required this.annotation,
     required this.onPanUpdate,
     required this.onSizeChanged,
+    required this.onSelected,
   });
   final Matrix4 transform;
   final Annotation annotation;
   final Function(DragUpdateDetails details) onPanUpdate;
   final Function(List<SizeChanged> changed) onSizeChanged;
+  final Function onSelected;
   @override
   Widget build(BuildContext context) {
     return Positioned(
@@ -24,22 +26,32 @@ class AnnotationWidget extends StatelessWidget {
         onPanUpdate: (details) {
           onPanUpdate(details);
         },
+        onTap: () {
+          onSelected();
+        },
         child: Stack(
           children: [
             // 标注框
             MouseRegion(
               cursor: SystemMouseCursors.grab,
-              child: Container(
-                width: annotation.width,
-                height: annotation.height,
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.3),
-                  border: Border.all(color: Colors.red, width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    "${annotation.position.dx}, ${annotation.position.dy}",
-                    style: TextStyle(fontSize: 12, color: Colors.black),
+              child: Material(
+                color: Colors.transparent,
+                elevation: annotation.selected ? 4 : 0,
+                child: Container(
+                  width: annotation.width,
+                  height: annotation.height,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.3),
+                    border: Border.all(
+                      color: !annotation.editable ? Colors.grey : Colors.red,
+                      width: 2,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "${annotation.position.dx}, ${annotation.position.dy}",
+                      style: TextStyle(fontSize: 12, color: Colors.black),
+                    ),
                   ),
                 ),
               ),
@@ -55,19 +67,19 @@ class AnnotationWidget extends StatelessWidget {
   /// 构建 8 个拖拽手柄
   List<Widget> _buildResizeHandles() {
     return [
-      _buildHandle(Alignment.topLeft, -1, -1), // 左上角
-      _buildHandle(Alignment.topRight, 1, -1), // 右上角
-      _buildHandle(Alignment.bottomLeft, -1, 1), // 左下角
-      _buildHandle(Alignment.bottomRight, 1, 1), // 右下角
-      _buildEdgeHandle(Alignment.topCenter, 0, -1), // 顶部
-      _buildEdgeHandle(Alignment.bottomCenter, 0, 1), // 底部
-      _buildEdgeHandle(Alignment.centerLeft, -1, 0), // 左边
-      _buildEdgeHandle(Alignment.centerRight, 1, 0), // 右边
+      _buildHandle(Alignment.topLeft), // 左上角
+      _buildHandle(Alignment.topRight), // 右上角
+      _buildHandle(Alignment.bottomLeft), // 左下角
+      _buildHandle(Alignment.bottomRight), // 右下角
+      _buildEdgeHandle(Alignment.topCenter), // 顶部
+      _buildEdgeHandle(Alignment.bottomCenter), // 底部
+      _buildEdgeHandle(Alignment.centerLeft), // 左边
+      _buildEdgeHandle(Alignment.centerRight), // 右边
     ];
   }
 
   /// 创建 **角落** 拖拽手柄（调整宽高）
-  Widget _buildHandle(Alignment alignment, double dxFactor, double dyFactor) {
+  Widget _buildHandle(Alignment alignment) {
     return SizedBox(
       width: annotation.width,
       height: annotation.height,
@@ -77,6 +89,9 @@ class AnnotationWidget extends StatelessWidget {
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
             onPanUpdate: (details) {
+              if (!annotation.editable) {
+                return;
+              }
               // onSizeChanged((annotation.position.dx, annotation.position.dy));
               if (alignment == Alignment.topLeft) {
                 onSizeChanged([
@@ -142,11 +157,7 @@ class AnnotationWidget extends StatelessWidget {
   }
 
   /// 创建 **边框** 拖拽手柄（调整宽或高）
-  Widget _buildEdgeHandle(
-    Alignment alignment,
-    double dxFactor,
-    double dyFactor,
-  ) {
+  Widget _buildEdgeHandle(Alignment alignment) {
     MouseCursor cursor;
     switch (alignment) {
       case Alignment.topCenter:
@@ -172,6 +183,10 @@ class AnnotationWidget extends StatelessWidget {
           cursor: cursor,
           child: GestureDetector(
             onPanUpdate: (details) {
+              if (!annotation.editable) {
+                return;
+              }
+
               if (alignment == Alignment.centerLeft) {
                 onSizeChanged([
                   SizeChanged(
@@ -207,8 +222,8 @@ class AnnotationWidget extends StatelessWidget {
               }
             },
             child: Container(
-              width: dxFactor == 0 ? annotation.width - 16 : 3,
-              height: dyFactor == 0 ? annotation.height - 16 : 3,
+              width: alignment.x == 0 ? annotation.width - 16 : 3,
+              height: alignment.y == 0 ? annotation.height - 16 : 3,
               color: kDebugMode ? Colors.yellow : Colors.transparent, // 透明手柄
             ),
           ),

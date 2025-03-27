@@ -25,7 +25,9 @@ class FileList extends ConsumerWidget {
         color: Colors.grey[100],
       ),
       child: Column(
+        spacing: 10,
         children: [
+          Text("File List", style: TextStyle(fontWeight: FontWeight.bold)),
           Expanded(
             child:
                 data.isEmpty
