@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   cupertino_icons: ^1.0.8
+  dio: ^5.8.0+1
   dropdown_button2: ^2.3.9
   file_selector: ^1.0.3
   flutter:
@@ -16,6 +17,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
+  json_annotation: ^4.9.0
   logger: ^2.5.0
   path_provider: ^2.1.5
   riverpod: ^2.6.1
@@ -28,6 +30,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   isar_generator: ^3.1.0+1
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true
