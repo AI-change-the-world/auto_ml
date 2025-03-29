@@ -2,6 +2,7 @@ import 'package:auto_ml/modules/api/request/label_img_request.dart';
 import 'package:auto_ml/modules/api/response/base_response.dart';
 import 'package:auto_ml/modules/api/response/label_img_response.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   Dio dio = Dio();
@@ -16,6 +17,8 @@ void main() async {
     BaseResponse<LabelImgData> response = BaseResponse.fromJson(d.data, (data) {
       return LabelImgData.fromJson(data as Map<String, dynamic>);
     });
-    print(response.data?.labels);
+    if (kDebugMode) {
+      print(response.data?.labels);
+    }
   });
 }
