@@ -55,6 +55,31 @@ extension DatasetExtension on DatasetType {
   }
 }
 
+enum DatasetTask { classification, segmentation, detection, other }
+
+extension DatasetTaskExtension on DatasetTask {
+  String get name =>
+      {
+        DatasetTask.classification: "Classification",
+        DatasetTask.segmentation: "Segmentation",
+        DatasetTask.detection: "Detection",
+        DatasetTask.other: "Other",
+      }[this]!;
+
+  Icon icon({Color? color, double? size}) {
+    switch (this) {
+      case DatasetTask.classification:
+        return Icon(Icons.class_, color: color ?? Colors.white, size: size);
+      case DatasetTask.segmentation:
+        return Icon(Icons.segment, color: color ?? Colors.white, size: size);
+      case DatasetTask.detection:
+        return Icon(Icons.search, color: color ?? Colors.white, size: size);
+      default:
+        return Icon(Icons.extension, color: color ?? Colors.white, size: size);
+    }
+  }
+}
+
 @collection
 class Dataset {
   Id id = Isar.autoIncrement;
@@ -68,6 +93,9 @@ class Dataset {
 
   @enumerated
   DatasetType type = DatasetType.image;
+
+  @enumerated
+  DatasetTask task = DatasetTask.classification;
 
   String? labelPath;
 

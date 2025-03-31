@@ -42,8 +42,14 @@ const DatasetSchema = CollectionSchema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'type': PropertySchema(
+    r'task': PropertySchema(
       id: 5,
+      name: r'task',
+      type: IsarType.byte,
+      enumMap: _DatasettaskEnumValueMap,
+    ),
+    r'type': PropertySchema(
+      id: 6,
       name: r'type',
       type: IsarType.byte,
       enumMap: _DatasettypeEnumValueMap,
@@ -121,7 +127,8 @@ void _datasetSerialize(
   writer.writeString(offsets[2], object.description);
   writer.writeString(offsets[3], object.labelPath);
   writer.writeString(offsets[4], object.name);
-  writer.writeByte(offsets[5], object.type.index);
+  writer.writeByte(offsets[5], object.task.index);
+  writer.writeByte(offsets[6], object.type.index);
 }
 
 Dataset _datasetDeserialize(
@@ -137,7 +144,9 @@ Dataset _datasetDeserialize(
   object.id = id;
   object.labelPath = reader.readStringOrNull(offsets[3]);
   object.name = reader.readStringOrNull(offsets[4]);
-  object.type = _DatasettypeValueEnumMap[reader.readByteOrNull(offsets[5])] ??
+  object.task = _DatasettaskValueEnumMap[reader.readByteOrNull(offsets[5])] ??
+      DatasetTask.classification;
+  object.type = _DatasettypeValueEnumMap[reader.readByteOrNull(offsets[6])] ??
       DatasetType.image;
   return object;
 }
@@ -160,6 +169,9 @@ P _datasetDeserializeProp<P>(
     case 4:
       return (reader.readStringOrNull(offset)) as P;
     case 5:
+      return (_DatasettaskValueEnumMap[reader.readByteOrNull(offset)] ??
+          DatasetTask.classification) as P;
+    case 6:
       return (_DatasettypeValueEnumMap[reader.readByteOrNull(offset)] ??
           DatasetType.image) as P;
     default:
@@ -167,6 +179,18 @@ P _datasetDeserializeProp<P>(
   }
 }
 
+const _DatasettaskEnumValueMap = {
+  'classification': 0,
+  'segmentation': 1,
+  'detection': 2,
+  'other': 3,
+};
+const _DatasettaskValueEnumMap = {
+  0: DatasetTask.classification,
+  1: DatasetTask.segmentation,
+  2: DatasetTask.detection,
+  3: DatasetTask.other,
+};
 const _DatasettypeEnumValueMap = {
   'image': 0,
   'video': 1,
@@ -1079,6 +1103,59 @@ extension DatasetQueryFilter
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> taskEqualTo(
+      DatasetTask value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'task',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> taskGreaterThan(
+    DatasetTask value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'task',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> taskLessThan(
+    DatasetTask value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'task',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> taskBetween(
+    DatasetTask lower,
+    DatasetTask upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'task',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QAfterFilterCondition> typeEqualTo(
       DatasetType value) {
     return QueryBuilder.apply(this, (query) {
@@ -1200,6 +1277,18 @@ extension DatasetQuerySortBy on QueryBuilder<Dataset, Dataset, QSortBy> {
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> sortByTask() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'task', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> sortByTaskDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'task', Sort.desc);
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QAfterSortBy> sortByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.asc);
@@ -1287,6 +1376,18 @@ extension DatasetQuerySortThenBy
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> thenByTask() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'task', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> thenByTaskDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'task', Sort.desc);
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QAfterSortBy> thenByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.asc);
@@ -1336,6 +1437,12 @@ extension DatasetQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QDistinct> distinctByTask() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'task');
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QDistinct> distinctByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'type');
@@ -1378,6 +1485,12 @@ extension DatasetQueryProperty
   QueryBuilder<Dataset, String?, QQueryOperations> nameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<Dataset, DatasetTask, QQueryOperations> taskProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'task');
     });
   }
 
