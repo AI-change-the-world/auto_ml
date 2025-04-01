@@ -142,7 +142,7 @@ class _Inner extends ConsumerWidget {
                         pageBuilder: (c, _, __) {
                           return Center(
                             child: NewDatasetDialog(
-                              type: DatasetType.values[pageState],
+                              initialType: DatasetType.values[pageState],
                             ),
                           );
                         },

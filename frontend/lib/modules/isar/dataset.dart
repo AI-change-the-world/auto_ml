@@ -99,6 +99,8 @@ class Dataset {
 
   String? labelPath;
 
+  double rating = 0;
+
   int createAt = DateTime.now().millisecondsSinceEpoch;
 }
 

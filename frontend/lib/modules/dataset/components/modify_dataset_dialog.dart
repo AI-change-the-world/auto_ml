@@ -6,15 +6,15 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_stars/flutter_rating_stars.dart';
 
-class NewDatasetDialog extends StatefulWidget {
-  const NewDatasetDialog({super.key, required this.initialType});
-  final DatasetType initialType;
+class ModifyDatasetDialog extends StatefulWidget {
+  const ModifyDatasetDialog({super.key, required this.dataset});
+  final Dataset dataset;
 
   @override
-  State<NewDatasetDialog> createState() => _NewDatasetDialogState();
+  State<ModifyDatasetDialog> createState() => _ModifyDatasetDialogState();
 }
 
-class _NewDatasetDialogState extends State<NewDatasetDialog> {
+class _ModifyDatasetDialogState extends State<ModifyDatasetDialog> {
   late TextStyle titleStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.bold,
@@ -28,17 +28,18 @@ class _NewDatasetDialogState extends State<NewDatasetDialog> {
   late TextStyle textStyle = TextStyle(fontSize: 12);
 
   late TextStyle hintStyle = TextStyle(fontSize: 12, color: Colors.grey);
-  late DatasetType type = widget.initialType;
-  late DatasetTask task = DatasetTask.classification;
+  late DatasetType type = widget.dataset.type;
+  late DatasetTask task = widget.dataset.task;
   late double rating = 0;
 
-  late final TextEditingController _nameController = TextEditingController();
+  late final TextEditingController _nameController =
+      TextEditingController()..text = widget.dataset.name ?? "";
   late final TextEditingController _descriptionController =
-      TextEditingController();
+      TextEditingController()..text = widget.dataset.description ?? "";
   late final TextEditingController _dataPathController =
-      TextEditingController();
+      TextEditingController()..text = widget.dataset.dataPath ?? "";
   late final TextEditingController _labelPathController =
-      TextEditingController();
+      TextEditingController()..text = widget.dataset.labelPath ?? "";
 
   @override
   void dispose() {

@@ -3,6 +3,7 @@ import 'package:auto_ml/modules/isar/database.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:toastification/toastification.dart';
 import 'package:window_manager/window_manager.dart';
 
 void main() async {
@@ -27,7 +28,7 @@ void main() async {
       child: MaterialApp(
         // showPerformanceOverlay: true,
         debugShowCheckedModeBanner: false,
-        home: App(),
+        home: ToastificationWrapper(child: App()),
       ),
     ),
   );

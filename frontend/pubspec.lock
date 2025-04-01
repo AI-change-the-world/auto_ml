@@ -33,6 +33,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.12.0"
+  basic_dropdown_button:
+    dependency: "direct main"
+    description:
+      name: basic_dropdown_button
+      sha256: "1da09ff6adbc5fa3799710301ab91506e179ea3b31b982d666008fb3ee09f8da"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1+1"
   boolean_selector:
     dependency: transitive
     description:
@@ -217,6 +225,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.9"
+  equatable:
+    dependency: transitive
+    description:
+      name: equatable
+      sha256: "567c64b3cb4cf82397aac55f4f0cbd3ca20d77c6c03bedbc4ceaddc08904aef7"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.7"
   fake_async:
     dependency: transitive
     description:
@@ -326,6 +342,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
+  flutter_rating_stars:
+    dependency: "direct main"
+    description:
+      name: flutter_rating_stars
+      sha256: "09dfa831aac2e5128fe70c5a8bd63ff4463180d5ff8545f7379c5b209d22ce1d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   flutter_riverpod:
     dependency: "direct main"
     description:
@@ -392,6 +416,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  iconsax_flutter:
+    dependency: transitive
+    description:
+      name: iconsax_flutter
+      sha256: "95b65699da8ea98f87c5d232f06b0debaaf1ec1332b697e4d90969ec9a93037d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   io:
     dependency: transitive
     description:
@@ -592,6 +624,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.0"
+  pausable_timer:
+    dependency: transitive
+    description:
+      name: pausable_timer
+      sha256: "6ef1a95441ec3439de6fb63f39a011b67e693198e7dae14e20675c3c00e86074"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0+3"
   platform:
     dependency: transitive
     description:
@@ -805,6 +845,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
+  toastification:
+    dependency: "direct main"
+    description:
+      name: toastification
+      sha256: "9713989549d60754fd0522425d1251501919cfb7bab4ffbbb36ef40de5ea72b9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
   typed_data:
     dependency: transitive
     description:

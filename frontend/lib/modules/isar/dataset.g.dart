@@ -42,14 +42,19 @@ const DatasetSchema = CollectionSchema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'task': PropertySchema(
+    r'rating': PropertySchema(
       id: 5,
+      name: r'rating',
+      type: IsarType.double,
+    ),
+    r'task': PropertySchema(
+      id: 6,
       name: r'task',
       type: IsarType.byte,
       enumMap: _DatasettaskEnumValueMap,
     ),
     r'type': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'type',
       type: IsarType.byte,
       enumMap: _DatasettypeEnumValueMap,
@@ -127,8 +132,9 @@ void _datasetSerialize(
   writer.writeString(offsets[2], object.description);
   writer.writeString(offsets[3], object.labelPath);
   writer.writeString(offsets[4], object.name);
-  writer.writeByte(offsets[5], object.task.index);
-  writer.writeByte(offsets[6], object.type.index);
+  writer.writeDouble(offsets[5], object.rating);
+  writer.writeByte(offsets[6], object.task.index);
+  writer.writeByte(offsets[7], object.type.index);
 }
 
 Dataset _datasetDeserialize(
@@ -144,9 +150,10 @@ Dataset _datasetDeserialize(
   object.id = id;
   object.labelPath = reader.readStringOrNull(offsets[3]);
   object.name = reader.readStringOrNull(offsets[4]);
-  object.task = _DatasettaskValueEnumMap[reader.readByteOrNull(offsets[5])] ??
+  object.rating = reader.readDouble(offsets[5]);
+  object.task = _DatasettaskValueEnumMap[reader.readByteOrNull(offsets[6])] ??
       DatasetTask.classification;
-  object.type = _DatasettypeValueEnumMap[reader.readByteOrNull(offsets[6])] ??
+  object.type = _DatasettypeValueEnumMap[reader.readByteOrNull(offsets[7])] ??
       DatasetType.image;
   return object;
 }
@@ -169,9 +176,11 @@ P _datasetDeserializeProp<P>(
     case 4:
       return (reader.readStringOrNull(offset)) as P;
     case 5:
+      return (reader.readDouble(offset)) as P;
+    case 6:
       return (_DatasettaskValueEnumMap[reader.readByteOrNull(offset)] ??
           DatasetTask.classification) as P;
-    case 6:
+    case 7:
       return (_DatasettypeValueEnumMap[reader.readByteOrNull(offset)] ??
           DatasetType.image) as P;
     default:
@@ -1103,6 +1112,68 @@ extension DatasetQueryFilter
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> ratingEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'rating',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> ratingGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'rating',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> ratingLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'rating',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterFilterCondition> ratingBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'rating',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QAfterFilterCondition> taskEqualTo(
       DatasetTask value) {
     return QueryBuilder.apply(this, (query) {
@@ -1277,6 +1348,18 @@ extension DatasetQuerySortBy on QueryBuilder<Dataset, Dataset, QSortBy> {
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> sortByRating() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rating', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> sortByRatingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rating', Sort.desc);
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QAfterSortBy> sortByTask() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'task', Sort.asc);
@@ -1376,6 +1459,18 @@ extension DatasetQuerySortThenBy
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> thenByRating() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rating', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Dataset, Dataset, QAfterSortBy> thenByRatingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'rating', Sort.desc);
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QAfterSortBy> thenByTask() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'task', Sort.asc);
@@ -1437,6 +1532,12 @@ extension DatasetQueryWhereDistinct
     });
   }
 
+  QueryBuilder<Dataset, Dataset, QDistinct> distinctByRating() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'rating');
+    });
+  }
+
   QueryBuilder<Dataset, Dataset, QDistinct> distinctByTask() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'task');
@@ -1485,6 +1586,12 @@ extension DatasetQueryProperty
   QueryBuilder<Dataset, String?, QQueryOperations> nameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<Dataset, double, QQueryOperations> ratingProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'rating');
     });
   }
 
