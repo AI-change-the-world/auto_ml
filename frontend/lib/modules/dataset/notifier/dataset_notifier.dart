@@ -39,6 +39,21 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
       );
     });
   }
+
+  deleteDataset(int id) async {
+    state = AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final _ = await _isarDatabase.isar!.writeTxn(() async {
+        return await _isarDatabase.isar!.datasets.delete(id);
+      });
+      return DatasetState(
+        datasets: [
+          for (final d in state.value!.datasets)
+            if (d.id != id) d,
+        ],
+      );
+    });
+  }
 }
 
 final datasetNotifierProvider =

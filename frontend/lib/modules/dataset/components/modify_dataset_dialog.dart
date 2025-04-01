@@ -502,7 +502,9 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                               ..description = _descriptionController.text
                               ..task = task
                               ..type = type
-                              ..rating = rating;
+                              ..rating = rating
+                              ..id = widget.dataset.id
+                              ..createAt = widget.dataset.createAt;
                         Navigator.of(context).pop(dataset);
                       },
                       child: Text(

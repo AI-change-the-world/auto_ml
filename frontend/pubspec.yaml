@@ -15,6 +15,9 @@ dependencies:
   file_selector: ^1.0.3
   flutter:
     sdk: flutter
+  flutter_context_menu:
+    git:
+      url: https://github.com/guchengxi1994/flutter_context_menu.git
   flutter_rating_stars: ^1.1.0
   flutter_riverpod: ^2.6.1
   isar: ^3.1.0+1
