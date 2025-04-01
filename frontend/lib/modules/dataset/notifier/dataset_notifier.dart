@@ -12,12 +12,31 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
   @override
   FutureOr<DatasetState> build() async {
     final datasets = await _isarDatabase.isar!.datasets.where().findAll();
-    return DatasetState(datasets: datasets, selectedTypes: DatasetType.values);
+    return DatasetState(datasets: datasets);
   }
 
-  updateSelectTypes(List<DatasetType> types) async {
+  addDataset(Dataset dataset) async {
+    final _ = await _isarDatabase.isar!.writeTxn(() async {
+      return await _isarDatabase.isar!.datasets.put(dataset);
+    });
+    state = AsyncValue.data(
+      DatasetState(datasets: [...state.value!.datasets, dataset]),
+    );
+  }
+
+  updateDataset(Dataset dataset) async {
+    state = AsyncValue.loading();
+
     state = await AsyncValue.guard(() async {
-      return state.value!.copyWith(selectedTypes: types);
+      final _ = await _isarDatabase.isar!.writeTxn(() async {
+        return await _isarDatabase.isar!.datasets.put(dataset);
+      });
+      return DatasetState(
+        datasets: [
+          for (final d in state.value!.datasets)
+            if (d.id == dataset.id) dataset else d,
+        ],
+      );
     });
   }
 }

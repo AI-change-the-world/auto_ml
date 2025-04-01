@@ -1,5 +1,8 @@
+import 'package:auto_ml/modules/dataset/components/modify_dataset_dialog.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/isar/dataset.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class _CardState {
   final double xRotation;
@@ -35,16 +38,16 @@ class _CardState {
   }
 }
 
-class DatasetCard extends StatefulWidget {
+class DatasetCard extends ConsumerStatefulWidget {
   const DatasetCard({super.key, required this.dataset});
   final Dataset dataset;
 
   @override
-  State<DatasetCard> createState() => _DatasetCardState();
+  ConsumerState<DatasetCard> createState() => _DatasetCardState();
 }
 
-class _DatasetCardState extends State<DatasetCard> {
-  late ValueNotifier<_CardState> _cardState;
+class _DatasetCardState extends ConsumerState<DatasetCard> {
+  late ValueNotifier<_CardState> _cardState = ValueNotifier(_CardState());
   final double maxAngle = 0.15; // 最大旋转角度（弧度）
 
   @override
@@ -81,6 +84,7 @@ class _DatasetCardState extends State<DatasetCard> {
       valueListenable: _cardState,
       builder: (c, s, _) {
         return MouseRegion(
+          cursor: SystemMouseCursors.click,
           onEnter: (event) {
             _cardState.value = _CardState(showIcon: true);
           },
@@ -97,40 +101,111 @@ class _DatasetCardState extends State<DatasetCard> {
                   ..setEntry(3, 2, 0.0015) // 透视效果
                   ..rotateX(s.xRotation)
                   ..rotateY(s.yRotation),
-            child: Container(
-              width: 200,
-              height: 150,
-              decoration: BoxDecoration(
-                color: widget.dataset.type.color,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                    offset: Offset(-s.yRotation * 20, s.xRotation * 20),
-                  ),
-                ],
-              ),
+            child: GestureDetector(
+              onDoubleTap: () {
+                showGeneralDialog(
+                  barrierColor: Colors.black.withValues(alpha: 0.1),
+                  barrierDismissible: true,
+                  barrierLabel: 'ModifyDatasetDialog',
+                  context: context,
+                  pageBuilder: (c, _, __) {
+                    return Center(
+                      child: ModifyDatasetDialog(dataset: widget.dataset),
+                    );
+                  },
+                ).then((v) {
+                  if (v == null) {
+                    return;
+                  }
+                  ref
+                      .read(datasetNotifierProvider.notifier)
+                      .updateDataset(v as Dataset);
 
-              child: Stack(
-                children: [
-                  Center(
-                    child: Text(
-                      widget.dataset.name ?? "Unknown",
-                      style: TextStyle(fontSize: 20, color: Colors.white),
+                  widget.dataset.name = v.name;
+                  widget.dataset.description = v.description;
+                  widget.dataset.dataPath = v.dataPath;
+                  widget.dataset.labelPath = v.labelPath;
+                  widget.dataset.type = v.type;
+                  widget.dataset.task = v.task;
+                  widget.dataset.rating = v.rating;
+                  setState(() {});
+                });
+              },
+              child: Container(
+                width: 200,
+                height: 150,
+                decoration: BoxDecoration(
+                  color: widget.dataset.type.color,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                      offset: Offset(-s.yRotation * 20, s.xRotation * 20),
                     ),
-                  ),
-                  if (s.showIcon)
-                    Positioned(
-                      bottom: 10,
-                      right: 10,
-                      child: widget.dataset.type.icon(
-                        color: iconColor,
-                        size: iconSize,
+                  ],
+                ),
+
+                child: Stack(
+                  children: [
+                    // Center(
+                    //   child: Text(
+                    //     widget.dataset.name ?? "Unknown",
+                    //     style: TextStyle(fontSize: 20, color: Colors.white),
+                    //   ),
+                    // ),
+                    AnimatedAlign(
+                      duration: Duration(milliseconds: 300),
+                      alignment:
+                          s.showIcon ? Alignment.topLeft : Alignment.center,
+                      child: Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Text(
+                          widget.dataset.name ?? "Unknown",
+                          style: TextStyle(fontSize: 20, color: Colors.white),
+                          maxLines: 1,
+                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                ],
+
+                    Positioned(
+                      left: 10,
+                      top: 40,
+                      child: AnimatedOpacity(
+                        opacity: s.showIcon ? 1 : 0,
+                        duration: Duration(milliseconds: 300),
+                        child: SizedBox(
+                          width: 180,
+                          child: Text(
+                            widget.dataset.description != null &&
+                                    widget.dataset.description!.isNotEmpty
+                                ? widget.dataset.description!
+                                : "This dataset is saved at ${widget.dataset.dataPath}",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                            maxLines: 4,
+                            softWrap: true,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (s.showIcon)
+                      Positioned(
+                        bottom: 10,
+                        right: 10,
+                        child: widget.dataset.type.icon(
+                          color: iconColor,
+                          size: iconSize,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

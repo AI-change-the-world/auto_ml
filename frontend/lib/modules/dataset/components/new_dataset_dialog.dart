@@ -5,16 +5,17 @@ import 'package:basic_dropdown_button/custom_dropdown_button.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_stars/flutter_rating_stars.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class NewDatasetDialog extends StatefulWidget {
+class NewDatasetDialog extends ConsumerStatefulWidget {
   const NewDatasetDialog({super.key, required this.initialType});
   final DatasetType initialType;
 
   @override
-  State<NewDatasetDialog> createState() => _NewDatasetDialogState();
+  ConsumerState<NewDatasetDialog> createState() => _NewDatasetDialogState();
 }
 
-class _NewDatasetDialogState extends State<NewDatasetDialog> {
+class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
   late TextStyle titleStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.bold,
@@ -233,6 +234,7 @@ class _NewDatasetDialogState extends State<NewDatasetDialog> {
                             // Operation was canceled by the user.
                             return;
                           }
+                          _dataPathController.text = directoryPath;
                         },
                         child: Icon(
                           Icons.file_open,
@@ -286,6 +288,7 @@ class _NewDatasetDialogState extends State<NewDatasetDialog> {
                             // Operation was canceled by the user.
                             return;
                           }
+                          _labelPathController.text = directoryPath;
                         },
                         child: Icon(
                           Icons.file_open,

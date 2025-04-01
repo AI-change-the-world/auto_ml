@@ -25,19 +25,13 @@ class _DatasetScreenState extends ConsumerState<DatasetScreen> {
     return state.when(
       data: (data) {
         var datasets = data.datasets;
-        datasets = fakeDataset();
 
         Map<DatasetType, List<Dataset>> map = {
-          if (data.selectedTypes.contains(DatasetType.image))
-            DatasetType.image: [],
-          if (data.selectedTypes.contains(DatasetType.text))
-            DatasetType.text: [],
-          if (data.selectedTypes.contains(DatasetType.other))
-            DatasetType.other: [],
-          if (data.selectedTypes.contains(DatasetType.audio))
-            DatasetType.audio: [],
-          if (data.selectedTypes.contains(DatasetType.video))
-            DatasetType.video: [],
+          DatasetType.image: [],
+          DatasetType.text: [],
+          DatasetType.other: [],
+          DatasetType.audio: [],
+          DatasetType.video: [],
         };
 
         for (var dataset in datasets) {
@@ -146,7 +140,14 @@ class _Inner extends ConsumerWidget {
                             ),
                           );
                         },
-                      );
+                      ).then((v) {
+                        if (v == null) {
+                          return;
+                        }
+                        ref
+                            .read(datasetNotifierProvider.notifier)
+                            .addDataset(v as Dataset);
+                      });
                     },
                     child: Container(
                       decoration: BoxDecoration(

@@ -84,7 +84,7 @@ extension DatasetTaskExtension on DatasetTask {
 class Dataset {
   Id id = Isar.autoIncrement;
 
-  @Index(unique: true)
+  @Index(unique: true, replace: true)
   String? name;
 
   String? description;

@@ -48,7 +48,9 @@ class ToastUtils {
       //   )
       // ],
       showProgressBar: true,
-      closeButtonShowType: CloseButtonShowType.onHover,
+      // closeButtonShowType: CloseButtonShowType.onHover,
+      closeButton:
+          ToastCloseButton()..copyWith(showType: CloseButtonShowType.onHover),
       closeOnClick: false,
       pauseOnHover: true,
       dragToClose: true,
@@ -106,7 +108,9 @@ class ToastUtils {
       //   )
       // ],
       showProgressBar: true,
-      closeButtonShowType: CloseButtonShowType.onHover,
+      // closeButtonShowType: CloseButtonShowType.onHover,
+      closeButton:
+          ToastCloseButton()..copyWith(showType: CloseButtonShowType.onHover),
       closeOnClick: false,
       pauseOnHover: true,
       dragToClose: true,
@@ -164,7 +168,9 @@ class ToastUtils {
       //   )
       // ],
       showProgressBar: true,
-      closeButtonShowType: CloseButtonShowType.onHover,
+      // closeButtonShowType: CloseButtonShowType.onHover,
+      closeButton:
+          ToastCloseButton()..copyWith(showType: CloseButtonShowType.onHover),
       closeOnClick: false,
       pauseOnHover: true,
       dragToClose: true,

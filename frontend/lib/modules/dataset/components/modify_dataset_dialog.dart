@@ -5,16 +5,18 @@ import 'package:basic_dropdown_button/custom_dropdown_button.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_stars/flutter_rating_stars.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class ModifyDatasetDialog extends StatefulWidget {
+class ModifyDatasetDialog extends ConsumerStatefulWidget {
   const ModifyDatasetDialog({super.key, required this.dataset});
   final Dataset dataset;
 
   @override
-  State<ModifyDatasetDialog> createState() => _ModifyDatasetDialogState();
+  ConsumerState<ModifyDatasetDialog> createState() =>
+      _ModifyDatasetDialogState();
 }
 
-class _ModifyDatasetDialogState extends State<ModifyDatasetDialog> {
+class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
   late TextStyle titleStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.bold,
@@ -30,7 +32,7 @@ class _ModifyDatasetDialogState extends State<ModifyDatasetDialog> {
   late TextStyle hintStyle = TextStyle(fontSize: 12, color: Colors.grey);
   late DatasetType type = widget.dataset.type;
   late DatasetTask task = widget.dataset.task;
-  late double rating = 0;
+  late double rating = widget.dataset.rating;
 
   late final TextEditingController _nameController =
       TextEditingController()..text = widget.dataset.name ?? "";
@@ -234,6 +236,7 @@ class _ModifyDatasetDialogState extends State<ModifyDatasetDialog> {
                             // Operation was canceled by the user.
                             return;
                           }
+                          _dataPathController.text = directoryPath;
                         },
                         child: Icon(
                           Icons.file_open,
@@ -287,6 +290,7 @@ class _ModifyDatasetDialogState extends State<ModifyDatasetDialog> {
                             // Operation was canceled by the user.
                             return;
                           }
+                          _labelPathController.text = directoryPath;
                         },
                         child: Icon(
                           Icons.file_open,
