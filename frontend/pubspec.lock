@@ -401,6 +401,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
+  he:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: "3cdd3a679705bd98e644231da41716d89a873d6c"
+      resolved-ref: "3cdd3a679705bd98e644231da41716d89a873d6c"
+      url: "https://github.com/guchengxi1994/he"
+    source: git
+    version: "0.0.2+3"
   http:
     dependency: transitive
     description:
@@ -665,6 +674,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.8"
+  polygon:
+    dependency: transitive
+    description:
+      name: polygon
+      sha256: "9ebff01019574fb77662c5c9a9fa13df63176e9da6850dc594858a3dc0ac53ea"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   pool:
     dependency: transitive
     description:

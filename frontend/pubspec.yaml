@@ -20,6 +20,7 @@ dependencies:
       url: https://github.com/guchengxi1994/flutter_context_menu.git
   flutter_rating_stars: ^1.1.0
   flutter_riverpod: ^2.6.1
+  he: ^0.0.2+3
   isar: ^3.1.0+1
   isar_flutter_libs: ^3.1.0+1
   json_annotation: ^4.9.0
@@ -37,6 +38,12 @@ dev_dependencies:
     sdk: flutter
   isar_generator: ^3.1.0+1
   json_serializable: ^6.8.0
+
+dependency_overrides:
+  he:
+    git:
+      url: https://github.com/guchengxi1994/he
+      ref: 3cdd3a679705bd98e644231da41716d89a873d6c
 
 flutter:
   uses-material-design: true

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DatasetPageNotifier extends AutoDisposeNotifier<int> {
+class ModelPageNotifier extends AutoDisposeNotifier<int> {
   final PageController controller = PageController(initialPage: 0);
 
   @override
@@ -21,7 +21,5 @@ class DatasetPageNotifier extends AutoDisposeNotifier<int> {
   }
 }
 
-final datasetPageProvider =
-    AutoDisposeNotifierProvider<DatasetPageNotifier, int>(
-      DatasetPageNotifier.new,
-    );
+final modelPageNotifierProvider =
+    AutoDisposeNotifierProvider<ModelPageNotifier, int>(ModelPageNotifier.new);

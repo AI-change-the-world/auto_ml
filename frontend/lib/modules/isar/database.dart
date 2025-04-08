@@ -1,5 +1,6 @@
 import 'package:auto_ml/modules/isar/dataset.dart';
 import 'package:auto_ml/modules/isar/dataset_file.dart';
+import 'package:auto_ml/modules/isar/model.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
@@ -25,5 +26,6 @@ class IsarDatabase {
   late List<CollectionSchema<Object>> schemas = [
     DatasetSchema,
     DatasetFileSchema,
+    ModelSchema,
   ];
 }

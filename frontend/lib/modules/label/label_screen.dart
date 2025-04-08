@@ -22,11 +22,6 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
   @override
   void initState() {
     super.initState();
-    if (dataPath.isEmpty || labelPath.isEmpty) {
-      pickDataset().then((_) {
-        setState(() {});
-      });
-    }
   }
 
   Future pickDataset() async {
