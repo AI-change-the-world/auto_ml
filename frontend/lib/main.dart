@@ -24,17 +24,19 @@ void main() async {
   });
 
   runApp(
-    ProviderScope(
-      child: MaterialApp(
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF0D6EFD),
-            brightness: Brightness.light,
+    ToastificationWrapper(
+      child: ProviderScope(
+        child: MaterialApp(
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF0D6EFD),
+              brightness: Brightness.light,
+            ),
           ),
+          // showPerformanceOverlay: true,
+          debugShowCheckedModeBanner: false,
+          home: App(),
         ),
-        // showPerformanceOverlay: true,
-        debugShowCheckedModeBanner: false,
-        home: ToastificationWrapper(child: App()),
       ),
     ),
   );

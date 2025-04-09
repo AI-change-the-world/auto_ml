@@ -318,7 +318,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                     ],
                   ),
                 ),
-                TryWidget(),
+                TryWidget(type: type),
               ],
             ),
             SizedBox(
@@ -358,14 +358,16 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                           ref
                               .read(modelDialogNotifierProvider.notifier)
                               .changeState();
-                          ref
-                              .read(modelDialogNotifierProvider.notifier)
-                              .tryModel(
-                                _modelNameController.text,
-                                _baseUrlController.text,
-                                type,
-                                apiKey: _apiKeyController.text,
-                              );
+                          Future.delayed(Duration(seconds: 1)).then((_) {
+                            ref
+                                .read(modelDialogNotifierProvider.notifier)
+                                .tryModel(
+                                  _modelNameController.text,
+                                  _baseUrlController.text,
+                                  type,
+                                  apiKey: _apiKeyController.text,
+                                );
+                          });
                         }
                       },
                       child: Text("Try", style: TextStyle(color: Colors.black)),
