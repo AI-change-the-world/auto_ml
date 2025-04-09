@@ -39,4 +39,8 @@ class Model {
   ModelType modelType = ModelType.vision;
 
   int createAt = DateTime.now().millisecondsSinceEpoch;
+
+  String? baseUrl;
+  String? apiKey;
+  String? modelName;
 }

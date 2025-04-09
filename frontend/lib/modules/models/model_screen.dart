@@ -1,4 +1,5 @@
 import 'package:auto_ml/modules/isar/model.dart';
+import 'package:auto_ml/modules/models/components/new_model_dialog.dart';
 import 'package:auto_ml/modules/models/notifier/model_notifier.dart';
 import 'package:auto_ml/modules/models/notifier/model_page_notifier.dart';
 import 'package:flutter/material.dart';
@@ -124,7 +125,21 @@ class _Inner extends ConsumerWidget {
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
-                    onTap: () async {},
+                    onTap: () async {
+                      showGeneralDialog(
+                        barrierColor: Colors.black.withValues(alpha: 0.1),
+                        barrierDismissible: true,
+                        barrierLabel: "NewModelDialog",
+                        context: context,
+                        pageBuilder: (c, _, __) {
+                          return Center(
+                            child: NewModelDialog(
+                              initialType: ModelType.values[pageState],
+                            ),
+                          );
+                        },
+                      );
+                    },
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.green,
