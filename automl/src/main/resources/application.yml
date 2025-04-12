@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: automl
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  cloud:
+    nacos:
+      server-addr: 127.0.0.1:8848
+      username: admin
+      password: admin
+      config:
+        import-check:
+          enabled: false
+        namespace: public
+        group: AUTO_ML
+        file-extension: yaml
+  config:
+    import: nacos:DB
+
+  ai:
+    openai:
+      chat:
+        options:
+          model: ${CHAT_MODEL:Chat}
+      embedding:
+        options:
+          model: ${EMBEDDING_MODEL:Embed}
+        base-url: ${BASE_URL:http://127.0.0.1:9997}
+      api-key: ${API_KEY:sk-X}
+      base-url: ${BASE_URL:http://127.0.0.1:9997}
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      logic-delete-field: isDeleted
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui
+
+server:
+  servlet:
+    context-path: /automl
+
+ai-platform:
+  url: ${AI_PLATFORM:http://127.0.0.1:5000}
