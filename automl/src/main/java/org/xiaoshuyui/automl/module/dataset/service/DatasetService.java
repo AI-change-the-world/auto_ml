@@ -1,5 +1,6 @@
 package org.xiaoshuyui.automl.module.dataset.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
@@ -8,6 +9,8 @@ import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetStorageMapper;
+
+import java.util.List;
 
 @Service
 public class DatasetService {
@@ -22,10 +25,11 @@ public class DatasetService {
     }
 
     @Transactional
-    public void newDataset(NewDatasetRequest request){
+    public long newDataset(NewDatasetRequest request) {
         Dataset dataset = new Dataset();
         dataset.setName(request.getName());
         dataset.setDescription(request.getDescription());
+        dataset.setRanking(request.getRanking());
         DatasetStorage datasetStorage = new DatasetStorage();
         datasetStorage.setStorageType(request.getStorageType());
         datasetStorage.setUrl(request.getUrl());
@@ -35,14 +39,17 @@ public class DatasetService {
         datasetMapper.insert(dataset);
         datasetStorage.setId(dataset.getId());
         datasetStorageMapper.insert(datasetStorage);
+
+        return dataset.getId();
     }
 
     @Transactional
-    public void modifyDataset(ModifyDatasetRequest request){
+    public void modifyDataset(ModifyDatasetRequest request) {
         Dataset dataset = new Dataset();
         dataset.setId(request.getId());
         dataset.setName(request.getName());
         dataset.setDescription(request.getDescription());
+        dataset.setRanking(request.getRanking());
         datasetMapper.updateById(dataset);
         DatasetStorage datasetStorage = new DatasetStorage();
         datasetStorage.setId(request.getId());
@@ -51,5 +58,17 @@ public class DatasetService {
         datasetStorage.setUsername(request.getUsername());
         datasetStorage.setPassword(request.getPassword());
         datasetStorageMapper.updateById(datasetStorage);
+    }
+
+    public List<Dataset> getDataset() {
+        QueryWrapper queryWrapper = new QueryWrapper();
+        queryWrapper.eq("is_deleted", 0);
+        return datasetMapper.selectList(queryWrapper);
+    }
+
+    public DatasetStorage getDatasetStorage(Long id) {
+        QueryWrapper queryWrapper = new QueryWrapper();
+        queryWrapper.eq("dataset_id", id);
+        return datasetStorageMapper.selectOne(queryWrapper);
     }
 }

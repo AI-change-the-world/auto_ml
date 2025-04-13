@@ -123,11 +123,16 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                 onDoubleTap: () {
                   // 双击进入编辑模式
                 },
-                onTap: () {
+                onTap: () async {
+                  await ref
+                      .read(datasetNotifierProvider.notifier)
+                      .getDatasetStorage(widget.dataset);
+
                   showGeneralDialog(
                     barrierColor: Colors.black.withValues(alpha: 0.1),
                     barrierDismissible: true,
                     barrierLabel: 'ModifyDatasetDialog',
+                    // ignore: use_build_context_synchronously
                     context: context,
                     pageBuilder: (c, _, __) {
                       return Center(
@@ -144,11 +149,11 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
 
                     widget.dataset.name = v.name;
                     widget.dataset.description = v.description;
-                    widget.dataset.dataPath = v.dataPath;
+                    widget.dataset.datasetPath = v.datasetPath;
                     widget.dataset.labelPath = v.labelPath;
                     widget.dataset.type = v.type;
-                    widget.dataset.task = v.task;
-                    widget.dataset.rating = v.rating;
+                    // widget.dataset.task = v.task;
+                    widget.dataset.ranking = v.ranking;
                     setState(() {});
                   });
                 },
@@ -183,7 +188,9 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                         child: Padding(
                           padding: EdgeInsets.all(10),
                           child: Text(
-                            widget.dataset.name ?? "Unknown",
+                            widget.dataset.name.isNotEmpty
+                                ? widget.dataset.name
+                                : "Unknown",
                             style: TextStyle(fontSize: 20, color: Colors.white),
                             maxLines: 1,
                             softWrap: true,
@@ -201,10 +208,9 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                           child: SizedBox(
                             width: 180,
                             child: Text(
-                              widget.dataset.description != null &&
-                                      widget.dataset.description!.isNotEmpty
-                                  ? widget.dataset.description!
-                                  : "This dataset is saved at ${widget.dataset.dataPath}",
+                              widget.dataset.description.isNotEmpty
+                                  ? widget.dataset.description
+                                  : "This dataset is saved at ${widget.dataset.datasetPath}",
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white70,

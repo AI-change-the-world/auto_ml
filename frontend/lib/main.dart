@@ -7,7 +7,7 @@ import 'package:toastification/toastification.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  DioClient().init(baseUrl: 'http://localhost:8080');
+  DioClient().init(baseUrl: 'http://localhost:8080/automl');
 
   runApp(
     ToastificationWrapper(

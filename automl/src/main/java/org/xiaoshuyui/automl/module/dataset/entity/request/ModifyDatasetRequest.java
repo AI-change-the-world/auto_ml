@@ -12,4 +12,5 @@ public class ModifyDatasetRequest {
     String username;
     String password;
     Long id;
+    double ranking;
 }

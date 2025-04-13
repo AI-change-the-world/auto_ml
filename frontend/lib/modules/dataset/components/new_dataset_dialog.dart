@@ -62,7 +62,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
           color: Colors.white,
         ),
         width: 400,
-        height: 500,
+        height: 460,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(10),
           child: Column(
@@ -306,136 +306,44 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
               Row(
                 spacing: 10,
                 children: [
+                  Expanded(flex: 1, child: Text("Ranking", style: labelStyle)),
                   Expanded(
                     flex: 1,
-                    child: Text("Dataset Task", style: labelStyle),
+                    child: RatingStars(
+                      value: rating,
+                      onValueChanged: (v) {
+                        //
+                        setState(() {
+                          rating = v;
+                        });
+                      },
+                      starBuilder:
+                          (index, color) => Icon(Icons.star, color: color),
+                      starCount: 5,
+                      starSize: 20,
+                      valueLabelColor: const Color(0xff9b9b9b),
+                      valueLabelTextStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w400,
+                        fontStyle: FontStyle.normal,
+                        fontSize: 12.0,
+                      ),
+                      valueLabelRadius: 10,
+                      maxValue: 5,
+                      starSpacing: 2,
+                      maxValueVisibility: true,
+                      valueLabelVisibility: false,
+                      animationDuration: Duration(milliseconds: 1000),
+                      valueLabelPadding: const EdgeInsets.symmetric(
+                        vertical: 1,
+                        horizontal: 8,
+                      ),
+                      valueLabelMargin: const EdgeInsets.only(right: 8),
+                      starOffColor: const Color(0xffe7e8ea),
+                      starColor: Colors.yellow,
+                    ),
                   ),
-                  Expanded(flex: 1, child: Text("Rating", style: labelStyle)),
                 ],
-              ),
-              SizedBox(
-                height: 30,
-                child: Row(
-                  spacing: 10,
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: CustomDropDownButton<DatasetTask>(
-                        buttonIcon:
-                            ({required showedMenu}) => SizedBox(
-                              height: 30,
-                              // width: 30,
-                              child: Center(
-                                child: Icon(
-                                  Icons.arrow_drop_down,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                        buttonIconFirst: false,
-                        buttonStyle: ButtonStyle(
-                          fixedSize: WidgetStateProperty.all(Size(100, 20)),
-                          backgroundColor: WidgetStatePropertyAll(
-                            Colors.grey[300],
-                          ),
-                          padding: WidgetStatePropertyAll(
-                            const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          textStyle: WidgetStatePropertyAll(
-                            const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4.0),
-                            ),
-                          ),
-                        ),
-                        buttonText: task.name,
-                        position: DropDownButtonPosition.bottomCenter,
-                        buttonIconColor: Colors.black,
-                        buttonTextStyle: TextStyle(color: Colors.black),
-                        menuItems:
-                            DatasetTask.values
-                                .map(
-                                  (e) => CustomDropDownButtonItem(
-                                    value: e,
-                                    text: e.name,
-                                    onPressed: () {
-                                      if (e != task) {
-                                        setState(() {
-                                          task = e;
-                                        });
-                                      }
-                                    },
-                                    buttonStyle: ButtonStyle(
-                                      fixedSize: WidgetStateProperty.all(
-                                        Size(150, 20),
-                                      ),
-                                      backgroundColor: WidgetStatePropertyAll(
-                                        Colors.grey[300],
-                                      ),
-                                      textStyle: WidgetStatePropertyAll(
-                                        const TextStyle(color: Colors.black),
-                                      ),
-                                      shape: WidgetStatePropertyAll(
-                                        RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.zero,
-                                        ),
-                                      ),
-                                    ),
-                                    textStyle: TextStyle(color: Colors.black),
-                                  ),
-                                )
-                                .toList(),
-                        menuBorderRadius: BorderRadius.circular(8),
-                        selectedValue: task,
-                      ),
-                    ),
-
-                    Expanded(
-                      flex: 1,
-                      child: RatingStars(
-                        value: rating,
-                        onValueChanged: (v) {
-                          //
-                          setState(() {
-                            rating = v;
-                          });
-                        },
-                        starBuilder:
-                            (index, color) => Icon(Icons.star, color: color),
-                        starCount: 5,
-                        starSize: 20,
-                        valueLabelColor: const Color(0xff9b9b9b),
-                        valueLabelTextStyle: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                          fontStyle: FontStyle.normal,
-                          fontSize: 12.0,
-                        ),
-                        valueLabelRadius: 10,
-                        maxValue: 5,
-                        starSpacing: 2,
-                        maxValueVisibility: true,
-                        valueLabelVisibility: false,
-                        animationDuration: Duration(milliseconds: 1000),
-                        valueLabelPadding: const EdgeInsets.symmetric(
-                          vertical: 1,
-                          horizontal: 8,
-                        ),
-                        valueLabelMargin: const EdgeInsets.only(right: 8),
-                        starOffColor: const Color(0xffe7e8ea),
-                        starColor: Colors.yellow,
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
               SizedBox(
@@ -495,13 +403,12 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                         }
                         Dataset dataset =
                             Dataset()
-                              ..dataPath = _dataPathController.text
+                              ..datasetPath = _dataPathController.text
                               ..labelPath = _labelPathController.text
                               ..name = _nameController.text
                               ..description = _descriptionController.text
-                              ..task = task
                               ..type = type
-                              ..rating = rating;
+                              ..ranking = rating;
                         Navigator.of(context).pop(dataset);
                       },
                       child: Text(
