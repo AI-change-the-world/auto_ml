@@ -1,4 +1,4 @@
-import 'package:auto_ml/modules/app/app.dart';
+import 'package:auto_ml/modules/app/route.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,16 +12,16 @@ void main() async {
   runApp(
     ToastificationWrapper(
       child: ProviderScope(
-        child: MaterialApp(
+        child: MaterialApp.router(
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF0D6EFD),
+              seedColor: const Color.fromARGB(255, 61, 124, 219),
               brightness: Brightness.light,
             ),
           ),
           // showPerformanceOverlay: true,
           debugShowCheckedModeBanner: false,
-          home: App(),
+          routerConfig: router,
         ),
       ),
     ),
