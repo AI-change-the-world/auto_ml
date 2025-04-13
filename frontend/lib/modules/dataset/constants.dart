@@ -1,8 +1,31 @@
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
-import 'package:isar/isar.dart';
 
-part 'dataset.g.dart';
+enum ModelType { llm, mllm, vision }
+
+extension ModelTypeExtension on ModelType {
+  String get name {
+    switch (this) {
+      case ModelType.llm:
+        return "LLM";
+      case ModelType.mllm:
+        return "MLLM";
+      case ModelType.vision:
+        return "Vision";
+    }
+  }
+
+  Icon icon({Color? color, double? size}) {
+    switch (this) {
+      case ModelType.llm:
+        return Icon(Icons.language, color: color, size: size);
+      case ModelType.mllm:
+        return Icon(Icons.image, color: color, size: size);
+      case ModelType.vision:
+        return Icon(Icons.view_stream, color: color, size: size);
+    }
+  }
+}
 
 enum DatasetType { image, video, audio, text, other }
 
@@ -78,44 +101,4 @@ extension DatasetTaskExtension on DatasetTask {
         return Icon(Icons.extension, color: color ?? Colors.white, size: size);
     }
   }
-}
-
-@collection
-class Dataset {
-  Id id = Isar.autoIncrement;
-
-  @Index(unique: true, replace: true)
-  String? name;
-
-  String? description;
-
-  String? dataPath;
-
-  @enumerated
-  DatasetType type = DatasetType.image;
-
-  @enumerated
-  DatasetTask task = DatasetTask.classification;
-
-  String? labelPath;
-
-  double rating = 0;
-
-  int createAt = DateTime.now().millisecondsSinceEpoch;
-}
-
-/// 假数据
-List<Dataset> fakeDataset() {
-  return [
-    Dataset()
-      ..name = "Image"
-      ..type = DatasetType.image
-      ..dataPath = "data/image"
-      ..labelPath = "data/image/label.txt",
-    Dataset()
-      ..name = "Video"
-      ..type = DatasetType.video
-      ..dataPath = "data/video"
-      ..labelPath = "data/video/label.txt",
-  ];
 }

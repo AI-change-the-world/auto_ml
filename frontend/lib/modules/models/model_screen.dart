@@ -1,7 +1,8 @@
-import 'package:auto_ml/modules/isar/model.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/models/components/new_model_dialog.dart';
 import 'package:auto_ml/modules/models/notifier/model_notifier.dart';
 import 'package:auto_ml/modules/models/notifier/model_page_notifier.dart';
+import 'package:auto_ml/modules/models/notifier/model_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages

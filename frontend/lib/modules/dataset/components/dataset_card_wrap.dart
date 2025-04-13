@@ -1,5 +1,6 @@
 import 'package:auto_ml/modules/dataset/components/dataset_card.dart';
-import 'package:auto_ml/modules/isar/dataset.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:flutter/material.dart';
 
 class DatasetCardWrap extends StatelessWidget {

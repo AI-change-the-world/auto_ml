@@ -1,4 +1,4 @@
-import 'package:auto_ml/modules/isar/dataset.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 
 class DatasetState {
   final List<Dataset> datasets;
@@ -11,4 +11,24 @@ class DatasetState {
   }) {
     return DatasetState(datasets: datasets ?? this.datasets);
   }
+}
+
+class Dataset {
+  int id = 0;
+
+  String? name;
+
+  String? description;
+
+  String? dataPath;
+
+  DatasetType type = DatasetType.image;
+
+  DatasetTask task = DatasetTask.classification;
+
+  String? labelPath;
+
+  double rating = 0;
+
+  int createAt = DateTime.now().millisecondsSinceEpoch;
 }

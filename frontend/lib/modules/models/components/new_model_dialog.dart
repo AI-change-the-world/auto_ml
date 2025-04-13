@@ -1,4 +1,4 @@
-import 'package:auto_ml/modules/isar/model.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/models/components/try_widget.dart';
 import 'package:auto_ml/modules/models/notifier/model_dialog_notifier.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';

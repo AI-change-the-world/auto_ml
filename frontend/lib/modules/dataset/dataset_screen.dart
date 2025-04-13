@@ -1,8 +1,9 @@
 import 'package:auto_ml/modules/dataset/components/dataset_card_wrap.dart';
 import 'package:auto_ml/modules/dataset/components/new_dataset_dialog.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_page_notifier.dart';
-import 'package:auto_ml/modules/isar/dataset.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
