@@ -4,6 +4,7 @@ import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_page_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
+import 'package:auto_ml/modules/dataset/notifier/delete_zone_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
@@ -168,19 +169,76 @@ class _Inner extends ConsumerWidget {
         SizedBox(height: 10),
 
         Expanded(
-          child: PageView(
-            physics: NeverScrollableScrollPhysics(),
-            controller: ref.read(datasetPageProvider.notifier).controller,
-            children:
-                map.entries.map((entry) {
-                  return DatasetCardWrap(
-                    type: entry.key,
-                    datasets: entry.value,
-                  );
-                }).toList(),
+          child: Stack(
+            children: [
+              PageView(
+                physics: NeverScrollableScrollPhysics(),
+                controller: ref.read(datasetPageProvider.notifier).controller,
+                children:
+                    map.entries.map((entry) {
+                      return DatasetCardWrap(
+                        type: entry.key,
+                        datasets: entry.value,
+                      );
+                    }).toList(),
+              ),
+              if (ref.watch(deleteZoneNotifierProvider))
+                Positioned(right: 10, bottom: 10, child: _DeleteZone()),
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DeleteZone extends ConsumerStatefulWidget {
+  const _DeleteZone();
+
+  @override
+  ConsumerState<_DeleteZone> createState() => __DeleteZoneState();
+}
+
+class __DeleteZoneState extends ConsumerState<_DeleteZone> {
+  bool onHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<Dataset>(
+      onWillAcceptWithDetails: (details) {
+        setState(() {
+          onHovering = true;
+        });
+        return true;
+      },
+      onAcceptWithDetails: (details) {
+        ref
+            .read(datasetNotifierProvider.notifier)
+            .deleteDataset(details.data.id);
+      },
+      onLeave: (data) {
+        setState(() {
+          onHovering = false;
+        });
+      },
+      builder: (c, _, __) {
+        return Material(
+          elevation: 10,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
+            child: Center(
+              child: Icon(
+                Icons.delete,
+                size: 40,
+                color: onHovering ? Colors.red : Colors.black,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

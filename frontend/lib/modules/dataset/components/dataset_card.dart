@@ -2,6 +2,7 @@ import 'package:auto_ml/modules/dataset/components/modify_dataset_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
+import 'package:auto_ml/modules/dataset/notifier/delete_zone_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -102,119 +103,51 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                   ..setEntry(3, 2, 0.0015) // 透视效果
                   ..rotateX(s.xRotation)
                   ..rotateY(s.yRotation),
-            child: GestureDetector(
-              onLongPress: () {},
-              onLongPressCancel: () {},
-              onTap: () async {
-                await ref
-                    .read(datasetNotifierProvider.notifier)
-                    .getDatasetStorage(widget.dataset);
-
-                showGeneralDialog(
-                  barrierColor: Colors.black.withValues(alpha: 0.1),
-                  barrierDismissible: true,
-                  barrierLabel: 'ModifyDatasetDialog',
-                  // ignore: use_build_context_synchronously
-                  context: context,
-                  pageBuilder: (c, _, __) {
-                    return Center(
-                      child: ModifyDatasetDialog(dataset: widget.dataset),
-                    );
-                  },
-                ).then((v) {
-                  if (v == null) {
-                    return;
-                  }
-                  ref
-                      .read(datasetNotifierProvider.notifier)
-                      .updateDataset(v as Dataset);
-
-                  widget.dataset.name = v.name;
-                  widget.dataset.description = v.description;
-                  widget.dataset.datasetPath = v.datasetPath;
-                  widget.dataset.labelPath = v.labelPath;
-                  widget.dataset.type = v.type;
-                  // widget.dataset.task = v.task;
-                  widget.dataset.ranking = v.ranking;
-                  setState(() {});
-                });
+            child: Draggable<Dataset>(
+              data: widget.dataset,
+              onDragStarted: () {
+                ref.read(deleteZoneNotifierProvider.notifier).show();
               },
-              child: Container(
-                width: 200,
-                height: 150,
-                decoration: BoxDecoration(
-                  color: widget.dataset.type.color,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                      offset: Offset(-s.yRotation * 20, s.xRotation * 20),
-                    ),
-                  ],
-                ),
+              onDragEnd: (details) {
+                ref.read(deleteZoneNotifierProvider.notifier).hide();
+              },
+              feedback: Opacity(opacity: 0.5, child: _child(s)),
+              child: GestureDetector(
+                onTap: () async {
+                  await ref
+                      .read(datasetNotifierProvider.notifier)
+                      .getDatasetStorage(widget.dataset);
 
-                child: Stack(
-                  children: [
-                    // Center(
-                    //   child: Text(
-                    //     widget.dataset.name ?? "Unknown",
-                    //     style: TextStyle(fontSize: 20, color: Colors.white),
-                    //   ),
-                    // ),
-                    AnimatedAlign(
-                      duration: Duration(milliseconds: 300),
-                      alignment:
-                          s.showIcon ? Alignment.topLeft : Alignment.center,
-                      child: Padding(
-                        padding: EdgeInsets.all(10),
-                        child: Text(
-                          widget.dataset.name.isNotEmpty
-                              ? widget.dataset.name
-                              : "Unknown",
-                          style: TextStyle(fontSize: 20, color: Colors.white),
-                          maxLines: 1,
-                          softWrap: true,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
+                  showGeneralDialog(
+                    barrierColor: Colors.black.withValues(alpha: 0.1),
+                    barrierDismissible: true,
+                    barrierLabel: 'ModifyDatasetDialog',
+                    // ignore: use_build_context_synchronously
+                    context: context,
+                    pageBuilder: (c, _, __) {
+                      return Center(
+                        child: ModifyDatasetDialog(dataset: widget.dataset),
+                      );
+                    },
+                  ).then((v) {
+                    if (v == null) {
+                      return;
+                    }
+                    ref
+                        .read(datasetNotifierProvider.notifier)
+                        .updateDataset(v as Dataset);
 
-                    Positioned(
-                      left: 10,
-                      top: 40,
-                      child: AnimatedOpacity(
-                        opacity: s.showIcon ? 1 : 0,
-                        duration: Duration(milliseconds: 300),
-                        child: SizedBox(
-                          width: 180,
-                          child: Text(
-                            widget.dataset.description.isNotEmpty
-                                ? widget.dataset.description
-                                : "This dataset is saved at ${widget.dataset.datasetPath}",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white70,
-                            ),
-                            maxLines: 4,
-                            softWrap: true,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (s.showIcon)
-                      Positioned(
-                        bottom: 10,
-                        right: 10,
-                        child: widget.dataset.type.icon(
-                          color: iconColor,
-                          size: iconSize,
-                        ),
-                      ),
-                  ],
-                ),
+                    widget.dataset.name = v.name;
+                    widget.dataset.description = v.description;
+                    widget.dataset.datasetPath = v.datasetPath;
+                    widget.dataset.labelPath = v.labelPath;
+                    widget.dataset.type = v.type;
+                    // widget.dataset.task = v.task;
+                    widget.dataset.ranking = v.ranking;
+                    setState(() {});
+                  });
+                },
+                child: _child(s),
               ),
             ),
           ),
@@ -225,4 +158,71 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
 
   double iconSize = 18;
   Color iconColor = Colors.white;
+
+  Widget _child(_CardState s) {
+    return Container(
+      width: 200,
+      height: 150,
+      decoration: BoxDecoration(
+        color: widget.dataset.type.color,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            spreadRadius: 2,
+            offset: Offset(-s.yRotation * 20, s.xRotation * 20),
+          ),
+        ],
+      ),
+
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: Duration(milliseconds: 300),
+            alignment: s.showIcon ? Alignment.topLeft : Alignment.center,
+            child: Padding(
+              padding: EdgeInsets.all(10),
+              child: Text(
+                widget.dataset.name.isNotEmpty
+                    ? widget.dataset.name
+                    : "Unknown",
+                style: TextStyle(fontSize: 20, color: Colors.white),
+                maxLines: 1,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+
+          Positioned(
+            left: 10,
+            top: 40,
+            child: AnimatedOpacity(
+              opacity: s.showIcon ? 1 : 0,
+              duration: Duration(milliseconds: 300),
+              child: SizedBox(
+                width: 180,
+                child: Text(
+                  widget.dataset.description.isNotEmpty
+                      ? widget.dataset.description
+                      : "This dataset is saved at ${widget.dataset.datasetPath}",
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                  maxLines: 4,
+                  softWrap: true,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ),
+          if (s.showIcon)
+            Positioned(
+              bottom: 10,
+              right: 10,
+              child: widget.dataset.type.icon(color: iconColor, size: iconSize),
+            ),
+        ],
+      ),
+    );
+  }
 }
