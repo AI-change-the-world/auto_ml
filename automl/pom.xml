@@ -45,6 +45,8 @@
         <mybatisspring.version>3.0.3</mybatisspring.version>
         <mybatisplus.version>3.5.5</mybatisplus.version>
         <nacos.version>2023.0.3.2</nacos.version>
+        <opendal.version>0.46.4</opendal.version>
+        <lombok.version>1.18.32</lombok.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -68,6 +70,18 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
             <version>${nacos.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.opendal</groupId>
+            <artifactId>opendal-java</artifactId>
+            <version>${opendal.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.opendal</groupId>
+            <artifactId>opendal-java</artifactId>
+            <version>${opendal.version}</version>
+            <classifier>${os.detected.classifier}</classifier>
         </dependency>
 
         <dependency>
@@ -129,10 +143,9 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
-
-
 
         <dependency>
             <groupId>org.mybatis</groupId>
@@ -156,20 +169,49 @@
 
     <build>
         <plugins>
+            <!-- 编译插件 + 注解处理 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>17</source> <!-- 或 11/17 根据你项目实际 JDK -->
+                    <target>17</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!-- Spring Boot 插件（不要排除 lombok） -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+
+            <!-- 可选：跳过测试 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.1</version> <!-- 请根据实际情况选择合适的版本 -->
+                <version>3.5.1</version>
                 <configuration>
                     <skipTests>true</skipTests>
-                    <!-- 或者使用 <skip>true</skip> 来同时跳过编译和执行 -->
                 </configuration>
             </plugin>
         </plugins>
+
+        <!-- 其他扩展 -->
+        <extensions>
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.7.0</version>
+            </extension>
+        </extensions>
     </build>
 
 </project>

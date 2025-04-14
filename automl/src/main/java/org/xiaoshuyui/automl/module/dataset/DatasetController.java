@@ -36,6 +36,12 @@ public class DatasetController {
         return Result.OK_data(datasetService.getDataset());
     }
 
+    @GetMapping("/delete/{id}")
+    public Result deleteDataset(@PathVariable Long id) {
+        datasetService.deleteById(id);
+        return Result.OK();
+    }
+
     @GetMapping("/storage/{id}")
     public Result getStorage(@PathVariable Long id) {
         return Result.OK_data(datasetService.getDatasetStorage(id));
