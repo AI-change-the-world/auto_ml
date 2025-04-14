@@ -8,4 +8,6 @@ class Api {
   static final String createDataset = "/dataset/new";
 
   static final String updateDataset = "/dataset/modify";
+
+  static final String deleteDataset = "/dataset/delete/{id}";
 }

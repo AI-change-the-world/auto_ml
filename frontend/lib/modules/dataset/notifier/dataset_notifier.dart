@@ -51,6 +51,9 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
       if (d.data != null) {
         dataset.datasetPath = d.data!.url;
         dataset.labelPath = d.data!.url;
+        dataset.storageType = d.data!.storageType;
+        dataset.username = d.data!.username ?? "";
+        dataset.password = d.data!.password ?? "";
       }
     } catch (e) {
       ToastUtils.error(null, title: "Get dataset storage failed");
@@ -64,9 +67,11 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
     NewDatasetRequest request = NewDatasetRequest(
       name: dataset.name,
       description: dataset.description,
-      storageType: 0,
+      storageType: dataset.storageType,
       ranking: dataset.ranking,
       url: dataset.datasetPath,
+      username: dataset.username,
+      password: dataset.password,
     );
 
     try {
@@ -75,16 +80,15 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
         data: request.toJson(),
       );
 
-      if (response.statusCode == 200) {
-        ToastUtils.info(null, title: "Add dataset success");
-        // state = AsyncValue.data(dataset);
-        final r = BaseResponse.fromJson(
-          response.data,
-          (v) => NewDatasetResponse.fromJson(v as Map<String, dynamic>),
-        );
+      // state = AsyncValue.data(dataset);
+      final r = BaseResponse.fromJson(
+        response.data,
+        (v) => NewDatasetResponse.fromJson(v as Map<String, dynamic>),
+      );
 
+      if (r.code == 200) {
         dataset.id = r.data!.id;
-
+        ToastUtils.info(null, title: "Add dataset success");
         state = AsyncValue.data(
           DatasetState(datasets: [...state.value!.datasets, dataset]),
         );
@@ -116,14 +120,29 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
 
   deleteDataset(int id) async {
     state = AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      return DatasetState(
-        datasets: [
-          for (final d in state.value!.datasets)
-            if (d.id != id) d,
-        ],
+    try {
+      final r = await dio.get(
+        Api.deleteDataset.replaceAll("{id}", id.toString()),
       );
-    });
+      final d = BaseResponse.fromJson(r.data, (c) => null);
+
+      if (d.code == 200) {
+        state = await AsyncValue.guard(() async {
+          return DatasetState(
+            datasets: [
+              for (final d in state.value!.datasets)
+                if (d.id != id) d,
+            ],
+          );
+        });
+        ToastUtils.sucess(null, title: "Deleted successfully");
+      } else {
+        ToastUtils.error(null, title: "Failed to delete");
+      }
+    } catch (e) {
+      ToastUtils.error(null, title: "Delete dataset failed");
+      return;
+    }
   }
 }
 

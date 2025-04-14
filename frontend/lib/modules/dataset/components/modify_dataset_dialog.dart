@@ -1,3 +1,4 @@
+import 'package:auto_ml/modules/dataset/components/selection_widget.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -43,6 +44,10 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
       TextEditingController()..text = widget.dataset.datasetPath;
   late final TextEditingController _labelPathController =
       TextEditingController()..text = widget.dataset.labelPath;
+  late final TextEditingController _usernameController =
+      TextEditingController();
+  late final TextEditingController _passwordController =
+      TextEditingController();
 
   @override
   void dispose() {
@@ -50,8 +55,12 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
     _descriptionController.dispose();
     _dataPathController.dispose();
     _labelPathController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
+
+  late int selectedDatasetFrom = widget.dataset.storageType;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +73,8 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
           color: Colors.white,
         ),
         width: 400,
-        height: 460,
+        height:
+            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 530 : 595,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(10),
           child: Column(
@@ -174,7 +184,10 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                                         Colors.grey[300],
                                       ),
                                       textStyle: WidgetStatePropertyAll(
-                                        const TextStyle(color: Colors.black),
+                                        const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                       shape: WidgetStatePropertyAll(
                                         RoundedRectangleBorder(
@@ -182,7 +195,10 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                                         ),
                                       ),
                                     ),
-                                    textStyle: TextStyle(color: Colors.black),
+                                    textStyle: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 )
                                 .toList(),
@@ -193,6 +209,112 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                   ],
                 ),
               ),
+              // dataset type
+              SizedBox(
+                child: Row(
+                  children: [
+                    Text("Dataset Location*", style: labelStyle),
+                    Spacer(),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 30,
+                child: SelectionWidget(
+                  items: DatasetFrom.values.map((e) => e.name).toList(),
+                  onChanged: (s) {
+                    switch (s) {
+                      case "Local":
+                        selectedDatasetFrom = 0;
+                        break;
+                      case "S3":
+                        selectedDatasetFrom = 1;
+                        break;
+                      case "WebDAV":
+                        selectedDatasetFrom = 2;
+                        break;
+                      default:
+                        selectedDatasetFrom = 3;
+                        break;
+                    }
+                    setState(() {});
+                  },
+                ),
+              ),
+
+              if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        selectedDatasetFrom == 1 ? "AK*" : "Username*",
+                        style: labelStyle,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        selectedDatasetFrom == 1 ? "SK*" : "Password*",
+                        style: labelStyle,
+                      ),
+                    ),
+                  ],
+                ),
+              if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
+                SizedBox(
+                  height: 30,
+                  child: Row(
+                    spacing: 10,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: TextField(
+                          controller: _usernameController,
+                          // controller: _nameController,
+                          style: textStyle,
+                          decoration: InputDecoration(
+                            hintStyle: hintStyle,
+                            contentPadding: EdgeInsets.only(
+                              top: 10,
+                              left: 10,
+                              right: 10,
+                            ),
+                            border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                            ),
+                            hintText:
+                                selectedDatasetFrom == 1 ? "AK" : "Username",
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: TextField(
+                          controller: _passwordController,
+                          // controller: _nameController,
+                          style: textStyle,
+                          decoration: InputDecoration(
+                            hintStyle: hintStyle,
+                            contentPadding: EdgeInsets.only(
+                              top: 10,
+                              left: 10,
+                              right: 10,
+                            ),
+                            border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                            ),
+                            hintText:
+                                selectedDatasetFrom == 1 ? "SK" : "Password",
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               // dataset path
               SizedBox(
                 child: Row(
@@ -202,6 +324,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                   ],
                 ),
               ),
+
               SizedBox(
                 height: 30,
                 child: Row(

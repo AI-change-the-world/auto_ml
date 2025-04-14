@@ -28,6 +28,9 @@ class Dataset {
 
   String datasetPath;
   String labelPath;
+  int storageType;
+  String username;
+  String password;
 
   Dataset({
     this.id = -1,
@@ -39,6 +42,9 @@ class Dataset {
     this.ranking = 0,
     this.datasetPath = "",
     this.labelPath = "",
+    this.storageType = 0,
+    this.username = "",
+    this.password = "",
   });
 
   static Dataset fromDataset(r.Dataset d) {

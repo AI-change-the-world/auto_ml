@@ -102,3 +102,33 @@ extension DatasetTaskExtension on DatasetTask {
     }
   }
 }
+
+enum DatasetFrom { local, s3, webdav, others }
+
+extension DatasetFromExtension on DatasetFrom {
+  String get name {
+    switch (this) {
+      case DatasetFrom.local:
+        return 'Local';
+      case DatasetFrom.s3:
+        return 'S3';
+      case DatasetFrom.webdav:
+        return 'WebDAV';
+      case DatasetFrom.others:
+        return 'Others';
+    }
+  }
+
+  int get index {
+    switch (this) {
+      case DatasetFrom.local:
+        return 0;
+      case DatasetFrom.s3:
+        return 1;
+      case DatasetFrom.webdav:
+        return 2;
+      case DatasetFrom.others:
+        return 3;
+    }
+  }
+}
