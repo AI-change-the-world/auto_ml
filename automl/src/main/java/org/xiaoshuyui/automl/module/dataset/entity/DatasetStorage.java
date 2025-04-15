@@ -21,6 +21,10 @@ public class DatasetStorage {
     String username;
     @TableField("password")
     String password;
+
+    /// 0: scanning, 1: scan success, 2: scan failed
+    @TableField("scan_status")
+    int scanStatus;
     @TableField("updated_at")
     LocalDateTime updatedAt;
 }

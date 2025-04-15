@@ -116,11 +116,9 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
               child: GestureDetector(
                 onTap: () {
                   ref
-                      .read(annotationListProvider.notifier)
-                      .updateData(widget.dataset)
-                      .then((_) {
-                        GlobalDrawer.showDrawer();
-                      });
+                      .read(datasetNotifierProvider.notifier)
+                      .changeCurrent(widget.dataset);
+                  GlobalDrawer.showDrawer();
                 },
                 onDoubleTap: () async {
                   await ref

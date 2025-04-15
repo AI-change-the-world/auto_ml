@@ -69,13 +69,11 @@ class Dataset {
 
 class DatasetState {
   final List<Dataset> datasets;
+  final Dataset? current;
 
-  DatasetState({this.datasets = const []});
+  DatasetState({this.datasets = const [], this.current});
 
-  DatasetState copyWith({
-    List<DatasetType>? selectedTypes,
-    List<Dataset>? datasets,
-  }) {
-    return DatasetState(datasets: datasets ?? this.datasets);
+  DatasetState copyWith({List<Dataset>? datasets, Dataset? current}) {
+    return DatasetState(datasets: datasets ?? this.datasets, current: current);
   }
 }

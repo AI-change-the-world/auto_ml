@@ -1,6 +1,7 @@
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data_table_2/data_table_2.dart';
@@ -14,58 +15,56 @@ class AnnotationsList extends ConsumerStatefulWidget {
 
 class _AnnotationsListState extends ConsumerState<AnnotationsList> {
   @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(annotationListProvider.notifier).updateData();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = ref.watch(annotationListProvider);
 
-    return Material(
-      borderRadius: BorderRadius.only(
-        topLeft: Radius.circular(10),
-        bottomLeft: Radius.circular(10),
-      ),
-      elevation: 10,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.8,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(10),
-            bottomLeft: Radius.circular(10),
-          ),
-        ),
-        child: state.when(
-          data: (data) {
-            return Padding(
-              padding: EdgeInsets.all(10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 10,
-                children: [
-                  Text(
-                    "Id: ${data.current?.id}  ${data.current?.name}",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    return state.when(
+      data: (data) {
+        final current = ref.read(datasetNotifierProvider).value?.current;
+        if (current == null) {
+          return Center(
+            child: Text(
+              "No dataset selected",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.all(10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 10,
+            children: [
+              Expanded(
+                child: DataTable2(
+                  empty: Center(child: Text("No data")),
+                  columnSpacing: 10,
+                  headingRowDecoration: BoxDecoration(
+                    color: Colors.grey.shade200,
                   ),
-                  Expanded(
-                    child: DataTable2(
-                      columnSpacing: 10,
-                      headingRowDecoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                      ),
-                      columns: columns,
-                      rows: getRows(data.annotations),
-                    ),
-                  ),
-                ],
+                  columns: columns,
+                  rows: getRows(data.annotations),
+                ),
               ),
-            );
-          },
-          error: (e, s) {
-            return Center(child: Text(e.toString()));
-          },
-          loading: () => Center(child: CircularProgressIndicator()),
-        ),
-      ),
+            ],
+          ),
+        );
+      },
+      error: (e, s) {
+        return Center(child: Text(e.toString()));
+      },
+      loading: () => Center(child: CircularProgressIndicator()),
     );
   }
 
@@ -112,6 +111,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
           ),
           DataCell(
             Row(
+              spacing: 10,
               children: [
                 InkWell(
                   onTap: () {},

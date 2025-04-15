@@ -10,6 +10,8 @@ class GetDatasetStorageResponse {
   final String? username;
   final String? password;
   final DateTime updatedAt;
+  // 0: 正在扫描 1: 扫描完成 2: 扫描失败
+  final int scanStatus;
 
   GetDatasetStorageResponse({
     required this.id,
@@ -18,6 +20,7 @@ class GetDatasetStorageResponse {
     this.username,
     this.password,
     required this.updatedAt,
+    required this.scanStatus,
   });
 
   factory GetDatasetStorageResponse.fromJson(Map<String, dynamic> json) =>

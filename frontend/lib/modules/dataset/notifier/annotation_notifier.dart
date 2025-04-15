@@ -4,7 +4,7 @@ import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/dataset/api.dart';
 import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_state.dart';
-import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -29,14 +29,18 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
 
   @override
   FutureOr<AnnotationState> build() async {
-    final _ = ref.keepAlive();
+    // final _ = ref.keepAlive();
     ref.onDispose(() {
       logger.d('AnnotationNotifier disposed');
     });
     return AnnotationState(annotations: []);
   }
 
-  Future<void> updateData(Dataset dataset) async {
+  Future<void> updateData() async {
+    final current = ref.read(datasetNotifierProvider).value?.current;
+    if (current == null) {
+      return;
+    }
     state = AsyncLoading();
 
     state = await AsyncValue.guard(() async {
@@ -44,7 +48,7 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
         final r = await dio.get(
           Api.getAnnotationByDatasetId.replaceAll(
             "{id}",
-            dataset.id.toString(),
+            current.id.toString(),
           ),
         );
         final res = BaseResponse.fromJson(
@@ -52,10 +56,7 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
           (v) => AnnotationListResponse.fromJson({"annotations": v}),
         );
 
-        return AnnotationState(
-          annotations: res.data?.annotations ?? [],
-          current: dataset,
-        );
+        return AnnotationState(annotations: res.data?.annotations ?? []);
       } catch (e) {
         logger.e(e);
         ToastUtils.error(
@@ -63,7 +64,7 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
           title: "Failed to get annotations",
           description: e.toString(),
         );
-        return AnnotationState(annotations: [], current: dataset);
+        return AnnotationState(annotations: []);
       }
     });
   }

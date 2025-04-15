@@ -38,6 +38,10 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
     }
   }
 
+  changeCurrent(Dataset? dataset) {
+    state = AsyncData(state.value!.copyWith(current: dataset));
+  }
+
   Future getDatasetStorage(Dataset dataset) async {
     try {
       final res = await dio.get(

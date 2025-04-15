@@ -1,5 +1,5 @@
-import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_card_wrap.dart';
+import 'package:auto_ml/modules/dataset/components/dataset_details_widget.dart';
 import 'package:auto_ml/modules/dataset/components/new_dataset_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
@@ -67,7 +67,12 @@ class _Inner extends ConsumerWidget {
     return Scaffold(
       drawerScrimColor: Colors.transparent,
       key: GlobalDrawer.scaffoldKey,
-      endDrawer: AnnotationsList(),
+      endDrawer: DatasetDetailsWidget(),
+      onEndDrawerChanged: (isOpened) {
+        if (!isOpened) {
+          ref.read(datasetNotifierProvider.notifier).changeCurrent(null);
+        }
+      },
       body: Column(
         children: [
           SizedBox(

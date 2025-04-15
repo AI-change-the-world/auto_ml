@@ -15,6 +15,7 @@ GetDatasetStorageResponse _$GetDatasetStorageResponseFromJson(
       username: json['username'] as String?,
       password: json['password'] as String?,
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      scanStatus: (json['scanStatus'] as num).toInt(),
     );
 
 Map<String, dynamic> _$GetDatasetStorageResponseToJson(
@@ -26,4 +27,5 @@ Map<String, dynamic> _$GetDatasetStorageResponseToJson(
       'username': instance.username,
       'password': instance.password,
       'updatedAt': instance.updatedAt.toIso8601String(),
+      'scanStatus': instance.scanStatus,
     };
