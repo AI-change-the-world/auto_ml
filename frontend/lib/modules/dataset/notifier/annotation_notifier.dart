@@ -1,0 +1,75 @@
+import 'dart:async';
+
+import 'package:auto_ml/common/base_response.dart';
+import 'package:auto_ml/modules/dataset/api.dart';
+import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
+import 'package:auto_ml/modules/dataset/notifier/annotation_state.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class GlobalDrawer {
+  GlobalDrawer._();
+  static GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  static showDrawer() {
+    GlobalDrawer.scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  static hideDrawer() {
+    GlobalDrawer.scaffoldKey.currentState?.closeEndDrawer();
+  }
+}
+
+class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
+  final dio = DioClient().instance;
+
+  @override
+  FutureOr<AnnotationState> build() async {
+    final _ = ref.keepAlive();
+    ref.onDispose(() {
+      logger.d('AnnotationNotifier disposed');
+    });
+    return AnnotationState(annotations: []);
+  }
+
+  Future<void> updateData(Dataset dataset) async {
+    state = AsyncLoading();
+
+    state = await AsyncValue.guard(() async {
+      try {
+        final r = await dio.get(
+          Api.getAnnotationByDatasetId.replaceAll(
+            "{id}",
+            dataset.id.toString(),
+          ),
+        );
+        final res = BaseResponse.fromJson(
+          r.data,
+          (v) => AnnotationListResponse.fromJson({"annotations": v}),
+        );
+
+        return AnnotationState(
+          annotations: res.data?.annotations ?? [],
+          current: dataset,
+        );
+      } catch (e) {
+        logger.e(e);
+        ToastUtils.error(
+          null,
+          title: "Failed to get annotations",
+          description: e.toString(),
+        );
+        return AnnotationState(annotations: [], current: dataset);
+      }
+    });
+  }
+}
+
+final annotationListProvider =
+    AutoDisposeAsyncNotifierProvider<AnnotationNotifier, AnnotationState>(
+      AnnotationNotifier.new,
+    );

@@ -1,3 +1,4 @@
+import 'package:auto_ml/modules/annotation/annotation_screen.dart';
 import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/label/label_screen.dart';
@@ -18,8 +19,14 @@ final GoRouter router = GoRouter(
               (context, state) => noTransitionPage(child: DatasetScreen()),
         ),
         GoRoute(
-          path: '/models',
-          name: 'models',
+          path: '/annotation',
+          name: 'annotation',
+          pageBuilder:
+              (context, state) => noTransitionPage(child: AnnotationScreen()),
+        ),
+        GoRoute(
+          path: '/tool-models',
+          name: 'tool-models',
           // builder: (context, state) => const ModelScreen(),
           pageBuilder:
               (context, state) => noTransitionPage(child: ModelScreen()),

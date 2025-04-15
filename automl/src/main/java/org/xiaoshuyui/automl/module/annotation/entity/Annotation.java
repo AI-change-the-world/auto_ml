@@ -9,14 +9,21 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("annotation_file")
-public class AnnotationFile {
-    @TableId(value = "file_id", type = IdType.AUTO)
+@TableName("annotation")
+public class Annotation {
+    @TableId(value = "annotation_id", type = IdType.AUTO)
     Long id;
-    @TableField(value = "annotation_id")
-    Long annotationId;
-    @TableField(value = "file_path")
-    String filePath;
+    @TableField(value = "dataset_id")
+    Long datasetId;
+    @TableField(exist = false)
+    Long annotatedFileCount;
+//    @TableField(exist = false)
+//    String datasetName;
+
+    // 0:分类 1:检测 2:分割 3:其它
+    @TableField(value = "annotation_type")
+    Integer annotationType;
+
     @TableField(value = "updated_at")
     LocalDateTime updatedAt;
     @TableField(value = "is_deleted")

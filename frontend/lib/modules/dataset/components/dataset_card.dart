@@ -1,5 +1,6 @@
 import 'package:auto_ml/modules/dataset/components/modify_dataset_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
+import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/delete_zone_notifier.dart';
@@ -113,7 +114,15 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
               },
               feedback: Opacity(opacity: 0.5, child: _child(s)),
               child: GestureDetector(
-                onTap: () async {
+                onTap: () {
+                  ref
+                      .read(annotationListProvider.notifier)
+                      .updateData(widget.dataset)
+                      .then((_) {
+                        GlobalDrawer.showDrawer();
+                      });
+                },
+                onDoubleTap: () async {
                   await ref
                       .read(datasetNotifierProvider.notifier)
                       .getDatasetStorage(widget.dataset);

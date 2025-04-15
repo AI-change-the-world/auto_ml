@@ -140,25 +140,32 @@ class SimpleLayoutShell extends StatelessWidget {
         route: "/",
       ),
       SidebarItem(
+        icon: const Icon(Icons.square_outlined, color: Colors.blueAccent),
+        iconInactive: const Icon(Icons.square_outlined),
+        index: 1,
+        title: "Annotations",
+        route: "/annotation",
+      ),
+      SidebarItem(
+        icon: const Icon(Icons.list, color: Colors.blueAccent),
+        iconInactive: const Icon(Icons.list),
+        index: 2,
+        title: "Tool Models",
+        route: "/tool-models",
+      ),
+      SidebarItem(
         icon: const Icon(Icons.rule, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.rule),
-        index: 2,
+        index: 3,
         title: "Label",
         route: "/label",
       ),
       SidebarItem(
         icon: const Icon(Icons.text_fields, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.text_fields),
-        index: 3,
+        index: 4,
         title: "Test",
         route: "/test",
-      ),
-      SidebarItem(
-        icon: const Icon(Icons.list, color: Colors.blueAccent),
-        iconInactive: const Icon(Icons.list),
-        index: 1,
-        title: "Models",
-        route: "/models",
       ),
     ]..sort((a, b) => a.index.compareTo(b.index));
 

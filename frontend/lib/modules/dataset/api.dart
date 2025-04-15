@@ -10,4 +10,6 @@ class Api {
   static final String updateDataset = "/dataset/modify";
 
   static final String deleteDataset = "/dataset/delete/{id}";
+
+  static final String getAnnotationByDatasetId = "/annotation/list/{id}";
 }

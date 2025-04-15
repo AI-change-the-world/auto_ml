@@ -1,6 +1,8 @@
+import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_card_wrap.dart';
 import 'package:auto_ml/modules/dataset/components/new_dataset_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
+import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_page_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
@@ -62,132 +64,141 @@ class _Inner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pageState = ref.watch(datasetPageProvider);
-    return Column(
-      children: [
-        SizedBox(
-          height: 35,
-          child: Row(
-            spacing: 10,
-            children: [
-              ...map.entries.mapIndexed((i, entry) {
-                return Column(
-                  children: [
-                    SizedBox(
-                      height: 30,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(4),
-                              topRight: Radius.circular(4),
-                            ),
-                          ),
-                          width: 100,
-                          height: 28,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            spacing: 5,
-                            children: [
-                              entry.key.icon(
-                                color:
-                                    i == pageState ? Colors.black : Colors.grey,
-                                size: 16,
+    return Scaffold(
+      drawerScrimColor: Colors.transparent,
+      key: GlobalDrawer.scaffoldKey,
+      endDrawer: AnnotationsList(),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 35,
+            child: Row(
+              spacing: 10,
+              children: [
+                ...map.entries.mapIndexed((i, entry) {
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: 30,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(4),
                               ),
-                              Text(
-                                "${entry.key.name} (${entry.value.length})",
-                                style: TextStyle(
-                                  fontWeight:
-                                      i == pageState ? FontWeight.bold : null,
+                            ),
+                            width: 100,
+                            height: 28,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              spacing: 5,
+                              children: [
+                                entry.key.icon(
                                   color:
                                       i == pageState
                                           ? Colors.black
                                           : Colors.grey,
+                                  size: 16,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        onTap: () {
-                          ref.read(datasetPageProvider.notifier).changePage(i);
-                        },
-                      ),
-                    ),
-                    Spacer(),
-                    Container(
-                      width: 100,
-                      height: 2,
-                      color: i == pageState ? color : Colors.transparent,
-                    ),
-                  ],
-                );
-              }),
-              Spacer(),
-              // GestureDetector(child: Container(child: ,) Icon(Icons.add)),
-              Material(
-                borderRadius: BorderRadius.circular(20),
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    onTap: () async {
-                      showGeneralDialog(
-                        barrierColor: Colors.black.withValues(alpha: 0.1),
-                        barrierDismissible: true,
-                        barrierLabel: "NewDatasetDialog",
-                        context: context,
-                        pageBuilder: (c, _, __) {
-                          return Center(
-                            child: NewDatasetDialog(
-                              initialType: DatasetType.values[pageState],
+                                Text(
+                                  "${entry.key.name} (${entry.value.length})",
+                                  style: TextStyle(
+                                    fontWeight:
+                                        i == pageState ? FontWeight.bold : null,
+                                    color:
+                                        i == pageState
+                                            ? Colors.black
+                                            : Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                      ).then((v) {
-                        if (v == null) {
-                          return;
-                        }
-                        ref
-                            .read(datasetNotifierProvider.notifier)
-                            .addDataset(v as Dataset);
-                      });
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(20),
+                          ),
+                          onTap: () {
+                            ref
+                                .read(datasetPageProvider.notifier)
+                                .changePage(i);
+                          },
+                        ),
                       ),
-                      padding: EdgeInsets.all(1),
-                      child: Icon(Icons.add, color: Colors.white, size: 18),
+                      Spacer(),
+                      Container(
+                        width: 100,
+                        height: 2,
+                        color: i == pageState ? color : Colors.transparent,
+                      ),
+                    ],
+                  );
+                }),
+                Spacer(),
+                // GestureDetector(child: Container(child: ,) Icon(Icons.add)),
+                Material(
+                  borderRadius: BorderRadius.circular(20),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () async {
+                        showGeneralDialog(
+                          barrierColor: Colors.black.withValues(alpha: 0.1),
+                          barrierDismissible: true,
+                          barrierLabel: "NewDatasetDialog",
+                          context: context,
+                          pageBuilder: (c, _, __) {
+                            return Center(
+                              child: NewDatasetDialog(
+                                initialType: DatasetType.values[pageState],
+                              ),
+                            );
+                          },
+                        ).then((v) {
+                          if (v == null) {
+                            return;
+                          }
+                          ref
+                              .read(datasetNotifierProvider.notifier)
+                              .addDataset(v as Dataset);
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: EdgeInsets.all(1),
+                        child: Icon(Icons.add, color: Colors.white, size: 18),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Divider(height: 0.5),
-        SizedBox(height: 10),
+          Divider(height: 0.5),
+          SizedBox(height: 10),
 
-        Expanded(
-          child: Stack(
-            children: [
-              PageView(
-                physics: NeverScrollableScrollPhysics(),
-                controller: ref.read(datasetPageProvider.notifier).controller,
-                children:
-                    map.entries.map((entry) {
-                      return DatasetCardWrap(
-                        type: entry.key,
-                        datasets: entry.value,
-                      );
-                    }).toList(),
-              ),
-              if (ref.watch(deleteZoneNotifierProvider))
-                Positioned(right: 10, bottom: 10, child: _DeleteZone()),
-            ],
+          Expanded(
+            child: Stack(
+              children: [
+                PageView(
+                  physics: NeverScrollableScrollPhysics(),
+                  controller: ref.read(datasetPageProvider.notifier).controller,
+                  children:
+                      map.entries.map((entry) {
+                        return DatasetCardWrap(
+                          type: entry.key,
+                          datasets: entry.value,
+                        );
+                      }).toList(),
+                ),
+                if (ref.watch(deleteZoneNotifierProvider))
+                  Positioned(right: 10, bottom: 10, child: _DeleteZone()),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -212,9 +223,26 @@ class __DeleteZoneState extends ConsumerState<_DeleteZone> {
         return true;
       },
       onAcceptWithDetails: (details) {
-        ref
-            .read(datasetNotifierProvider.notifier)
-            .deleteDataset(details.data.id);
+        showGeneralDialog(
+          barrierColor: Colors.black.withValues(alpha: 0.1),
+          barrierDismissible: true,
+          barrierLabel: '_ConfirmDialog',
+          context: context,
+          pageBuilder: (c, _, __) {
+            return Center(
+              child: _ConfirmDialog(
+                content: "Are you sure you want to delete this dataset?",
+                title: "Delete Dataset",
+              ),
+            );
+          },
+        ).then((v) {
+          if (v == true) {
+            ref
+                .read(datasetNotifierProvider.notifier)
+                .deleteDataset(details.data.id);
+          }
+        });
       },
       onLeave: (data) {
         setState(() {
@@ -239,6 +267,53 @@ class __DeleteZoneState extends ConsumerState<_DeleteZone> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ConfirmDialog extends StatelessWidget {
+  const _ConfirmDialog({required this.title, required this.content});
+  final String title;
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 10,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.all(20),
+        width: 300,
+        height: 150,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          spacing: 10,
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            Text(content, style: const TextStyle(fontSize: 14)),
+            const Spacer(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(true);
+                  },
+                  child: Text("确认"),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

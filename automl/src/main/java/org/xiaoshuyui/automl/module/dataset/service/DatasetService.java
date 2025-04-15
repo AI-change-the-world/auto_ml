@@ -3,7 +3,6 @@ package org.xiaoshuyui.automl.module.dataset.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.xiaoshuyui.automl.module.annotation.service.AnnotationFileServiceImpl;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
 import org.xiaoshuyui.automl.module.dataset.entity.DatasetStorage;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
@@ -20,12 +19,12 @@ public class DatasetService {
 
     private final DatasetStorageMapper datasetStorageMapper;
 
-    private final AnnotationFileServiceImpl annotationFileService;
+    private final DatasetFileServiceImpl datasetFileService;
 
-    public DatasetService(DatasetMapper datasetMapper, DatasetStorageMapper datasetStorageMapper, AnnotationFileServiceImpl annotationFileService) {
+    public DatasetService(DatasetMapper datasetMapper, DatasetStorageMapper datasetStorageMapper, DatasetFileServiceImpl datasetFileService) {
         this.datasetMapper = datasetMapper;
         this.datasetStorageMapper = datasetStorageMapper;
-        this.annotationFileService = annotationFileService;
+        this.datasetFileService = datasetFileService;
     }
 
     @Transactional
@@ -44,7 +43,7 @@ public class DatasetService {
         datasetStorage.setId(dataset.getId());
         datasetStorageMapper.insert(datasetStorage);
 
-        annotationFileService.scanFolderParallel(datasetStorage);
+        datasetFileService.scanFolderParallel(datasetStorage);
         return dataset.getId();
     }
 
@@ -78,7 +77,7 @@ public class DatasetService {
     }
 
     @Transactional
-    public void deleteById(Long id){
+    public void deleteById(Long id) {
         Dataset dataset = datasetMapper.selectOne(new QueryWrapper<Dataset>().eq("dataset_id", id));
         dataset.setIsDeleted(1);
         datasetMapper.updateById(dataset);

@@ -1,4 +1,4 @@
-package org.xiaoshuyui.automl.module.annotation.entity;
+package org.xiaoshuyui.automl.module.dataset.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -9,12 +9,12 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("annotation_file")
-public class AnnotationFile {
+@TableName("dataset_file")
+public class DatasetFile {
     @TableId(value = "file_id", type = IdType.AUTO)
     Long id;
-    @TableField(value = "annotation_id")
-    Long annotationId;
+    @TableField(value = "dataset_id")
+    Long datasetId;
     @TableField(value = "file_path")
     String filePath;
     @TableField(value = "updated_at")

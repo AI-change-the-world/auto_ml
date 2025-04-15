@@ -60,6 +60,11 @@ class Dataset {
       labelPath: "",
     );
   }
+
+  @override
+  String toString() {
+    return "Dataset(id: $id, name: $name, description: $description, createdAt: $createdAt, updatedAt: $updatedAt, type: $type, ranking: $ranking, datasetPath: $datasetPath, labelPath: $labelPath)";
+  }
 }
 
 class DatasetState {
