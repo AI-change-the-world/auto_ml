@@ -1,4 +1,5 @@
 import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
@@ -57,6 +58,18 @@ class _ImageAnnotationScreenState extends State<ImageAnnotationScreen> {
   Rect? previewRect;
 
   bool enable = false;
+  FocusNode focusNode = FocusNode();
+
+  getImagePosition(DragStartDetails details) {
+    // 使用 Matrix4 的逆变换，把当前屏幕坐标转成图像坐标
+    final matrix = _transformationController.value;
+    final inverseMatrix = Matrix4.inverted(matrix);
+    final imagePosition = MatrixUtils.transformPoint(
+      inverseMatrix,
+      details.localPosition,
+    );
+    return imagePosition;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,83 +80,104 @@ class _ImageAnnotationScreenState extends State<ImageAnnotationScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Image Annotation'),
-        actions: [
-          InkWell(
-            onTap: () {
-              setState(() {
-                enable = !enable;
-              });
-            },
-            child: Icon(Icons.phone_enabled),
-          ),
-        ],
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          panEnabled: enable,
-          scaleEnabled: enable,
-          transformationController: _transformationController,
-          boundaryMargin: EdgeInsets.all(0), // 允许拖拽到图片边界
-          minScale: 0.5,
-          maxScale: 2.0,
-          constrained: false,
-          child: GestureDetector(
-            onPanStart: (details) {
-              if (enable) {
-                return;
-              }
-              startPoint = details.localPosition;
-              logger.i("startPoint: ${details.localPosition}");
-              previewRect = Rect.zero;
-              annotations.add(Annotation(details.localPosition, 0, 0));
-              setState(() {});
-            },
-            onPanUpdate: (details) {
-              if (enable) {
-                return;
-              }
+    return KeyboardListener(
+      onKeyEvent: (value) {
+        if (value.logicalKey == LogicalKeyboardKey.keyW &&
+            value is KeyDownEvent) {
+          setState(() {
+            enable = !enable;
+          });
+          ToastUtils.info(context, title: enable ? '开启' : '关闭');
+        }
+      },
+      focusNode: focusNode,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Image Annotation'),
+          actions: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  enable = !enable;
+                });
+              },
+              child: Icon(Icons.phone_enabled),
+            ),
+          ],
+        ),
+        body: Center(
+          child: InteractiveViewer(
+            panEnabled: enable,
+            scaleEnabled: enable,
+            transformationController: _transformationController,
+            boundaryMargin: EdgeInsets.all(0), // 允许拖拽到图片边界
+            minScale: 0.5,
+            maxScale: 2.0,
+            constrained: false,
+            child: GestureDetector(
+              onTap: () {
+                focusNode.requestFocus();
+              },
+              onPanStart: (details) {
+                if (enable) {
+                  return;
+                }
+                final imagePosition = getImagePosition(details);
+                startPoint = imagePosition;
+                logger.i("startPoint: ${details.localPosition}");
+                previewRect = Rect.zero;
+                annotations.add(Annotation(details.localPosition, 0, 0));
+                setState(() {});
+              },
+              onPanUpdate: (details) {
+                if (enable) {
+                  return;
+                }
 
-              final currentPoint = details.localPosition;
-              previewRect = Rect.fromPoints(startPoint!, currentPoint);
-              annotations.removeLast();
-              annotations.add(
-                Annotation(
-                  Offset(previewRect!.left, previewRect!.top),
-                  previewRect!.width,
-                  previewRect!.height,
-                ),
-              );
-              setState(() {});
-            },
-            onPanEnd: (details) {
-              if (enable) {
-                return;
-              }
-              final rect = previewRect!;
-              final annotation = Annotation(
-                Offset(rect.left, rect.top),
-                rect.width,
-                rect.height,
-              );
-              annotations.removeLast();
-              annotations.add(annotation);
+                // final currentPoint = details.localPosition;
+                // previewRect = Rect.fromPoints(startPoint!, currentPoint);
+                final currentPoint = MatrixUtils.transformPoint(
+                  Matrix4.inverted(_transformationController.value),
+                  details.localPosition,
+                );
+                previewRect = Rect.fromPoints(startPoint!, currentPoint);
+                annotations.removeLast();
+                annotations.add(
+                  Annotation(
+                    Offset(previewRect!.left, previewRect!.top),
+                    previewRect!.width,
+                    previewRect!.height,
+                  ),
+                );
+                setState(() {});
+              },
+              onPanEnd: (details) {
+                if (enable) {
+                  return;
+                }
+                final rect = previewRect!;
+                final annotation = Annotation(
+                  Offset(rect.left, rect.top),
+                  rect.width,
+                  rect.height,
+                );
+                annotations.removeLast();
+                annotations.add(annotation);
 
-              startPoint = null;
-              previewRect = null;
-              setState(() {});
-            },
-            child: SizedBox(
-              width: _imageSize.width,
-              height: _imageSize.height,
-              child: CustomPaint(
-                size: _imageSize, // 确保CustomPaint有正确尺寸
-                painter: ImageAnnotationPainter(
-                  _image,
-                  annotations,
-                  _transformationController.value,
+                startPoint = null;
+                previewRect = null;
+                setState(() {});
+              },
+              child: SizedBox(
+                width: _imageSize.width,
+                height: _imageSize.height,
+                child: CustomPaint(
+                  size: _imageSize, // 确保CustomPaint有正确尺寸
+                  painter: ImageAnnotationPainter(
+                    _image,
+                    annotations,
+                    _transformationController.value,
+                  ),
                 ),
               ),
             ),
