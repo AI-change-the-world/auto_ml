@@ -3,11 +3,14 @@ import 'dart:io';
 import 'package:auto_ml/modules/label/models/annotation.dart';
 import 'package:auto_ml/utils/logger.dart';
 
+enum LabelMode { edit, add }
+
 class LabelState {
   String current;
   String dataPath;
   String labelPath;
   String selectedAnnotationUuid;
+  LabelMode mode;
 
   /// missing dataset type, such as yolo or sth else
 
@@ -21,6 +24,7 @@ class LabelState {
     required this.labelPath,
     this.currentLabels = const [],
     this.selectedAnnotationUuid = "",
+    this.mode = LabelMode.edit,
   }) {
     _initializeDataLabelPairs();
   }
@@ -31,6 +35,7 @@ class LabelState {
     String? labelPath,
     List<Annotation>? currentLabels,
     String? selectedAnnotationUuid,
+    LabelMode? mode,
   }) {
     return LabelState(
       current: current ?? this.current,
@@ -39,6 +44,7 @@ class LabelState {
       currentLabels: currentLabels ?? this.currentLabels,
       selectedAnnotationUuid:
           selectedAnnotationUuid ?? this.selectedAnnotationUuid,
+      mode: mode ?? this.mode,
     );
   }
 

@@ -12,6 +12,7 @@ class AnnotationWidget extends StatelessWidget {
     required this.onSizeChanged,
     required this.onSelected,
   });
+  @Deprecated("unused")
   final Matrix4 transform;
   final Annotation annotation;
   final Function(DragUpdateDetails details) onPanUpdate;

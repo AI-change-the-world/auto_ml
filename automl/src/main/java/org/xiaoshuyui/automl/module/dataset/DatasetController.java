@@ -48,7 +48,7 @@ public class DatasetController {
 
     @GetMapping("/details/{id}")
     public Result getDetails(@PathVariable Long id) {
-        return Result.OK_data(datasetService.getDetails(id));
+        return Result.OK_data(datasetService.get(id));
     }
 
     @PostMapping("/file/preview")

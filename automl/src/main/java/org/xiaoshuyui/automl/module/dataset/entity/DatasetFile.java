@@ -8,6 +8,7 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+@Deprecated(since = "no longer used")
 @Data
 @TableName("dataset_file")
 public class DatasetFile {

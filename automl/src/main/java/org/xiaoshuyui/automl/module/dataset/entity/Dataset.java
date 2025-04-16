@@ -56,4 +56,10 @@ public class Dataset {
     // 0: scanning, 1: scan success, 2: scan failed
     @TableField("scan_status")
     private Integer scanStatus;
+
+    @TableField("file_count")
+    Long fileCount;
+
+    @TableField("sample_file_path")
+    String sampleFilePath;
 }

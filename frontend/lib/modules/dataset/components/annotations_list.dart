@@ -70,10 +70,10 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
 
   late List<DataColumn> columns = [
     DataColumn2(label: Text('Id', style: defaultTextStyle2), fixedWidth: 40),
-    DataColumn2(
-      label: Text('File count', style: defaultTextStyle2),
-      fixedWidth: 80,
-    ),
+    // DataColumn2(
+    //   label: Text('File count', style: defaultTextStyle2),
+    //   fixedWidth: 80,
+    // ),
     DataColumn(label: Text('Type', style: defaultTextStyle2)),
     DataColumn(label: Text('Created at', style: defaultTextStyle2)),
     DataColumn(label: Text('Updated at', style: defaultTextStyle2)),
@@ -85,12 +85,12 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
       return DataRow(
         cells: [
           DataCell(Text(annotation.id.toString(), style: defaultTextStyle)),
-          DataCell(
-            Text(
-              annotation.annotatedFileCount.toString(),
-              style: defaultTextStyle,
-            ),
-          ),
+          // DataCell(
+          //   Text(
+          //     annotation.annotatedFileCount.toString(),
+          //     style: defaultTextStyle,
+          //   ),
+          // ),
           DataCell(
             Text(
               datasetTaskGetById(annotation.annotationType).name,

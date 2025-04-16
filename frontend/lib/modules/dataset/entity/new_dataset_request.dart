@@ -12,6 +12,7 @@ class NewDatasetRequest {
 
   final double ranking;
   final String url;
+  final String? annotationUrl;
   final String? username;
   final String? password;
 
@@ -23,6 +24,7 @@ class NewDatasetRequest {
     required this.url,
     this.username,
     this.password,
+    this.annotationUrl,
   });
 
   factory NewDatasetRequest.fromJson(Map<String, dynamic> json) =>

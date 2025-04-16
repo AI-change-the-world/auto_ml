@@ -2,29 +2,29 @@ package org.xiaoshuyui.automl.module.dataset.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.opendal.AsyncOperator;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
-import org.xiaoshuyui.automl.module.dataset.entity.DatasetFile;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetDetailsResponse;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
 import org.xiaoshuyui.automl.util.LocalImageDelegate;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 public class DatasetService {
 
     private final DatasetMapper datasetMapper;
 
 
-    private final DatasetFileServiceImpl datasetFileService;
-
-    public DatasetService(DatasetMapper datasetMapper, DatasetFileServiceImpl datasetFileService) {
+    public DatasetService(DatasetMapper datasetMapper) {
         this.datasetMapper = datasetMapper;
-        this.datasetFileService = datasetFileService;
     }
 
     public long newDataset(NewDatasetRequest request) {
@@ -40,7 +40,7 @@ public class DatasetService {
         datasetMapper.insert(dataset);
         dataset.setId(dataset.getId());
 
-        datasetFileService.scanFolderParallel(dataset);
+        this.scanFolderParallel(dataset);
         return dataset.getId();
     }
 
@@ -77,14 +77,12 @@ public class DatasetService {
 
     public DatasetDetailsResponse getDetails(Long id) {
         Dataset dataset = get(id);
-        List<DatasetFile> samples = new ArrayList<>();
-        if (dataset.getScanStatus() == 1) {
-            samples = datasetFileService.getSample();
-        }
         DatasetDetailsResponse response = new DatasetDetailsResponse();
-        response.setFilePaths(samples.stream().map(DatasetFile::getFilePath).toList());
+        if (dataset.getScanStatus() == 1) {
+            response.setSamplePath(dataset.getSampleFilePath());
+        }
         response.setStatus(dataset.getScanStatus());
-        response.setCount(datasetFileService.getCount(id));
+        response.setCount(dataset.getFileCount());
         return response;
     }
 
@@ -94,7 +92,7 @@ public class DatasetService {
     public String getFileContent(String datasetBaseUrl, String path, int storageType) throws Exception {
         if (storageType == 0) {
             String p = datasetBaseUrl;
-            if (!p.endsWith("/")){
+            if (!p.endsWith("/")) {
                 p = p + "/";
             }
             p = p + path;
@@ -102,5 +100,55 @@ public class DatasetService {
         }
         // todo unimplemented
         return null;
+    }
+
+
+    ///  only one level folder
+    ///
+    /// todo: exception handling
+    private void scanFolderSync(Dataset storage) {
+        if (storage.getUrl() == null) {
+            return;
+        }
+        final Map<String, String> conf = new HashMap<>();
+        String path = storage.getUrl();
+        if (!path.endsWith("/")) {
+            path = path + "/";
+        }
+        log.info("scan folder: {}", path);
+        conf.put("root", path);
+        long fileCount = 0;
+        if (storage.getStorageType() == 0) {
+            try (AsyncOperator op = AsyncOperator.of("fs", conf)) {
+                var res = op.list("").join();
+                log.info("res: {}", res.isEmpty());
+                for (var item : res) {
+                    log.info("file: {}", item.path);
+                    if (item.metadata.isDir()) {
+                        continue;
+                    }
+                    if (item.metadata.isFile()) {
+                        fileCount += 1;
+                    }
+                }
+                if (fileCount > 0) {
+                    storage.setFileCount(fileCount);
+                    storage.setSampleFilePath(res.get(0).path);
+                }
+                storage.setScanStatus(1);
+                datasetMapper.updateById(storage);
+            } catch (Exception e) {
+                storage.setScanStatus(2);
+                datasetMapper.updateById(storage);
+                log.error("scan folder error: {}", e.getMessage());
+            }
+        }
+    }
+
+    private void scanFolderParallel(Dataset dataset) {
+        Thread thread = new Thread(() -> {
+            scanFolderSync(dataset);
+        });
+        thread.start();
     }
 }

@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Deprecated(since = "no longer used")
 @Service
 @Slf4j
 public class DatasetFileServiceImpl extends ServiceImpl<DatasetFileMapper, DatasetFile> implements DatasetFileService {

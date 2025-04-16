@@ -19,6 +19,8 @@ Dataset _$DatasetFromJson(Map<String, dynamic> json) => Dataset(
       username: json['username'] as String,
       password: json['password'] as String,
       scanStatus: (json['scanStatus'] as num).toInt(),
+      fileCount: (json['fileCount'] as num).toInt(),
+      sampleFilePath: json['sampleFilePath'] as String,
     );
 
 Map<String, dynamic> _$DatasetToJson(Dataset instance) => <String, dynamic>{
@@ -34,6 +36,8 @@ Map<String, dynamic> _$DatasetToJson(Dataset instance) => <String, dynamic>{
       'username': instance.username,
       'password': instance.password,
       'scanStatus': instance.scanStatus,
+      'fileCount': instance.fileCount,
+      'sampleFilePath': instance.sampleFilePath,
     };
 
 GetAllDatasetResponse _$GetAllDatasetResponseFromJson(

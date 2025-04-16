@@ -15,6 +15,7 @@ NewDatasetRequest _$NewDatasetRequestFromJson(Map<String, dynamic> json) =>
       url: json['url'] as String,
       username: json['username'] as String?,
       password: json['password'] as String?,
+      annotationUrl: json['annotationUrl'] as String?,
     );
 
 Map<String, dynamic> _$NewDatasetRequestToJson(NewDatasetRequest instance) =>
@@ -24,6 +25,7 @@ Map<String, dynamic> _$NewDatasetRequestToJson(NewDatasetRequest instance) =>
       'storageType': instance.storageType,
       'ranking': instance.ranking,
       'url': instance.url,
+      'annotationUrl': instance.annotationUrl,
       'username': instance.username,
       'password': instance.password,
     };

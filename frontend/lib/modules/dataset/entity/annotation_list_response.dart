@@ -18,7 +18,7 @@ class AnnotationListResponse {
 class Annotation {
   final int id;
   final int datasetId;
-  final int annotatedFileCount;
+  // final int annotatedFileCount;
   final int annotationType;
   final DateTime updatedAt;
   final int isDeleted;
@@ -27,7 +27,7 @@ class Annotation {
   Annotation({
     required this.id,
     required this.datasetId,
-    required this.annotatedFileCount,
+    // required this.annotatedFileCount,
     required this.annotationType,
     required this.updatedAt,
     required this.isDeleted,

@@ -83,7 +83,7 @@ class DatasetFileDetails extends ConsumerWidget {
                 ],
               ),
               Divider(),
-              if (data.files.isNotEmpty)
+              if (data.sampleFile != null)
                 Text.rich(
                   TextSpan(
                     children: [
@@ -95,7 +95,7 @@ class DatasetFileDetails extends ConsumerWidget {
                         ),
                       ),
                       TextSpan(
-                        text: data.files[data.index],
+                        text: data.sampleFile,
                         style: TextStyle(fontSize: 12),
                       ),
                     ],
@@ -129,53 +129,11 @@ class _ListFile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              InkWell(
-                onTap: () {
-                  // ref
-                  //     .read(datasetFileListNotifierProvider.notifier)
-                  //     .previousPage();
-                },
-                child: SizedBox(
-                  width: 50,
-                  child: Icon(Icons.chevron_left, size: 40),
-                ),
-              ),
-
-              Expanded(
-                child: SizedBox(
-                  child:
-                      state.currentContent != null
-                          ? Image.memory(base64Decode(state.currentContent!))
-                          : null,
-                ),
-              ),
-
-              InkWell(
-                onTap: () {
-                  // ref
-                  //     .read(datasetFileListNotifierProvider.notifier)
-                  //     .nextPage();
-                },
-                child: SizedBox(
-                  width: 50,
-                  child: Icon(Icons.chevron_right, size: 40),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 30,
-          child: Center(
-            child: Text("${state.index + 1}/${state.files.length}"),
-          ),
-        ),
-      ],
+    return SizedBox(
+      child:
+          state.currentContent != null
+              ? Image.memory(base64Decode(state.currentContent!))
+              : null,
     );
   }
 }

@@ -10,6 +10,8 @@ public class NewDatasetRequest {
     int storageType;
     double ranking;
     String url;
+    /// could be null
+    String annotationUrl;
     String username;
     String password;
 }

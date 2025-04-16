@@ -29,11 +29,21 @@ class LabelNotifier
     );
   }
 
+  changeMode(LabelMode mode) {
+    if (mode != state.mode) {
+      state = state.copyWith(mode: mode);
+    }
+  }
+
   updateAnnotation(
     Annotation annotation, {
     DragUpdateDetails? dragDetails,
     List<SizeChanged> sizeChanged = const [],
   }) {
+    if (state.mode == LabelMode.add) {
+      return;
+    }
+
     annotation = annotation.copyWith(
       position: annotation.position + (dragDetails?.delta ?? Offset.zero),
     );

@@ -6,7 +6,7 @@ import java.util.List;
 
 @Data
 public class DatasetDetailsResponse {
-    List<String> filePaths;
+    String samplePath;
     int status;
     long count;
 }
