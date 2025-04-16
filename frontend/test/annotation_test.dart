@@ -1,9 +1,15 @@
+import 'package:auto_ml/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
 
 void main() {
-  runApp(MaterialApp(home: ImageAnnotationScreen()));
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: ImageAnnotationScreen(),
+    ),
+  );
 }
 
 class ImageAnnotationScreen extends StatefulWidget {
@@ -47,6 +53,11 @@ class _ImageAnnotationScreenState extends State<ImageAnnotationScreen> {
     });
   }
 
+  Offset? startPoint;
+  Rect? previewRect;
+
+  bool enable = false;
+
   @override
   Widget build(BuildContext context) {
     if (_imageSize.width == 0 || _imageSize.height == 0) {
@@ -57,23 +68,83 @@ class _ImageAnnotationScreenState extends State<ImageAnnotationScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Image Annotation')),
+      appBar: AppBar(
+        title: Text('Image Annotation'),
+        actions: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                enable = !enable;
+              });
+            },
+            child: Icon(Icons.phone_enabled),
+          ),
+        ],
+      ),
       body: Center(
         child: InteractiveViewer(
+          panEnabled: enable,
+          scaleEnabled: enable,
           transformationController: _transformationController,
           boundaryMargin: EdgeInsets.all(0), // 允许拖拽到图片边界
           minScale: 0.5,
-          maxScale: 5.0,
+          maxScale: 2.0,
           constrained: false,
-          child: SizedBox(
-            width: _imageSize.width,
-            height: _imageSize.height,
-            child: CustomPaint(
-              size: _imageSize, // 确保CustomPaint有正确尺寸
-              painter: ImageAnnotationPainter(
-                _image,
-                annotations,
-                _transformationController.value,
+          child: GestureDetector(
+            onPanStart: (details) {
+              if (enable) {
+                return;
+              }
+              startPoint = details.localPosition;
+              logger.i("startPoint: ${details.localPosition}");
+              previewRect = Rect.zero;
+              annotations.add(Annotation(details.localPosition, 0, 0));
+              setState(() {});
+            },
+            onPanUpdate: (details) {
+              if (enable) {
+                return;
+              }
+
+              final currentPoint = details.localPosition;
+              previewRect = Rect.fromPoints(startPoint!, currentPoint);
+              annotations.removeLast();
+              annotations.add(
+                Annotation(
+                  Offset(previewRect!.left, previewRect!.top),
+                  previewRect!.width,
+                  previewRect!.height,
+                ),
+              );
+              setState(() {});
+            },
+            onPanEnd: (details) {
+              if (enable) {
+                return;
+              }
+              final rect = previewRect!;
+              final annotation = Annotation(
+                Offset(rect.left, rect.top),
+                rect.width,
+                rect.height,
+              );
+              annotations.removeLast();
+              annotations.add(annotation);
+
+              startPoint = null;
+              previewRect = null;
+              setState(() {});
+            },
+            child: SizedBox(
+              width: _imageSize.width,
+              height: _imageSize.height,
+              child: CustomPaint(
+                size: _imageSize, // 确保CustomPaint有正确尺寸
+                painter: ImageAnnotationPainter(
+                  _image,
+                  annotations,
+                  _transformationController.value,
+                ),
               ),
             ),
           ),
