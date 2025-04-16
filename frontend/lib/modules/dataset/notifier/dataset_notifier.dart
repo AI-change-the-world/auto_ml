@@ -4,7 +4,6 @@ import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/dataset/api.dart';
 import 'package:auto_ml/modules/dataset/entity/get_all_dataset_response.dart'
     as r;
-import 'package:auto_ml/modules/dataset/entity/get_dataset_storage_response.dart';
 import 'package:auto_ml/modules/dataset/entity/new_dataset_request.dart';
 import 'package:auto_ml/modules/dataset/entity/new_dataset_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
@@ -40,29 +39,6 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
 
   changeCurrent(Dataset? dataset) {
     state = AsyncData(state.value!.copyWith(current: dataset));
-  }
-
-  Future getDatasetStorage(Dataset dataset) async {
-    try {
-      final res = await dio.get(
-        Api.getStorage.replaceAll("{id}", dataset.id.toString()),
-      );
-      final d = BaseResponse.fromJson(
-        res.data,
-        (json) =>
-            GetDatasetStorageResponse.fromJson(json as Map<String, dynamic>),
-      );
-      if (d.data != null) {
-        dataset.datasetPath = d.data!.url;
-        dataset.labelPath = d.data!.url;
-        dataset.storageType = d.data!.storageType;
-        dataset.username = d.data!.username ?? "";
-        dataset.password = d.data!.password ?? "";
-      }
-    } catch (e) {
-      ToastUtils.error(null, title: "Get dataset storage failed");
-      logger.e(e);
-    }
   }
 
   addDataset(Dataset dataset) async {

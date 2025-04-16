@@ -1,12 +1,16 @@
 package org.xiaoshuyui.automl.module.dataset;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
+import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
-import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetResponse;
+import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
+import org.xiaoshuyui.automl.module.dataset.entity.response.NewDatasetResponse;
 import org.xiaoshuyui.automl.module.dataset.service.DatasetService;
 
+@Slf4j
 @RestController
 @RequestMapping("/dataset")
 public class DatasetController {
@@ -42,8 +46,22 @@ public class DatasetController {
         return Result.OK();
     }
 
-    @GetMapping("/storage/{id}")
-    public Result getStorage(@PathVariable Long id) {
-        return Result.OK_data(datasetService.getDatasetStorage(id));
+    @GetMapping("/details/{id}")
+    public Result getDetails(@PathVariable Long id) {
+        return Result.OK_data(datasetService.getDetails(id));
+    }
+
+    @PostMapping("/file/preview")
+    public Result previewFile(@RequestBody GetFilePreviewRequest request) {
+        try {
+            String s = datasetService.getFileContent(request.getBaseUrl(), request.getPath(), request.getStorageType());
+            GetFileContentResponse response = new GetFileContentResponse();
+            response.setContent(s);
+            return Result.OK_data(response);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+
+        return Result.error("get content failed");
     }
 }

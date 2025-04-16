@@ -12,25 +12,48 @@ import java.time.LocalDateTime;
 @Data
 @TableName("dataset")
 public class Dataset {
+
     @TableId(value = "dataset_id", type = IdType.AUTO)
-    Long id;
+    private Long id;
+
     @TableField("dataset_name")
-    String name;
+    private String name;
+
     @TableField("description")
-    String description;
+    private String description;
+
     @TableField("created_at")
-    LocalDateTime createdAt;
+    private LocalDateTime createdAt;
+
     @TableField("updated_at")
-    LocalDateTime updatedAt;
+    private LocalDateTime updatedAt;
 
     @JsonIgnore
     @TableField("is_deleted")
-    Integer isDeleted;
+    private Integer isDeleted;
 
-    // 0: image, 1: text ,2: video ,3: audio ,4: other
+    // 0: image, 1: text, 2: video, 3: audio, 4: other
     @TableField("dataset_type")
-    int type;
+    private int type;
 
     @TableField("ranking")
-    double ranking;
+    private double ranking;
+
+    // 存储相关字段（原来是 dataset_storage）
+
+    @TableField("storage_type")
+    private Integer storageType;
+
+    @TableField("url")
+    private String url;
+
+    @TableField("username")
+    private String username;
+
+    @TableField("password")
+    private String password;
+
+    // 0: scanning, 1: scan success, 2: scan failed
+    @TableField("scan_status")
+    private Integer scanStatus;
 }

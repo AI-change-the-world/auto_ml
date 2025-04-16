@@ -1,4 +1,4 @@
-package org.xiaoshuyui.automl.module.dataset.entity.request;
+package org.xiaoshuyui.automl.module.dataset.entity.response;
 
 import lombok.Data;
 

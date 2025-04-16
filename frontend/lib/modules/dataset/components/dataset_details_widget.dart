@@ -1,4 +1,5 @@
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
+import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
@@ -36,7 +37,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
     });
   }
 
-  late List<Widget> widgets = [Container(), AnnotationsList()];
+  late List<Widget> widgets = [DatasetFileDetails(), AnnotationsList()];
 
   @override
   Widget build(BuildContext context) {

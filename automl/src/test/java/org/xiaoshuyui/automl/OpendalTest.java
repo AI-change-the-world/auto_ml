@@ -13,10 +13,10 @@ public class OpendalTest {
     public void test() {
         // 构造本地文件系统的Operator
         final Map<String, String> conf = new HashMap<>();
-        conf.put("root", "/");
+        conf.put("root", "/Users/guchengxi/Desktop/projects/auto_ml/frontend/dataset/images/");
 
         try (AsyncOperator op = AsyncOperator.of("fs", conf)) {
-            var res = op.list("/Users/guchengxi/Desktop/projects/auto_ml/frontend/dataset/images/").join();
+            var res = op.list("").join();
             for (var item : res) {
                 System.out.println(item.path);
             }

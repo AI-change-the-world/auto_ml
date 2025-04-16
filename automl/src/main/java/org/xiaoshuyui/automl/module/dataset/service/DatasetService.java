@@ -1,15 +1,17 @@
 package org.xiaoshuyui.automl.module.dataset.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
-import org.xiaoshuyui.automl.module.dataset.entity.DatasetStorage;
+import org.xiaoshuyui.automl.module.dataset.entity.DatasetFile;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
+import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetDetailsResponse;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
-import org.xiaoshuyui.automl.module.dataset.mapper.DatasetStorageMapper;
+import org.xiaoshuyui.automl.util.LocalImageDelegate;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -17,51 +19,43 @@ public class DatasetService {
 
     private final DatasetMapper datasetMapper;
 
-    private final DatasetStorageMapper datasetStorageMapper;
 
     private final DatasetFileServiceImpl datasetFileService;
 
-    public DatasetService(DatasetMapper datasetMapper, DatasetStorageMapper datasetStorageMapper, DatasetFileServiceImpl datasetFileService) {
+    public DatasetService(DatasetMapper datasetMapper, DatasetFileServiceImpl datasetFileService) {
         this.datasetMapper = datasetMapper;
-        this.datasetStorageMapper = datasetStorageMapper;
         this.datasetFileService = datasetFileService;
     }
 
-    @Transactional
     public long newDataset(NewDatasetRequest request) {
         Dataset dataset = new Dataset();
         dataset.setName(request.getName());
         dataset.setDescription(request.getDescription());
         dataset.setRanking(request.getRanking());
-        DatasetStorage datasetStorage = new DatasetStorage();
-        datasetStorage.setStorageType(request.getStorageType());
-        datasetStorage.setUrl(request.getUrl());
-        datasetStorage.setUsername(request.getUsername());
-        datasetStorage.setPassword(request.getPassword());
+        dataset.setStorageType(request.getStorageType());
+        dataset.setUrl(request.getUrl());
+        dataset.setUsername(request.getUsername());
+        dataset.setPassword(request.getPassword());
 
         datasetMapper.insert(dataset);
-        datasetStorage.setId(dataset.getId());
-        datasetStorageMapper.insert(datasetStorage);
+        dataset.setId(dataset.getId());
 
-        datasetFileService.scanFolderParallel(datasetStorage);
+        datasetFileService.scanFolderParallel(dataset);
         return dataset.getId();
     }
 
-    @Transactional
     public void modifyDataset(ModifyDatasetRequest request) {
         Dataset dataset = new Dataset();
         dataset.setId(request.getId());
         dataset.setName(request.getName());
         dataset.setDescription(request.getDescription());
         dataset.setRanking(request.getRanking());
+        dataset.setId(request.getId());
+        dataset.setStorageType(request.getStorageType());
+        dataset.setUrl(request.getUrl());
+        dataset.setUsername(request.getUsername());
+        dataset.setPassword(request.getPassword());
         datasetMapper.updateById(dataset);
-        DatasetStorage datasetStorage = new DatasetStorage();
-        datasetStorage.setId(request.getId());
-        datasetStorage.setStorageType(request.getStorageType());
-        datasetStorage.setUrl(request.getUrl());
-        datasetStorage.setUsername(request.getUsername());
-        datasetStorage.setPassword(request.getPassword());
-        datasetStorageMapper.updateById(datasetStorage);
     }
 
     public List<Dataset> getDataset() {
@@ -70,16 +64,43 @@ public class DatasetService {
         return datasetMapper.selectList(queryWrapper);
     }
 
-    public DatasetStorage getDatasetStorage(Long id) {
-        QueryWrapper queryWrapper = new QueryWrapper();
-        queryWrapper.eq("dataset_id", id);
-        return datasetStorageMapper.selectOne(queryWrapper);
-    }
 
-    @Transactional
     public void deleteById(Long id) {
         Dataset dataset = datasetMapper.selectOne(new QueryWrapper<Dataset>().eq("dataset_id", id));
         dataset.setIsDeleted(1);
         datasetMapper.updateById(dataset);
+    }
+
+    public Dataset get(Long id) {
+        return datasetMapper.selectOne(new QueryWrapper<Dataset>().eq("dataset_id", id));
+    }
+
+    public DatasetDetailsResponse getDetails(Long id) {
+        Dataset dataset = get(id);
+        List<DatasetFile> samples = new ArrayList<>();
+        if (dataset.getScanStatus() == 1) {
+            samples = datasetFileService.getSample();
+        }
+        DatasetDetailsResponse response = new DatasetDetailsResponse();
+        response.setFilePaths(samples.stream().map(DatasetFile::getFilePath).toList());
+        response.setStatus(dataset.getScanStatus());
+        response.setCount(datasetFileService.getCount(id));
+        return response;
+    }
+
+    @Resource
+    LocalImageDelegate localImageDelegate;
+
+    public String getFileContent(String datasetBaseUrl, String path, int storageType) throws Exception {
+        if (storageType == 0) {
+            String p = datasetBaseUrl;
+            if (!p.endsWith("/")){
+                p = p + "/";
+            }
+            p = p + path;
+            return localImageDelegate.getFile(p);
+        }
+        // todo unimplemented
+        return null;
     }
 }

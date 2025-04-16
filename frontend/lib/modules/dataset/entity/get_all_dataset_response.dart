@@ -3,6 +3,7 @@ import 'package:json_annotation/json_annotation.dart';
 part 'get_all_dataset_response.g.dart';
 
 @JsonSerializable()
+@JsonSerializable()
 class Dataset {
   final int id;
   final String name;
@@ -11,6 +12,11 @@ class Dataset {
   final DateTime updatedAt;
   final int type;
   final double ranking;
+  final int storageType;
+  final String url;
+  final String username;
+  final String password;
+  final int scanStatus;
 
   Dataset({
     required this.id,
@@ -20,6 +26,11 @@ class Dataset {
     required this.updatedAt,
     required this.type,
     required this.ranking,
+    required this.storageType,
+    required this.url,
+    required this.username,
+    required this.password,
+    required this.scanStatus,
   });
 
   factory Dataset.fromJson(Map<String, dynamic> json) =>

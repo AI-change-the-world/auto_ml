@@ -121,10 +121,6 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                   GlobalDrawer.showDrawer();
                 },
                 onDoubleTap: () async {
-                  await ref
-                      .read(datasetNotifierProvider.notifier)
-                      .getDatasetStorage(widget.dataset);
-
                   showGeneralDialog(
                     barrierColor: Colors.black.withValues(alpha: 0.1),
                     barrierDismissible: true,

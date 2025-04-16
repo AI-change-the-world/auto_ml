@@ -31,6 +31,7 @@ class Dataset {
   int storageType;
   String username;
   String password;
+  int scanStatus;
 
   Dataset({
     this.id = -1,
@@ -45,6 +46,7 @@ class Dataset {
     this.storageType = 0,
     this.username = "",
     this.password = "",
+    this.scanStatus = 0,
   });
 
   static Dataset fromDataset(r.Dataset d) {
@@ -56,8 +58,12 @@ class Dataset {
       updatedAt: d.updatedAt.toLocal().toString(),
       type: getType(d.type),
       ranking: d.ranking,
-      datasetPath: "",
+      datasetPath: d.url,
       labelPath: "",
+      storageType: d.storageType,
+      username: d.username,
+      password: d.password,
+      scanStatus: d.scanStatus,
     );
   }
 
