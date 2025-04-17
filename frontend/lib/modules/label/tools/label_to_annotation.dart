@@ -1,16 +1,14 @@
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:auto_ml/modules/label/models/annotation.dart';
 
 List<Annotation> parseYoloAnnotations(
-  String filePath,
+  String fileContent,
   double imageWidth,
   double imageHeight,
 ) {
   List<Annotation> annotations = [];
-  File file = File(filePath);
-  List<String> lines = file.readAsLinesSync();
+  List<String> lines = fileContent.split('\n');
 
   for (String line in lines) {
     List<String> parts = line.split(' ');
@@ -30,4 +28,27 @@ List<Annotation> parseYoloAnnotations(
   }
 
   return annotations;
+}
+
+String toYoloAnnotations(
+  List<Annotation> annotations,
+  double imageWidth,
+  double imageHeight,
+) {
+  final buffer = StringBuffer();
+
+  for (final annotation in annotations) {
+    final xCenter =
+        (annotation.position.dx + annotation.width / 2) / imageWidth;
+    final yCenter =
+        (annotation.position.dy + annotation.height / 2) / imageHeight;
+    final widthNorm = annotation.width / imageWidth;
+    final heightNorm = annotation.height / imageHeight;
+
+    buffer.writeln(
+      '${annotation.id} ${xCenter.toStringAsFixed(6)} ${yCenter.toStringAsFixed(6)} ${widthNorm.toStringAsFixed(6)} ${heightNorm.toStringAsFixed(6)}',
+    );
+  }
+
+  return buffer.toString();
 }

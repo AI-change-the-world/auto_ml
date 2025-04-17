@@ -1,6 +1,7 @@
 class Api {
   Api._();
 
+  /// dataset
   static final String getAllDatasets = '/dataset/list';
 
   static final String createDataset = "/dataset/new";
@@ -14,4 +15,6 @@ class Api {
   static final String preview = "/dataset/file/preview";
 
   static final String details = "/dataset/details/{id}";
+
+  /// annotation
 }

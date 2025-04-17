@@ -1,152 +1,102 @@
-import 'dart:io';
-import 'dart:math';
+import 'dart:async';
 
-import 'package:auto_ml/modules/label/models/annotation.dart';
-import 'package:auto_ml/modules/label/models/changed.dart';
+import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/base_response.dart';
+import 'package:auto_ml/modules/dataset/entity/get_all_dataset_response.dart'
+    as ds;
 import 'package:auto_ml/modules/label/notifiers/label_state.dart';
-import 'package:auto_ml/modules/label/tools/get_image_size.dart';
-import 'package:auto_ml/modules/label/tools/label_to_annotation.dart';
-import 'package:flutter/material.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class LabelNotifier
-    extends AutoDisposeFamilyNotifier<LabelState, (String, String)> {
+    extends
+        AutoDisposeFamilyAsyncNotifier<
+          LabelState,
+          /* dataset id , annotation id*/ (int, int)
+        > {
+  final dio = DioClient().instance;
+
   @override
-  LabelState build((String, String) arg) {
-    return LabelState(dataPath: arg.$1, labelPath: arg.$2);
-  }
+  FutureOr<LabelState> build((int, int) arg) async {
+    try {
+      final response = await dio.get(
+        Api.details.replaceAll("{id}", arg.$1.toString()),
+      );
+      final d = BaseResponse.fromJson(
+        response.data,
+        (json) => ds.Dataset.fromJson(json as Map<String, dynamic>),
+      );
 
-  changeCurrentAnnotation(String uuid) {
-    state = state.copyWith(
-      currentLabels:
-          state.currentLabels.map((e) {
-            if (e.uuid == uuid) {
-              return e.copyWith(selected: true);
-            } else {
-              return e.copyWith(selected: false);
-            }
-          }).toList(),
-    );
-  }
-
-  changeMode(LabelMode mode) {
-    if (mode != state.mode) {
-      state = state.copyWith(mode: mode);
+      /// TODO: get annotaion
+      return LabelState(dataPath: d.data?.url ?? "", labelPath: "");
+    } catch (e) {
+      return LabelState(dataPath: "", labelPath: "");
     }
   }
 
-  updateAnnotation(
-    Annotation annotation, {
-    DragUpdateDetails? dragDetails,
-    List<SizeChanged> sizeChanged = const [],
-  }) {
-    if (state.mode == LabelMode.add) {
-      return;
-    }
-
-    annotation = annotation.copyWith(
-      position: annotation.position + (dragDetails?.delta ?? Offset.zero),
-    );
-    if (sizeChanged.isNotEmpty) {
-      for (var changed in sizeChanged) {
-        if (changed.type == SizeChangedType.left) {
-          annotation.position = Offset(
-            annotation.position.dx + changed.value,
-            annotation.position.dy,
-          );
-          annotation.width = max(annotation.width - changed.value, 0);
-        }
-        if (changed.type == SizeChangedType.top) {
-          annotation.position = Offset(
-            annotation.position.dx,
-            annotation.position.dy + changed.value,
-          );
-          annotation.height = max(annotation.height - changed.value, 0);
-        }
-        if (changed.type == SizeChangedType.right) {
-          annotation.width = annotation.width + changed.value;
-        }
-        if (changed.type == SizeChangedType.bottom) {
-          annotation.height = annotation.height + changed.value;
-        }
-      }
-    }
-
-    state = state.copyWith(
-      currentLabels:
-          state.currentLabels
-              .map(
-                (e) =>
-                    e.uuid == annotation.uuid
-                        ? annotation.copyWith(
-                          position: annotation.position,
-                          width: annotation.width,
-                          height: annotation.height,
-                        )
-                        : e,
-              )
-              .toList(),
-    );
+  /// add dataset pair TODO remove later
+  addDatasetPair(String dataPath, String labelPath) {
+    state.value!.dataLabelPairs.add(MapEntry(dataPath, labelPath));
   }
 
-  void nextData() async {
-    if (state.dataLabelPairs.isEmpty) {
-      return;
-    }
+  // void nextData() async {
+  //   if (state.dataLabelPairs.isEmpty) {
+  //     return;
+  //   }
 
-    if (state.dataLabelPairs.indexWhere((v) => v.key == state.current) ==
-        state.dataLabelPairs.length - 1) {
-      return;
-    }
+  //   if (state.dataLabelPairs.indexWhere((v) => v.key == state.current) ==
+  //       state.dataLabelPairs.length - 1) {
+  //     return;
+  //   }
 
-    String current = "";
-    String label = "";
-    List<Annotation> annotations = [];
+  //   String current = "";
+  //   String label = "";
+  //   List<Annotation> annotations = [];
 
-    if (state.current == "") {
-      // first data
-      current = state.dataLabelPairs.first.key;
-      label = state.dataLabelPairs.first.value;
+  //   if (state.current == "") {
+  //     // first data
+  //     current = state.dataLabelPairs.first.key;
+  //     label = state.dataLabelPairs.first.value;
 
-      if (label != "") {
-        Size imageSize = await getImageSizeAsync(FileImage(File(current)));
-        annotations = parseYoloAnnotations(
-          label,
-          imageSize.width,
-          imageSize.height,
-        );
-      }
-      state = state.copyWith(current: current, currentLabels: annotations);
-    } else {
-      current =
-          state
-              .dataLabelPairs[state.dataLabelPairs.indexWhere(
-                    (v) => v.key == state.current,
-                  ) +
-                  1]
-              .key;
-      label =
-          state
-              .dataLabelPairs[state.dataLabelPairs.indexWhere(
-                    (v) => v.key == state.current,
-                  ) +
-                  1]
-              .value;
-      if (label != "") {
-        Size imageSize = await getImageSizeAsync(FileImage(File(current)));
-        annotations = parseYoloAnnotations(
-          label,
-          imageSize.width,
-          imageSize.height,
-        );
-      }
-      state = state.copyWith(current: current, currentLabels: annotations);
-    }
-  }
+  //     if (label != "") {
+  //       Size imageSize = await getImageSizeAsync(FileImage(File(current)));
+  //       annotations = parseYoloAnnotations(
+  //         label,
+  //         imageSize.width,
+  //         imageSize.height,
+  //       );
+  //     }
+  //     state = state.copyWith(current: current, currentLabels: annotations);
+  //   } else {
+  //     current =
+  //         state
+  //             .dataLabelPairs[state.dataLabelPairs.indexWhere(
+  //                   (v) => v.key == state.current,
+  //                 ) +
+  //                 1]
+  //             .key;
+  //     label =
+  //         state
+  //             .dataLabelPairs[state.dataLabelPairs.indexWhere(
+  //                   (v) => v.key == state.current,
+  //                 ) +
+  //                 1]
+  //             .value;
+  //     if (label != "") {
+  //       Size imageSize = await getImageSizeAsync(FileImage(File(current)));
+  //       annotations = parseYoloAnnotations(
+  //         label,
+  //         imageSize.width,
+  //         imageSize.height,
+  //       );
+  //     }
+  //     state = state.copyWith(current: current, currentLabels: annotations);
+  //   }
+  // }
 }
 
-final labelNotifierProvider = AutoDisposeNotifierProvider.family<
+final labelNotifierProvider = AutoDisposeAsyncNotifierProvider.family<
   LabelNotifier,
   LabelState,
-  (String, String)
+  (int, int)
 >(LabelNotifier.new);

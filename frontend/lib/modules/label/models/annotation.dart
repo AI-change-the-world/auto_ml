@@ -10,6 +10,7 @@ class Annotation {
   late String uuid;
   bool editable;
   bool selected;
+  bool isOnAdding;
 
   Annotation(
     this.position,
@@ -18,6 +19,7 @@ class Annotation {
     this.id, {
     this.editable = true,
     this.selected = false,
+    this.isOnAdding = false,
   }) {
     uuid = Uuid().v4();
   }
@@ -37,6 +39,7 @@ class Annotation {
     int? id,
     bool? editable,
     bool? selected,
+    bool? isOnAdding,
   }) {
     Annotation a = Annotation(
       position ?? this.position,
@@ -45,6 +48,7 @@ class Annotation {
       id ?? this.id,
       editable: editable ?? this.editable,
       selected: selected ?? this.selected,
+      isOnAdding: isOnAdding ?? this.isOnAdding,
     );
     a.uuid = uuid;
     return a;

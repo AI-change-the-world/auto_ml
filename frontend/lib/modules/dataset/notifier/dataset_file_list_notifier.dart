@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:auto_ml/common/base_response.dart';
-import 'package:auto_ml/modules/dataset/api.dart';
+import 'package:auto_ml/api.dart';
 import 'package:auto_ml/modules/dataset/entity/file_preview_request.dart';
 import 'package:auto_ml/modules/dataset/entity/file_preview_response.dart';
 import 'package:auto_ml/modules/dataset/entity/get_all_dataset_response.dart'

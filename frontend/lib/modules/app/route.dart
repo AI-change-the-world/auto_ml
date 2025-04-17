@@ -2,6 +2,7 @@ import 'package:auto_ml/modules/annotation/annotation_screen.dart';
 import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/label/label_screen.dart';
+import 'package:auto_ml/modules/label/label_screen_test.dart';
 import 'package:auto_ml/modules/models/model_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -34,9 +35,15 @@ final GoRouter router = GoRouter(
         GoRoute(
           path: '/label',
           name: 'label',
-          // builder: (context, state) => const LabelScreen(),
+          // pageBuilder:
+          //     (context, state) => noTransitionPage(child: LabelScreen()),
           pageBuilder:
-              (context, state) => noTransitionPage(child: LabelScreen()),
+              (context, state) => noTransitionPage(
+                child: TestLabelScreen(
+                  assetImg: "assets/test.png",
+                  assetLabel: "assets/test.txt",
+                ),
+              ),
         ),
         GoRoute(
           path: '/test',

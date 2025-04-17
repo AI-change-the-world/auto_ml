@@ -45,7 +45,8 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
       labelPath = directoryPath;
     }
 
-    final _ = ref.read(labelNotifierProvider((dataPath, labelPath)));
+    // TODO: change parameters
+    final _ = ref.read(labelNotifierProvider((1, 1)));
   }
 
   @override
@@ -72,8 +73,8 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
         ),
       );
     }
-
-    final state = ref.watch(labelNotifierProvider((dataPath, labelPath)));
+    // TODO: change parameters
+    final state = ref.watch(labelNotifierProvider((1, 1)));
 
     return Column(
       spacing: 10,
@@ -84,16 +85,11 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
             spacing: 10,
             children: [
               FileList(
-                current: state.current,
-                data: state.dataLabelPairs,
+                current: state.value!.current,
+                data: state.value!.dataLabelPairs,
                 dl: (dataPath, labelPath),
               ),
-              Expanded(
-                child: ImageBoard(
-                  dl: (dataPath, labelPath),
-                  current: state.current,
-                ),
-              ),
+              Expanded(child: ImageBoard(current: state.value!.current)),
             ],
           ),
         ),

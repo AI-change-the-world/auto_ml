@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:riverpod/riverpod.dart';
 
 class ImageState {
@@ -37,10 +36,22 @@ class ImageNotifier extends AutoDisposeFamilyAsyncNotifier<ImageState, String> {
     if (current.isEmpty) {
       throw Exception("No image path provided");
     }
-    final List<int> bytes = await File(current).readAsBytes();
-    final ui.Image image = await decodeImageFromList(Uint8List.fromList(bytes));
 
-    return (image, Size(image.width.toDouble(), image.height.toDouble()));
+    if (current.startsWith("asset")) {
+      final List<int> bytes =
+          (await rootBundle.load(current)).buffer.asUint8List();
+      final ui.Image image = await decodeImageFromList(
+        Uint8List.fromList(bytes),
+      );
+
+      return (image, Size(image.width.toDouble(), image.height.toDouble()));
+    } else if (current.startsWith("data:")) {
+      /// TODO: load image from base64
+      throw Exception("unimplemented");
+    } else {
+      /// TODO: load image from url
+      throw Exception("unimplemented");
+    }
   }
 }
 
