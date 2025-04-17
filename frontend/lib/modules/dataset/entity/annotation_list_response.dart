@@ -23,6 +23,8 @@ class Annotation {
   final DateTime updatedAt;
   final int isDeleted;
   final DateTime createdAt;
+  final String? classItems;
+  final String? annotationPath;
 
   Annotation({
     required this.id,
@@ -32,6 +34,8 @@ class Annotation {
     required this.updatedAt,
     required this.isDeleted,
     required this.createdAt,
+    this.classItems,
+    this.annotationPath,
   });
 
   factory Annotation.fromJson(Map<String, dynamic> json) =>

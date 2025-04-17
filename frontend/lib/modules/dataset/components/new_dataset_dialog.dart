@@ -40,8 +40,8 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
       TextEditingController();
   late final TextEditingController _dataPathController =
       TextEditingController();
-  late final TextEditingController _labelPathController =
-      TextEditingController();
+  // late final TextEditingController _labelPathController =
+  //     TextEditingController();
   late final TextEditingController _usernameController =
       TextEditingController();
   late final TextEditingController _passwordController =
@@ -52,7 +52,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
     _nameController.dispose();
     _descriptionController.dispose();
     _dataPathController.dispose();
-    _labelPathController.dispose();
+    // _labelPathController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -370,59 +370,59 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                 ),
               ),
               // label path
-              SizedBox(
-                child: Row(
-                  children: [Text("Label Path", style: labelStyle), Spacer()],
-                ),
-              ),
-              SizedBox(
-                height: 30,
-                child: Row(
-                  spacing: 10,
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: TextField(
-                        controller: _labelPathController,
-                        style: textStyle,
-                        decoration: InputDecoration(
-                          hintStyle: hintStyle,
-                          contentPadding: EdgeInsets.only(
-                            top: 10,
-                            left: 10,
-                            right: 10,
-                          ),
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.blueAccent),
-                          ),
-                          hintText:
-                              "Label Path (If empty, will generate automatically)",
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 20,
-                      child: InkWell(
-                        onTap: () async {
-                          final String? directoryPath =
-                              await getDirectoryPath();
-                          if (directoryPath == null) {
-                            // Operation was canceled by the user.
-                            return;
-                          }
-                          _labelPathController.text = directoryPath;
-                        },
-                        child: Icon(
-                          Icons.file_open,
-                          size: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // SizedBox(
+              //   child: Row(
+              //     children: [Text("Label Path", style: labelStyle), Spacer()],
+              //   ),
+              // ),
+              // SizedBox(
+              //   height: 30,
+              //   child: Row(
+              //     spacing: 10,
+              //     children: [
+              //       Expanded(
+              //         flex: 1,
+              //         child: TextField(
+              //           controller: _labelPathController,
+              //           style: textStyle,
+              //           decoration: InputDecoration(
+              //             hintStyle: hintStyle,
+              //             contentPadding: EdgeInsets.only(
+              //               top: 10,
+              //               left: 10,
+              //               right: 10,
+              //             ),
+              //             border: OutlineInputBorder(),
+              //             focusedBorder: OutlineInputBorder(
+              //               borderSide: BorderSide(color: Colors.blueAccent),
+              //             ),
+              //             hintText:
+              //                 "Label Path (If empty, will generate automatically)",
+              //           ),
+              //         ),
+              //       ),
+              //       SizedBox(
+              //         width: 20,
+              //         child: InkWell(
+              //           onTap: () async {
+              //             final String? directoryPath =
+              //                 await getDirectoryPath();
+              //             if (directoryPath == null) {
+              //               // Operation was canceled by the user.
+              //               return;
+              //             }
+              //             _labelPathController.text = directoryPath;
+              //           },
+              //           child: Icon(
+              //             Icons.file_open,
+              //             size: 14,
+              //             color: Colors.grey,
+              //           ),
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               // additional information
               Text("Additional Information", style: titleStyle),
               Row(
@@ -526,7 +526,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                         Dataset dataset =
                             Dataset()
                               ..datasetPath = _dataPathController.text
-                              ..labelPath = _labelPathController.text
+                              // ..labelPath = _labelPathController.text
                               ..name = _nameController.text
                               ..description = _descriptionController.text
                               ..type = type

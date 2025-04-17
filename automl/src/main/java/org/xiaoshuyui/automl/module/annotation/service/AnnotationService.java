@@ -19,19 +19,12 @@ public class AnnotationService {
         this.annotationMapper = annotationMapper;
     }
 
-    Annotation getById(Long id) {
-        Annotation annotation = annotationMapper.selectById(id);
-        if (annotation == null) {
-            return null;
-        }
-        QueryWrapper queryWrapper = new QueryWrapper();
-        queryWrapper.eq("annotation_id", id);
-        Long count = annotationFileMapper.selectCount(queryWrapper);
-        annotation.setAnnotatedFileCount(count);
-        return annotation;
+    public Annotation getById(Long id) {
+        return annotationMapper.selectById(id);
     }
 
     public List<Annotation> getAnnotationsByDatasetId(Long datasetId) {
         return annotationMapper.getAnnotationsByDatasetId(datasetId);
     }
+
 }

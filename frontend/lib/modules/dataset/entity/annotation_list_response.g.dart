@@ -27,6 +27,8 @@ Annotation _$AnnotationFromJson(Map<String, dynamic> json) => Annotation(
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       isDeleted: (json['isDeleted'] as num).toInt(),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      classItems: json['classItems'] as String?,
+      annotationPath: json['annotationPath'] as String?,
     );
 
 Map<String, dynamic> _$AnnotationToJson(Annotation instance) =>
@@ -37,4 +39,6 @@ Map<String, dynamic> _$AnnotationToJson(Annotation instance) =>
       'updatedAt': instance.updatedAt.toIso8601String(),
       'isDeleted': instance.isDeleted,
       'createdAt': instance.createdAt.toIso8601String(),
+      'classItems': instance.classItems,
+      'annotationPath': instance.annotationPath,
     };

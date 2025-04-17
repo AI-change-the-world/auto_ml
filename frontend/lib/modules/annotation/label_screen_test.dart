@@ -1,9 +1,9 @@
 // this widget is used to test
 
-import 'package:auto_ml/modules/label/components/file_list.dart';
-import 'package:auto_ml/modules/label/components/icons.dart';
-import 'package:auto_ml/modules/label/components/image_board.dart';
-import 'package:auto_ml/modules/label/notifiers/annotation_notifier.dart';
+import 'package:auto_ml/modules/annotation/components/file_list.dart';
+import 'package:auto_ml/modules/annotation/components/icons.dart';
+import 'package:auto_ml/modules/annotation/components/image_board.dart';
+import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,9 +27,10 @@ class _TestLabelScreenState extends ConsumerState<TestLabelScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.microtask(() {
-        ref
-            .read(annotationNotifierProvider.notifier)
-            .setAnnotations(dataPath, labelPath, 1, 1);
+        ref.read(annotationNotifierProvider.notifier).setAnnotations("""
+1 0.5 0.5 0.1 0.1
+1 0.1 0.1 0.1 0.1
+""");
       });
     });
   }
@@ -46,12 +47,8 @@ class _TestLabelScreenState extends ConsumerState<TestLabelScreen> {
           child: Row(
             spacing: 10,
             children: [
-              FileList(
-                current: dataPath,
-                data: [MapEntry(dataPath, labelPath)],
-                dl: (dataPath, labelPath),
-              ),
-              Expanded(child: ImageBoard(current: dataPath)),
+              FileList(data: [(dataPath, labelPath)]),
+              Expanded(child: ImageBoard()),
             ],
           ),
         ),

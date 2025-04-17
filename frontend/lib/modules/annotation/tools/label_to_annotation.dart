@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:auto_ml/modules/label/models/annotation.dart';
+import 'package:auto_ml/modules/annotation/models/annotation.dart';
 
 List<Annotation> parseYoloAnnotations(
   String fileContent,

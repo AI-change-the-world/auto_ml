@@ -1,4 +1,4 @@
-import 'package:auto_ml/modules/label/models/polygon_annotation.dart';
+import 'package:auto_ml/modules/annotation/models/polygon_annotation.dart';
 import 'package:flutter/material.dart';
 
 class PolygonAnnotationWidget extends StatelessWidget {

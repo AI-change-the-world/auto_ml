@@ -15,10 +15,6 @@ public class Annotation {
     Long id;
     @TableField(value = "dataset_id")
     Long datasetId;
-    @TableField(exist = false)
-    Long annotatedFileCount;
-//    @TableField(exist = false)
-//    String datasetName;
 
     // 0:分类 1:检测 2:分割 3:其它
     @TableField(value = "annotation_type")
@@ -30,4 +26,14 @@ public class Annotation {
     Integer isDeleted;
     @TableField(value = "created_at")
     LocalDateTime createdAt;
+
+    @TableField(value = "class_items")
+    String classItems;
+
+    @TableField(value = "annotation_path")
+    String annotationPath;
+
+    // 0:本地 1:s3 2:webdav 3:其它
+    @TableField(value = "storage_type")
+    Integer storageType;
 }

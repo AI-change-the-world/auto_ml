@@ -6,9 +6,13 @@ import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
+import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetFileListResponse;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
 import org.xiaoshuyui.automl.module.dataset.entity.response.NewDatasetResponse;
 import org.xiaoshuyui.automl.module.dataset.service.DatasetService;
+import org.xiaoshuyui.automl.util.GetFileListUtil;
+
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -63,5 +67,35 @@ public class DatasetController {
         }
 
         return Result.error("get content failed");
+    }
+
+    @GetMapping("/{id}/file/list")
+    public Result getFileList(@PathVariable Long id) {
+        var dataset = datasetService.get(id);
+        if (dataset == null) {
+            return Result.error("dataset not found");
+        }
+        DatasetFileListResponse response = new DatasetFileListResponse();
+        response.setDatasetId(id);
+        response.setCount(dataset.getFileCount());
+        response.setDatasetType(dataset.getType());
+        response.setStorageType(dataset.getStorageType());
+        response.setDatasetBaseUrl(dataset.getUrl());
+
+        List<String> files = GetFileListUtil.getFileList(dataset.getUrl(), dataset.getStorageType());
+        response.setFiles(files);
+        return Result.OK_data(response);
+    }
+
+    @PostMapping("/content")
+    public Result getFileContent(@RequestBody GetFilePreviewRequest request) {
+        try {
+            GetFileContentResponse response = new GetFileContentResponse();
+            String s = datasetService.getFileContentUnCompress(request.getBaseUrl(), request.getPath(), request.getStorageType());
+            response.setContent(s);
+            return Result.OK_data(response);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 }

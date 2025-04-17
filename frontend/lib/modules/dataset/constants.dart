@@ -108,9 +108,9 @@ DatasetTask datasetTaskGetById(int id) {
     case 1:
       return DatasetTask.classification;
     case 2:
-      return DatasetTask.segmentation;
-    case 3:
       return DatasetTask.detection;
+    case 3:
+      return DatasetTask.segmentation;
     default:
       return DatasetTask.other;
   }

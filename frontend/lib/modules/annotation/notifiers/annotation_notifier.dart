@@ -1,10 +1,11 @@
 import 'dart:math';
 
-import 'package:auto_ml/modules/label/models/annotation.dart';
-import 'package:auto_ml/modules/label/models/changed.dart';
-import 'package:auto_ml/modules/label/notifiers/annotation_state.dart';
-import 'package:auto_ml/modules/label/notifiers/image_notifier.dart';
-import 'package:auto_ml/modules/label/tools/label_to_annotation.dart';
+import 'package:auto_ml/modules/annotation/models/annotation.dart';
+import 'package:auto_ml/modules/annotation/models/changed.dart';
+import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
+import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
+import 'package:auto_ml/modules/annotation/tools/label_to_annotation.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,31 +47,22 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  setAnnotations(
-    String datasetPath,
-    String labelPath,
-    int datasetId,
-    int annotationId,
-  ) async {
-    var imageState = ref.read(imageNotifierProvider(datasetPath)).value;
+  /// FIXME: not work
+  setAnnotations(String content) async {
+    var imageState = ref.read(imageNotifierProvider).value;
 
     while (imageState == null) {
       await Future.delayed(Duration(milliseconds: 100));
-      imageState = ref.read(imageNotifierProvider(datasetPath)).value;
+      imageState = ref.read(imageNotifierProvider).value;
     }
 
-    /// TODO: get annotaion
-
-    /// FIXME: this is for test, remove later
     List<Annotation> annotations = parseYoloAnnotations(
-      """
-1 0.769437 0.377311 0.100000 0.100000
-1 0.1 0.1 0.1 0.1
-1 0.396125 0.554243 0.216410 0.161357
-""",
+      content,
       imageState.size.width,
       imageState.size.height,
     );
+
+    logger.d("annotation length ${annotations.length}");
 
     state = state.copyWith(
       annotations: annotations,
@@ -148,27 +140,25 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       annotations:
           state.annotations.map((e) => e.copyWith(isOnAdding: false)).toList(),
     );
-
-    getYoloAnnotation();
   }
 
   /// FIXME
-  getYoloAnnotation() async {
-    var imageState = ref.read(imageNotifierProvider("assets/test.png")).value;
+  // getYoloAnnotation() async {
+  //   var imageState = ref.read(imageNotifierProvider("assets/test.png")).value;
 
-    while (imageState == null) {
-      await Future.delayed(Duration(milliseconds: 100));
-      imageState = ref.read(imageNotifierProvider("assets/test.png")).value;
-    }
+  //   while (imageState == null) {
+  //     await Future.delayed(Duration(milliseconds: 100));
+  //     imageState = ref.read(imageNotifierProvider("assets/test.png")).value;
+  //   }
 
-    print(
-      toYoloAnnotations(
-        state.annotations,
-        imageState.size.width,
-        imageState.size.height,
-      ),
-    );
-  }
+  //   print(
+  //     toYoloAnnotations(
+  //       state.annotations,
+  //       imageState.size.width,
+  //       imageState.size.height,
+  //     ),
+  //   );
+  // }
 }
 
 final annotationNotifierProvider =

@@ -27,6 +27,7 @@ class Dataset {
   double ranking;
 
   String datasetPath;
+  @Deprecated("will be removed in future")
   String labelPath;
   int storageType;
   String username;

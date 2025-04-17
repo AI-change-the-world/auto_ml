@@ -1,19 +1,18 @@
 import 'dart:ui' as ui;
 
-import 'package:auto_ml/modules/label/components/annotation_widget.dart';
-import 'package:auto_ml/modules/label/models/annotation.dart';
-import 'package:auto_ml/modules/label/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/modules/label/notifiers/annotation_state.dart';
-import 'package:auto_ml/modules/label/notifiers/image_notifier.dart';
+import 'package:auto_ml/modules/annotation/components/annotation_widget.dart';
+import 'package:auto_ml/modules/annotation/models/annotation.dart';
+import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
+import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
+import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
+import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ImageBoard extends ConsumerStatefulWidget {
-  const ImageBoard({super.key, required this.current});
-
-  final String current;
+  const ImageBoard({super.key});
 
   @override
   ConsumerState<ImageBoard> createState() => _ImageBoardState();
@@ -31,23 +30,20 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
     focusNode.requestFocus();
   }
 
-  getImagePosition(DragStartDetails details) {
-    // 使用 Matrix4 的逆变换，把当前屏幕坐标转成图像坐标
-    final matrix = _transformationController.value;
-    final inverseMatrix = Matrix4.inverted(matrix);
-    final imagePosition = MatrixUtils.transformPoint(
-      inverseMatrix,
-      details.localPosition,
-    );
-    return imagePosition;
-  }
-
   Rect? previewRect;
   Offset? startPoint;
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(imageNotifierProvider(widget.current));
+    final String current = ref.watch(
+      currentDatasetAnnotationNotifierProvider.select((v) => v.currentData),
+    );
+    if (current.isEmpty) {
+      return Center(child: Text("No data"));
+    }
+
+    /// FIXME : performance issue ; repaint too much
+    final state = ref.watch(imageNotifierProvider);
     final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));
 
     return state.when(
@@ -145,6 +141,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                               (v) => v.annotations,
                             ),
                           );
+                          logger.i("annotations length: ${annotations.length}");
                           return Stack(
                             children:
                                 annotations

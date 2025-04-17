@@ -41,6 +41,7 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 
+# http://localhost:8080/automl/swagger-ui/index.html#/
 springdoc:
   api-docs:
     path: /api-docs

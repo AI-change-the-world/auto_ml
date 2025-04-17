@@ -1,7 +1,7 @@
 // ignore_for_file: library_private_types_in_public_api
 
-import 'package:auto_ml/modules/label/components/polygon_annotation_widget.dart';
-import 'package:auto_ml/modules/label/models/polygon_annotation.dart';
+import 'package:auto_ml/modules/annotation/components/polygon_annotation_widget.dart';
+import 'package:auto_ml/modules/annotation/models/polygon_annotation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' as ui;
 
+import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:riverpod/riverpod.dart';
@@ -21,15 +23,14 @@ class ImageState {
   }
 }
 
-class ImageNotifier extends AutoDisposeFamilyAsyncNotifier<ImageState, String> {
+class ImageNotifier extends AutoDisposeAsyncNotifier<ImageState> {
   @override
-  FutureOr<ImageState> build(String arg) async {
-    if (arg.isEmpty) {
-      return ImageState(current: arg);
-    }
+  FutureOr<ImageState> build() async {
+    String current =
+        ref.read(currentDatasetAnnotationNotifierProvider).currentData;
 
-    final r = await _loadImage(arg);
-    return ImageState(image: r.$1, size: r.$2, current: arg);
+    final r = await _loadImage(current);
+    return ImageState(image: r.$1, size: r.$2, current: current);
   }
 
   Future<(ui.Image, Size)> _loadImage(String current) async {
@@ -46,8 +47,12 @@ class ImageNotifier extends AutoDisposeFamilyAsyncNotifier<ImageState, String> {
 
       return (image, Size(image.width.toDouble(), image.height.toDouble()));
     } else if (current.startsWith("data:")) {
-      /// TODO: load image from base64
-      throw Exception("unimplemented");
+      final String base64Str = current.split(',').last;
+      final List<int> bytes = base64Decode(base64Str);
+      final ui.Image image = await decodeImageFromList(
+        Uint8List.fromList(bytes),
+      );
+      return (image, Size(image.width.toDouble(), image.height.toDouble()));
     } else {
       /// TODO: load image from url
       throw Exception("unimplemented");
@@ -56,6 +61,6 @@ class ImageNotifier extends AutoDisposeFamilyAsyncNotifier<ImageState, String> {
 }
 
 final imageNotifierProvider =
-    AutoDisposeAsyncNotifierProvider.family<ImageNotifier, ImageState, String>(
+    AutoDisposeAsyncNotifierProvider<ImageNotifier, ImageState>(
       ImageNotifier.new,
     );

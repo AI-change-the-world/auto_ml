@@ -10,7 +10,9 @@
             a.annotation_type AS annotationType,
             a.updated_at AS updatedAt,
             a.created_at AS createdAt,
-            a.is_deleted AS isDeleted
+            a.is_deleted AS isDeleted,
+            a.class_items AS classItems,
+            a.annotation_path AS annotationPath
         FROM annotation a
         WHERE a.dataset_id = #{datasetId}
           AND a.is_deleted = 0

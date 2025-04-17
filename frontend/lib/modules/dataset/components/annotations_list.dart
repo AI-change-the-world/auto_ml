@@ -70,14 +70,23 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
 
   late List<DataColumn> columns = [
     DataColumn2(label: Text('Id', style: defaultTextStyle2), fixedWidth: 40),
-    // DataColumn2(
-    //   label: Text('File count', style: defaultTextStyle2),
-    //   fixedWidth: 80,
-    // ),
-    DataColumn(label: Text('Type', style: defaultTextStyle2)),
-    DataColumn(label: Text('Created at', style: defaultTextStyle2)),
-    DataColumn(label: Text('Updated at', style: defaultTextStyle2)),
-    DataColumn(label: Text('Operations', style: defaultTextStyle2)),
+    DataColumn2(
+      label: Text('Annotation path', style: defaultTextStyle2),
+      size: ColumnSize.L,
+    ),
+    DataColumn2(label: Text('Type', style: defaultTextStyle2), fixedWidth: 100),
+    DataColumn2(
+      label: Text('Created at', style: defaultTextStyle2),
+      size: ColumnSize.M,
+    ),
+    DataColumn2(
+      label: Text('Updated at', style: defaultTextStyle2),
+      size: ColumnSize.M,
+    ),
+    DataColumn2(
+      label: Text('Operations', style: defaultTextStyle2),
+      fixedWidth: 120,
+    ),
   ];
 
   List<DataRow> getRows(List<Annotation> annotations) {
@@ -85,12 +94,18 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
       return DataRow(
         cells: [
           DataCell(Text(annotation.id.toString(), style: defaultTextStyle)),
-          // DataCell(
-          //   Text(
-          //     annotation.annotatedFileCount.toString(),
-          //     style: defaultTextStyle,
-          //   ),
-          // ),
+          DataCell(
+            Tooltip(
+              message: annotation.annotationPath.toString(),
+              child: Text(
+                annotation.annotationPath.toString(),
+                style: defaultTextStyle,
+                maxLines: 1,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
           DataCell(
             Text(
               datasetTaskGetById(annotation.annotationType).name,
@@ -116,6 +131,13 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                 InkWell(
                   onTap: () {},
                   child: Tooltip(
+                    message: "Edit",
+                    child: Icon(Icons.edit, size: 20),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {},
+                  child: Tooltip(
                     message: "Annotate",
                     child: Icon(Icons.square_outlined, size: 20),
                   ),
@@ -125,6 +147,13 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   child: Tooltip(
                     message: "Train",
                     child: Icon(Icons.work_outline_outlined, size: 20),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {},
+                  child: Tooltip(
+                    message: "classes",
+                    child: Icon(Icons.class_outlined, size: 20),
                   ),
                 ),
               ],

@@ -1,20 +1,17 @@
-import 'package:auto_ml/modules/label/notifiers/label_notifier.dart';
+import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FileList extends ConsumerWidget {
-  const FileList({
-    super.key,
-    required this.current,
-    required this.data,
-    required this.dl,
-  });
-  final String current;
-  final List<MapEntry<String, String>> data;
-  final (String, String) dl;
+  const FileList({super.key, required this.data});
+  final List<(String, String)> data;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(
+      currentDatasetAnnotationNotifierProvider.select((v) => v.currentFilePath),
+    );
+
     return Container(
       margin: EdgeInsets.only(top: 10, bottom: 10),
       width: 200,
@@ -34,7 +31,7 @@ class FileList extends ConsumerWidget {
                     ? Center(child: Text("Dateset is empty"))
                     : ListView.builder(
                       itemBuilder: (context, index) {
-                        if (data[index].key == current) {
+                        if (data[index].$1 == current) {
                           return _wrapper(
                             Container(
                               decoration: BoxDecoration(
@@ -42,9 +39,9 @@ class FileList extends ConsumerWidget {
                               ),
                               child: Tooltip(
                                 waitDuration: Duration(milliseconds: 500),
-                                message: data[index].key,
+                                message: data[index].$1,
                                 child: Text(
-                                  data[index].key,
+                                  data[index].$1,
                                   style: TextStyle(color: Colors.white),
                                   maxLines: 1,
                                   softWrap: true,
@@ -63,9 +60,9 @@ class FileList extends ConsumerWidget {
                             ),
                             child: Tooltip(
                               waitDuration: Duration(milliseconds: 500),
-                              message: data[index].key,
+                              message: data[index].$1,
                               child: Text(
-                                data[index].key,
+                                data[index].$1,
                                 style: TextStyle(color: Colors.black),
                                 maxLines: 1,
                                 softWrap: true,
@@ -105,7 +102,15 @@ class FileList extends ConsumerWidget {
   Widget _wrapper(Widget child, WidgetRef ref, int index) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(onDoubleTap: () {}, child: child),
+      child: GestureDetector(
+        onTap: () {
+          // print("a");
+          ref
+              .read(currentDatasetAnnotationNotifierProvider.notifier)
+              .changeCurrentData(data[index]);
+        },
+        child: child,
+      ),
     );
   }
 }

@@ -16,5 +16,14 @@ class Api {
 
   static final String details = "/dataset/details/{id}";
 
+  static final String datasetFileList = "/dataset/{id}/file/list";
+
+  static final String datasetContent = "/dataset/content";
+
   /// annotation
+  static final String annotationGetById = "/annotation/{id}";
+
+  static final String annotationFileList = "/annotation/{id}/file/list";
+
+  static final String annotationContent = "/annotation/content";
 }

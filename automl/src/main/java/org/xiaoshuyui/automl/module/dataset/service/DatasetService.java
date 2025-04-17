@@ -3,18 +3,16 @@ package org.xiaoshuyui.automl.module.dataset.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.opendal.AsyncOperator;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetDetailsResponse;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
+import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.LocalImageDelegate;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -102,6 +100,19 @@ public class DatasetService {
         return null;
     }
 
+    public String getFileContentUnCompress(String datasetBaseUrl, String path, int storageType) throws Exception {
+        if (storageType == 0) {
+            String p = datasetBaseUrl;
+            if (!p.endsWith("/")) {
+                p = p + "/";
+            }
+            p = p + path;
+            return localImageDelegate.getFileUnCompress(p);
+        }
+        // todo unimplemented
+        return null;
+    }
+
 
     ///  only one level folder
     ///
@@ -110,30 +121,12 @@ public class DatasetService {
         if (storage.getUrl() == null) {
             return;
         }
-        final Map<String, String> conf = new HashMap<>();
-        String path = storage.getUrl();
-        if (!path.endsWith("/")) {
-            path = path + "/";
-        }
-        log.info("scan folder: {}", path);
-        conf.put("root", path);
-        long fileCount = 0;
         if (storage.getStorageType() == 0) {
-            try (AsyncOperator op = AsyncOperator.of("fs", conf)) {
-                var res = op.list("").join();
-                log.info("res: {}", res.isEmpty());
-                for (var item : res) {
-                    log.info("file: {}", item.path);
-                    if (item.metadata.isDir()) {
-                        continue;
-                    }
-                    if (item.metadata.isFile()) {
-                        fileCount += 1;
-                    }
-                }
-                if (fileCount > 0) {
-                    storage.setFileCount(fileCount);
-                    storage.setSampleFilePath(res.get(0).path);
+            try {
+                List<String> l = GetFileListUtil.getFileList(storage.getUrl(), storage.getStorageType());
+                if (!l.isEmpty()) {
+                    storage.setFileCount((long) l.size());
+                    storage.setSampleFilePath(l.get(0));
                 }
                 storage.setScanStatus(1);
                 datasetMapper.updateById(storage);

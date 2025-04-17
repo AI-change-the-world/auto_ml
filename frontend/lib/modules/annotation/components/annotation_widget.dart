@@ -1,5 +1,5 @@
-import 'package:auto_ml/modules/label/models/annotation.dart';
-import 'package:auto_ml/modules/label/models/changed.dart';
+import 'package:auto_ml/modules/annotation/models/annotation.dart';
+import 'package:auto_ml/modules/annotation/models/changed.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
