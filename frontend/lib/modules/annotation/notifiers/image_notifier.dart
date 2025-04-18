@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
-import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:riverpod/riverpod.dart';
@@ -10,34 +11,41 @@ import 'package:riverpod/riverpod.dart';
 class ImageState {
   ui.Image? image;
   Size size;
-  String current;
+  String imgKey;
 
-  ImageState({this.image, this.size = const Size(0, 0), this.current = ""});
+  ImageState({this.size = const Size(0, 0), this.image, this.imgKey = ""});
 
-  ImageState copyWith({ui.Image? image, Size? size, String? current}) {
+  ImageState copyWith({Size? size, ui.Image? image, String? imgKey}) {
     return ImageState(
-      image: image ?? this.image,
       size: size ?? this.size,
-      current: current ?? this.current,
+      imgKey: imgKey ?? this.imgKey,
+      image: image ?? this.image,
     );
+  }
+
+  @override
+  String toString() {
+    return "ImageState(size: $size, imgKey: $imgKey)";
   }
 }
 
-class ImageNotifier extends AutoDisposeAsyncNotifier<ImageState> {
+class ImageNotifier extends Notifier<ImageState> {
   @override
-  FutureOr<ImageState> build() async {
-    String current =
-        ref.read(currentDatasetAnnotationNotifierProvider).currentData;
+  ImageState build() {
+    return ImageState();
+  }
 
-    final r = await _loadImage(current);
-    return ImageState(image: r.$1, size: r.$2, current: current);
+  Future<void> loadImage(String current, String imgPath) async {
+    if (current.isEmpty) {
+      ToastUtils.error(null, title: "No image path/data provided");
+      return;
+    }
+    var data = await _loadImage(current);
+    state = state.copyWith(size: data.$2, image: data.$1, imgKey: imgPath);
+    logger.d("loaded image $imgPath");
   }
 
   Future<(ui.Image, Size)> _loadImage(String current) async {
-    if (current.isEmpty) {
-      throw Exception("No image path provided");
-    }
-
     if (current.startsWith("asset")) {
       final List<int> bytes =
           (await rootBundle.load(current)).buffer.asUint8List();
@@ -60,7 +68,6 @@ class ImageNotifier extends AutoDisposeAsyncNotifier<ImageState> {
   }
 }
 
-final imageNotifierProvider =
-    AutoDisposeAsyncNotifierProvider<ImageNotifier, ImageState>(
-      ImageNotifier.new,
-    );
+final imageNotifierProvider = NotifierProvider<ImageNotifier, ImageState>(
+  ImageNotifier.new,
+);

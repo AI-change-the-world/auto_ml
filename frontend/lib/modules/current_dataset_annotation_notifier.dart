@@ -4,6 +4,7 @@ import 'package:auto_ml/common/merge_files_and_annotations.dart';
 import 'package:auto_ml/modules/annotation/models/response/annotation_file_response.dart';
 import 'package:auto_ml/modules/annotation/models/response/dataset_file_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
+import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/dataset/entity/file_preview_request.dart';
 import 'package:auto_ml/modules/dataset/entity/file_preview_response.dart';
 
@@ -44,7 +45,7 @@ class CurrentDatasetAnnotationState {
     int? annotationId,
     String? datasetPath,
     String? annotationPath,
-    String? currentData,
+    @Deprecated("will be removed") String? currentData,
     bool? isLoading,
     int? datasetStorageType,
     List<(String, String)>? data,
@@ -160,11 +161,15 @@ class CurrentDatasetAnnotationNotifier
         );
 
         ref
-            .read(annotationNotifierProvider.notifier)
-            .setAnnotations(r2.data?.content ?? "");
+            .read(imageNotifierProvider.notifier)
+            .loadImage(r.data?.content ?? "", data.$1)
+            .then((_) {
+              ref
+                  .read(annotationNotifierProvider.notifier)
+                  .setAnnotations(r2.data?.content ?? "");
+            });
       } catch (e) {
         logger.e(e);
-        return null;
       }
     }
   }

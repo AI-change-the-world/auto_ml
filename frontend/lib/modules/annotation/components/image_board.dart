@@ -43,168 +43,168 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
     }
 
     /// FIXME : performance issue ; repaint too much
-    final state = ref.watch(imageNotifierProvider);
+    // final state = ref.watch(imageNotifierProvider);
     final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));
 
-    return state.when(
-      data: (data) {
-        if (data.current.isEmpty) {
-          return Center(child: Text("No data"));
+    return KeyboardListener(
+      onKeyEvent: (value) {
+        if (value is KeyDownEvent &&
+            value.logicalKey == LogicalKeyboardKey.keyW) {
+          ref.read(annotationNotifierProvider.notifier).easyChangeMode();
         }
+      },
+      focusNode: focusNode,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 10),
+          child: InteractiveViewer(
+            panEnabled: mode != LabelMode.add,
+            scaleEnabled: mode != LabelMode.add,
+            transformationController: _transformationController,
+            boundaryMargin: EdgeInsets.all(0),
+            minScale: 0.5,
+            maxScale: 2.0,
+            constrained: false,
+            child: GestureDetector(
+              onTap: () {
+                focusNode.requestFocus();
+                ref
+                    .read(annotationNotifierProvider.notifier)
+                    .changeCurrentAnnotation("");
+              },
+              onPanStart: (details) {
+                if (mode != LabelMode.add) {
+                  return;
+                }
+                previewRect = null;
+                startPoint = null;
 
-        return KeyboardListener(
-          onKeyEvent: (value) {
-            if (value is KeyDownEvent &&
-                value.logicalKey == LogicalKeyboardKey.keyW) {
-              ref.read(annotationNotifierProvider.notifier).easyChangeMode();
-            }
-          },
-          focusNode: focusNode,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 10),
-              child: InteractiveViewer(
-                panEnabled: mode != LabelMode.add,
-                scaleEnabled: mode != LabelMode.add,
-                transformationController: _transformationController,
-                boundaryMargin: EdgeInsets.all(0),
-                minScale: 0.5,
-                maxScale: 2.0,
-                constrained: false,
-                child: GestureDetector(
-                  onTap: () {
-                    focusNode.requestFocus();
-                    ref
-                        .read(annotationNotifierProvider.notifier)
-                        .changeCurrentAnnotation("");
-                  },
-                  onPanStart: (details) {
-                    if (mode != LabelMode.add) {
-                      return;
-                    }
-                    previewRect = null;
-                    startPoint = null;
-
-                    // final imagePosition = getImagePosition(details);
-                    final imagePosition = details.localPosition;
-                    previewRect = Rect.zero;
-                    startPoint = imagePosition;
-                    logger.i("startPoint: $imagePosition");
-                    ref
-                        .read(annotationNotifierProvider.notifier)
-                        .addFakeAnnotation(Annotation(imagePosition, 0, 0, -1));
-                  },
-                  onPanUpdate: (details) {
-                    if (mode != LabelMode.add) {
-                      return;
-                    }
-                    // final currentPoint = MatrixUtils.transformPoint(
-                    //   Matrix4.inverted(_transformationController.value),
-                    //   details.localPosition,
-                    // );
-                    previewRect = Rect.fromPoints(
-                      startPoint!,
-                      details.localPosition,
+                // final imagePosition = getImagePosition(details);
+                final imagePosition = details.localPosition;
+                previewRect = Rect.zero;
+                startPoint = imagePosition;
+                logger.i("startPoint: $imagePosition");
+                ref
+                    .read(annotationNotifierProvider.notifier)
+                    .addFakeAnnotation(Annotation(imagePosition, 0, 0, -1));
+              },
+              onPanUpdate: (details) {
+                if (mode != LabelMode.add) {
+                  return;
+                }
+                // final currentPoint = MatrixUtils.transformPoint(
+                //   Matrix4.inverted(_transformationController.value),
+                //   details.localPosition,
+                // );
+                previewRect = Rect.fromPoints(
+                  startPoint!,
+                  details.localPosition,
+                );
+                ref
+                    .read(annotationNotifierProvider.notifier)
+                    .addFakeAnnotation(
+                      Annotation(
+                        startPoint!,
+                        previewRect!.width,
+                        previewRect!.height,
+                        -1,
+                      ),
                     );
-                    ref
-                        .read(annotationNotifierProvider.notifier)
-                        .addFakeAnnotation(
-                          Annotation(
-                            startPoint!,
-                            previewRect!.width,
-                            previewRect!.height,
-                            -1,
-                          ),
-                        );
-                  },
-                  onPanEnd: (details) {
-                    ref
-                        .read(annotationNotifierProvider.notifier)
-                        .fakeAnnotationFinalize();
-                    startPoint = null;
-                    previewRect = null;
-                  },
+              },
+              onPanEnd: (details) {
+                ref
+                    .read(annotationNotifierProvider.notifier)
+                    .fakeAnnotationFinalize();
+                startPoint = null;
+                previewRect = null;
+              },
 
-                  child: SizedBox(
-                    width: data.size.width,
-                    height: data.size.height,
-                    child: CustomPaint(
-                      size: data.size,
-                      painter: _ImagePainter(
-                        data.image!,
-                        _transformationController.value,
+              child: Builder(
+                builder: (c) {
+                  final data = ref.watch(imageNotifierProvider);
+
+                  if (data.image != null) {
+                    return SizedBox(
+                      width: data.size.width,
+                      height: data.size.height,
+                      child: CustomPaint(
+                        size: data.size,
+                        painter: _ImagePainter(data.image!, data.imgKey),
+                        child: Builder(
+                          builder: (c) {
+                            final annotations = ref.watch(
+                              annotationNotifierProvider.select(
+                                (v) => v.annotations,
+                              ),
+                            );
+                            logger.i(
+                              "annotations length: ${annotations.length}",
+                            );
+                            return Stack(
+                              children:
+                                  annotations
+                                      .map(
+                                        (e) => AnnotationWidget(
+                                          transform:
+                                              _transformationController.value,
+                                          annotation: e,
+                                          onPanUpdate: (details) {
+                                            ref
+                                                .read(
+                                                  annotationNotifierProvider
+                                                      .notifier,
+                                                )
+                                                .updateAnnotation(
+                                                  e,
+                                                  dragDetails: details,
+                                                );
+                                          },
+                                          onSizeChanged: (changedValue) {
+                                            ref
+                                                .read(
+                                                  annotationNotifierProvider
+                                                      .notifier,
+                                                )
+                                                .updateAnnotation(
+                                                  e,
+                                                  sizeChanged: changedValue,
+                                                );
+                                          },
+                                          onSelected: () {
+                                            ref
+                                                .read(
+                                                  annotationNotifierProvider
+                                                      .notifier,
+                                                )
+                                                .changeCurrentAnnotation(
+                                                  e.uuid,
+                                                );
+                                          },
+                                        ),
+                                      )
+                                      .toList(),
+                            );
+                          },
+                        ),
                       ),
-                      child: Builder(
-                        builder: (c) {
-                          final annotations = ref.watch(
-                            annotationNotifierProvider.select(
-                              (v) => v.annotations,
-                            ),
-                          );
-                          logger.i("annotations length: ${annotations.length}");
-                          return Stack(
-                            children:
-                                annotations
-                                    .map(
-                                      (e) => AnnotationWidget(
-                                        transform:
-                                            _transformationController.value,
-                                        annotation: e,
-                                        onPanUpdate: (details) {
-                                          ref
-                                              .read(
-                                                annotationNotifierProvider
-                                                    .notifier,
-                                              )
-                                              .updateAnnotation(
-                                                e,
-                                                dragDetails: details,
-                                              );
-                                        },
-                                        onSizeChanged: (changedValue) {
-                                          ref
-                                              .read(
-                                                annotationNotifierProvider
-                                                    .notifier,
-                                              )
-                                              .updateAnnotation(
-                                                e,
-                                                sizeChanged: changedValue,
-                                              );
-                                        },
-                                        onSelected: () {
-                                          ref
-                                              .read(
-                                                annotationNotifierProvider
-                                                    .notifier,
-                                              )
-                                              .changeCurrentAnnotation(e.uuid);
-                                        },
-                                      ),
-                                    )
-                                    .toList(),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
+                    );
+                  }
+                  return Center(child: CircularProgressIndicator());
+                },
               ),
             ),
           ),
-        );
-      },
-      error: (error, stackTrace) => Center(child: Text(error.toString())),
-      loading: () => Center(child: CircularProgressIndicator()),
+        ),
+      ),
     );
   }
 }
 
 class _ImagePainter extends CustomPainter {
   final ui.Image image;
-  final Matrix4 transform;
+  final String imgName;
 
-  _ImagePainter(this.image, this.transform);
+  _ImagePainter(this.image, this.imgName);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -213,6 +213,8 @@ class _ImagePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ImagePainter oldDelegate) {
-    return oldDelegate.transform != transform;
+    bool showRepaint = oldDelegate.imgName != imgName;
+    logger.d("shouldRepaint? $showRepaint");
+    return showRepaint;
   }
 }

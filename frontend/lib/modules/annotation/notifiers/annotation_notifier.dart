@@ -49,12 +49,12 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   /// FIXME: not work
   setAnnotations(String content) async {
-    var imageState = ref.read(imageNotifierProvider).value;
+    var imageState = ref.read(imageNotifierProvider);
 
-    while (imageState == null) {
-      await Future.delayed(Duration(milliseconds: 100));
-      imageState = ref.read(imageNotifierProvider).value;
-    }
+    // while (imageState == null) {
+    //   await Future.delayed(Duration(milliseconds: 100));
+    //   imageState = ref.read(imageNotifierProvider).value;
+    // }
 
     List<Annotation> annotations = parseYoloAnnotations(
       content,
