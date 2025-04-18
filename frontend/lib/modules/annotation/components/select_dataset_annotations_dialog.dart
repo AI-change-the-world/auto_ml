@@ -56,7 +56,7 @@ class _SelectDatasetAnnotationsDialogState
                             decoration: BoxDecoration(
                               color:
                                   data.currentDatasetId == data.datasets[i].id
-                                      ? Colors.blue
+                                      ? Colors.lightBlueAccent
                                       : Colors.transparent,
                             ),
                             child: Text(

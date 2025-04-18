@@ -42,8 +42,6 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
       return Center(child: Text("No data"));
     }
 
-    /// FIXME : performance issue ; repaint too much
-    // final state = ref.watch(imageNotifierProvider);
     final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));
 
     return KeyboardListener(
@@ -59,11 +57,17 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
           padding: const EdgeInsets.only(top: 10, bottom: 10),
           child: InteractiveViewer(
             panEnabled: mode != LabelMode.add,
-            scaleEnabled: mode != LabelMode.add,
+
+            ///  scaleEnabled is set to false for better performance
+            scaleEnabled: false,
             transformationController: _transformationController,
             boundaryMargin: EdgeInsets.all(0),
-            minScale: 0.5,
-            maxScale: 2.0,
+
+            ///  minScale is set to 1 for better performance
+            minScale: 1,
+
+            ///  maxScale is set to 1 for better performance
+            maxScale: 1,
             constrained: false,
             child: GestureDetector(
               onTap: () {
@@ -83,7 +87,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                 final imagePosition = details.localPosition;
                 previewRect = Rect.zero;
                 startPoint = imagePosition;
-                logger.i("startPoint: $imagePosition");
+                logger.d("startPoint: $imagePosition");
                 ref
                     .read(annotationNotifierProvider.notifier)
                     .addFakeAnnotation(Annotation(imagePosition, 0, 0, -1));
@@ -137,7 +141,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                 (v) => v.annotations,
                               ),
                             );
-                            logger.i(
+                            logger.d(
                               "annotations length: ${annotations.length}",
                             );
                             return Stack(
@@ -145,6 +149,12 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                   annotations
                                       .map(
                                         (e) => AnnotationWidget(
+                                          classes:
+                                              ref
+                                                  .read(
+                                                    currentDatasetAnnotationNotifierProvider,
+                                                  )
+                                                  .classes,
                                           transform:
                                               _transformationController.value,
                                           annotation: e,

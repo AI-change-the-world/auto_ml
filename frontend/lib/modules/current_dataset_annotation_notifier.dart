@@ -173,6 +173,13 @@ class CurrentDatasetAnnotationNotifier
       }
     }
   }
+
+  addClassType(String className) {
+    if (state.classes.contains(className)) {
+      return;
+    }
+    state = state.copyWith(classes: [...state.classes, className]);
+  }
 }
 
 final currentDatasetAnnotationNotifierProvider = NotifierProvider<

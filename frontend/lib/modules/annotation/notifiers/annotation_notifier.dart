@@ -47,14 +47,34 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  /// FIXME: not work
+  changeAnnotationVisibility(String uuid) {
+    state = state.copyWith(
+      annotations:
+          state.annotations.map((e) {
+            if (e.uuid == uuid) {
+              return e.copyWith(visible: !e.visible);
+            } else {
+              return e;
+            }
+          }).toList(),
+    );
+  }
+
+  changeAnnotationClassId(String uuid, int classId) {
+    state = state.copyWith(
+      annotations:
+          state.annotations.map((e) {
+            if (e.uuid == uuid) {
+              return e.copyWith(id: classId);
+            } else {
+              return e;
+            }
+          }).toList(),
+    );
+  }
+
   setAnnotations(String content) async {
     var imageState = ref.read(imageNotifierProvider);
-
-    // while (imageState == null) {
-    //   await Future.delayed(Duration(milliseconds: 100));
-    //   imageState = ref.read(imageNotifierProvider).value;
-    // }
 
     List<Annotation> annotations = parseYoloAnnotations(
       content,

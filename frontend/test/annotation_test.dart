@@ -124,7 +124,7 @@ class _ImageAnnotationScreenState extends State<ImageAnnotationScreen> {
                 }
                 final imagePosition = getImagePosition(details);
                 startPoint = imagePosition;
-                logger.i("startPoint: ${details.localPosition}");
+                logger.d("startPoint: ${details.localPosition}");
                 previewRect = Rect.zero;
                 annotations.add(Annotation(details.localPosition, 0, 0));
                 setState(() {});

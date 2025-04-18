@@ -11,6 +11,7 @@ class AnnotationWidget extends StatelessWidget {
     required this.onPanUpdate,
     required this.onSizeChanged,
     required this.onSelected,
+    required this.classes,
   });
   @Deprecated("unused")
   final Matrix4 transform;
@@ -18,8 +19,21 @@ class AnnotationWidget extends StatelessWidget {
   final Function(DragUpdateDetails details) onPanUpdate;
   final Function(List<SizeChanged> changed) onSizeChanged;
   final Function onSelected;
+  final List<String> classes;
   @override
   Widget build(BuildContext context) {
+    if (!annotation.visible) {
+      return SizedBox();
+    }
+
+    String label;
+
+    try {
+      label = classes[annotation.id];
+    } catch (e) {
+      label = "unknown";
+    }
+
     return Positioned(
       left: annotation.position.dx,
       top: annotation.position.dy,
@@ -48,10 +62,18 @@ class AnnotationWidget extends StatelessWidget {
                       width: 2,
                     ),
                   ),
-                  child: Center(
-                    child: Text(
-                      "${annotation.position.dx}, ${annotation.position.dy}",
-                      style: TextStyle(fontSize: 12, color: Colors.black),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 10, left: 10),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -87,7 +109,16 @@ class AnnotationWidget extends StatelessWidget {
       child: Align(
         alignment: alignment,
         child: MouseRegion(
-          cursor: SystemMouseCursors.click,
+          cursor:
+              alignment == Alignment.bottomRight
+                  ? SystemMouseCursors.resizeDownRight
+                  : alignment == Alignment.bottomLeft
+                  ? SystemMouseCursors.resizeDownLeft
+                  : alignment == Alignment.topLeft
+                  ? SystemMouseCursors.resizeUpLeft
+                  : alignment == Alignment.topRight
+                  ? SystemMouseCursors.resizeUpRight
+                  : SystemMouseCursors.click,
           child: GestureDetector(
             onPanUpdate: (details) {
               if (!annotation.editable) {

@@ -1,3 +1,4 @@
+import 'package:auto_ml/modules/annotation/components/annotation_list_widget.dart';
 import 'package:auto_ml/modules/annotation/components/select_dataset_annotations_dialog.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/components/file_list.dart';
@@ -45,20 +46,37 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
       );
     }
 
-    return Column(
-      spacing: 10,
-      children: [
-        SizedBox(height: 20, child: LayoutIcons(onIconSelected: (type) {})),
-        Expanded(
-          child: Row(
-            spacing: 10,
-            children: [
-              FileList(data: current.data),
-              Expanded(child: ImageBoard()),
-            ],
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          stops: [0.1, 0.9, 1.0],
+          colors: [Colors.grey[200]!, Colors.white, Colors.grey[200]!],
         ),
-      ],
+      ),
+      child: Column(
+        spacing: 10,
+        children: [
+          SizedBox(height: 20, child: LayoutIcons(onIconSelected: (type) {})),
+          Expanded(
+            child: Row(
+              spacing: 10,
+              children: [
+                FileList(data: current.data),
+                Expanded(child: ImageBoard()),
+                AnnotationListWidget(
+                  classes:
+                      ref
+                          .read(currentDatasetAnnotationNotifierProvider)
+                          .classes,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

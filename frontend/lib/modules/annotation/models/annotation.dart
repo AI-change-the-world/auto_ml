@@ -11,6 +11,7 @@ class Annotation {
   bool editable;
   bool selected;
   bool isOnAdding;
+  bool visible;
 
   Annotation(
     this.position,
@@ -20,8 +21,17 @@ class Annotation {
     this.editable = true,
     this.selected = false,
     this.isOnAdding = false,
+    this.visible = true,
   }) {
     uuid = Uuid().v4();
+  }
+
+  String getLabel(List<String> classes) {
+    try {
+      return classes[id];
+    } catch (e) {
+      return "Unknown";
+    }
   }
 
   @override
@@ -40,6 +50,7 @@ class Annotation {
     bool? editable,
     bool? selected,
     bool? isOnAdding,
+    bool? visible,
   }) {
     Annotation a = Annotation(
       position ?? this.position,
@@ -49,6 +60,7 @@ class Annotation {
       editable: editable ?? this.editable,
       selected: selected ?? this.selected,
       isOnAdding: isOnAdding ?? this.isOnAdding,
+      visible: visible ?? this.visible,
     );
     a.uuid = uuid;
     return a;

@@ -86,8 +86,8 @@ class DatasetFileListNotifier
       path: state.value?.sampleFile ?? "",
     );
     try {
-      logger.i(request.toJson());
-      logger.i(dio.options.baseUrl + Api.preview);
+      logger.d(request.toJson());
+      logger.d(dio.options.baseUrl + Api.preview);
       final response = await dio.post(Api.preview, data: request.toJson());
 
       final r = BaseResponse.fromJson(

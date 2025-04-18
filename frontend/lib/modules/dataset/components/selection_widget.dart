@@ -44,7 +44,9 @@ class _SelectionWidgetState extends State<SelectionWidget> {
                                   v == s ? 4 : 0,
                                 ),
                                 color:
-                                    v == s ? Colors.blue : Colors.transparent,
+                                    v == s
+                                        ? Colors.lightBlueAccent
+                                        : Colors.transparent,
                               ),
                               child: Center(
                                 child: Text(

@@ -34,8 +34,9 @@ class FileList extends ConsumerWidget {
                         if (data[index].$1 == current) {
                           return _wrapper(
                             Container(
+                              padding: EdgeInsets.only(left: 10),
                               decoration: BoxDecoration(
-                                color: Colors.blueAccent,
+                                color: Colors.lightBlueAccent,
                               ),
                               child: Tooltip(
                                 waitDuration: Duration(milliseconds: 500),
@@ -58,6 +59,7 @@ class FileList extends ConsumerWidget {
                             decoration: BoxDecoration(
                               color: Colors.transparent,
                             ),
+                            padding: EdgeInsets.only(left: 10),
                             child: Tooltip(
                               waitDuration: Duration(milliseconds: 500),
                               message: data[index].$1,
