@@ -1,5 +1,6 @@
 import json
 from typing import List
+
 from ultralytics import YOLO
 
 from yolo.response import PredictResults

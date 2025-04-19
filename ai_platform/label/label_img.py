@@ -11,8 +11,8 @@ def label_img(img_path: str, classes: List[str]) -> ImageModel:
     :param classes: 类别名称列表
     :return: ImageModel 对象
     """
-    from label.tools import result_to_label, get_prompt
     from label.client import vl_client
+    from label.tools import get_prompt, result_to_label
 
     prompt = get_prompt(classes)
     base64_img = encode_image(img_path)

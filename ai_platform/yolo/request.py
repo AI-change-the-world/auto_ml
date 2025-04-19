@@ -1,7 +1,11 @@
-from pydantic import BaseModel, Field
 from typing import Optional
 
+from pydantic import BaseModel, Field
 
+from base.deprecated import deprecated
+
+
+@deprecated("This class is deprecated, use `TrainRequest` instead")
 class YOLORequest(BaseModel):
     task: str = Field(
         ..., pattern="^(train|predict)$", description="Task type: 'train' or 'predict'"
@@ -18,3 +22,7 @@ class YOLORequest(BaseModel):
     config: Optional[str] = Field(None, description="Path to the YOLO config file")
     weights: Optional[str] = Field(None, description="Path to the pre-trained weights")
     files: Optional[list[str]] = Field(None, description="List of image files")
+
+
+class TrainRequest(BaseModel):
+    task_id: int = Field(..., description="Task ID")

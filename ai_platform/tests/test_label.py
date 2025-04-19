@@ -1,5 +1,6 @@
 import base64
 import os
+
 from openai import OpenAI
 
 img_path = "/Users/guchengxi/Desktop/projects/auto_ml/backend/datasets/coco8/images/train/000000000030.jpg"

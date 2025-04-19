@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from utils.yolo_model import YOLOModel
+
 from base import create_response
+from utils.yolo_model import YOLOModel
 
 
 class VRAMUsageRequest(BaseModel):

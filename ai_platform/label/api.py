@@ -1,8 +1,10 @@
 from typing import List
+
 from fastapi import APIRouter
 from pydantic import BaseModel
-from label.label_img import label_img as impl_label_img
+
 from base import create_response
+from label.label_img import label_img as impl_label_img
 
 router = APIRouter(
     prefix="/label",

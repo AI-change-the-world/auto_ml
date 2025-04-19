@@ -4,7 +4,6 @@ from typing import List
 
 from label.models import ImageModel, LabelModel
 
-
 base_prompt = {
     "type": "text",
     "text": "You are an AI model trained to annotate images for YOLO object detection. "

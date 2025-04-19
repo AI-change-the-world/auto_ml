@@ -1,9 +1,9 @@
-from ultralytics import YOLO
+import json
 import queue
 import threading
-import json
-from ultralytics.models.yolo.detect.train import DetectionTrainer
 
+from ultralytics import YOLO
+from ultralytics.models.yolo.detect.train import DetectionTrainer
 
 log_queue = queue.Queue()
 
