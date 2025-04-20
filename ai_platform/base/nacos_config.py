@@ -97,6 +97,7 @@ def get_db():
     finally:
         db.close()
 
+
 def get_sync_db():
     if SessionLocal is None:
         raise Exception("DB not initialized")

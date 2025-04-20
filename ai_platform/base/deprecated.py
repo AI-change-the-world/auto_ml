@@ -1,19 +1,11 @@
-# deprecated.py
-
-import functools
-import warnings
-
-# 默认显示 DeprecationWarning（你也可以放在你程序入口）
-warnings.simplefilter("always", DeprecationWarning)
-
-
-# deprecated.py
-
 import functools
 import inspect
 import warnings
 
-warnings.simplefilter("always", DeprecationWarning)
+# 忽略第三方模块中的 DeprecationWarning
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, module=r"^(?!ai_platform).*"
+)
 
 
 def deprecated(reason: str = ""):

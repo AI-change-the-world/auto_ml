@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import TIMESTAMP, Column, Integer, String, func
 
 from db import Base  # 复用 Base
 
@@ -9,3 +9,4 @@ class TaskLog(Base):
 
     task_id = Column(Integer, primary_key=True, comment="task id")
     log_content = Column(String(1024), nullable=True)
+    created_at = Column(TIMESTAMP, server_default=func.now(), comment="创建时间")
