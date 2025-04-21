@@ -18,19 +18,5 @@ public class SseUtil {
             emitter.completeWithError(e);
         }
     }
-
-    static public void sseSend(SseEmitter emitter, Object o, String errMsg) {
-        try {
-            emitter.send(gson.toJson(o));
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            try {
-                emitter.send(errMsg);
-            } catch (IOException ex) {
-                emitter.completeWithError(e);
-            }
-            emitter.completeWithError(e);
-        }
-    }
 }
 
