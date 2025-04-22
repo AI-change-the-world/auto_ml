@@ -19,6 +19,7 @@ spring:
   config:
     import: nacos:DB
 
+
   ai:
     openai:
       chat:
@@ -53,4 +54,5 @@ server:
     context-path: /automl
 
 ai-platform:
-  url: ${AI_PLATFORM:http://127.0.0.1:5000}
+  url: ${AI_PLATFORM:http://127.0.0.1:8000}
+  get_label: /label/image

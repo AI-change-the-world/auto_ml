@@ -16,8 +16,9 @@ class DioClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
-        connectTimeout: Duration(seconds: 10),
-        receiveTimeout: Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 180), // 读取超时重点设置
+        sendTimeout: const Duration(seconds: 10),
         headers: headers ?? {'Content-Type': 'application/json'},
       ),
     );

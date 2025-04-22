@@ -5,6 +5,7 @@ import 'package:auto_ml/modules/annotation/models/changed.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/annotation/tools/label_to_annotation.dart';
+import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
@@ -80,6 +81,25 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       content,
       imageState.size.width,
       imageState.size.height,
+    );
+
+    logger.d("annotation length ${annotations.length}");
+
+    state = state.copyWith(
+      annotations: annotations,
+      selectedAnnotationUuid: "",
+    );
+  }
+
+  setAnnotationsWithClasses(String content) async {
+    var imageState = ref.read(imageNotifierProvider);
+    final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
+
+    List<Annotation> annotations = parseYoloAnnotationsWithClasses(
+      content,
+      imageState.size.width,
+      imageState.size.height,
+      classes,
     );
 
     logger.d("annotation length ${annotations.length}");

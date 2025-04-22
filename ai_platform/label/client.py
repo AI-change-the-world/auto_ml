@@ -1,8 +1,7 @@
-import os
-
 from openai import OpenAI
 
-vl_client = OpenAI(
-    api_key=os.getenv("API_KEY"),
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-)
+from db.tool_model.tool_model import ToolModel
+
+
+def get_model(tool_model: ToolModel) -> OpenAI:
+    return OpenAI(api_key=tool_model.api_key, base_url=tool_model.base_url)

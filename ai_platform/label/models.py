@@ -12,5 +12,5 @@ class LabelModel(BaseModel):
 
 
 class ImageModel(BaseModel):
-    image_path: str
+    # image_path: str
     labels: List[LabelModel]

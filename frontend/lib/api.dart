@@ -26,4 +26,9 @@ class Api {
   static final String annotationFileList = "/annotation/{id}/file/list";
 
   static final String annotationContent = "/annotation/content";
+
+  /// [tools] label image
+  static final String getToolModels = "/tool-model/list";
+
+  static final String autoLabel = "/tool-model/model/chat";
 }

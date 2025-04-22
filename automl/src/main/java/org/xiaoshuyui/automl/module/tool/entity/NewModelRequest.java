@@ -3,10 +3,9 @@ package org.xiaoshuyui.automl.module.tool.entity;
 import lombok.Data;
 
 @Data
-public class TryModel {
+public class NewModelRequest {
      String baseUrl;
      String apiKey;
      String modelName;
-     // message or base64
-     String content;
+     String name;
 }

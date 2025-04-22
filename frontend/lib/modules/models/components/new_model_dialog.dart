@@ -76,7 +76,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                         children: [
                           Expanded(
                             flex: 1,
-                            child: Text("Model Name*", style: labelStyle),
+                            child: Text("Name*", style: labelStyle),
                           ),
                           Expanded(
                             flex: 1,
@@ -107,7 +107,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                                       color: Colors.blueAccent,
                                     ),
                                   ),
-                                  hintText: "Dataset Name (required)",
+                                  hintText: "Name (required)",
                                 ),
                               ),
                             ),

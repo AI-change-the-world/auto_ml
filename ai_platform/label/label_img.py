@@ -1,39 +1,72 @@
-from typing import List
+from typing import List, Optional
 
+from db.tool_model.tool_model import ToolModel
 from label.models import ImageModel
 from label.tools import encode_image
 
 
-def label_img(img_path: str, classes: List[str]) -> ImageModel:
+def label_img(
+    img_data: str, classes: List[str], tool_model: ToolModel, prompt: Optional[str]
+) -> ImageModel:
     """
     对图像进行标注
-    :param img_path: 图像路径
+    :param img_data: 图像路径 or base64 编码的图像数据
     :param classes: 类别名称列表
     :return: ImageModel 对象
     """
-    from label.client import vl_client
+    from label.client import get_model
     from label.tools import get_prompt, result_to_label
 
-    prompt = get_prompt(classes)
-    base64_img = encode_image(img_path)
+    vl_model = get_model(tool_model)
 
-    completion = vl_client.chat.completions.create(
-        model="qwen-vl-max-latest",
-        messages=[
-            {
-                "role": "system",
-                "content": [{"type": "text", "text": "You are a helpful assistant."}],
-            },
-            {
-                "role": "user",
-                "content": [
-                    prompt,
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{base64_img}"},
-                    },
-                ],
-            },
-        ],
-    )
-    return result_to_label(completion.choices[0].message.content, img_path)
+    if img_data.startswith("data:"):
+        base64_img = img_data
+    else:
+        base64_img = f"data:image/png;base64,{encode_image(img_data)}"
+
+    if prompt is None:
+        prompt = get_prompt(classes)
+        completion = vl_model.chat.completions.create(
+            model=tool_model.model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": "You are a helpful assistant."}
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        prompt,
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": base64_img},
+                        },
+                    ],
+                },
+            ],
+        )
+    else:
+        completion = vl_model.chat.completions.create(
+            model=tool_model.model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": "You are a helpful assistant."}
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        prompt,
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": base64_img},
+                        },
+                    ],
+                },
+            ],
+        )
+    return result_to_label(completion.choices[0].message.content, img_data)

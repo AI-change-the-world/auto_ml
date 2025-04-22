@@ -142,6 +142,12 @@ class __EditableLabelState extends State<_EditableLabel> {
   }
 
   @override
+  void didUpdateWidget(covariant _EditableLabel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    controller.text = widget.label;
+  }
+
+  @override
   void dispose() {
     controller.dispose();
     super.dispose();

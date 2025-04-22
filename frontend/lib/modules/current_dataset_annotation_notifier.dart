@@ -121,6 +121,7 @@ class CurrentDatasetAnnotationNotifier
   }
 
   changeCurrentData((String, String) data) async {
+    logger.d("dataset and annotation $data");
     if (state.datasetStorageType == 0) {
       try {
         final request = FilePreviewRequest(
@@ -137,6 +138,23 @@ class CurrentDatasetAnnotationNotifier
           response.data,
           (v) => FilePreviewResponse.fromJson(v as Map<String, dynamic>),
         );
+
+        if (data.$2 == "") {
+          state = state.copyWith(
+            currentData: r.data?.content,
+            currentFilePath: data.$1,
+          );
+
+          ref
+              .read(imageNotifierProvider.notifier)
+              .loadImage(r.data?.content ?? "", data.$1)
+              .then((_) {
+                ref
+                    .read(annotationNotifierProvider.notifier)
+                    .setAnnotations("");
+              });
+          return;
+        }
 
         final request2 = FilePreviewRequest(
           baseUrl: state.annotationPath,
