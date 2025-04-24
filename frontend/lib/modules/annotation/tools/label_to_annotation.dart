@@ -13,7 +13,7 @@ List<Annotation> parseYoloAnnotations(
 
   for (String line in lines) {
     List<String> parts = line.trim().split(' ');
-    if (parts.length != 5) continue; // 确保格式正确
+    if (parts.length < 5) continue; // 确保格式正确
 
     int id = int.parse(parts[0]);
     double xCenter = min(double.parse(parts[1]), 1) * imageWidth;
@@ -42,7 +42,7 @@ List<Annotation> parseYoloAnnotationsWithClasses(
 
   for (String line in lines) {
     List<String> parts = line.trim().split(' ');
-    if (parts.length != 5) continue; // 确保格式正确
+    if (parts.length < 5) continue; // 确保格式正确
 
     int id = classes.indexOf(parts[0]);
     double xCenter = min(double.parse(parts[1]), 1) * imageWidth;

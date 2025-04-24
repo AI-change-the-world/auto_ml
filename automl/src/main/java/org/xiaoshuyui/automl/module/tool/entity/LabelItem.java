@@ -9,9 +9,10 @@ public class LabelItem {
     private double y_center;
     private double width;
     private double height;
+    private double confidence;
 
     @Override
     public String toString(){
-        return label+" "+x_center+" "+y_center+" "+width+" "+height;
+        return label+" "+x_center+" "+y_center+" "+width+" "+height +" "+confidence;
     }
 }

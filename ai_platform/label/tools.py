@@ -10,24 +10,31 @@ from label.models import ImageModel, LabelModel
 base_prompt = {
     "type": "text",
     "text": """You are a vision expert specialized in object detection for YOLO models.  
-Analyze the image and detect all objects from the following list (COCO classes):  
+Analyze the image and detect all objects from the following list:  
 {{labels}}  
 
 For each object you find, output one line in this strict format:  
-<Class>: (x_min, y_min, width, height)  
+<Class>: (x_min, y_min, width, height) [confidence: X.XX]  
 
-- x_min, y_min, width, height are in absolute pixel values.  
-- Do not return any explanations, titles, or extra text.  
-- Only return valid lines matching the exact format above.  
-- Detect as many instances as you can. Multiple instances of the same class are allowed.
+- x_min, y_min, width, height are absolute pixel values.  
+- Confidence is a float between 0.00 and 1.00 indicating how certain you are about the detection.  
+- Output no more than 20 objects in total.  
+- Only include detections with confidence >= 0.90.  
+- Do NOT split a single object (e.g., a train) into multiple detections (e.g., many "cars").  
+- Do NOT include multiple objects whose bounding boxes overlap more than 90% in area.  
+- When multiple overlapping boxes are possible, keep only the one with the highest confidence.  
+- If in doubt or the object appears ambiguous, do not include it.  
+- Prioritize clear, distinct, and recognizable objects.
 
 Example:
-{{label1}}: (42, 133, 120, 200)  
-{{label2}}: (300, 100, 100, 180)  
-{{label1}}: (500, 400, 120, 150)
+train: (42, 133, 320, 180) [confidence: 0.97]  
+car: (600, 210, 180, 120) [confidence: 0.93]  
+person: (500, 400, 120, 150) [confidence: 0.91]
 
 Your output:""",
 }
+
+min_confidence = 0.95
 
 
 def get_prompt(labels: List[str]) -> str:
@@ -87,17 +94,35 @@ def result_to_label(result: str, img_data: str) -> ImageModel:
         raise ValueError(f"Failed to read image: {img_data}")
     h, w, _ = img.shape
 
+    print(f"Image size: {w}x{h}")
+
     # print(result)
     # 正则匹配目标标注信息
-    pattern = re.compile(r"(\w+):\s*\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)")
+    # pattern = re.compile(r"(\w+):\s*\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)")
+    pattern = re.compile(r"(\w+):\s*\((\d+),\s*(\d+),\s*(\d+),\s*(\d+)\)\s*\[confidence:\s*([0-9]*\.?[0-9]+)\]")
     matches = pattern.findall(result)
 
     labels = []
     for match in matches:
-        label, x_min, y_min, width, height = match
+        label, x_min, y_min, width, height, confidence = match
+        confidence = float(confidence)
+        if confidence < min_confidence:
+            continue
         x_min, y_min, width, height = map(int, [x_min, y_min, width, height])
 
-        # 计算 YOLO 归一化格式 (x_center, y_center, width, height)
+        # 计算最大边界值
+        x_max = min(x_min + width, w)
+        y_max = min(y_min + height, h)
+
+        # 裁剪后的宽高
+        width = max(0, x_max - x_min)
+        height = max(0, y_max - y_min)
+
+        # 若框被完全裁掉（例如全在图像外），可以跳过
+        if width == 0 or height == 0:
+            continue
+
+        # 计算 YOLO 格式归一化 (x_center, y_center, width, height)
         x_center = (x_min + width / 2) / w
         y_center = (y_min + height / 2) / h
         norm_width = width / w
@@ -110,6 +135,7 @@ def result_to_label(result: str, img_data: str) -> ImageModel:
                 y_center=round(y_center, 4),
                 width=round(norm_width, 4),
                 height=round(norm_height, 4),
+                confidence=round(confidence, 4),
             )
         )
 

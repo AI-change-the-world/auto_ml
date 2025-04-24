@@ -4,6 +4,7 @@ from db.tool_model.tool_model import ToolModel
 from label.models import ImageModel
 from label.tools import encode_image
 
+max_tokens = 512
 
 def label_img(
     img_data: str, classes: List[str], tool_model: ToolModel, prompt: Optional[str]
@@ -28,6 +29,7 @@ def label_img(
         prompt = get_prompt(classes)
         completion = vl_model.chat.completions.create(
             model=tool_model.model_name,
+            max_tokens=max_tokens,
             messages=[
                 {
                     "role": "system",
@@ -50,6 +52,7 @@ def label_img(
     else:
         completion = vl_model.chat.completions.create(
             model=tool_model.model_name,
+            max_tokens=max_tokens,
             messages=[
                 {
                     "role": "system",

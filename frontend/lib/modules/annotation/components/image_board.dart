@@ -141,9 +141,9 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                 (v) => v.annotations,
                               ),
                             );
-                            logger.d(
-                              "annotations length: ${annotations.length}",
-                            );
+                            // logger.d(
+                            //   "annotations length: ${annotations.length}",
+                            // );
                             return Stack(
                               children:
                                   annotations
@@ -224,7 +224,7 @@ class _ImagePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ImagePainter oldDelegate) {
     bool showRepaint = oldDelegate.imgName != imgName;
-    logger.d("shouldRepaint? $showRepaint");
+    // logger.d("shouldRepaint? $showRepaint");
     return showRepaint;
   }
 }

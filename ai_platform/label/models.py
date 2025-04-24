@@ -9,6 +9,7 @@ class LabelModel(BaseModel):
     y_center: float
     width: float
     height: float
+    confidence: float = 0.0
 
 
 class ImageModel(BaseModel):
