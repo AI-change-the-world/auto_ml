@@ -32,14 +32,20 @@ async def label_img(req: LabelImgRequest, db: Session = Depends(get_db)):
             message="tool model not found",
             data=None,
         )
-
-    return create_response(
-        status=200,
-        message="OK",
-        data=impl_label_img(
-            img_data=req.image_data,
-            classes=req.classes,
-            tool_model=tool_model,
-            prompt=req.prompt,
-        ),
-    )
+    try:
+        return create_response(
+            status=200,
+            message="OK",
+            data=impl_label_img(
+                img_data=req.image_data,
+                classes=req.classes,
+                tool_model=tool_model,
+                prompt=req.prompt,
+            ),
+        )
+    except Exception as e:
+        print(e)
+        return create_response(
+            status=500,
+            message="Internal Server Error",
+        )

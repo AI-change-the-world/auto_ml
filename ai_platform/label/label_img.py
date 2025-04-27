@@ -2,9 +2,10 @@ from typing import List, Optional
 
 from db.tool_model.tool_model import ToolModel
 from label.models import ImageModel
-from label.tools import encode_image
+from label.tools import base64_to_cv2_image, encode_image
 
-max_tokens = 512
+max_tokens = 128
+
 
 def label_img(
     img_data: str, classes: List[str], tool_model: ToolModel, prompt: Optional[str]
@@ -25,8 +26,13 @@ def label_img(
     else:
         base64_img = f"data:image/png;base64,{encode_image(img_data)}"
 
+    img = base64_to_cv2_image(img_data)
+    if img is None:
+        raise ValueError(f"Failed to read image: {img_data}")
+    h, w, _ = img.shape
+
     if prompt is None:
-        prompt = get_prompt(classes)
+        prompt = get_prompt(classes,w,h)
         completion = vl_model.chat.completions.create(
             model=tool_model.model_name,
             max_tokens=max_tokens,
@@ -72,4 +78,4 @@ def label_img(
                 },
             ],
         )
-    return result_to_label(completion.choices[0].message.content, img_data)
+    return result_to_label(completion.choices[0].message.content, img_data, h=h, w=w)
