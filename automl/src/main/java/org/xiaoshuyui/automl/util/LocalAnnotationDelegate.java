@@ -3,6 +3,7 @@ package org.xiaoshuyui.automl.util;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 

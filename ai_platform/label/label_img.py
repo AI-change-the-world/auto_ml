@@ -32,7 +32,7 @@ def label_img(
     h, w, _ = img.shape
 
     if prompt is None:
-        prompt = get_prompt(classes,w,h)
+        prompt = get_prompt(classes, w, h)
         completion = vl_model.chat.completions.create(
             model=tool_model.model_name,
             max_tokens=max_tokens,

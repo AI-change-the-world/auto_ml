@@ -1,24 +1,28 @@
 # requirements: fastapi, uvicorn, opencv-python, numpy, supervision, ultralytics
 
-import os
 import base64
 import io
+import os
+
 import cv2
 import numpy as np
 import supervision as sv
-from ultralytics import YOLO
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
+from ultralytics import YOLO
 
 app = FastAPI()
 
 video_path = "your_video.mp4"  # 你的原视频路径
-model = YOLO('yolov8n.pt')      # 用小一点的模型加速
+model = YOLO("yolov8n.pt")  # 用小一点的模型加速
 trace_annotator = sv.TraceAnnotator()
 tracker = sv.ByteTrack()
 
+
 # --- Helper function: 比较两次检测结果是否变化大 ---
-def detections_changed(prev_detections: sv.Detections, curr_detections: sv.Detections, iou_threshold=0.5):
+def detections_changed(
+    prev_detections: sv.Detections, curr_detections: sv.Detections, iou_threshold=0.5
+):
     if prev_detections is None:
         return True
     if len(prev_detections) != len(curr_detections):
@@ -29,6 +33,7 @@ def detections_changed(prev_detections: sv.Detections, curr_detections: sv.Detec
         if iou < iou_threshold:
             return True
     return False
+
 
 # --- Helper function: 计算两个bbox的IoU ---
 def compute_iou(boxA, boxB):
@@ -44,6 +49,7 @@ def compute_iou(boxA, boxB):
     iou = interArea / float(boxAArea + boxBArea - interArea + 1e-5)
     return iou
 
+
 @app.get("/stream")
 async def stream_keyframes():
     def event_generator():
@@ -58,16 +64,18 @@ async def stream_keyframes():
 
             if detections_changed(prev_detections, detections):
                 # 关键帧，处理并推送
-                annotated_frame = trace_annotator.annotate(scene=frame.copy(), detections=detections)
-                
-                _, buffer = cv2.imencode('.jpg', annotated_frame)
-                frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                annotated_frame = trace_annotator.annotate(
+                    scene=frame.copy(), detections=detections
+                )
+
+                _, buffer = cv2.imencode(".jpg", annotated_frame)
+                frame_base64 = base64.b64encode(buffer).decode("utf-8")
 
                 yield f"data:{frame_base64}\n\n"
 
                 prev_detections = detections
 
-    return StreamingResponse(event_generator(), media_type='text/event-stream')
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ public class ToolModelService {
     @Value("${ai-platform.url}")
     String baseUrl;
 
-    @Value("${ai-platform.get_label}")
+    @Value("${ai-platform.get-label}")
     String getLabelApi;
 
     private final ToolModelMapper toolModelMapper;

@@ -55,4 +55,11 @@ server:
 
 ai-platform:
   url: ${AI_PLATFORM:http://127.0.0.1:8000}
-  get_label: /label/image
+  get-label: /label/image
+  video-process: /process/video
+
+local-s3:
+  access-key: ${LOCAL_S3_ACCESS_KEY:QBYnE95cE6hkYgXideUE}
+  secret-key: ${LOCAL_S3_SECRET_KEY:4VWw8OyPjkPhlGwHOdvadQwjFCozuQoIGHed4DG7}
+  bucket-name: ${LOCAL_S3_BUCKET_NAME:predict-data-bucket}
+  endpoint: ${LOCAL_S3_ENDPOINT:http://127.0.0.1:9000}

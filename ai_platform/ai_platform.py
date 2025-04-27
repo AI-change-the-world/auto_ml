@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from base.nacos_config import init_db_from_nacos
 from heartbeat.api import router as heartbeat_router
 from label.api import router as label_router
+from process.api import router as process_router
 from utils.api import router as utils_router
 from yolo.api import router as yolo_router
 
@@ -31,6 +32,7 @@ app.include_router(heartbeat_router)
 app.include_router(utils_router)
 app.include_router(yolo_router)
 app.include_router(label_router)
+app.include_router(process_router)
 
 
 if __name__ == "__main__":
