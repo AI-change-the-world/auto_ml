@@ -1,7 +1,7 @@
 class Api {
   Api._();
 
-  /// dataset
+  /// [dataset]
   static final String getAllDatasets = '/dataset/list';
 
   static final String createDataset = "/dataset/new";
@@ -20,7 +20,7 @@ class Api {
 
   static final String datasetContent = "/dataset/content";
 
-  /// annotation
+  /// [annotation]
   static final String annotationGetById = "/annotation/{id}";
 
   static final String annotationFileList = "/annotation/{id}/file/list";
@@ -31,4 +31,7 @@ class Api {
   static final String getToolModels = "/tool-model/list";
 
   static final String autoLabel = "/tool-model/model/chat";
+
+  /// [predict] predict
+  static final String predictList = "/predict/file/list";
 }

@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.xiaoshuyui.automl.module.predict.entity.VideoProcessRequest;
+import org.xiaoshuyui.automl.module.predict.entity.PythonVideoProcessRequest;
 import reactor.core.publisher.Flux;
 
 import java.io.BufferedReader;
@@ -25,43 +25,53 @@ public class HttpService {
 
     private static final Gson gson = new Gson();
 
-    public Flux<String> getVideoProcess(String url,String sessionId) {
-        VideoProcessRequest videoProcessRequest = new VideoProcessRequest();
-        videoProcessRequest.setFile(url);
-        videoProcessRequest.setSession_id(sessionId);
-        String json = gson.toJson(videoProcessRequest);
+    public Flux<String> getVideoProcess(String url, String sessionId) {
+        PythonVideoProcessRequest pythonVideoProcessRequest = new PythonVideoProcessRequest();
+        pythonVideoProcessRequest.setFile(url);
+        pythonVideoProcessRequest.setSession_id(sessionId);
+        String json = gson.toJson(pythonVideoProcessRequest);
 
         RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
         Request request = new Request.Builder()
-                .url(aiPlatformUrl+videoProcess)  // Python SSE接口的 URL
+                .url(aiPlatformUrl + videoProcess)
                 .post(body)
                 .build();
 
         try {
             Response response = client.newCall(request).execute();
             if (response.isSuccessful() && response.body() != null) {
-                return Flux.create(sink -> {
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()));
-
-                    String line;
-                    while (true) {
-                        try {
-                            if ((line = reader.readLine()) == null) break;
-                        } catch (IOException e) {
-                            sink.error(new RuntimeException(e));
-                            return;
+                // 这里用 Flux.using 来确保资源管理正确
+                return Flux.using(
+                        () -> response, // Resource supplier
+                        resp -> Flux.create(sink -> {
+                            try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    if (!line.trim().isEmpty()) {
+                                        sink.next(line);
+                                    }
+                                }
+                                sink.complete();
+                            } catch (IOException e) {
+                                sink.error(new RuntimeException(e));
+                            }
+                        }),
+                        resp -> {
+                            // Cleanup logic, always close response
+                            if (resp != null) {
+                                resp.close();
+                            }
                         }
-                        if (!line.trim().isEmpty()) {
-                            sink.next(line);  // 将每行数据推送到 Flux
-                        }
-                    }
-                    sink.complete();
-                });
+                );
+            } else {
+                log.error("Response error: {}", response);
+                if (response != null) {
+                    response.close();
+                }
             }
-        }catch (Exception e){
-            log.error("error",e);
+        } catch (Exception e) {
+            log.error("Request error", e);
         }
-
-        return null;
+        return Flux.error(new IllegalStateException("Cannot connect to AI platform."));
     }
 }

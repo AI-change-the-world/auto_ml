@@ -1,9 +1,11 @@
 package org.xiaoshuyui.automl.util;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 import org.apache.opendal.AsyncOperator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.xiaoshuyui.automl.config.S3ConfigProperties;
 
 import java.io.InputStream;
 import java.time.Duration;
@@ -13,33 +15,24 @@ import java.util.Map;
 @Component
 public class S3FileDelegate implements FileDelegate{
 
-    @Value("${local-s3.access-key}")
-    private String accessKey;
-
-    @Value("${local-s3.secret-key}")
-    private String secretKey;
-
-    @Value("${local-s3.bucket-name}")
-    private String bucketName;
-
-    @Value("${local-s3.endpoint}")
-    private String endpoint;
+    @Resource
+    S3ConfigProperties properties;
 
     static AsyncOperator op;
 
     @PostConstruct
     public void init() {
-        System.out.println("accessKey:" + accessKey);
-        System.out.println("secretKey:" + secretKey);
-        System.out.println("bucketName:" + bucketName);
-        System.out.println("endpoint:" + endpoint);
+        System.out.println("accessKey:" + properties.getAccessKey());
+        System.out.println("secretKey:" + properties.getSecretKey());
+        System.out.println("bucketName:" + properties.getBucketName());
+        System.out.println("endpoint:" + properties.getEndpoint());
 
         final Map<String, String> conf = new HashMap<>();
         conf.put("root", "/");
-        conf.put("access_key_id", accessKey);
-        conf.put("secret_access_key", secretKey);
-        conf.put("bucket", bucketName);
-        conf.put("endpoint", endpoint);
+        conf.put("access_key_id", properties.getAccessKey());
+        conf.put("secret_access_key", properties.getSecretKey());
+        conf.put("bucket", properties.getBucketName());
+        conf.put("endpoint", properties.getEndpoint());
         conf.put("region", "us-east-1");
         conf.put("enable_virtual_host_style", "false");
         conf.put("log_level", "debug");

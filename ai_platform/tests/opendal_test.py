@@ -1,26 +1,25 @@
-import os
-
+import sys
+sys.path.append(".")
 import opendal
 
-access_key = os.environ.get("AWS_ACCESS_KEY_ID") or "QBYnE95cE6hkYgXideUE"
-secret_key = (
-    os.environ.get("AWS_SECRET_ACCESS_KEY")
-    or "4VWw8OyPjkPhlGwHOdvadQwjFCozuQoIGHed4DG7"
-)
-bucket_name = os.environ.get("AWS_BUCKET_NAME") or "predict-data-bucket"
-endpoint = os.environ.get("AWS_ENDPOINT") or "http://127.0.0.1:9000"
+from base.nacos_config import load_nacos_config
 
 
-op = opendal.Operator(
-    "s3",
-    endpoint=endpoint,
-    access_key_id=access_key,
-    secret_access_key=secret_key,
-    region="us-east-1",
-    bucket=bucket_name,
-    root="/",
-    enable_virtual_host_style="false",  # <=== 要加上！！！
-)
+def get_op(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> opendal.Operator:
+    nacos_config = load_nacos_config(data_id, group)
+    cfg = nacos_config.get("local-s3-config")
+    return opendal.Operator(
+        "s3",
+        endpoint=cfg.get("endpoint"),
+        access_key_id=cfg.get("access_key"),
+        secret_access_key=cfg.get("secret_key"),
+        region="us-east-1",
+        bucket=cfg.get("bucket_name"),
+        root="/",
+        enable_virtual_host_style="false",  # <=== 要加上！！！
+    )
+
+op = get_op()
 
 
 print(len(op.read("image.png")))

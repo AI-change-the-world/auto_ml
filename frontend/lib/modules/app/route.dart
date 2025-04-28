@@ -2,10 +2,55 @@ import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/annotation/label_screen.dart';
 import 'package:auto_ml/modules/models/model_screen.dart';
+import 'package:auto_ml/modules/predict/predict_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 final GoRouter router = GoRouter(
+  errorPageBuilder: (context, state) {
+    return MaterialPage<void>(
+      key: state.pageKey,
+      child: Scaffold(
+        body: Center(
+          child: Column(
+            spacing: 20,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Woops! There is nothing here.',
+                style: const TextStyle(fontSize: 24),
+              ),
+              ElevatedButton(
+                style: ButtonStyle(
+                  fixedSize: WidgetStateProperty.all(Size(200, 20)),
+                  backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+                  padding: WidgetStatePropertyAll(
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  textStyle: WidgetStatePropertyAll(
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  shape: WidgetStatePropertyAll(
+                    RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4.0),
+                    ),
+                  ),
+                ),
+                onPressed: () {
+                  context.go("/");
+                },
+                child: Text("Back to main"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  },
   initialLocation: '/',
   routes: [
     ShellRoute(
@@ -44,10 +89,11 @@ final GoRouter router = GoRouter(
           //     ),
         ),
         GoRoute(
-          path: '/test',
-          name: 'test',
+          path: '/predict',
+          name: 'predict',
           // builder: (context, state) => Container(),
-          pageBuilder: (context, state) => noTransitionPage(child: Container()),
+          pageBuilder:
+              (context, state) => noTransitionPage(child: PredictScreen()),
         ),
       ],
     ),

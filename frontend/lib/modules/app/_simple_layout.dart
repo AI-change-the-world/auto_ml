@@ -164,8 +164,8 @@ class SimpleLayoutShell extends StatelessWidget {
         icon: const Icon(Icons.text_fields, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.text_fields),
         index: 3,
-        title: "Test",
-        route: "/test",
+        title: "Predict",
+        route: "/predict",
       ),
     ]..sort((a, b) => a.index.compareTo(b.index));
 

@@ -122,5 +122,5 @@ class VideoProcess(BaseProcess):
             frame_height=self.video_frame_height,
             duration=self.duration,
             keyframes=l,
-            video_path=self.video_path,
+            video_path=self.video_path + "(tempfile)",
         )
