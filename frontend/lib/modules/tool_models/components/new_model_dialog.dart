@@ -1,7 +1,7 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
-import 'package:auto_ml/modules/models/components/try_widget.dart';
-import 'package:auto_ml/modules/models/notifier/model_dialog_notifier.dart';
+import 'package:auto_ml/modules/tool_models/components/try_widget.dart';
+import 'package:auto_ml/modules/tool_models/notifier/model_dialog_notifier.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
 import 'package:flutter/material.dart';

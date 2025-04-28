@@ -22,11 +22,14 @@ dependencies:
   flutter_riverpod: ^2.6.1
   go_router: ^14.8.1
   gpt_markdown: ^1.0.16
-  he: ^0.0.2+3
+  he: ^0.0.4
   json_annotation: ^4.9.0
   langchain: ^0.7.7+2
   langchain_openai: ^0.7.3
   logger: ^2.5.0
+  media_kit: ^1.2.0
+  media_kit_libs_video: ^1.0.6
+  media_kit_video: ^1.3.0
   path_provider: ^2.1.5
   riverpod: ^2.6.1
   slang: ^4.7.1
@@ -42,11 +45,6 @@ dev_dependencies:
   json_serializable: ^6.8.0
   slang_build_runner: any
 
-dependency_overrides:
-  he:
-    git:
-      url: https://github.com/guchengxi1994/he
-      ref: 3cdd3a679705bd98e644231da41716d89a873d6c
 
 flutter:
   uses-material-design: true

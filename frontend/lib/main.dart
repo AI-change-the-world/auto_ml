@@ -4,12 +4,13 @@ import 'package:auto_ml/modules/app/route.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:toastification/toastification.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // add this
   LocaleSettings.useDeviceLocale(); // and this
-
+  MediaKit.ensureInitialized();
   DioClient().init(baseUrl: 'http://localhost:8080/automl');
 
   runApp(

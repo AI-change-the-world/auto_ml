@@ -1,5 +1,5 @@
 import 'package:auto_ml/modules/dataset/constants.dart';
-import 'package:auto_ml/modules/models/notifier/model_dialog_notifier.dart';
+import 'package:auto_ml/modules/tool_models/notifier/model_dialog_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';

@@ -34,4 +34,6 @@ class Api {
 
   /// [predict] predict
   static final String predictList = "/predict/file/list";
+
+  static final String getPreview = "/predict/file/preview/{id}";
 }

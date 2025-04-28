@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/api.dart';
-import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
+import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/utils/dio_instance.dart';

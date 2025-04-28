@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/api.dart';
-import 'package:auto_ml/modules/dataset/entity/get_all_dataset_response.dart'
+import 'package:auto_ml/modules/dataset/models/get_all_dataset_response.dart'
     as r;
-import 'package:auto_ml/modules/dataset/entity/new_dataset_request.dart';
-import 'package:auto_ml/modules/dataset/entity/new_dataset_response.dart';
+import 'package:auto_ml/modules/dataset/models/new_dataset_request.dart';
+import 'package:auto_ml/modules/dataset/models/new_dataset_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';

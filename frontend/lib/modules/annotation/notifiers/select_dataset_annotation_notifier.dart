@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
-import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
-import 'package:auto_ml/modules/dataset/entity/get_all_dataset_response.dart';
+import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
+import 'package:auto_ml/modules/dataset/models/get_all_dataset_response.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';

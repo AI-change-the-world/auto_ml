@@ -4,6 +4,7 @@ import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/delete_zone_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -122,7 +123,7 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                 },
                 onDoubleTap: () async {
                   showGeneralDialog(
-                    barrierColor: Colors.black.withValues(alpha: 0.1),
+                    barrierColor: Styles.barriarColor,
                     barrierDismissible: true,
                     barrierLabel: 'ModifyDatasetDialog',
                     // ignore: use_build_context_synchronously

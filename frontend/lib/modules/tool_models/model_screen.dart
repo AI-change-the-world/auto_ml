@@ -1,8 +1,9 @@
 import 'package:auto_ml/modules/dataset/constants.dart';
-import 'package:auto_ml/modules/models/components/new_model_dialog.dart';
-import 'package:auto_ml/modules/models/notifier/model_notifier.dart';
-import 'package:auto_ml/modules/models/notifier/model_page_notifier.dart';
-import 'package:auto_ml/modules/models/notifier/model_state.dart';
+import 'package:auto_ml/modules/tool_models/components/new_model_dialog.dart';
+import 'package:auto_ml/modules/tool_models/notifier/model_notifier.dart';
+import 'package:auto_ml/modules/tool_models/notifier/model_page_notifier.dart';
+import 'package:auto_ml/modules/tool_models/notifier/model_state.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
@@ -128,7 +129,7 @@ class _Inner extends ConsumerWidget {
                   child: GestureDetector(
                     onTap: () async {
                       showGeneralDialog(
-                        barrierColor: Colors.black.withValues(alpha: 0.1),
+                        barrierColor: Styles.barriarColor,
                         barrierDismissible: true,
                         barrierLabel: "NewModelDialog",
                         context: context,

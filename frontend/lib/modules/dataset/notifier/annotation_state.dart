@@ -1,4 +1,4 @@
-import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
+import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 
 class AnnotationState {

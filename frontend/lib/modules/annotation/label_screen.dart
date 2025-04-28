@@ -5,6 +5,7 @@ import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/components/file_list.dart';
 import 'package:auto_ml/modules/annotation/components/icons.dart';
 import 'package:auto_ml/modules/annotation/components/image_board.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,7 +32,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
             TextButton(
               onPressed: () {
                 showGeneralDialog(
-                  barrierColor: Colors.black.withValues(alpha: 0.1),
+                  barrierColor: Styles.barriarColor,
                   barrierDismissible: true,
                   barrierLabel: "not selected",
                   context: context,

@@ -8,6 +8,7 @@ import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_page_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/delete_zone_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
@@ -147,7 +148,7 @@ class _Inner extends ConsumerWidget {
                     child: GestureDetector(
                       onTap: () async {
                         showGeneralDialog(
-                          barrierColor: Colors.black.withValues(alpha: 0.1),
+                          barrierColor: Styles.barriarColor,
                           barrierDismissible: true,
                           barrierLabel: "NewDatasetDialog",
                           context: context,
@@ -230,7 +231,7 @@ class __DeleteZoneState extends ConsumerState<_DeleteZone> {
       },
       onAcceptWithDetails: (details) {
         showGeneralDialog(
-          barrierColor: Colors.black.withValues(alpha: 0.1),
+          barrierColor: Styles.barriarColor,
           barrierDismissible: true,
           barrierLabel: '_ConfirmDialog',
           context: context,

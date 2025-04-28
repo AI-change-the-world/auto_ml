@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:auto_ml/modules/models/notifier/model_state.dart';
+import 'package:auto_ml/modules/tool_models/notifier/model_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ModelNotifier extends AutoDisposeAsyncNotifier<ModelState> {

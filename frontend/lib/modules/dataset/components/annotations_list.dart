@@ -1,6 +1,6 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
-import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
+import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:flutter/material.dart';

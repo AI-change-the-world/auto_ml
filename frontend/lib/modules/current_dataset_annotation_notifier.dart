@@ -5,8 +5,8 @@ import 'package:auto_ml/modules/annotation/models/response/annotation_file_respo
 import 'package:auto_ml/modules/annotation/models/response/dataset_file_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
-import 'package:auto_ml/modules/dataset/entity/file_preview_request.dart';
-import 'package:auto_ml/modules/dataset/entity/file_preview_response.dart';
+import 'package:auto_ml/modules/dataset/models/file_preview_request.dart';
+import 'package:auto_ml/modules/dataset/models/file_preview_response.dart';
 
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

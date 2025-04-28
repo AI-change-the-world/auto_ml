@@ -1,19 +1,27 @@
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/predict/components/data_preview_dialog.dart';
+import 'package:auto_ml/modules/predict/notifier/predict_data_notifier.dart';
+import 'package:auto_ml/utils/conversion_util.dart';
+import 'package:auto_ml/utils/styles.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
+import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PredictScreen extends StatefulWidget {
+class PredictScreen extends ConsumerStatefulWidget {
   const PredictScreen({super.key});
 
   @override
-  State<PredictScreen> createState() => _PredictScreenState();
+  ConsumerState<PredictScreen> createState() => _PredictScreenState();
 }
 
-class _PredictScreenState extends State<PredictScreen> {
+class _PredictScreenState extends ConsumerState<PredictScreen> {
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.all(10),
       child: Column(
+        spacing: 10,
         children: [
           SizedBox(
             height: 30,
@@ -22,7 +30,7 @@ class _PredictScreenState extends State<PredictScreen> {
                 Spacer(),
                 ElevatedButton(
                   style: ButtonStyle(
-                    fixedSize: WidgetStateProperty.all(Size(200, 20)),
+                    fixedSize: WidgetStateProperty.all(Size(80, 20)),
                     backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
                     padding: WidgetStatePropertyAll(
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -45,8 +53,113 @@ class _PredictScreenState extends State<PredictScreen> {
               ],
             ),
           ),
+          Expanded(
+            child: Builder(
+              builder: (c) {
+                final state = ref.watch(predictDataProvider);
+                return state.when(
+                  data: (data) {
+                    return DataTable2(
+                      empty: Center(
+                        child: Text(t.annotation_screen.list_widget.no_data),
+                      ),
+                      columnSpacing: 10,
+                      headingRowDecoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                      ),
+                      columns: columns,
+                      rows:
+                          data.data.map((e) {
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(e.id.toString())),
+                                DataCell(Text(e.fileName)),
+                                DataCell(Text(datatypeToString(e.dataType))),
+                                DataCell(
+                                  Text(
+                                    e.createdAt.toString().split(".").first,
+                                    style: defaultTextStyle,
+                                  ),
+                                ),
+                                DataCell(
+                                  Row(
+                                    spacing: 10,
+                                    children: [
+                                      InkWell(
+                                        onTap: () {
+                                          showGeneralDialog(
+                                            context: context,
+                                            barrierDismissible: true,
+                                            barrierLabel: "DataPreviewDialog",
+                                            barrierColor: Styles.barriarColor,
+                                            pageBuilder: (c, _, __) {
+                                              return Center(
+                                                child: DataPreviewDialog(
+                                                  fileId: e.id,
+                                                  fileType: e.dataType,
+                                                ),
+                                              );
+                                            },
+                                          );
+                                        },
+                                        child: Icon(Icons.visibility),
+                                      ),
+                                      InkWell(
+                                        onTap: () {
+                                          ToastUtils.info(
+                                            context,
+                                            title:
+                                                "This feature is under development",
+                                          );
+                                        },
+                                        child: Icon(Icons.model_training),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                    );
+                  },
+                  error: (e, s) {
+                    return Center(child: Text(e.toString()));
+                  },
+                  loading: () {
+                    return Center(child: CircularProgressIndicator());
+                  },
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
+
+  TextStyle defaultTextStyle = TextStyle(fontSize: 12);
+  TextStyle defaultTextStyle2 = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+  );
+
+  List<DataColumn2> get columns => [
+    DataColumn2(label: Text('Id', style: defaultTextStyle2), fixedWidth: 40),
+    DataColumn2(
+      label: Text('File Name', style: defaultTextStyle2),
+      size: ColumnSize.L,
+    ),
+    DataColumn2(
+      label: Text('File Type', style: defaultTextStyle2),
+      size: ColumnSize.S,
+    ),
+    DataColumn2(
+      label: Text('Uploaded', style: defaultTextStyle2),
+      size: ColumnSize.M,
+    ),
+    DataColumn2(
+      label: Text('Operations', style: defaultTextStyle2),
+      fixedWidth: 120,
+    ),
+  ];
 }
