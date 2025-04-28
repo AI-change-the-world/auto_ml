@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class Styles {
   Styles._();
 
+  static double datatableIconSize = 20;
   static double menuBarIconSize = 15;
 
   static double structureWidth = 200;

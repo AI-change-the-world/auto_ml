@@ -1,6 +1,12 @@
 class Api {
   Api._();
 
+  static String baseUrl = 'http://localhost:8080';
+
+  static void setBaseUrl(String url) {
+    baseUrl = url;
+  }
+
   /// [dataset]
   static final String getAllDatasets = '/dataset/list';
 
@@ -36,4 +42,6 @@ class Api {
   static final String predictList = "/predict/file/list";
 
   static final String getPreview = "/predict/file/preview/{id}";
+
+  static final String processVideoData = "/predict/videoProcess";
 }

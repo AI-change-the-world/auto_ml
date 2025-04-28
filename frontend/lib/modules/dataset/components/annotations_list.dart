@@ -3,6 +3,7 @@ import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data_table_2/data_table_2.dart';
@@ -135,28 +136,37 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   onTap: () {},
                   child: Tooltip(
                     message: "Edit",
-                    child: Icon(Icons.edit, size: 20),
+                    child: Icon(Icons.edit, size: Styles.datatableIconSize),
                   ),
                 ),
                 InkWell(
                   onTap: () {},
                   child: Tooltip(
                     message: "Annotate",
-                    child: Icon(Icons.square_outlined, size: 20),
+                    child: Icon(
+                      Icons.square_outlined,
+                      size: Styles.datatableIconSize,
+                    ),
                   ),
                 ),
                 InkWell(
                   onTap: () {},
                   child: Tooltip(
                     message: "Train",
-                    child: Icon(Icons.work_outline_outlined, size: 20),
+                    child: Icon(
+                      Icons.work_outline_outlined,
+                      size: Styles.datatableIconSize,
+                    ),
                   ),
                 ),
                 InkWell(
                   onTap: () {},
                   child: Tooltip(
                     message: "classes",
-                    child: Icon(Icons.class_outlined, size: 20),
+                    child: Icon(
+                      Icons.class_outlined,
+                      size: Styles.datatableIconSize,
+                    ),
                   ),
                 ),
               ],

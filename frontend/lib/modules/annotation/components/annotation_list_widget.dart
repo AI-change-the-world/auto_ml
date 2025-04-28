@@ -1,6 +1,7 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -101,7 +102,7 @@ class AnnotationListWidget extends ConsumerWidget {
                                   state.annotations[index].visible
                                       ? Icons.visibility_off
                                       : Icons.visibility,
-                                  size: 20,
+                                  size: Styles.datatableIconSize,
                                 ),
                               ),
                             ],

@@ -1,5 +1,6 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/predict/components/data_preview_dialog.dart';
+import 'package:auto_ml/modules/predict/components/image_preview_dialog.dart';
 import 'package:auto_ml/modules/predict/notifier/predict_data_notifier.dart';
 import 'package:auto_ml/utils/conversion_util.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -102,7 +103,10 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                                             },
                                           );
                                         },
-                                        child: Icon(Icons.visibility),
+                                        child: Icon(
+                                          Icons.visibility,
+                                          size: Styles.datatableIconSize,
+                                        ),
                                       ),
                                       InkWell(
                                         onTap: () {
@@ -111,8 +115,24 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                                             title:
                                                 "This feature is under development",
                                           );
+                                          showGeneralDialog(
+                                            context: context,
+                                            barrierColor: Styles.barriarColor,
+                                            barrierDismissible: true,
+                                            barrierLabel: "ImagePreviewDialog",
+                                            pageBuilder: (c, _, __) {
+                                              return Center(
+                                                child: ImagePreviewDialog(
+                                                  fileId: e.id,
+                                                ),
+                                              );
+                                            },
+                                          );
                                         },
-                                        child: Icon(Icons.model_training),
+                                        child: Icon(
+                                          Icons.model_training,
+                                          size: Styles.datatableIconSize,
+                                        ),
                                       ),
                                     ],
                                   ),

@@ -1,3 +1,4 @@
+import 'package:auto_ml/api.dart';
 import 'package:auto_ml/i18n/i18n_notifier.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/app/route.dart';
@@ -12,6 +13,7 @@ void main() async {
   LocaleSettings.useDeviceLocale(); // and this
   MediaKit.ensureInitialized();
   DioClient().init(baseUrl: 'http://localhost:8080/automl');
+  Api.setBaseUrl('http://localhost:8080/automl');
 
   runApp(
     ToastificationWrapper(

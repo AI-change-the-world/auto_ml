@@ -19,6 +19,7 @@ Future sse(
   HttpRequest request = HttpRequest();
   String alreadyReceived = '';
   request
+    ..timeout = 300 * 1000
     ..open('POST', url)
     ..setRequestHeader('Content-Type', 'application/json')
     ..onProgress.listen((event) {
