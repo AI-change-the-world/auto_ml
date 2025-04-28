@@ -39,6 +39,16 @@ class FileDelegate:
     def __init__(self) -> None:
         pass
 
+    def put_file_to_s3(self, prefix: str, file_path: str, file_name: str):
+        op = get_op()
+        with open(file_path, "rb") as f:
+            data = f.read()
+        op.write(prefix + "/" + file_name, data)
+
+    def put_bytes_to_s3(self, prefix: str, file_content: bytes, file_name: str):
+        op = get_op()
+        op.write(prefix + "/" + file_name, file_content)
+
     def get_file(self, req: GetFileRequest) -> Optional[bytes]:
         if req.storage_type == 0:
             return self._get_from_local(req)

@@ -1,14 +1,17 @@
+import io
 import json
 import os
 from glob import glob
-from typing import List, Union
+from typing import List, Optional, Union
 
 import cv2
 import ffmpeg
 import supervision as sv
+from PIL import Image
 from supervision.annotators.core import BaseAnnotator
 from ultralytics import YOLO
 
+from base.file_delegate import FileDelegate
 from process import BaseProcess, DirectoryModel
 from process.video_process import create_folder
 from process.video_process.video_process_result import KeyFrameInfo, VideoKeyFrames
@@ -74,7 +77,10 @@ class VideoProcess(BaseProcess):
         cap.release()
 
     def detect_and_annotate(
-        self, annotator: BaseAnnotator, model: Union[YOLO]
+        self,
+        annotator: BaseAnnotator,
+        model: Union[YOLO],
+        delegate: Optional[FileDelegate] = None,
     ) -> VideoKeyFrames:
         frame_paths = sorted(glob(os.path.join(self.dir.files_dir, "*.png")))
         l: List[KeyFrameInfo] = []
@@ -108,15 +114,39 @@ class VideoProcess(BaseProcess):
 
             # 保存
             frame_name = os.path.basename(frame_path)
-            save_path = os.path.join(self.dir.results_dir, frame_name)
-            cv2.imwrite(save_path, annotated_frame)
-            l.append(
-                KeyFrameInfo(
-                    detections=dls,
-                    filename=frame_name,
-                    timestamp=self.timestamps[frame_name],
+            if delegate is not None:
+                # 转成 Image
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image = Image.fromarray(frame)
+
+                # 写入到内存 buffer
+                buffer = io.BytesIO()
+                image.save(buffer, format="PNG")  # 或 "JPEG" 之类
+                buffer.seek(0)  # 重要，回到文件开头
+
+                delegate.put_bytes_to_s3(
+                    prefix=self.session_id,
+                    file_content=buffer.read(),
+                    file_name=frame_name,
                 )
-            )
+                l.append(
+                    KeyFrameInfo(
+                        detections=dls,
+                        filename=self.session_id + "/" + frame_name,
+                        timestamp=self.timestamps[frame_name],
+                    )
+                )
+            else:
+                # this logic is deprecated, will be removed
+                save_path = os.path.join(self.dir.results_dir, frame_name)
+                cv2.imwrite(save_path, annotated_frame)
+                l.append(
+                    KeyFrameInfo(
+                        detections=dls,
+                        filename=frame_name,
+                        timestamp=self.timestamps[frame_name],
+                    )
+                )
         return VideoKeyFrames(
             frame_width=self.video_frame_width,
             frame_height=self.video_frame_height,

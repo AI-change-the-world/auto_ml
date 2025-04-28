@@ -39,7 +39,7 @@ async def predict(req: Request):
                 url="",
             )
             b: bytes = delegate.get_file(req)
-            
+
             # 创建临时文件
             temp_file = tempfile.NamedTemporaryFile(delete=False, dir="./runs/")
             temp_file.write(b)
@@ -53,7 +53,9 @@ async def predict(req: Request):
             vp.extract_keyframes()
             yield "关键帧提取完成"
 
-            rs: BaseModel = vp.detect_and_annotate(annotator=box_annotator, model=model)
+            rs: BaseModel = vp.detect_and_annotate(
+                annotator=box_annotator, model=model, delegate=delegate
+            )
             yield "检测完成"
 
             yield rs.model_dump_json()

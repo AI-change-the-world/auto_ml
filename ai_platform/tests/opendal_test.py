@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append(".")
 import opendal
 
@@ -18,6 +19,7 @@ def get_op(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> opendal.Operator:
         root="/",
         enable_virtual_host_style="false",  # <=== 要加上！！！
     )
+
 
 op = get_op()
 
