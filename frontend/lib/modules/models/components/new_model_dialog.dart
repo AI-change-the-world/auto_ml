@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/models/components/try_widget.dart';
 import 'package:auto_ml/modules/models/notifier/model_dialog_notifier.dart';
@@ -76,11 +77,17 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                         children: [
                           Expanded(
                             flex: 1,
-                            child: Text("Name*", style: labelStyle),
+                            child: Text(
+                              t.dialogs.new_model.name,
+                              style: labelStyle,
+                            ),
                           ),
                           Expanded(
                             flex: 1,
-                            child: Text("Model Type", style: labelStyle),
+                            child: Text(
+                              t.dialogs.new_model.model_type,
+                              style: labelStyle,
+                            ),
                           ),
                         ],
                       ),
@@ -263,7 +270,10 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                       SizedBox(
                         child: Row(
                           children: [
-                            Text("Model Name", style: labelStyle),
+                            Text(
+                              t.dialogs.new_model.model_name,
+                              style: labelStyle,
+                            ),
                             Spacer(),
                           ],
                         ),
@@ -292,7 +302,10 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                       SizedBox(
                         child: Row(
                           children: [
-                            Text("Description", style: labelStyle),
+                            Text(
+                              t.dialogs.new_model.description,
+                              style: labelStyle,
+                            ),
                             Spacer(),
                           ],
                         ),
@@ -312,7 +325,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                           focusedBorder: OutlineInputBorder(
                             borderSide: BorderSide(color: Colors.blueAccent),
                           ),
-                          hintText: "Dataset Description",
+                          hintText: "Model Description",
                         ),
                       ),
                     ],

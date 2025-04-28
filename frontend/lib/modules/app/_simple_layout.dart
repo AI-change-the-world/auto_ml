@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -136,21 +137,21 @@ class SimpleLayoutShell extends StatelessWidget {
         icon: const Icon(Icons.dataset, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.dataset),
         index: 0,
-        title: "Datasets",
+        title: t.sidebar.dataset,
         route: "/",
       ),
       SidebarItem(
         icon: const Icon(Icons.square_outlined, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.square_outlined),
         index: 1,
-        title: "Annotations",
+        title: t.sidebar.annotation,
         route: "/annotation",
       ),
       SidebarItem(
         icon: const Icon(Icons.list, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.list),
         index: 2,
-        title: "Tool Models",
+        title: t.sidebar.tool_model,
         route: "/tool-models",
       ),
       // SidebarItem(
@@ -164,7 +165,7 @@ class SimpleLayoutShell extends StatelessWidget {
         icon: const Icon(Icons.text_fields, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.text_fields),
         index: 3,
-        title: "Predict",
+        title: t.sidebar.predict,
         route: "/predict",
       ),
     ]..sort((a, b) => a.index.compareTo(b.index));

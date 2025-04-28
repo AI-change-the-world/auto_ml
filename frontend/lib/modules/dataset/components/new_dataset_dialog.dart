@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/selection_widget.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
@@ -79,17 +80,23 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
             spacing: 10,
             children: [
               /// basic info
-              Text("Basic Info", style: titleStyle),
+              Text(t.dialogs.new_dataset.basic, style: titleStyle),
               Row(
                 spacing: 10,
                 children: [
                   Expanded(
                     flex: 1,
-                    child: Text("Dataset Name*", style: labelStyle),
+                    child: Text(
+                      t.dialogs.new_dataset.dataset_name,
+                      style: labelStyle,
+                    ),
                   ),
                   Expanded(
                     flex: 1,
-                    child: Text("Dataset Type", style: labelStyle),
+                    child: Text(
+                      t.dialogs.new_dataset.dataset_type,
+                      style: labelStyle,
+                    ),
                   ),
                 ],
               ),
@@ -211,7 +218,10 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
               SizedBox(
                 child: Row(
                   children: [
-                    Text("Dataset Location*", style: labelStyle),
+                    Text(
+                      t.dialogs.new_dataset.dataset_location,
+                      style: labelStyle,
+                    ),
                     Spacer(),
                   ],
                 ),
@@ -317,7 +327,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
               SizedBox(
                 child: Row(
                   children: [
-                    Text("Dataset Path*", style: labelStyle),
+                    Text(t.dialogs.new_dataset.path, style: labelStyle),
                     Spacer(),
                   ],
                 ),
@@ -424,11 +434,14 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
               //   ),
               // ),
               // additional information
-              Text("Additional Information", style: titleStyle),
+              Text(t.dialogs.new_dataset.additional, style: titleStyle),
               Row(
                 spacing: 10,
                 children: [
-                  Expanded(flex: 1, child: Text("Ranking", style: labelStyle)),
+                  Expanded(
+                    flex: 1,
+                    child: Text(t.dialogs.new_dataset.rank, style: labelStyle),
+                  ),
                   Expanded(
                     flex: 1,
                     child: RatingStars(
@@ -470,7 +483,10 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
 
               SizedBox(
                 child: Row(
-                  children: [Text("Description", style: labelStyle), Spacer()],
+                  children: [
+                    Text(t.dialogs.new_dataset.description, style: labelStyle),
+                    Spacer(),
+                  ],
                 ),
               ),
               TextField(
@@ -484,7 +500,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.blueAccent),
                   ),
-                  hintText: "Dataset Description",
+                  hintText: t.dialogs.new_dataset.description_hint,
                 ),
               ),
 

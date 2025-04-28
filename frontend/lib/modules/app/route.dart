@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/annotation/label_screen.dart';
@@ -17,10 +18,7 @@ final GoRouter router = GoRouter(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'Woops! There is nothing here.',
-                style: const TextStyle(fontSize: 24),
-              ),
+              Text(t.route.nothing, style: const TextStyle(fontSize: 24)),
               ElevatedButton(
                 style: ButtonStyle(
                   fixedSize: WidgetStateProperty.all(Size(200, 20)),
@@ -43,7 +41,7 @@ final GoRouter router = GoRouter(
                 onPressed: () {
                   context.go("/");
                 },
-                child: Text("Back to main"),
+                child: Text(t.route.back_to_main),
               ),
             ],
           ),

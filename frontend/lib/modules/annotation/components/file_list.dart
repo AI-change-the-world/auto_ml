@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,11 +25,14 @@ class FileList extends ConsumerWidget {
       child: Column(
         spacing: 10,
         children: [
-          Text("File List", style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            t.annotation_screen.list.file_list,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           Expanded(
             child:
                 data.isEmpty
-                    ? Center(child: Text("Dateset is empty"))
+                    ? Center(child: Text(t.annotation_screen.list.empty))
                     : ListView.builder(
                       itemBuilder: (context, index) {
                         if (data[index].$1 == current) {
@@ -85,13 +89,16 @@ class FileList extends ConsumerWidget {
               spacing: 10,
               children: [
                 Spacer(),
-                TextButton(onPressed: () {}, child: Text("Prev")),
+                TextButton(
+                  onPressed: () {},
+                  child: Text(t.annotation_screen.list.prev),
+                ),
                 TextButton(
                   onPressed: () {
                     /// TODO: next data
                     // ref.read(labelNotifierProvider(dl).notifier).nextData();
                   },
-                  child: Text("Next"),
+                  child: Text(t.annotation_screen.list.next),
                 ),
               ],
             ),

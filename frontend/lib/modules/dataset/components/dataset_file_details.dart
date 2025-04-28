@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_list_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
@@ -27,7 +28,7 @@ class DatasetFileDetails extends ConsumerWidget {
     final dataset = ref.read(datasetNotifierProvider).value?.current;
 
     if (dataset == null) {
-      return Center(child: Text("No dataset selected"));
+      return Center(child: Text(t.dataset_screen.files.file_details.empty));
     }
 
     final state = ref.watch(datasetFileListNotifierProvider);

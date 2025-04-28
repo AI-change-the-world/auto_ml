@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_card_wrap.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_details_widget.dart';
 import 'package:auto_ml/modules/dataset/components/new_dataset_dialog.dart';
@@ -312,7 +313,7 @@ class _ConfirmDialog extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).pop(true);
                   },
-                  child: Text("确认"),
+                  child: Text(t.dataset_screen.confirm),
                 ),
               ],
             ),

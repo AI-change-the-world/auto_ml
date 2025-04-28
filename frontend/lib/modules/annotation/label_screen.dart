@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/annotation_list_widget.dart';
 import 'package:auto_ml/modules/annotation/components/select_dataset_annotations_dialog.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
@@ -26,20 +27,20 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           spacing: 10,
           children: [
-            Text("Dataset or label is not selected"),
+            Text(t.label_screen.not_selected),
             TextButton(
               onPressed: () {
                 showGeneralDialog(
                   barrierColor: Colors.black.withValues(alpha: 0.1),
                   barrierDismissible: true,
-                  barrierLabel: "Select dataset and annotation",
+                  barrierLabel: "not selected",
                   context: context,
                   pageBuilder: (c, _, __) {
                     return Center(child: SelectDatasetAnnotationsDialog());
                   },
                 );
               },
-              child: Text("Select"),
+              child: Text(t.label_screen.select),
             ),
           ],
         ),

@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/entity/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
@@ -48,7 +49,9 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
             children: [
               Expanded(
                 child: DataTable2(
-                  empty: Center(child: Text("No data")),
+                  empty: Center(
+                    child: Text(t.annotation_screen.list_widget.no_data),
+                  ),
                   columnSpacing: 10,
                   headingRowDecoration: BoxDecoration(
                     color: Colors.grey.shade200,

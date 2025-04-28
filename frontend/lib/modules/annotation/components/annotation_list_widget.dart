@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,7 @@ class AnnotationListWidget extends ConsumerWidget {
           Expanded(
             child:
                 state.annotations.isEmpty
-                    ? Center(child: Text("annotations is empty"))
+                    ? Center(child: Text(t.annotation_screen.list_widget.empty))
                     : ListView.builder(
                       itemBuilder: (context, index) {
                         return Container(

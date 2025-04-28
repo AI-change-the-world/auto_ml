@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/annotation_widget.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
@@ -39,7 +40,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
       currentDatasetAnnotationNotifierProvider.select((v) => v.currentData),
     );
     if (current.isEmpty) {
-      return Center(child: Text("No data"));
+      return Center(child: Text(t.annotation_screen.image_board.empty));
     }
 
     final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));

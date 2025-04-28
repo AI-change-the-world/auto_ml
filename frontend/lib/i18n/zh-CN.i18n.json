@@ -1,0 +1,73 @@
+{
+    "label_screen": {
+        "not_selected": "数据集或标注未选择",
+        "select": "选择..."
+    },
+    "dataset_screen": {
+        "confirm": "确认",
+        "files": {
+            "file_details": {
+                "empty": "未选择数据集"
+            }
+        }
+    },
+    "route": {
+        "back_to_main": "返回首页",
+        "nothing": "这里空无一物"
+    },
+    "sidebar": {
+        "dataset": "数据集",
+        "label": "标注",
+        "annotation": "标注",
+        "tool_model": "工具",
+        "predict": "测试"
+    },
+    "annotation_screen": {
+        "list_widget": {
+            "empty": "标注信息为空",
+            "no_data": "无数据"
+        },
+        "list": {
+            "file_list": "文件列表",
+            "empty": "数据集为空",
+            "prev": "前一个",
+            "next": "后一个"
+        },
+        "image_board": {
+            "empty": "无数据"
+        }
+    },
+    "dialogs": {
+        "modify_dataset": {
+            "basic": "基础信息",
+            "dataset_name": "数据集名称*",
+            "dataset_type": "数据集类型",
+            "dataset_location": "存储地址*",
+            "path": "路径*",
+            "additional": "额外信息",
+            "rank": "评级",
+            "description": "简介",
+            "description_hint": "数据集简介"
+        },
+        "new_dataset": {
+            "basic": "基础信息",
+            "dataset_name": "数据集名称*",
+            "dataset_type": "数据集类型",
+            "dataset_location": "存储地址*",
+            "path": "路径*",
+            "additional": "额外信息",
+            "rank": "评级",
+            "description": "简介",
+            "description_hint": "数据集简介"
+        },
+        "new_model": {
+            "name": "名称*",
+            "model_type": "模型类型",
+            "model_name": "模型名称",
+            "description": "简介"
+        }
+    },
+    "predict_screen": {
+        "upload": "上传"
+    }
+}

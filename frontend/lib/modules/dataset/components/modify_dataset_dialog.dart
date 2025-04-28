@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/selection_widget.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
@@ -74,24 +75,30 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
         ),
         width: 400,
         height:
-            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 530 : 595,
+            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 470 : 540,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(10),
           child: Column(
             spacing: 10,
             children: [
               /// basic info
-              Text("Basic Info", style: titleStyle),
+              Text(t.dialogs.modify_dataset.basic, style: titleStyle),
               Row(
                 spacing: 10,
                 children: [
                   Expanded(
                     flex: 1,
-                    child: Text("Dataset Name*", style: labelStyle),
+                    child: Text(
+                      t.dialogs.modify_dataset.dataset_name,
+                      style: labelStyle,
+                    ),
                   ),
                   Expanded(
                     flex: 1,
-                    child: Text("Dataset Type", style: labelStyle),
+                    child: Text(
+                      t.dialogs.modify_dataset.dataset_type,
+                      style: labelStyle,
+                    ),
                   ),
                 ],
               ),
@@ -213,7 +220,10 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
               SizedBox(
                 child: Row(
                   children: [
-                    Text("Dataset Location*", style: labelStyle),
+                    Text(
+                      t.dialogs.modify_dataset.dataset_location,
+                      style: labelStyle,
+                    ),
                     Spacer(),
                   ],
                 ),
@@ -319,7 +329,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
               SizedBox(
                 child: Row(
                   children: [
-                    Text("Dataset Path*", style: labelStyle),
+                    Text(t.dialogs.modify_dataset.path, style: labelStyle),
                     Spacer(),
                   ],
                 ),
@@ -427,11 +437,17 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
               //   ),
               // ),
               // additional information
-              Text("Additional Information", style: titleStyle),
+              Text(t.dialogs.modify_dataset.additional, style: titleStyle),
               Row(
                 spacing: 10,
                 children: [
-                  Expanded(flex: 1, child: Text("Ranking", style: labelStyle)),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      t.dialogs.modify_dataset.rank,
+                      style: labelStyle,
+                    ),
+                  ),
                   Expanded(
                     flex: 1,
                     child: RatingStars(
@@ -473,7 +489,13 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
 
               SizedBox(
                 child: Row(
-                  children: [Text("Description", style: labelStyle), Spacer()],
+                  children: [
+                    Text(
+                      t.dialogs.modify_dataset.description,
+                      style: labelStyle,
+                    ),
+                    Spacer(),
+                  ],
                 ),
               ),
               TextField(
@@ -487,7 +509,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.blueAccent),
                   ),
-                  hintText: "Dataset Description",
+                  hintText: t.dialogs.modify_dataset.description_hint,
                 ),
               ),
 

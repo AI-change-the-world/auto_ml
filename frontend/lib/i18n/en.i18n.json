@@ -1,0 +1,73 @@
+{
+    "label_screen": {
+        "not_selected": "Dataset or label is not selected",
+        "select": "Select"
+    },
+    "dataset_screen": {
+        "confirm": "Confirm",
+        "files": {
+            "file_details": {
+                "empty": "No dataset selected"
+            }
+        }
+    },
+    "sidebar": {
+        "dataset": "Dataset",
+        "label": "Label",
+        "annotation": "Annotation",
+        "tool_model": "Tool Model",
+        "predict": "Predict"
+    },
+    "route": {
+        "back_to_main": "Back to Main",
+        "nothing": "Woops! There is nothing here."
+    },
+    "annotation_screen": {
+        "list_widget": {
+            "empty": "annotations is empty",
+            "no_data": "No Data"
+        },
+        "list": {
+            "file_list": "File List",
+            "empty": "Dateset is empty",
+            "prev": "Prev",
+            "next": "Next"
+        },
+        "image_board": {
+            "empty": "No image"
+        }
+    },
+    "dialogs": {
+        "modify_dataset": {
+            "basic": "Basic Info",
+            "dataset_name": "Dataset Name*",
+            "dataset_type": "Dataset Type",
+            "dataset_location": "Dataset Location*",
+            "path": "Dataset Path*",
+            "additional": "Additional Information",
+            "rank": "Ranking",
+            "description": "Description",
+            "description_hint": "Dataset Description"
+        },
+        "new_dataset": {
+            "basic": "Basic Info",
+            "dataset_name": "Dataset Name*",
+            "dataset_type": "Dataset Type",
+            "dataset_location": "Dataset Location*",
+            "path": "Dataset Path*",
+            "additional": "Additional Information",
+            "rank": "Ranking",
+            "description": "Description",
+            "description_hint": "Dataset Description"
+        },
+        "new_model": {
+            "name": "Name*",
+            "model_type": "Model Type",
+            "model_name": "Model Name",
+            "description": "Description"
+        }
+    },
+    "predict_screen": {
+        "upload": "Upload"
+    }
+}
