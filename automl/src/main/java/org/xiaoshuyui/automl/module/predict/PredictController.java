@@ -127,4 +127,31 @@ public class PredictController {
         }
 
     }
+
+
+    @GetMapping("/describe")
+    public SseEmitter describeImage(@RequestParam String name) {
+        SseEmitter sseEmitter = new SseEmitter();
+        SseResponse<String> sseResponse = new SseResponse<>();
+        Executors.newSingleThreadExecutor().execute(() -> {
+            httpService.getDescribeImage(name).subscribe(line -> {
+                sseResponse.setData(line);
+                SseUtil.sseSend(sseEmitter, sseResponse);
+            }, throwable -> {
+                sseResponse.setStatus("error");
+                sseResponse.setMessage(throwable.getMessage());
+                sseResponse.setDone(true);
+                SseUtil.sseSend(sseEmitter, sseResponse);
+                sseEmitter.complete();
+            }, () -> {
+                sseResponse.setDone(true);
+                sseResponse.setStatus("done");
+                sseResponse.setMessage("[DONE]");
+                SseUtil.sseSend(sseEmitter, sseResponse);
+                sseEmitter.complete();
+            });
+        });
+
+        return sseEmitter;
+    }
 }

@@ -1,15 +1,19 @@
 package org.xiaoshuyui.automl.module.predict.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.module.predict.entity.PredictData;
 import org.xiaoshuyui.automl.module.predict.mapper.PredictDataMapper;
 import org.xiaoshuyui.automl.util.S3FileDelegate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 public class PredictDataService {
 
+    private static final Logger log = LoggerFactory.getLogger(PredictDataService.class);
     final PredictDataMapper predictDataMapper;
     final S3FileDelegate s3FileDelegate;
 
@@ -35,6 +39,7 @@ public class PredictDataService {
     }
 
     public String getFile(String filename) throws Exception {
+        log.info(LocalDateTime.now() + ": " + filename);
         return s3FileDelegate.getFile(filename);
     }
 }

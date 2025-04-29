@@ -44,5 +44,4 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=debug == "true" or debug is None,
-        log_config="log_config.json",
     )

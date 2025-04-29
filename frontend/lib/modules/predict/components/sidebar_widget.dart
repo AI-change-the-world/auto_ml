@@ -25,15 +25,18 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final rect = ref.watch(
+  void didUpdateWidget(covariant SidebarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final rect = ref.read(
       imagePreviewProvider(widget.fileId).select((value) => value.selected),
     );
-
-    if (rect != null && image == null) {
+    if (rect != null) {
       loadImage(rect);
     }
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.all(10),
       child: Column(

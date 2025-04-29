@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import shutil
 from glob import glob
 from typing import List, Optional, Union
 
@@ -147,6 +148,10 @@ class VideoProcess(BaseProcess):
                         timestamp=self.timestamps[frame_name],
                     )
                 )
+        # delete all files
+        parent_dir = os.path.dirname(self.dir.files_dir)
+        shutil.rmtree(parent_dir)
+
         return VideoKeyFrames(
             frame_width=self.video_frame_width,
             frame_height=self.video_frame_height,

@@ -1,4 +1,7 @@
 spring:
+  mvc:
+    async:
+      request-timeout: 600000
   application:
     name: automl
   servlet:
@@ -66,3 +69,4 @@ ai-platform:
   url: ${AI_PLATFORM:http://127.0.0.1:8000}
   get-label: /label/image
   video-process: /process/video
+  describe-image: /process/describe
