@@ -1,8 +1,4 @@
-// ignore_for_file: avoid_init_to_null
-
-import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:auto_ml/common/base_sse_response.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
@@ -123,8 +119,6 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
               ref
                   .read(imagePreviewProvider(widget.fileId).notifier)
                   .setCurrent(model);
-
-              _loadImage(model.url);
             },
             id: widget.fileId,
           ),
@@ -133,30 +127,6 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
       width: MediaQuery.of(context).size.width * 0.9,
       height: MediaQuery.of(context).size.height * 0.9,
     );
-  }
-
-  late ui.Image? _image = null;
-
-  Future<void> _loadImage(String url) async {
-    final completer = Completer<ui.Image>();
-    final stream = NetworkImage(url).resolve(ImageConfiguration());
-    late final ImageStreamListener listener;
-
-    listener = ImageStreamListener(
-      (ImageInfo info, _) {
-        completer.complete(info.image);
-        stream.removeListener(listener);
-      },
-      onError: (error, stackTrace) {
-        completer.completeError(error, stackTrace);
-        stream.removeListener(listener);
-      },
-    );
-
-    stream.addListener(listener);
-
-    _image = await completer.future;
-    setState(() {});
   }
 
   Widget _buildCurrent(
@@ -169,52 +139,35 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
       return const SizedBox();
     }
 
-    if (_image == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     final detections = model.detections;
 
-    final mediaSize = MediaQuery.of(context).size;
-    final maxParentWidth =
-        mediaSize.width - 200 - (isSidebarOpen ? _sidebarWidth : 0);
-    final maxParentHeight = mediaSize.height - 200;
-
-    // 只计算超出部分
-    final horizontalOverflow = (frameWidth - maxParentWidth).clamp(
-      0.0,
-      double.infinity,
-    );
-    final verticalOverflow = (frameHeight - maxParentHeight).clamp(
-      0.0,
-      double.infinity,
-    );
-
-    // boundaryMargin 设置为刚好允许拖出这些区域
-    final boundaryMargin = EdgeInsets.symmetric(
-      horizontal: horizontalOverflow,
-      vertical: verticalOverflow,
-    );
-
-    return InteractiveViewer(
-      scaleEnabled: false,
-      boundaryMargin: boundaryMargin,
-      child: SizedBox(
-        width: frameWidth,
-        height: frameHeight,
-
-        child: CustomPaint(
-          size: Size(frameWidth, frameHeight),
-          painter: NetworkImagePainter(_image!),
+    return SizedBox(
+      width: frameWidth,
+      height: frameHeight,
+      child: InteractiveViewer(
+        scaleEnabled: false,
+        // boundaryMargin: boundaryMargin,
+        boundaryMargin: EdgeInsets.all(0),
+        constrained: false,
+        child: SizedBox(
+          width: frameWidth,
+          height: frameHeight,
           child: Stack(
-            children: detections.map((e) => _buildAnnotation(e)).toList(),
+            children: [
+              SizedBox(
+                width: frameWidth,
+                height: frameHeight,
+                child: Image.network(model.url),
+              ),
+              ...detections.map((e) => _buildChild(e)),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Positioned _buildAnnotation(Detection e) {
+  Positioned _buildChild(Detection e) {
     return Positioned(
       left: e.box.x1,
       top: e.box.y1,
@@ -258,21 +211,5 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
         ),
       ),
     );
-  }
-}
-
-class NetworkImagePainter extends CustomPainter {
-  final ui.Image image;
-
-  NetworkImagePainter(this.image);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawImage(image, Offset.zero, Paint());
-  }
-
-  @override
-  bool shouldRepaint(covariant NetworkImagePainter oldDelegate) {
-    return image != oldDelegate.image;
   }
 }
