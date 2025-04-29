@@ -1,4 +1,5 @@
 import 'package:auto_ml/modules/predict/models/image_preview_model.dart';
+import 'package:flutter/material.dart';
 
 class ImagePreviewState {
   final List<ImagePreviewModel> images;
@@ -8,6 +9,8 @@ class ImagePreviewState {
   final double imageHeight;
   final double duration;
   final bool loading;
+  final bool isSidebarOpen;
+  final Rect? selected;
 
   ImagePreviewState({
     this.images = const [],
@@ -17,6 +20,8 @@ class ImagePreviewState {
     this.imageHeight = 0,
     this.duration = 0,
     this.loading = false,
+    this.isSidebarOpen = false,
+    this.selected,
   });
 
   ImagePreviewState copyWith({
@@ -27,6 +32,8 @@ class ImagePreviewState {
     double? imageHeight,
     double? duration,
     bool? loading,
+    bool? isSidebarOpen,
+    Rect? selected,
   }) {
     return ImagePreviewState(
       images: images ?? this.images,
@@ -36,6 +43,8 @@ class ImagePreviewState {
       imageHeight: imageHeight ?? this.imageHeight,
       duration: duration ?? this.duration,
       loading: loading ?? this.loading,
+      isSidebarOpen: isSidebarOpen ?? this.isSidebarOpen,
+      selected: selected,
     );
   }
 }

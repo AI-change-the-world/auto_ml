@@ -4,7 +4,6 @@ import 'package:auto_ml/modules/predict/components/image_preview_dialog.dart';
 import 'package:auto_ml/modules/predict/notifier/predict_data_notifier.dart';
 import 'package:auto_ml/utils/conversion_util.dart';
 import 'package:auto_ml/utils/styles.dart';
-import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,11 +109,11 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                                       ),
                                       InkWell(
                                         onTap: () {
-                                          ToastUtils.info(
-                                            context,
-                                            title:
-                                                "This feature is under development",
-                                          );
+                                          // ToastUtils.info(
+                                          //   context,
+                                          //   title:
+                                          //       "This feature is under development",
+                                          // );
                                           showGeneralDialog(
                                             context: context,
                                             barrierColor: Styles.barriarColor,

@@ -7,10 +7,9 @@ part of 'video_result.dart';
 // **************************************************************************
 
 VideoResult _$VideoResultFromJson(Map<String, dynamic> json) => VideoResult(
-      videoPath: json['videoPath'] as String,
       duration: (json['duration'] as num).toDouble(),
-      frameWidth: (json['frameWidth'] as num).toInt(),
-      frameHeight: (json['frameHeight'] as num).toInt(),
+      frameWidth: (json['frame_width'] as num).toInt(),
+      frameHeight: (json['frame_height'] as num).toInt(),
       keyframes: (json['keyframes'] as List<dynamic>)
           .map((e) => Keyframe.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -18,10 +17,9 @@ VideoResult _$VideoResultFromJson(Map<String, dynamic> json) => VideoResult(
 
 Map<String, dynamic> _$VideoResultToJson(VideoResult instance) =>
     <String, dynamic>{
-      'videoPath': instance.videoPath,
       'duration': instance.duration,
-      'frameWidth': instance.frameWidth,
-      'frameHeight': instance.frameHeight,
+      'frame_width': instance.frameWidth,
+      'frame_height': instance.frameHeight,
       'keyframes': instance.keyframes,
     };
 

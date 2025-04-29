@@ -44,4 +44,6 @@ class Api {
   static final String getPreview = "/predict/file/preview/{id}";
 
   static final String processVideoData = "/predict/videoProcess";
+
+  static final String s3preview = "/predict/s3/preview";
 }

@@ -8,12 +8,26 @@ class ImagePreviewModel {
 
   final String label;
 
-  final Box box;
+  final List<Detection> detections;
 
   ImagePreviewModel({
     required this.imageKey,
     required this.url,
     required this.label,
-    required this.box,
+    required this.detections,
   });
+
+  ImagePreviewModel copyWith({
+    String? imageKey,
+    String? url,
+    String? label,
+    List<Detection>? detections,
+  }) {
+    return ImagePreviewModel(
+      imageKey: imageKey ?? this.imageKey,
+      url: url ?? this.url,
+      label: label ?? this.label,
+      detections: detections ?? this.detections,
+    );
+  }
 }

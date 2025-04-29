@@ -4,14 +4,14 @@ part 'video_result.g.dart'; // 生成的文件
 
 @JsonSerializable()
 class VideoResult {
-  final String videoPath;
   final double duration;
+  @JsonKey(name: 'frame_width')
   final int frameWidth;
+  @JsonKey(name: 'frame_height')
   final int frameHeight;
   final List<Keyframe> keyframes;
 
   VideoResult({
-    required this.videoPath,
     required this.duration,
     required this.frameWidth,
     required this.frameHeight,

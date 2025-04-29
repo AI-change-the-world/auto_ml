@@ -40,9 +40,10 @@ Future sse(
     })
     ..onError.listen((err) {
       logger.e("onError $err");
+      ss.sink.add("[DONE] onError $err");
     })
     ..onLoadEnd.listen((fur) {
-      logger.d(request.responseText);
+      ss.sink.add("[DONE]");
     })
     ..send(jsonEncode(data)); // 发送请求体
 }
