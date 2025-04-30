@@ -43,6 +43,10 @@ Future sse(
       ss.sink.add("[DONE] onError $err");
     })
     ..onLoadEnd.listen((fur) {
+      /// TODO 处理所有收到的数据
+      /// 因为上面的数据有的时候
+      /// 会有处理异常
+      logger.i(request.responseText);
       ss.sink.add("[DONE]");
     })
     ..send(jsonEncode(data)); // 发送请求体

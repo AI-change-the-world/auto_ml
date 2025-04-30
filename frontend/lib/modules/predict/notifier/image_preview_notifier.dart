@@ -80,7 +80,6 @@ class ImagePreviewNotifier
   }
 
   changeCurrentRect(Rect rect) {
-    print("change current");
     state = state.copyWith(selected: rect);
   }
 

@@ -1,6 +1,6 @@
 import os
 import tempfile
-from typing import Optional
+from typing import List, Optional
 
 import supervision as sv
 from fastapi import APIRouter, Depends
@@ -43,6 +43,11 @@ class ImageDescribeRequest(BaseModel):
     frame_path: str
     prompt: Optional[str]
 
+class ImageListDescribeRequest(BaseModel):
+    model_id: int
+    frames: List[str]
+    prompt: Optional[str]
+
 
 interval_sec = 10
 
@@ -77,6 +82,22 @@ async def predict(req: ImageDescribeRequest, db: Session = Depends(get_db)):
     return EventSourceResponse(
         describe_frame(
             frame_path=req.frame_path,
+            tool_model=tool_model,
+            prompt=req.prompt,
+        ),
+        media_type="text/event-stream",
+    )
+
+
+@router.post("/describe/list")
+async def predict(req: ImageListDescribeRequest, db: Session = Depends(get_db)):
+    from process.video_process.key_frame_analysis import describe_frames
+
+    tool_model = get_tool_model(db, req.model_id)
+
+    return EventSourceResponse(
+        describe_frames(
+            frame_paths=req.frames,
             tool_model=tool_model,
             prompt=req.prompt,
         ),

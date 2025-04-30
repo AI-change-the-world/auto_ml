@@ -44,7 +44,7 @@
         <mybatisspring.version>3.0.3</mybatisspring.version>
         <mybatisplus.version>3.5.5</mybatisplus.version>
         <nacos.version>2023.0.3.2</nacos.version>
-        <opendal.version>0.46.4</opendal.version>
+        <opendal.version>0.47.11</opendal.version>
         <lombok.version>1.18.32</lombok.version>
         <thumbnailator.version>0.4.20</thumbnailator.version>
         <okhttp.version>4.12.0</okhttp.version>
@@ -85,12 +85,12 @@
         </dependency>
         <dependency>
             <groupId>org.apache.opendal</groupId>
-            <artifactId>opendal-java</artifactId>
+            <artifactId>opendal</artifactId>
             <version>${opendal.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.opendal</groupId>
-            <artifactId>opendal-java</artifactId>
+            <artifactId>opendal</artifactId>
             <version>${opendal.version}</version>
             <classifier>${os.detected.classifier}</classifier>
         </dependency>

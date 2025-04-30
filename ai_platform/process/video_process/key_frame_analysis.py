@@ -1,6 +1,6 @@
 # this is just for testing
 import base64
-from typing import Optional
+from typing import Any, AsyncGenerator, List, Optional
 
 import cv2
 import numpy as np
@@ -164,6 +164,143 @@ describe_prompt = {
 请针对每个部分分别撰写结构清晰、内容详实的段落，不要遗漏细节。""",
 }
 
+# multiple_frames_prompt = """
+# 你是一位建筑施工现场分析专家。
+# 我将向你提供多张施工现场图像，请你对图像中展示的场景和人物进行综合分析，要求专业、正式、有条理，适合作为工程监督记录报告。请从以下五个方面逐项详细描述，并在最后撰写一个总结段落，概括每位工人的行为变化和整体施工动态。
+
+
+# 1. 现场环境对比分析
+# 	•	描述各图像所呈现的施工场景（室内/室外、高空/地面），若有变化请指出。
+# 	•	判断各图像所属的施工阶段（如：地基施工、模板搭设、钢结构拼装、室内装修等）。
+# 	•	天气情况（如可见）：晴天/阴天/下雨、有无阳光或灯光等。
+
+# 2. 工人活动与状态识别
+# 	•	分别识别出图像中出现的所有工人，并编号（如：工人 A、B、C）。
+# 	•	描述每位工人在各图中的位置、动作和所从事的工作（例如：“工人 A 在第一张图中搬运钢筋，在第三张图中正在焊接”）。
+# 	•	工人的姿态（站立、弯腰、攀爬等）、注意力状态是否专注。
+# 	•	是否佩戴完整安全装备（安全帽、反光背心、安全绳、手套等），有无穿戴不当或缺失的情况。
+
+# 3. 施工工具与机械使用情况
+# 	•	列出图中可见的工具或机械设备（如：电焊机、吊装设备、脚手架等）。
+# 	•	哪些设备正在使用？谁在使用？是否符合规范操作姿势？
+# 	•	如果出现设备闲置、摆放混乱，也请指出。
+
+# 4. 安全规范与隐患评估
+# 	•	分析施工行为是否符合安全规范，是否存在违规操作（如高处作业未系安全绳、电缆拖地等）。
+# 	•	有无杂物堆放、临边未防护、电气设备裸露等潜在安全隐患。
+# 	•	施工现场的整洁程度是否符合标准。
+
+# 5. 多人协作与现场动态
+# 	•	是否存在两人或多人协作行为？他们是如何配合的？如搬运材料、协助定位等。
+# 	•	哪些工作是独立完成，哪些是小组协同？
+# 	•	是否有明显的分工与协调机制体现？
+
+# 6. 总结与工人行为概况
+# 	•	请根据多张图像，概括每位工人的工作内容与行为变化轨迹（如：“工人 A 从清理现场转为焊接操作，始终保持佩戴完整防护装备”）。
+# 	•	总结施工现场整体状态：进展是否有序，安全规范是否到位，是否存在管理盲区或值得表扬的行为。
+# """
+
+multiple_frames_prompt = """
+你是一位**建筑施工现场分析专家**，请对我提供的多张施工现场图像进行**综合分析与专业评估**，要求分析**逻辑清晰、条理分明、语气正式专业，适用于工程监督记录报告**。  
+请按照以下 **六个部分**逐项撰写内容，**每部分单独分段描述**，并在末尾撰写一个综合性“第六部分总结”。
+
+---
+
+## 第1部分：现场环境对比分析
+- **图像场景类型**：
+  - 图1：  
+  - 图2：  
+  - 图3：  
+- **施工阶段判断**：
+  - 图1：  
+  - 图2：  
+  - 图3：  
+- **天气与照明情况**：
+  - 图1：  
+  - 图2：  
+  - 图3：  
+
+---
+
+## 第2部分：工人活动与状态识别
+- **工人识别与编号**：
+  - 图1：工人 A、B  
+  - 图2：工人 A、C  
+  - 图3：工人 A、B、C  
+- **工人活动描述**：
+  - 工人 A：
+    - 图1：位置、动作、作业内容  
+    - 图2：  
+    - 图3：  
+  - 工人 B：
+    - 图1：  
+    - 图3：  
+  - 工人 C：
+    - 图2：  
+    - 图3：  
+- **工人姿态与注意力状态**：  
+  - A：  
+  - B：  
+  - C：  
+- **安全装备穿戴情况**：
+  - A：  
+  - B：  
+  - C：  
+
+---
+
+## 第3部分：施工工具与机械使用情况
+- **可见施工工具与设备**：
+  - 图1：  
+  - 图2：  
+  - 图3：  
+- **设备使用情况与操作规范**：
+  - 使用中设备：  
+  - 操作者编号及行为：  
+  - 操作是否规范：  
+- **设备闲置或摆放混乱情况**：
+  - 闲置设备：  
+  - 问题说明：  
+
+---
+
+## 第4部分：安全规范与隐患评估
+- **施工行为安全性分析**：
+  - 高空作业是否防护：  
+  - 操作规范性：  
+- **潜在安全隐患识别**：
+  - 电缆、电气设备：  
+  - 杂物堆放：  
+  - 临边/洞口防护：  
+- **现场整洁程度**：
+  - 清洁标准符合情况：  
+
+---
+
+## 第5部分：多人协作与现场动态
+- **是否存在协作行为**：
+  - 类型与参与者：  
+  - 典型协作场景：  
+- **独立作业与小组协同区分**：
+  - 独立完成任务：  
+  - 小组协作任务：  
+- **流程协调与施工节奏**：
+  - 是否有序：  
+  - 是否存在等待/重复作业等低效现象：  
+
+---
+
+## 第6部分：总结与工人行为概况
+- **工人行为轨迹概括**：
+  - 工人 A：  
+  - 工人 B：  
+  - 工人 C：  
+- **施工现场整体状态评估**：
+  - 进展情况：  
+  - 安全规范落实情况：  
+  - 管理盲区或值得表扬行为：  
+"""
+
 
 async def describe_frame(
     frame_path: str,
@@ -182,7 +319,7 @@ async def describe_frame(
         vl_model = get_model(tool_model)
 
         if prompt is None:
-            prompt = describe_prompt["text"]
+            prompt = multiple_frames_prompt
 
         req = {"type": "text", "text": prompt}
 
@@ -215,5 +352,65 @@ async def describe_frame(
                 yield delta.content
     except Exception as e:
         logger.error(e)
+    finally:
+        yield "[DONE]"
+
+
+
+async def describe_frames(
+    frame_paths: List[str],
+    tool_model,
+    prompt: Optional[str] = None,
+) -> AsyncGenerator[Any, Any]:
+    if tool_model is None:
+        yield "tool_model is None"
+        return
+
+    try:
+        op = get_op()
+        vl_model = get_model(tool_model)
+
+        if prompt is None:
+            prompt = describe_prompt["text"]
+
+        # 构建图像部分的内容列表
+        image_contents = []
+        for path in frame_paths:
+            file_data = op.read(path)
+            b64 = base64.encodebytes(file_data).decode("utf-8")
+            b64_with_header = f"data:image/jpeg;base64,{b64}"
+
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {"url": b64_with_header}
+            })
+
+        # 构建完整的消息内容（多张图 + 文本 prompt）
+        user_content = [{"type": "text", "text": prompt}] + image_contents
+
+        completion = vl_model.chat.completions.create(
+            model=tool_model.model_name,
+            max_tokens=1024,
+            stream=True,
+            messages=[
+                {
+                    "role": "system",
+                    "content": [{"type": "text", "text": "You are a helpful assistant."}],
+                },
+                {
+                    "role": "user",
+                    "content": user_content,
+                },
+            ],
+        )
+
+        # 处理流式输出
+        for chunk in completion:
+            delta = chunk.choices[0].delta
+            if hasattr(delta, "content"):
+                yield delta.content
+
+    except Exception as e:
+        logger.error(f"Error in describe_frames: {e}")
     finally:
         yield "[DONE]"

@@ -8,6 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.common.SseResponse;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
+import org.xiaoshuyui.automl.module.predict.entity.DescribeImageListRequest;
 import org.xiaoshuyui.automl.module.predict.entity.PredictDataWithDuration;
 import org.xiaoshuyui.automl.module.predict.entity.ProcessRequest;
 import org.xiaoshuyui.automl.module.predict.service.HttpService;
@@ -159,6 +160,52 @@ public class PredictController {
                         sseResponse.setDone(true);
                         sseResponse.setStatus("done");
                         sseResponse.setMessage("[DONE]");
+                        SseUtil.sseSend(sseEmitter, sseResponse);
+                        sseEmitter.complete();
+                      });
+            });
+
+    return sseEmitter;
+  }
+
+  @PostMapping("/describe/list")
+  public SseEmitter describeImageList(@RequestBody DescribeImageListRequest request) {
+    SseEmitter sseEmitter = new SseEmitter();
+    SseResponse<String> sseResponse = new SseResponse<>();
+    Executors.newSingleThreadExecutor()
+        .execute(
+            () -> {
+              if (request.getFrames().size() == 0) {
+                sseResponse.setStatus("error");
+                sseResponse.setMessage("frames is empty");
+                sseResponse.setDone(true);
+                SseUtil.sseSend(sseEmitter, sseResponse);
+                sseEmitter.complete();
+                return;
+              }
+
+              if (request.getFrames().size() > 20) {
+                request.setFrames(request.getFrames().subList(0, 20));
+              }
+
+              httpService
+                  .getDescribeImageList(request.getFrames())
+                  .subscribe(
+                      line -> {
+                        sseResponse.setData(line);
+                        SseUtil.sseSend(sseEmitter, sseResponse);
+                      },
+                      throwable -> {
+                        sseResponse.setStatus("error");
+                        sseResponse.setMessage(throwable.getMessage());
+                        sseResponse.setDone(true);
+                        SseUtil.sseSend(sseEmitter, sseResponse);
+                        sseEmitter.complete();
+                      },
+                      () -> {
+                        sseResponse.setDone(true);
+                        sseResponse.setStatus("done");
+                        sseResponse.setMessage("");
                         SseUtil.sseSend(sseEmitter, sseResponse);
                         sseEmitter.complete();
                       });

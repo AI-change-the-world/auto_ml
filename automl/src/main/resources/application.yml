@@ -58,3 +58,4 @@ ai-platform:
   get-label: /label/image
   video-process: /process/video
   describe-image: /process/describe
+  describe-image-list: /process/describe/list

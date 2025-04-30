@@ -6,6 +6,7 @@ import 'package:auto_ml/modules/predict/components/image_preview_list_widget.dar
 import 'package:auto_ml/modules/predict/components/sidebar_widget.dart';
 import 'package:auto_ml/modules/predict/models/image_preview_model.dart';
 import 'package:auto_ml/modules/predict/models/video_result.dart';
+import 'package:auto_ml/modules/predict/notifier/describe_images_notifier.dart';
 import 'package:auto_ml/modules/predict/notifier/image_preview_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -70,57 +71,118 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(imagePreviewProvider(widget.fileId));
+    final _ = ref.read(describeImagesProvider);
     return dialogWrapper(
-      child: Column(
+      child: Row(
         spacing: 10,
         children: [
           Expanded(
-            child: Builder(
-              builder: (c) {
-                if (state.loading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state.current == -1) {
-                  return Center(child: Text("Select a frame"));
-                }
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Center(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Builder(
+                    builder: (c) {
+                      if (state.loading) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+
+                      if (state.current == -1) {
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text("Select a frame"),
+                            Text("or"),
+                            ElevatedButton(
+                              style: ButtonStyle(
+                                fixedSize: WidgetStateProperty.all(
+                                  Size(150, 20),
+                                ),
+                                backgroundColor: WidgetStatePropertyAll(
+                                  Colors.grey[300],
+                                ),
+                                padding: WidgetStatePropertyAll(
+                                  const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                ),
+                                textStyle: WidgetStatePropertyAll(
+                                  const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                shape: WidgetStatePropertyAll(
+                                  RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4.0),
+                                  ),
+                                ),
+                              ),
+                              onPressed: () async {
+                                ref
+                                    .read(
+                                      imagePreviewProvider(
+                                        widget.fileId,
+                                      ).notifier,
+                                    )
+                                    .showSidebar();
+
+                                Future.delayed(
+                                  Duration(milliseconds: 500),
+                                ).then((_) {
+                                  ref
+                                      .read(describeImagesProvider.notifier)
+                                      .chat(
+                                        state.images
+                                            .map((e) => e.imageKey)
+                                            .toList(),
+                                      );
+                                });
+                              },
+                              child: Text("Start analysis"),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Center(
                         child: _buildCurrent(
                           state.images[state.current],
                           state.imageWidth,
                           state.imageHeight,
                           state.isSidebarOpen,
                         ),
-                      ),
-                    ),
-                    AnimatedContainer(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          bottomLeft: Radius.circular(10),
-                        ),
-                      ),
-                      width: state.isSidebarOpen ? _sidebarWidth : 0,
-                      height: double.infinity,
-                      duration: Duration(milliseconds: 500),
-                      child: SidebarWidget(fileId: widget.fileId),
-                    ),
-                  ],
-                );
-              },
+                      );
+                    },
+                  ),
+                ),
+
+                ImagePreviewListWidget(
+                  images: state.images,
+                  onSelected: (model) {
+                    ref
+                        .read(imagePreviewProvider(widget.fileId).notifier)
+                        .setCurrent(model);
+                  },
+                  id: widget.fileId,
+                ),
+              ],
             ),
           ),
-          ImagePreviewListWidget(
-            images: state.images,
-            onSelected: (model) {
-              ref
-                  .read(imagePreviewProvider(widget.fileId).notifier)
-                  .setCurrent(model);
-            },
-            id: widget.fileId,
+
+          AnimatedContainer(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(10),
+                bottomLeft: Radius.circular(10),
+              ),
+            ),
+            width: state.isSidebarOpen ? _sidebarWidth : 0,
+            height: double.infinity,
+            duration: Duration(milliseconds: 500),
+            child: SidebarWidget(fileId: widget.fileId),
           ),
         ],
       ),

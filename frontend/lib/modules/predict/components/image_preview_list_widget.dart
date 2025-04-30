@@ -24,11 +24,12 @@ class _ImagePreviewListWidgetState extends State<ImagePreviewListWidget> {
     return Material(
       borderRadius: BorderRadius.circular(10),
       elevation: 10,
-      child: Container(
+      child: AnimatedContainer(
         padding: EdgeInsets.all(5),
-        height: 110,
+        height: widget.images.isEmpty ? 0 : 110,
         width: double.infinity,
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
+        duration: Duration(milliseconds: 500),
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemBuilder: (c, i) {
