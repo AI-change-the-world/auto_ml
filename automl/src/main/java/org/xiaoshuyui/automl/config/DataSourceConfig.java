@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component;
 @Data
 public class DataSourceConfig {
 
-    @Value("${spring.datasource.url}")
-    private String dbUrl;
+  @Value("${spring.datasource.url}")
+  private String dbUrl;
 
-    @Value("${spring.datasource.username}")
-    private String dbUsername;
+  @Value("${spring.datasource.username}")
+  private String dbUsername;
 
-    @Value("${spring.datasource.password}")
-    private String dbPassword;
+  @Value("${spring.datasource.password}")
+  private String dbPassword;
 }

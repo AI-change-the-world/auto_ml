@@ -9,19 +9,19 @@ import org.xiaoshuyui.automl.module.task.service.TaskService;
 @RequestMapping("/task")
 public class TaskController {
 
-    final TaskService taskService;
+  final TaskService taskService;
 
-    public TaskController(TaskService taskService) {
-        this.taskService = taskService;
-    }
+  public TaskController(TaskService taskService) {
+    this.taskService = taskService;
+  }
 
-    @PostMapping("/list")
-    public Result getTaskList(@RequestBody PageRequest request) {
-        return Result.OK_data(taskService.getTaskList(request.getPageId(), request.getPageSize()));
-    }
+  @PostMapping("/list")
+  public Result getTaskList(@RequestBody PageRequest request) {
+    return Result.OK_data(taskService.getTaskList(request.getPageId(), request.getPageSize()));
+  }
 
-    @PostMapping("/{id}/logs")
-    public Result getTaskLogsById(@PathVariable Long id) {
-        return Result.OK_data(taskService.getTaskLogsById(id));
-    }
+  @PostMapping("/{id}/logs")
+  public Result getTaskLogsById(@PathVariable Long id) {
+    return Result.OK_data(taskService.getTaskLogsById(id));
+  }
 }

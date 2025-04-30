@@ -4,11 +4,11 @@ import lombok.Data;
 
 @Data
 public class ModelUseRequest {
-    boolean isImage;
-    String content;
-    String prompt;
-    long modelId;
-    long annotationId;
+  boolean isImage;
+  String content;
+  String prompt;
+  long modelId;
+  long annotationId;
 
-    long datasetId;
+  long datasetId;
 }

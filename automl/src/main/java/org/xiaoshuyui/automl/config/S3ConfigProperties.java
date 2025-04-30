@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 @RefreshScope
 @ConfigurationProperties(prefix = "local-s3-config")
 public class S3ConfigProperties {
-    private String accessKey;
-    private String secretKey;
-    private String bucketName;
-    private String endpoint;
+  private String accessKey;
+  private String secretKey;
+  private String bucketName;
+  private String endpoint;
 }

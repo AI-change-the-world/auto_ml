@@ -4,5 +4,5 @@ import lombok.Data;
 
 @Data
 public class GetFileContentResponse {
-    String content;
+  String content;
 }

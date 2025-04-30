@@ -4,14 +4,14 @@ import lombok.Data;
 
 @Data
 public class NewDatasetRequest {
-    String name;
-    String description;
-    // 0:本地 1:s3 2:webdav ...
-    int storageType;
-    double ranking;
-    String url;
-    /// could be null
-    String annotationUrl;
-    String username;
-    String password;
+  String name;
+  String description;
+  // 0:本地 1:s3 2:webdav ...
+  int storageType;
+  double ranking;
+  String url;
+  /// could be null
+  String annotationUrl;
+  String username;
+  String password;
 }

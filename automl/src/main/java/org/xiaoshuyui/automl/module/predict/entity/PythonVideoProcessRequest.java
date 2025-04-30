@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class PythonVideoProcessRequest {
-    String file;
-    String session_id;
+  String file;
+  String session_id;
 }

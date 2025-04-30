@@ -32,18 +32,6 @@ spring:
       - nacos:LOCAL_S3_CONFIG?group=AUTO_ML
 
 
-  ai:
-    openai:
-      chat:
-        options:
-          model: ${CHAT_MODEL:Chat}
-      embedding:
-        options:
-          model: ${EMBEDDING_MODEL:Embed}
-        base-url: ${BASE_URL:http://127.0.0.1:9997}
-      api-key: ${API_KEY:sk-X}
-      base-url: ${BASE_URL:http://127.0.0.1:9997}
-
 mybatis-plus:
   global-config:
     db-config:

@@ -7,15 +7,16 @@ import org.xiaoshuyui.automl.module.annotation.mapper.AnnotationFileMapper;
 
 @Deprecated
 @Service
-public class AnnotationFileServiceImpl extends ServiceImpl<AnnotationFileMapper, AnnotationFile> implements AnnotationFileService {
+public class AnnotationFileServiceImpl extends ServiceImpl<AnnotationFileMapper, AnnotationFile>
+    implements AnnotationFileService {
 
-    final AnnotationFileMapper annotationFileMapper;
+  final AnnotationFileMapper annotationFileMapper;
 
-    public AnnotationFileServiceImpl(AnnotationFileMapper annotationFileMapper) {
-        this.annotationFileMapper = annotationFileMapper;
-    }
+  public AnnotationFileServiceImpl(AnnotationFileMapper annotationFileMapper) {
+    this.annotationFileMapper = annotationFileMapper;
+  }
 
-    public void saveSingle(AnnotationFile annotationFile) {
-        annotationFileMapper.insert(annotationFile);
-    }
+  public void saveSingle(AnnotationFile annotationFile) {
+    annotationFileMapper.insert(annotationFile);
+  }
 }

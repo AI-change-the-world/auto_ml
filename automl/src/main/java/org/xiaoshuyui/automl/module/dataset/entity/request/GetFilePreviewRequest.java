@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class GetFilePreviewRequest {
-    String path;
-    int storageType;
-    String baseUrl;
+  String path;
+  int storageType;
+  String baseUrl;
 }

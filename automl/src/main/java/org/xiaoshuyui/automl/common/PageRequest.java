@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class PageRequest {
-    int pageId;
-    int pageSize;
+  int pageId;
+  int pageSize;
 }

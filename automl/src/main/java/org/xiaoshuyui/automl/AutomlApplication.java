@@ -10,8 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @MapperScan("org.xiaoshuyui.automl.module")
 public class AutomlApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(AutomlApplication.class, args);
-    }
-
+  public static void main(String[] args) {
+    SpringApplication.run(AutomlApplication.class, args);
+  }
 }

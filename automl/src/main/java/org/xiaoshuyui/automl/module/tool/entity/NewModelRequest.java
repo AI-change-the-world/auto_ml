@@ -4,8 +4,8 @@ import lombok.Data;
 
 @Data
 public class NewModelRequest {
-     String baseUrl;
-     String apiKey;
-     String modelName;
-     String name;
+  String baseUrl;
+  String apiKey;
+  String modelName;
+  String name;
 }

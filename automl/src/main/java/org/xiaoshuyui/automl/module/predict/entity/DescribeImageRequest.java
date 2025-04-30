@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class DescribeImageRequest {
-    String prompt;
-    String frame_path;
-    Long model_id;
+  String prompt;
+  String frame_path;
+  Long model_id;
 }
