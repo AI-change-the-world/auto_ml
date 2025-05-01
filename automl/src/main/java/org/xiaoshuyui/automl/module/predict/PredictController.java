@@ -168,6 +168,39 @@ public class PredictController {
     return sseEmitter;
   }
 
+  @PostMapping("/describe")
+  public SseEmitter describeImageWithPrompt(@RequestBody DescribeImageListRequest request) {
+    SseEmitter sseEmitter = new SseEmitter();
+    SseResponse<String> sseResponse = new SseResponse<>();
+    Executors.newSingleThreadExecutor()
+        .execute(
+            () -> {
+              httpService
+                  .getDescribeImage(request.getFrames().get(0), request.getPrompt())
+                  .subscribe(
+                      line -> {
+                        sseResponse.setData(line);
+                        SseUtil.sseSend(sseEmitter, sseResponse);
+                      },
+                      throwable -> {
+                        sseResponse.setStatus("error");
+                        sseResponse.setMessage(throwable.getMessage());
+                        sseResponse.setDone(true);
+                        SseUtil.sseSend(sseEmitter, sseResponse);
+                        sseEmitter.complete();
+                      },
+                      () -> {
+                        sseResponse.setDone(true);
+                        sseResponse.setStatus("done");
+                        sseResponse.setMessage("[DONE]");
+                        SseUtil.sseSend(sseEmitter, sseResponse);
+                        sseEmitter.complete();
+                      });
+            });
+
+    return sseEmitter;
+  }
+
   @PostMapping("/describe/list")
   public SseEmitter describeImageList(@RequestBody DescribeImageListRequest request) {
     SseEmitter sseEmitter = new SseEmitter();

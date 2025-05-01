@@ -48,4 +48,6 @@ class Api {
   static final String s3preview = "/predict/s3/preview";
 
   static final String describeImageList = "/predict/describe/list";
+
+  static final String describeImage = "/predict/describe";
 }

@@ -80,90 +80,130 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
             child: Column(
               children: [
                 Expanded(
-                  child: Builder(
-                    builder: (c) {
-                      if (state.loading) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-
-                      if (state.current == -1) {
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text("Select a frame"),
-                            Text("or"),
-                            ElevatedButton(
-                              style: ButtonStyle(
-                                fixedSize: WidgetStateProperty.all(
-                                  Size(150, 20),
-                                ),
-                                backgroundColor: WidgetStatePropertyAll(
-                                  Colors.grey[300],
-                                ),
-                                padding: WidgetStatePropertyAll(
-                                  const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                                textStyle: WidgetStatePropertyAll(
-                                  const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                shape: WidgetStatePropertyAll(
-                                  RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4.0),
-                                  ),
-                                ),
-                              ),
-                              onPressed: () async {
-                                ref
-                                    .read(
-                                      imagePreviewProvider(
-                                        widget.fileId,
-                                      ).notifier,
-                                    )
-                                    .showSidebar();
-
-                                Future.delayed(
-                                  Duration(milliseconds: 500),
-                                ).then((_) {
-                                  ref
-                                      .read(describeImagesProvider.notifier)
-                                      .chat(
-                                        state.images
-                                            .map((e) => e.imageKey)
-                                            .toList(),
-                                      );
-                                });
-                              },
-                              child: Text("Start analysis"),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return Center(
-                        child: _buildCurrent(
-                          state.images[state.current],
-                          state.imageWidth,
-                          state.imageHeight,
-                          state.isSidebarOpen,
-                        ),
-                      );
+                  child: GestureDetector(
+                    onTap: () {
+                      ref
+                          .read(imagePreviewProvider(widget.fileId).notifier)
+                          .hideSidebar();
                     },
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(color: Colors.transparent),
+                      child: Builder(
+                        builder: (c) {
+                          if (state.loading) {
+                            return Center(child: CircularProgressIndicator());
+                          }
+
+                          if (state.current == -1) {
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text("Select a frame"),
+                                Visibility(visible: false, child: Text("or")),
+                                Visibility(
+                                  visible: false,
+                                  child: ElevatedButton(
+                                    style: ButtonStyle(
+                                      fixedSize: WidgetStateProperty.all(
+                                        Size(150, 20),
+                                      ),
+                                      backgroundColor: WidgetStatePropertyAll(
+                                        Colors.grey[300],
+                                      ),
+                                      padding: WidgetStatePropertyAll(
+                                        const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                      textStyle: WidgetStatePropertyAll(
+                                        const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                      shape: WidgetStatePropertyAll(
+                                        RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            4.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    onPressed: () async {
+                                      ref
+                                          .read(
+                                            imagePreviewProvider(
+                                              widget.fileId,
+                                            ).notifier,
+                                          )
+                                          .showSidebar();
+
+                                      Future.delayed(
+                                        Duration(milliseconds: 500),
+                                      ).then((_) {
+                                        ref
+                                            .read(
+                                              describeImagesProvider.notifier,
+                                            )
+                                            .clear();
+                                        ref
+                                            .read(
+                                              describeImagesProvider.notifier,
+                                            )
+                                            .chat(
+                                              state.images
+                                                  .map((e) => e.imageKey)
+                                                  .toList(),
+                                            );
+                                      });
+                                    },
+                                    child: Text("Start analysis"),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return Center(
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: _buildCurrent(
+                                state.images[state.current],
+                                state.imageWidth,
+                                state.imageHeight,
+                                state.isSidebarOpen,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
 
                 ImagePreviewListWidget(
                   images: state.images,
                   onSelected: (model) {
+                    if (ref.read(describeImagesProvider).isGenerating) {
+                      ToastUtils.info(
+                        context,
+                        title: "Generating..., don't select another frame",
+                      );
+                      return;
+                    }
+
                     ref
                         .read(imagePreviewProvider(widget.fileId).notifier)
-                        .setCurrent(model);
+                        .showSidebar();
+
+                    Future.delayed(Duration(milliseconds: 500)).then((_) {
+                      ref
+                          .read(imagePreviewProvider(widget.fileId).notifier)
+                          .setCurrent(model);
+                    });
                   },
                   id: widget.fileId,
                 ),

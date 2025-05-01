@@ -14,6 +14,7 @@ Future sse(
     'Accept': 'text/event-stream',
     'Cache-Control': 'no-cache',
   },
+  void Function(String)? onDone,
 }) async {
   final instance = DioClient().instance;
 

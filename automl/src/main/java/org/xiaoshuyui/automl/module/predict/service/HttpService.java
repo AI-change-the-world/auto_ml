@@ -139,6 +139,56 @@ public class HttpService {
   }
 
   // TODO model should not be set by default
+  public Flux<String> getDescribeImage(String filepath, String prompt) {
+    DescribeImageRequest describeImageRequest = new DescribeImageRequest();
+    describeImageRequest.setFrame_path(filepath);
+    describeImageRequest.setModel_id(1L);
+    describeImageRequest.setPrompt(prompt);
+
+    String json = gson.toJson(describeImageRequest);
+    log.info("Describe image request: {}", json);
+    RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
+    Request request = new Request.Builder().url(aiPlatformUrl + describeImage).post(body).build();
+
+    try {
+      Response response = client.newCall(request).execute();
+      if (response.isSuccessful() && response.body() != null) {
+        // 这里用 Flux.using 来确保资源管理正确
+        return Flux.using(
+            () -> response, // Resource supplier
+            resp -> Flux.create(
+                sink -> {
+                  try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                      if (!line.trim().isEmpty()) {
+                        sink.next(line);
+                      }
+                    }
+                    sink.complete();
+                  } catch (IOException e) {
+                    sink.error(new RuntimeException(e));
+                  }
+                }),
+            resp -> {
+              // Cleanup logic, always close response
+              if (resp != null) {
+                resp.close();
+              }
+            });
+      } else {
+        log.error("Response error: {}", response);
+        if (response != null) {
+          response.close();
+        }
+      }
+    } catch (Exception e) {
+      log.error("Request error", e);
+    }
+    return Flux.error(new IllegalStateException("Cannot connect to AI platform."));
+  }
+
+  // TODO model should not be set by default
   public Flux<String> getDescribeImageList(List<String> filepath) {
     DescribeImageListRequest describeImageRequest = new DescribeImageListRequest();
     describeImageRequest.setFrames(filepath);

@@ -14,6 +14,7 @@ Future sse(
     'Accept': 'text/event-stream',
     'Cache-Control': 'no-cache',
   },
+  void Function(String)? onDone,
 }) async {
   logger.d("sse url: $url");
   HttpRequest request = HttpRequest();
@@ -47,6 +48,10 @@ Future sse(
       /// 因为上面的数据有的时候
       /// 会有处理异常
       logger.i(request.responseText);
+      if (onDone != null) {
+        onDone(request.responseText!);
+      }
+
       ss.sink.add("[DONE]");
     })
     ..send(jsonEncode(data)); // 发送请求体

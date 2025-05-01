@@ -72,3 +72,41 @@ class Box {
   factory Box.fromJson(Map<String, dynamic> json) => _$BoxFromJson(json);
   Map<String, dynamic> toJson() => _$BoxToJson(this);
 }
+
+extension VideoResultDescription on VideoResult {
+  String toResultString() {
+    final buffer = StringBuffer();
+    buffer.writeln('视频总时长：${duration.toStringAsFixed(2)} 秒');
+    buffer.writeln('视频尺寸：${frameWidth}x$frameHeight');
+    buffer.writeln('共提取 ${keyframes.length} 帧作为关键帧。\n');
+
+    for (int i = 0; i < keyframes.length; i++) {
+      final frame = keyframes[i];
+      final detections = frame.detections;
+      final personCount = detections.where((d) => d.name == 'person').length;
+      final hardhatCount = detections.where((d) => d.name == 'hardhat').length;
+      final noHardhatCount =
+          detections.where((d) => d.name == 'no-hardhat').length;
+      final safetyVestCount =
+          detections
+              .where(
+                (d) => d.name == 'no-safety vest' || d.name == 'safety vest',
+              )
+              .length;
+      final noVestCount =
+          detections.where((d) => d.name == 'no-safety vest').length;
+      final noMaskCount = detections.where((d) => d.name == 'no-mask').length;
+
+      buffer.writeln(
+        '第 ${i + 1} 帧（时间戳 ${frame.timestamp.toStringAsFixed(1)} 秒）:',
+      );
+      buffer.writeln('  - 检测到 ${detections.length} 个目标');
+      buffer.writeln('  - 人数：$personCount');
+      buffer.writeln('  - 戴安全帽：$hardhatCount，未戴安全帽：$noHardhatCount');
+      buffer.writeln('  - 穿安全背心：$safetyVestCount，未穿安全背心：$noVestCount');
+      buffer.writeln('  - 未戴口罩：$noMaskCount\n');
+    }
+
+    return buffer.toString();
+  }
+}

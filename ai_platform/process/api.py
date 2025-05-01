@@ -13,6 +13,7 @@ from base.deprecated import deprecated
 from base.file_delegate import FileDelegate, GetFileRequest
 from base.nacos_config import get_db
 from db.tool_model.tool_model_crud import get_tool_model
+from process.video_process.key_frame_analysis import deep_describe_frame
 
 router = APIRouter(
     prefix="/process",
@@ -20,6 +21,7 @@ router = APIRouter(
 )
 
 model = YOLO("yolo11x.pt")
+model2 = YOLO("best.pt")
 box_annotator = sv.BoxAnnotator()
 
 
@@ -42,6 +44,7 @@ class ImageDescribeRequest(BaseModel):
     model_id: int
     frame_path: str
     prompt: Optional[str]
+
 
 class ImageListDescribeRequest(BaseModel):
     model_id: int
@@ -75,15 +78,13 @@ async def predict(req: ImageAnalyzeRequest, db: Session = Depends(get_db)):
 
 @router.post("/describe")
 async def predict(req: ImageDescribeRequest, db: Session = Depends(get_db)):
-    from process.video_process.key_frame_analysis import describe_frame
-
     tool_model = get_tool_model(db, req.model_id)
 
     return EventSourceResponse(
-        describe_frame(
+        deep_describe_frame(
             frame_path=req.frame_path,
             tool_model=tool_model,
-            prompt=req.prompt,
+            prompt=req.prompt or "无可参考的结果",
         ),
         media_type="text/event-stream",
     )
@@ -138,7 +139,7 @@ async def predict(req: Request):
             yield "正在识别关键帧，请稍后..."
 
             rs: BaseModel = vp.detect_and_annotate(
-                annotator=box_annotator, model=model, delegate=delegate
+                annotator=box_annotator, model_list=[model, model2], delegate=delegate
             )
             yield "检测完成"
 

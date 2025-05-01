@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_init_to_null
 
+import 'package:auto_ml/modules/predict/models/image_preview_model.dart';
 import 'package:auto_ml/modules/predict/notifier/describe_images_notifier.dart';
 import 'package:auto_ml/modules/predict/notifier/image_preview_notifier.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +16,11 @@ class SidebarWidget extends ConsumerStatefulWidget {
 }
 
 class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
+  @Deprecated("")
   late Image? image = null;
+
+  late String imageDescription = "";
+  late String imgKey = "";
 
   @override
   void initState() {
@@ -34,24 +39,90 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
     });
   }
 
-  // @override
-  // void didUpdateWidget(covariant SidebarWidget oldWidget) {
-  //   super.didUpdateWidget(oldWidget);
-  //   final rect = ref.read(
-  //     imagePreviewProvider(widget.fileId).select((value) => value.selected),
-  //   );
-  //   if (rect != null) {
-  //     loadImage(rect);
-  //   }
-  // }
+  @override
+  void didUpdateWidget(covariant SidebarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = ref.read(imagePreviewProvider(widget.fileId)).current;
+    if (index == -1) {
+      return;
+    }
+    final currentImage =
+        ref.read(imagePreviewProvider(widget.fileId)).images[index];
+
+    setState(() {
+      imageDescription = currentImage.toResultString();
+      imgKey = currentImage.imageKey;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(describeImagesProvider);
+
     return Padding(
       padding: EdgeInsets.all(10),
-      child: SingleChildScrollView(
-        controller: ref.read(describeImagesProvider.notifier).scrollController,
-        child: GptMarkdown(ref.watch(describeImagesProvider)),
+      child: Column(
+        spacing: 10,
+        children: [
+          if (imageDescription.isNotEmpty) GptMarkdown(imageDescription),
+          if (imageDescription.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                "(以上是由小模型生成的检测结果)",
+                style: TextStyle(color: Colors.redAccent, fontSize: 12),
+              ),
+            ),
+          SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                Spacer(),
+                if (imageDescription.isNotEmpty)
+                  ElevatedButton(
+                    style: ButtonStyle(
+                      fixedSize: WidgetStateProperty.all(Size(150, 20)),
+                      backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+                      padding: WidgetStatePropertyAll(
+                        const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      textStyle: WidgetStatePropertyAll(
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4.0),
+                        ),
+                      ),
+                    ),
+
+                    onPressed:
+                        state.isGenerating
+                            ? null
+                            : () async {
+                              ref
+                                  .read(describeImagesProvider.notifier)
+                                  .chatSingleFile([imgKey], imageDescription);
+                            },
+                    child: Text("Deep analysis"),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              controller:
+                  ref.read(describeImagesProvider.notifier).scrollController,
+              child: GptMarkdown(state.data),
+            ),
+          ),
+        ],
       ),
     );
   }

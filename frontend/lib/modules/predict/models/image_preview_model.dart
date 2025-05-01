@@ -31,3 +31,29 @@ class ImagePreviewModel {
     );
   }
 }
+
+extension ImagePreviewDescription on ImagePreviewModel {
+  String toResultString() {
+    final buffer = StringBuffer();
+
+    final personCount = detections.where((d) => d.name == 'person').length;
+    final hardhatCount = detections.where((d) => d.name == 'hardhat').length;
+    final noHardhatCount =
+        detections.where((d) => d.name == 'no-hardhat').length;
+    final safetyVestCount =
+        detections
+            .where((d) => d.name == 'no-safety vest' || d.name == 'safety vest')
+            .length;
+    final noVestCount =
+        detections.where((d) => d.name == 'no-safety vest').length;
+    final noMaskCount = detections.where((d) => d.name == 'no-mask').length;
+
+    buffer.writeln('检测到 ${detections.length} 个目标：');
+    buffer.writeln('  - 人数：$personCount');
+    buffer.writeln('  - 戴安全帽：$hardhatCount，未戴安全帽：$noHardhatCount');
+    buffer.writeln('  - 戴安全背心：$safetyVestCount，未戴安全背心：$noVestCount');
+    buffer.writeln('  - 未戴口罩：$noMaskCount');
+
+    return buffer.toString();
+  }
+}

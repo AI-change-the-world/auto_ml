@@ -302,6 +302,51 @@ multiple_frames_prompt = """
 """
 
 
+single_frame_deep_analyze_prompt = """
+你是一名负责工地安全分析的多模态专家。现在请结合下方的现场图像和初步检测结果，对施工现场进行全面的安全分析。请严格从以下六个方面展开分析，并注意参考初步检测结果进行补充与修正：
+
+---
+
+**小模型检测结果：**  
+检测到 10 个目标：  
+{{yolo_result}}
+
+---
+
+请从以下六个方面依次分析：
+
+### 1. 现场环境对比分析
+- 判断现场是否为标准施工环境（如围挡、标识、材料堆放等是否规范）  
+- 分析图像中是否存在与小模型结果不一致之处  
+
+### 2. 工人活动与状态识别
+- 判断工人是否处于工作、休息、操作机械等状态  
+- 补充小模型未提及的行为识别，如抽烟、玩手机、疲劳操作等  
+
+### 3. 施工工具与机械使用情况
+- 是否存在危险工具未妥善存放、机械无防护操作等现象  
+- 工人是否正确使用工具或机械设备  
+
+### 4. 安全规范与隐患评估
+- 对照小模型结果，判断工人是否全面佩戴防护装备，如安全帽、背心、口罩等  
+- 判断是否存在违章作业或安全死角  
+
+### 5. 多人协作与现场动态
+- 分析是否存在多人协作、交叉作业等情况，是否有配合不当的风险  
+- 判断人群密集度是否合理，有无潜在碰撞风险  
+
+### 6. 总结与工人行为概况
+- 总结工人整体的安全行为状态  
+- 结合小模型数据和图像内容，提出改进建议或重点关注点  
+
+---
+
+**要求：**
+- 不要盲目信任小模型的结果，如发现其误判，应明确指出  
+- 输出结构清晰、逻辑严谨、语言客观，便于用于后续生成安全分析报告  
+- 若某方面缺乏信息支持，可说明 “不足以判断” 并说明原因  
+"""
+
 async def describe_frame(
     frame_path: str,
     tool_model: ToolModel,
@@ -356,6 +401,58 @@ async def describe_frame(
         yield "[DONE]"
 
 
+async def deep_describe_frame(
+    frame_path: str,
+    tool_model: ToolModel,
+    prompt: str
+):
+    if tool_model is None:
+        yield "tool_model is None"
+
+    try:
+        op = get_op()
+
+        file_data = op.read(frame_path)
+        b64 = base64.encodebytes(file_data).decode("utf-8")
+        b64_with_header = f"data:image/jpeg;base64,{b64}"
+        vl_model = get_model(tool_model)
+
+        prompt = single_frame_deep_analyze_prompt.replace("{{yolo_result}}", prompt)
+
+        req = {"type": "text", "text": prompt}
+
+        completion = vl_model.chat.completions.create(
+            model=tool_model.model_name,
+            max_tokens=1024,
+            stream=True,
+            messages=[
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": "You are a helpful assistant."}
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        req,
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": b64_with_header},
+                        },
+                    ],
+                },
+            ],
+        )
+        for chunk in completion:
+            delta = chunk.choices[0].delta
+            if hasattr(delta, "content"):
+                yield delta.content
+    except Exception as e:
+        logger.error(e)
+    finally:
+        yield "[DONE]"
+
 
 async def describe_frames(
     frame_paths: List[str],
@@ -380,10 +477,9 @@ async def describe_frames(
             b64 = base64.encodebytes(file_data).decode("utf-8")
             b64_with_header = f"data:image/jpeg;base64,{b64}"
 
-            image_contents.append({
-                "type": "image_url",
-                "image_url": {"url": b64_with_header}
-            })
+            image_contents.append(
+                {"type": "image_url", "image_url": {"url": b64_with_header}}
+            )
 
         # 构建完整的消息内容（多张图 + 文本 prompt）
         user_content = [{"type": "text", "text": prompt}] + image_contents
@@ -395,7 +491,9 @@ async def describe_frames(
             messages=[
                 {
                     "role": "system",
-                    "content": [{"type": "text", "text": "You are a helpful assistant."}],
+                    "content": [
+                        {"type": "text", "text": "You are a helpful assistant."}
+                    ],
                 },
                 {
                     "role": "user",

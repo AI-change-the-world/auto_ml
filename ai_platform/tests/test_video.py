@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from process.video_process.video_process import VideoProcess
 
 model = YOLO("yolo11x.pt")
+model2 = YOLO("/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/best.pt")
 box_annotator = sv.BoxAnnotator()
 
 
@@ -19,6 +20,8 @@ vp = VideoProcess(
 
 vp.extract_keyframes()
 
-rs: BaseModel = vp.detect_and_annotate(annotator=box_annotator, model=model)
+rs: BaseModel = vp.detect_and_annotate(
+    annotator=box_annotator, model_list=[model, model2]
+)
 
 print(rs.model_dump_json())
