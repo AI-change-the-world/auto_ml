@@ -1,14 +1,13 @@
 package org.xiaoshuyui.automl.module.annotation.service;
 
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
 import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.mapper.AnnotationMapper;
 import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.S3FileDelegate;
-
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -17,8 +16,7 @@ public class AnnotationService {
 
   final AnnotationMapper annotationMapper;
 
-  public AnnotationService(
-      S3FileDelegate s3FileDelegate, AnnotationMapper annotationMapper) {
+  public AnnotationService(S3FileDelegate s3FileDelegate, AnnotationMapper annotationMapper) {
     this.s3FileDelegate = s3FileDelegate;
     this.annotationMapper = annotationMapper;
   }
@@ -64,10 +62,11 @@ public class AnnotationService {
   }
 
   private void scanFolderParallel(Annotation annotation) {
-    Thread thread = new Thread(
-        () -> {
-          scanAndUploadToLocalS3FolderSync(annotation);
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              scanAndUploadToLocalS3FolderSync(annotation);
+            });
     thread.start();
   }
 
@@ -83,7 +82,9 @@ public class AnnotationService {
     }
     if (annotation.getStorageType() == 0) {
       try {
-        List<String> l = GetFileListUtil.getFileList(annotation.getAnnotationPath(), annotation.getStorageType());
+        List<String> l =
+            GetFileListUtil.getFileList(
+                annotation.getAnnotationPath(), annotation.getStorageType());
 
         if (!l.isEmpty()) {
 

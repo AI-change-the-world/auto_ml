@@ -56,8 +56,7 @@ public class DatasetController {
   @PostMapping("/file/preview")
   public Result previewFile(@RequestBody GetFilePreviewRequest request) {
     try {
-      String s = datasetService.getFileContent(
-          request.getPath(), request.getStorageType());
+      String s = datasetService.getFileContent(request.getPath(), request.getStorageType());
       GetFileContentResponse response = new GetFileContentResponse();
       response.setContent(s);
       return Result.OK_data(response);
@@ -87,5 +86,4 @@ public class DatasetController {
     response.setFiles(files);
     return Result.OK_data(response);
   }
-
 }

@@ -4,12 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -35,9 +33,7 @@ public class ToolModelService {
   private final ToolModelMapper toolModelMapper;
   private final AnnotationService annotationService;
 
-  public ToolModelService(
-      ToolModelMapper toolModelMapper,
-      AnnotationService annotationService) {
+  public ToolModelService(ToolModelMapper toolModelMapper, AnnotationService annotationService) {
     this.toolModelMapper = toolModelMapper;
     this.annotationService = annotationService;
   }
@@ -55,15 +51,17 @@ public class ToolModelService {
     return toolModelMapper.selectOne(queryWrapper);
   }
 
-  private static final OkHttpClient client = new OkHttpClient.Builder()
-      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-      .build();
+  private static final OkHttpClient client =
+      new OkHttpClient.Builder()
+          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+          .build();
 
-  private static Gson gson = new GsonBuilder()
-      .serializeNulls() // 👈 关键：保留 null 字段
-      .create();
+  private static Gson gson =
+      new GsonBuilder()
+          .serializeNulls() // 👈 关键：保留 null 字段
+          .create();
 
   public LabelData getLabel(ModelUseRequest request) {
 
@@ -76,17 +74,12 @@ public class ToolModelService {
       predictRequest.setPrompt(request.getPrompt());
 
       // 创建 RequestBody
-      RequestBody body = RequestBody.create(
-          gson.toJson(predictRequest),
-          MediaType.parse("application/json"));
-      Request req = new Request.Builder()
-          .url(baseUrl + getLabelApi)
-          .post(body)
-          .build();
+      RequestBody body =
+          RequestBody.create(gson.toJson(predictRequest), MediaType.parse("application/json"));
+      Request req = new Request.Builder().url(baseUrl + getLabelApi).post(body).build();
 
       Response response = client.newCall(req).execute();
-      Type type = new TypeToken<PythonApiResponse<LabelData>>() {
-      }.getType();
+      Type type = new TypeToken<PythonApiResponse<LabelData>>() {}.getType();
       PythonApiResponse<LabelData> labelData = gson.fromJson(response.body().string(), type);
       return labelData.data;
 

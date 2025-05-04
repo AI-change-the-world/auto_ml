@@ -26,8 +26,7 @@ public class DatasetService {
     this.s3FileDelegate = s3FileDelegate;
   }
 
-  @Resource
-  LocalImageDelegate localImageDelegate;
+  @Resource LocalImageDelegate localImageDelegate;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -96,8 +95,7 @@ public class DatasetService {
     return response;
   }
 
-  public String getFileContent(String path, int storageType)
-      throws Exception {
+  public String getFileContent(String path, int storageType) throws Exception {
     return s3FileDelegate.getFile(path, null);
   }
 
@@ -169,10 +167,11 @@ public class DatasetService {
   }
 
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread = new Thread(
-        () -> {
-          scanAndUploadToLocalS3FolderSync(dataset);
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              scanAndUploadToLocalS3FolderSync(dataset);
+            });
     thread.start();
   }
 }

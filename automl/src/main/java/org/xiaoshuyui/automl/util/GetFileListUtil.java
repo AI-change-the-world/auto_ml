@@ -7,9 +7,9 @@ import java.util.Map;
 import org.apache.opendal.AsyncOperator;
 
 /*
- * 
+ *
  * 获取本地文件列表
-*/
+ */
 public class GetFileListUtil {
 
   public static List<String> getFileList(String baseDir, int storageType) {

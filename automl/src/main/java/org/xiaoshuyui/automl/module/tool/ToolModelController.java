@@ -1,7 +1,7 @@
 package org.xiaoshuyui.automl.module.tool;
 
-import lombok.val;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;

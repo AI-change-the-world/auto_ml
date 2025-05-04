@@ -2,8 +2,6 @@ package org.xiaoshuyui.automl.util;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -13,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.opendal.AsyncOperator;
 import org.springframework.stereotype.Component;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
@@ -22,8 +20,7 @@ import org.xiaoshuyui.automl.config.S3ConfigProperties;
 @Slf4j
 public class S3FileDelegate implements FileDelegate {
 
-  @Resource
-  private S3ConfigProperties properties;
+  @Resource private S3ConfigProperties properties;
 
   private AsyncOperator defaultOperator;
   private Map<String, String> defaultConf;
@@ -33,12 +30,17 @@ public class S3FileDelegate implements FileDelegate {
 
   @PostConstruct
   public void init() {
-    defaultConf = createConf(properties.getAccessKey(), properties.getSecretKey(), properties.getBucketName(),
-        properties.getEndpoint());
+    defaultConf =
+        createConf(
+            properties.getAccessKey(),
+            properties.getSecretKey(),
+            properties.getBucketName(),
+            properties.getEndpoint());
     defaultOperator = AsyncOperator.of("s3", defaultConf);
   }
 
-  private Map<String, String> createConf(String accessKey, String secretKey, String bucket, String endpoint) {
+  private Map<String, String> createConf(
+      String accessKey, String secretKey, String bucket, String endpoint) {
     Map<String, String> conf = new HashMap<>();
     conf.put("root", "/");
     conf.put("access_key_id", accessKey);
@@ -55,11 +57,17 @@ public class S3FileDelegate implements FileDelegate {
     if (bucket == null || bucket.equals(properties.getBucketName())) {
       return defaultOperator;
     }
-    return operatorCache.computeIfAbsent(bucket, b -> {
-      Map<String, String> conf = createConf(properties.getAccessKey(), properties.getSecretKey(), b,
-          properties.getEndpoint());
-      return AsyncOperator.of("s3", conf);
-    });
+    return operatorCache.computeIfAbsent(
+        bucket,
+        b -> {
+          Map<String, String> conf =
+              createConf(
+                  properties.getAccessKey(),
+                  properties.getSecretKey(),
+                  b,
+                  properties.getEndpoint());
+          return AsyncOperator.of("s3", conf);
+        });
   }
 
   @Override
@@ -86,7 +94,6 @@ public class S3FileDelegate implements FileDelegate {
       log.error("get file content error: {}", e.getMessage());
       return "";
     }
-
   }
 
   @Override

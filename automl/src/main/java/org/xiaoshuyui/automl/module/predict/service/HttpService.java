@@ -31,15 +31,17 @@ public class HttpService {
   @Value("${ai-platform.describe-image-list}")
   private String describeImageList;
 
-  private static final OkHttpClient client = new OkHttpClient.Builder()
-      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-      .build();
+  private static final OkHttpClient client =
+      new OkHttpClient.Builder()
+          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+          .build();
 
-  private static Gson gson = new GsonBuilder()
-      .serializeNulls() // 👈 关键：保留 null 字段
-      .create();
+  private static Gson gson =
+      new GsonBuilder()
+          .serializeNulls() // 👈 关键：保留 null 字段
+          .create();
 
   public Flux<String> getVideoProcess(String url, String sessionId) {
     PythonVideoProcessRequest pythonVideoProcessRequest = new PythonVideoProcessRequest();
@@ -56,20 +58,22 @@ public class HttpService {
         // 这里用 Flux.using 来确保资源管理正确
         return Flux.using(
             () -> response, // Resource supplier
-            resp -> Flux.create(
-                sink -> {
-                  try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                      if (!line.trim().isEmpty()) {
-                        sink.next(line);
+            resp ->
+                Flux.create(
+                    sink -> {
+                      try (BufferedReader reader =
+                          new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                          if (!line.trim().isEmpty()) {
+                            sink.next(line);
+                          }
+                        }
+                        sink.complete();
+                      } catch (IOException e) {
+                        sink.error(new RuntimeException(e));
                       }
-                    }
-                    sink.complete();
-                  } catch (IOException e) {
-                    sink.error(new RuntimeException(e));
-                  }
-                }),
+                    }),
             resp -> {
               // Cleanup logic, always close response
               if (resp != null) {
@@ -106,20 +110,22 @@ public class HttpService {
         // 这里用 Flux.using 来确保资源管理正确
         return Flux.using(
             () -> response, // Resource supplier
-            resp -> Flux.create(
-                sink -> {
-                  try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                      if (!line.trim().isEmpty()) {
-                        sink.next(line);
+            resp ->
+                Flux.create(
+                    sink -> {
+                      try (BufferedReader reader =
+                          new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                          if (!line.trim().isEmpty()) {
+                            sink.next(line);
+                          }
+                        }
+                        sink.complete();
+                      } catch (IOException e) {
+                        sink.error(new RuntimeException(e));
                       }
-                    }
-                    sink.complete();
-                  } catch (IOException e) {
-                    sink.error(new RuntimeException(e));
-                  }
-                }),
+                    }),
             resp -> {
               // Cleanup logic, always close response
               if (resp != null) {
@@ -156,20 +162,22 @@ public class HttpService {
         // 这里用 Flux.using 来确保资源管理正确
         return Flux.using(
             () -> response, // Resource supplier
-            resp -> Flux.create(
-                sink -> {
-                  try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                      if (!line.trim().isEmpty()) {
-                        sink.next(line);
+            resp ->
+                Flux.create(
+                    sink -> {
+                      try (BufferedReader reader =
+                          new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                          if (!line.trim().isEmpty()) {
+                            sink.next(line);
+                          }
+                        }
+                        sink.complete();
+                      } catch (IOException e) {
+                        sink.error(new RuntimeException(e));
                       }
-                    }
-                    sink.complete();
-                  } catch (IOException e) {
-                    sink.error(new RuntimeException(e));
-                  }
-                }),
+                    }),
             resp -> {
               // Cleanup logic, always close response
               if (resp != null) {
@@ -198,7 +206,8 @@ public class HttpService {
     String json = gson.toJson(describeImageRequest);
     log.info("Describe image request: {}", json);
     RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
-    Request request = new Request.Builder().url(aiPlatformUrl + describeImageList).post(body).build();
+    Request request =
+        new Request.Builder().url(aiPlatformUrl + describeImageList).post(body).build();
 
     try {
       Response response = client.newCall(request).execute();
@@ -206,20 +215,22 @@ public class HttpService {
         // 这里用 Flux.using 来确保资源管理正确
         return Flux.using(
             () -> response, // Resource supplier
-            resp -> Flux.create(
-                sink -> {
-                  try (BufferedReader reader = new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                      if (!line.trim().isEmpty()) {
-                        sink.next(line);
+            resp ->
+                Flux.create(
+                    sink -> {
+                      try (BufferedReader reader =
+                          new BufferedReader(new InputStreamReader(resp.body().byteStream()))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                          if (!line.trim().isEmpty()) {
+                            sink.next(line);
+                          }
+                        }
+                        sink.complete();
+                      } catch (IOException e) {
+                        sink.error(new RuntimeException(e));
                       }
-                    }
-                    sink.complete();
-                  } catch (IOException e) {
-                    sink.error(new RuntimeException(e));
-                  }
-                }),
+                    }),
             resp -> {
               // Cleanup logic, always close response
               if (resp != null) {

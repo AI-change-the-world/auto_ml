@@ -1,6 +1,5 @@
 package org.xiaoshuyui.automl.module.annotation;
 
-import jakarta.annotation.Resource;
 import java.util.Arrays;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
@@ -9,7 +8,6 @@ import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
-import org.xiaoshuyui.automl.util.LocalAnnotationDelegate;
 
 @RestController
 @RequestMapping("/annotation")
@@ -43,8 +41,7 @@ public class AnnotationController {
     response.setClasses(Arrays.stream(annotation.getClassItems().split(";")).toList());
     response.setStorageType(annotation.getStorageType());
 
-    response.setFiles(
-        annotationService.getFileList(annotation));
+    response.setFiles(annotationService.getFileList(annotation));
     return Result.OK_data(response);
   }
 
@@ -65,5 +62,4 @@ public class AnnotationController {
 
     return Result.OK();
   }
-
 }

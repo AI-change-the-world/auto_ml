@@ -2,7 +2,6 @@ package org.xiaoshuyui.automl.util;
 
 import java.io.InputStream;
 import java.util.List;
-
 import org.jetbrains.annotations.Nullable;
 
 public interface FileDelegate {
@@ -17,10 +16,10 @@ public interface FileDelegate {
 
   default InputStream getFileStream(String path) throws Exception {
     return null;
-  };
-
-  default void putFile(String path, InputStream inputStream) throws Exception {
   }
+  ;
+
+  default void putFile(String path, InputStream inputStream) throws Exception {}
 
   /*
    * 批量上传文件
@@ -29,7 +28,8 @@ public interface FileDelegate {
    * basePath: 文件夹路径
    * return: 文件列表
    */
-  default List<String> putFileList(List<String> files, String bucket, String basePath) throws Exception {
+  default List<String> putFileList(List<String> files, String bucket, String basePath)
+      throws Exception {
     return null;
   }
 }
