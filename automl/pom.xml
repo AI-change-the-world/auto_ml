@@ -57,11 +57,6 @@
             <artifactId>reactor-core</artifactId>
             <version>${reactor-core.version}</version>
         </dependency>
-        <dependency>
-            <groupId>net.coobird</groupId>
-            <artifactId>thumbnailator</artifactId>
-            <version>${thumbnailator.version}</version>
-        </dependency>
         <!-- OkHttp -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>

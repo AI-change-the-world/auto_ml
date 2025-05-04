@@ -18,3 +18,4 @@ class Annotation(Base):
     class_items = Column(String, nullable=True)
     annotation_path = Column(String, nullable=True)
     storage_type = Column(Integer, nullable=True, comment="0:本地 1:s3 2:webdav 3:其它")
+    annotation_save_path = Column(String, nullable=True)

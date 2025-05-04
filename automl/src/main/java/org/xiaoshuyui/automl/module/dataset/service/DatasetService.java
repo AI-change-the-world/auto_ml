@@ -5,13 +5,13 @@ import jakarta.annotation.Resource;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.xiaoshuyui.automl.config.S3ConfigProperties;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetDetailsResponse;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
 import org.xiaoshuyui.automl.util.GetFileListUtil;
-import org.xiaoshuyui.automl.util.LocalImageDelegate;
 import org.xiaoshuyui.automl.util.S3FileDelegate;
 
 @Slf4j
@@ -26,7 +26,8 @@ public class DatasetService {
     this.s3FileDelegate = s3FileDelegate;
   }
 
-  @Resource LocalImageDelegate localImageDelegate;
+  @Resource
+  private S3ConfigProperties properties;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -61,7 +62,8 @@ public class DatasetService {
 
   public List<String> getFileList(Dataset dataset) {
     try {
-      return s3FileDelegate.listFiles(dataset.getLocalS3StoragePath());
+      return s3FileDelegate.listFiles(
+          dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
     } catch (Exception e) {
       log.error("get file list error: {}", e.getMessage());
       return null;
@@ -96,22 +98,7 @@ public class DatasetService {
   }
 
   public String getFileContent(String path, int storageType) throws Exception {
-    return s3FileDelegate.getFile(path, null);
-  }
-
-  @Deprecated
-  public String getFileContentUnCompress(String datasetBaseUrl, String path, int storageType)
-      throws Exception {
-    if (storageType == 0) {
-      String p = datasetBaseUrl;
-      if (!p.endsWith("/")) {
-        p = p + "/";
-      }
-      p = p + path;
-      return localImageDelegate.getFileUnCompress(p);
-    }
-    // todo unimplemented
-    return null;
+    return s3FileDelegate.getFile(path, properties.getDatasetsBucketName());
   }
 
   /// only one level folder
@@ -153,7 +140,7 @@ public class DatasetService {
           storage.setFileCount((long) l.size());
           storage.setLocalS3StoragePath(basePath);
           log.info("files: {}", l);
-          List<String> targets = s3FileDelegate.putFileList(l, null, basePath);
+          List<String> targets = s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
           storage.setSampleFilePath(targets.get(0));
         }
         storage.setScanStatus(1);
@@ -167,11 +154,10 @@ public class DatasetService {
   }
 
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanAndUploadToLocalS3FolderSync(dataset);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(dataset);
+        });
     thread.start();
   }
 }

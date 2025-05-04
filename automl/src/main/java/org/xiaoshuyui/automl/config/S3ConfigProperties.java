@@ -14,4 +14,16 @@ public class S3ConfigProperties {
   private String secretKey;
   private String bucketName;
   private String endpoint;
+  private String datasetsBucketName;
+  private String modelsBucketName;
+
+  @Override
+  public String toString() {
+    return "accessKey: " + accessKey + "\n" +
+        "secretKey: " + secretKey + "\n" +
+        "bucketName: " + bucketName + "\n" +
+        "endpoint: " + endpoint + "\n" +
+        "datasetBucketName: " + datasetsBucketName + "\n" +
+        "modelsBucketName: " + modelsBucketName + "\n";
+  }
 }

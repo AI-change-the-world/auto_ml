@@ -46,7 +46,7 @@ class FileList extends ConsumerWidget {
                                 waitDuration: Duration(milliseconds: 500),
                                 message: data[index].$1,
                                 child: Text(
-                                  data[index].$1,
+                                  data[index].$1.split("/").last,
                                   style: TextStyle(color: Colors.white),
                                   maxLines: 1,
                                   softWrap: true,

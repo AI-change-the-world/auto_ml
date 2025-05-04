@@ -45,8 +45,8 @@ async def train(req: TrainRequest, db: Session = Depends(get_db)):
 
     train(
         task_id=req.task_id,
-        dataset_path=dataset.url,
-        annotation_path=annotation.annotation_path,
+        dataset_path=dataset.local_s3_storage_path,
+        annotation_path=annotation.annotation_save_path,
         classes=annotation.class_items.split(";"),
     )
 

@@ -6,7 +6,7 @@ import opendal
 from base.nacos_config import load_nacos_config
 
 
-def get_op(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> opendal.Operator:
+def get_operator(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> opendal.Operator:
     nacos_config = load_nacos_config(data_id, group)
     cfg = nacos_config.get("local-s3-config")
     return opendal.Operator(
@@ -21,7 +21,7 @@ def get_op(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> opendal.Operator:
     )
 
 
-op = get_op()
+op = get_operator()
 
 
 print(len(op.read("image.png")))

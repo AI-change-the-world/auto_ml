@@ -26,3 +26,4 @@ class Dataset(Base):
     )
     file_count = Column(BigInteger, nullable=True)
     sample_file_path = Column(String, nullable=True)
+    local_s3_storage_path = Column(String, nullable=True)

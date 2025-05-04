@@ -19,6 +19,11 @@ public interface FileDelegate {
   }
   ;
 
+  default InputStream getFileStream(String path, @Nullable String bucket) throws Exception {
+    return null;
+  }
+  ;
+
   default void putFile(String path, InputStream inputStream) throws Exception {}
 
   /*

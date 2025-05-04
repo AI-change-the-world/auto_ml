@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from base.deprecated import deprecated
-from base.file_delegate import get_op
+from base.file_delegate import get_operator
 from base.logger import logger
 from db.tool_model.tool_model import ToolModel
 from label.client import get_model
@@ -87,7 +87,7 @@ async def key_frame_analysis(
         yield "tool_model is None"
 
     try:
-        op = get_op()
+        op = get_operator()
 
         file_data = op.read(frame_path)
         b64 = draw_box_and_encode_base64(file_data, x1, y1, x2, y2)
@@ -347,6 +347,7 @@ single_frame_deep_analyze_prompt = """
 - 若某方面缺乏信息支持，可说明 “不足以判断” 并说明原因  
 """
 
+
 async def describe_frame(
     frame_path: str,
     tool_model: ToolModel,
@@ -356,7 +357,7 @@ async def describe_frame(
         yield "tool_model is None"
 
     try:
-        op = get_op()
+        op = get_operator()
 
         file_data = op.read(frame_path)
         b64 = base64.encodebytes(file_data).decode("utf-8")
@@ -401,16 +402,12 @@ async def describe_frame(
         yield "[DONE]"
 
 
-async def deep_describe_frame(
-    frame_path: str,
-    tool_model: ToolModel,
-    prompt: str
-):
+async def deep_describe_frame(frame_path: str, tool_model: ToolModel, prompt: str):
     if tool_model is None:
         yield "tool_model is None"
 
     try:
-        op = get_op()
+        op = get_operator()
 
         file_data = op.read(frame_path)
         b64 = base64.encodebytes(file_data).decode("utf-8")
@@ -464,7 +461,7 @@ async def describe_frames(
         return
 
     try:
-        op = get_op()
+        op = get_operator()
         vl_model = get_model(tool_model)
 
         if prompt is None:

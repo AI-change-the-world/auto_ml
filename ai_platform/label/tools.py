@@ -77,8 +77,9 @@ def base64_to_cv2_image(base64_str: str) -> np.ndarray:
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
-    
-def encode_image_bytes(b:bytes):
+
+
+def encode_image_bytes(b: bytes):
     return base64.b64encode(b).decode("utf-8")
 
 

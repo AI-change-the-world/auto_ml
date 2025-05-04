@@ -1,13 +1,14 @@
 from typing import List, Optional
 
-from base.file_delegate import FileDelegate, GetFileRequest
+from base.file_delegate import FileDelegate, GetFileRequest, s3_properties
 from db.tool_model.tool_model import ToolModel
 from label.models import ImageModel
 from label.tools import base64_to_cv2_image, encode_image_bytes
 
 max_tokens = 128
 
-delegate = FileDelegate()
+delegate = FileDelegate(bucket_type=s3_properties.datasets_bucket_name)
+
 
 def label_img(
     img_data: str, classes: List[str], tool_model: ToolModel, prompt: Optional[str]
@@ -26,7 +27,7 @@ def label_img(
     # print(f"label_img: {img_data}, classes: {classes}")
 
     # get s3 image data
-    b : Optional[bytes] = delegate.get_file(
+    b: Optional[bytes] = delegate.get_file(
         GetFileRequest(
             file_name=img_data,
             file_type=0,
