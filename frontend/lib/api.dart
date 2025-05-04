@@ -38,7 +38,7 @@ class Api {
   /// [tools] label image
   static final String getToolModels = "/tool-model/list";
 
-  static final String autoLabel = "/tool-model/model/chat";
+  static final String autoLabel = "/tool-model/model/auto-label";
 
   /// [predict] predict
   static final String predictList = "/predict/file/list";

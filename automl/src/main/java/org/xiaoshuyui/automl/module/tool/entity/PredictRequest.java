@@ -7,6 +7,6 @@ import lombok.Data;
 public class PredictRequest {
   private String image_data;
   private List<String> classes;
-  private int model_id;
+  private long model_id;
   private String prompt;
 }

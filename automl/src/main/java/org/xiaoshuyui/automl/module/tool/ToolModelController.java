@@ -1,5 +1,6 @@
 package org.xiaoshuyui.automl.module.tool;
 
+import lombok.val;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
@@ -27,8 +28,12 @@ public class ToolModelController {
     return Result.OK_data(toolModelService.getById(id));
   }
 
-  @PostMapping("/model/chat")
-  public Result chat(@RequestBody ModelUseRequest request) {
-    return Result.error("unimpleted");
+  @PostMapping("/model/auto-label")
+  public Result autoLabel(@RequestBody ModelUseRequest request) {
+    val data = toolModelService.getLabel(request);
+    if (data == null) {
+      return Result.error("Server error");
+    }
+    return Result.OK_data(data.toString());
   }
 }
