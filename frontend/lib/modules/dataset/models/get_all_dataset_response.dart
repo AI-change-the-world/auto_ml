@@ -17,7 +17,7 @@ class Dataset {
   final String password;
   final int scanStatus;
   final int fileCount;
-  final String sampleFilePath;
+  final String? sampleFilePath;
 
   Dataset({
     required this.id,

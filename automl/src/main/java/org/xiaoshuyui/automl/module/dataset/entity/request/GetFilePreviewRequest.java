@@ -6,5 +6,5 @@ import lombok.Data;
 public class GetFilePreviewRequest {
   String path;
   int storageType;
-  String baseUrl;
+  // String baseUrl;
 }

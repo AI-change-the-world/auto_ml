@@ -1,11 +1,13 @@
 from typing import List, Optional
 
+from base.file_delegate import FileDelegate, GetFileRequest
 from db.tool_model.tool_model import ToolModel
 from label.models import ImageModel
-from label.tools import base64_to_cv2_image, encode_image
+from label.tools import base64_to_cv2_image, encode_image_bytes
 
 max_tokens = 128
 
+delegate = FileDelegate()
 
 def label_img(
     img_data: str, classes: List[str], tool_model: ToolModel, prompt: Optional[str]
@@ -21,10 +23,27 @@ def label_img(
 
     vl_model = get_model(tool_model)
 
+    # print(f"label_img: {img_data}, classes: {classes}")
+
+    # get s3 image data
+    b : Optional[bytes] = delegate.get_file(
+        GetFileRequest(
+            file_name=img_data,
+            file_type=0,
+            storage_type=1,
+            url="/",
+        )
+    )
+
+    if b is None:
+        raise ValueError(f"Failed to read image: {img_data}")
+
+    img_data = encode_image_bytes(b)
+
     if img_data.startswith("data:"):
         base64_img = img_data
     else:
-        base64_img = f"data:image/png;base64,{encode_image(img_data)}"
+        base64_img = f"data:image/png;base64,{img_data}"
 
     img = base64_to_cv2_image(img_data)
     if img is None:

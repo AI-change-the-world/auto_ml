@@ -252,6 +252,7 @@ class __DropDownButtonState extends ConsumerState<_DropDownButton> {
                           .setAnnotationsWithClasses(baseResponse.data!);
                     }
                   } catch (e, s) {
+                    logger.e(e);
                     logger.e(s);
                   }
                 },

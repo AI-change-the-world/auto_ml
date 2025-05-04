@@ -78,7 +78,7 @@ extension DatasetExtension on DatasetType {
   }
 }
 
-enum DatasetTask { classification, segmentation, detection, other }
+enum DatasetTask { classification, detection, segmentation, other }
 
 extension DatasetTaskExtension on DatasetTask {
   String get name =>

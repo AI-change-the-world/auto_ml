@@ -6,6 +6,7 @@ import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_stars/flutter_rating_stars.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,7 +74,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
         ),
         width: 400,
         height:
-            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 530 : 595,
+            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 470 : 540,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(10),
           child: Column(
@@ -217,10 +218,16 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
               // dataset type
               SizedBox(
                 child: Row(
+                  spacing: 5,
                   children: [
                     Text(
                       t.dialogs.new_dataset.dataset_location,
                       style: labelStyle,
+                    ),
+                    Tooltip(
+                      waitDuration: Duration(milliseconds: 500),
+                      message: "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
+                      child: Icon(Icons.warning_amber_outlined, size: 18),
                     ),
                     Spacer(),
                   ],
@@ -361,6 +368,16 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                       width: 20,
                       child: InkWell(
                         onTap: () async {
+                          if (kIsWeb) {
+                            ToastUtils.error(
+                              context,
+                              title: "Not supported",
+                              description:
+                                  "Sorry, this feature is not supported in web, please input local path instead.",
+                            );
+                            return;
+                          }
+
                           final String? directoryPath =
                               await getDirectoryPath();
                           if (directoryPath == null) {

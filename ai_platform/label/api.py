@@ -1,3 +1,4 @@
+import traceback
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
@@ -5,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from base import create_response
+from base.logger import logger
 from base.nacos_config import get_db
 from db.tool_model.tool_model_crud import get_tool_model
 from label.label_img import label_img as impl_label_img
@@ -44,7 +46,8 @@ async def label_img(req: LabelImgRequest, db: Session = Depends(get_db)):
             ),
         )
     except Exception as e:
-        print(e)
+        traceback.print_exc()
+        logger.fatal(e)
         return create_response(
             status=500,
             message="Internal Server Error",

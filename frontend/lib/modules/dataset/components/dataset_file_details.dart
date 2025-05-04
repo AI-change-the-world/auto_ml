@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_list_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_state.dart';
@@ -133,7 +131,7 @@ class _ListFile extends ConsumerWidget {
     return SizedBox(
       child:
           state.currentContent != null
-              ? Image.memory(base64Decode(state.currentContent!))
+              ? Image.network(state.currentContent!)
               : null,
     );
   }

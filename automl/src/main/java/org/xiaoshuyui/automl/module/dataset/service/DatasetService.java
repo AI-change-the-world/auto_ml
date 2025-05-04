@@ -12,16 +12,22 @@ import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetDetailsRespon
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
 import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.LocalImageDelegate;
+import org.xiaoshuyui.automl.util.S3FileDelegate;
 
 @Slf4j
 @Service
 public class DatasetService {
 
   private final DatasetMapper datasetMapper;
+  private final S3FileDelegate s3FileDelegate;
 
-  public DatasetService(DatasetMapper datasetMapper) {
+  public DatasetService(DatasetMapper datasetMapper, S3FileDelegate s3FileDelegate) {
     this.datasetMapper = datasetMapper;
+    this.s3FileDelegate = s3FileDelegate;
   }
+
+  @Resource
+  LocalImageDelegate localImageDelegate;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -54,6 +60,15 @@ public class DatasetService {
     datasetMapper.updateById(dataset);
   }
 
+  public List<String> getFileList(Dataset dataset) {
+    try {
+      return s3FileDelegate.listFiles(dataset.getLocalS3StoragePath());
+    } catch (Exception e) {
+      log.error("get file list error: {}", e.getMessage());
+      return null;
+    }
+  }
+
   public List<Dataset> getDataset() {
     QueryWrapper queryWrapper = new QueryWrapper();
     queryWrapper.eq("is_deleted", 0);
@@ -81,22 +96,12 @@ public class DatasetService {
     return response;
   }
 
-  @Resource LocalImageDelegate localImageDelegate;
-
-  public String getFileContent(String datasetBaseUrl, String path, int storageType)
+  public String getFileContent(String path, int storageType)
       throws Exception {
-    if (storageType == 0) {
-      String p = datasetBaseUrl;
-      if (!p.endsWith("/")) {
-        p = p + "/";
-      }
-      p = p + path;
-      return localImageDelegate.getFile(p);
-    }
-    // todo unimplemented
-    return null;
+    return s3FileDelegate.getFile(path, null);
   }
 
+  @Deprecated
   public String getFileContentUnCompress(String datasetBaseUrl, String path, int storageType)
       throws Exception {
     if (storageType == 0) {
@@ -111,9 +116,10 @@ public class DatasetService {
     return null;
   }
 
-  ///  only one level folder
+  /// only one level folder
   ///
   /// todo: exception handling
+  @Deprecated(since = "use `scanAndUploadToLocalS3FolderSync` instead")
   private void scanFolderSync(Dataset storage) {
     if (storage.getUrl() == null) {
       return;
@@ -135,12 +141,38 @@ public class DatasetService {
     }
   }
 
+  private void scanAndUploadToLocalS3FolderSync(Dataset storage) {
+    if (storage.getUrl() == null) {
+      return;
+    }
+    if (storage.getStorageType() == 0) {
+      try {
+        List<String> l = GetFileListUtil.getFileList(storage.getUrl(), storage.getStorageType());
+
+        if (!l.isEmpty()) {
+          String uuid = java.util.UUID.randomUUID().toString();
+          String basePath = "/dataset/" + uuid + "/";
+          storage.setFileCount((long) l.size());
+          storage.setLocalS3StoragePath(basePath);
+          log.info("files: {}", l);
+          List<String> targets = s3FileDelegate.putFileList(l, null, basePath);
+          storage.setSampleFilePath(targets.get(0));
+        }
+        storage.setScanStatus(1);
+        datasetMapper.updateById(storage);
+      } catch (Exception e) {
+        storage.setScanStatus(2);
+        datasetMapper.updateById(storage);
+        log.error("scan folder error: {}", e.getMessage());
+      }
+    }
+  }
+
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanFolderSync(dataset);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(dataset);
+        });
     thread.start();
   }
 }

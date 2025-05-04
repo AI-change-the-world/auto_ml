@@ -20,7 +20,7 @@ Dataset _$DatasetFromJson(Map<String, dynamic> json) => Dataset(
       password: json['password'] as String,
       scanStatus: (json['scanStatus'] as num).toInt(),
       fileCount: (json['fileCount'] as num).toInt(),
-      sampleFilePath: json['sampleFilePath'] as String,
+      sampleFilePath: json['sampleFilePath'] as String?,
     );
 
 Map<String, dynamic> _$DatasetToJson(Dataset instance) => <String, dynamic>{

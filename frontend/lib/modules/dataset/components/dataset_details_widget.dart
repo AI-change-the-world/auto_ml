@@ -1,6 +1,10 @@
+import 'package:auto_ml/modules/annotation/models/new_annotation_request.dart';
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
+import 'package:auto_ml/modules/dataset/components/new_annotation_dialog.dart';
+import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
@@ -63,7 +67,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
         child: Column(
           children: [
             Text(
-              "Id: ${current?.id}  ${current?.name}",
+              "Id: ${current?.id} Name: ${current?.name}",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 5),
@@ -132,7 +136,34 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                       cursor: SystemMouseCursors.click,
                       child: GestureDetector(
                         onTap: () async {
-                          // TODO
+                          if (currentPageIndex == 1) {
+                            showGeneralDialog(
+                              barrierColor: Styles.barriarColor,
+                              barrierDismissible: true,
+                              barrierLabel: "NewAnnotationDialog",
+                              context: context,
+                              pageBuilder: (c, _, __) {
+                                return Center(child: NewAnnotationDialog());
+                              },
+                            ).then((v) {
+                              if (v != null && v is Map<String, dynamic>) {
+                                NewAnnotationRequest request =
+                                    NewAnnotationRequest(
+                                      datasetId: current!.id,
+                                      storageType: v['storageType'],
+                                      savePath: v['labelPath'],
+                                      username: v['username'],
+                                      password: v['password'],
+                                      type: v['type'],
+                                      classes: v['classes'],
+                                    );
+
+                                ref
+                                    .read(annotationListProvider.notifier)
+                                    .newAnnotation(request);
+                              }
+                            });
+                          }
                         },
                         child: Container(
                           decoration: BoxDecoration(
@@ -141,7 +172,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                           ),
                           padding: EdgeInsets.all(1),
                           child: Icon(
-                            Icons.refresh,
+                            currentPageIndex == 0 ? Icons.refresh : Icons.add,
                             color: Colors.white,
                             size: 18,
                           ),

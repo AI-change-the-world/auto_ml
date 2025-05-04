@@ -183,7 +183,7 @@ class TranslationsDialogsModifyDatasetEn {
 	String get basic => 'Basic Info';
 	String get dataset_name => 'Dataset Name*';
 	String get dataset_type => 'Dataset Type';
-	String get dataset_location => 'Dataset Location*';
+	String get dataset_location => 'Original Dataset Location*';
 	String get path => 'Dataset Path*';
 	String get additional => 'Additional Information';
 	String get rank => 'Ranking';
@@ -201,7 +201,7 @@ class TranslationsDialogsNewDatasetEn {
 	String get basic => 'Basic Info';
 	String get dataset_name => 'Dataset Name*';
 	String get dataset_type => 'Dataset Type';
-	String get dataset_location => 'Dataset Location*';
+	String get dataset_location => 'Original Dataset Location*';
 	String get path => 'Dataset Path*';
 	String get additional => 'Additional Information';
 	String get rank => 'Ranking';
@@ -258,7 +258,7 @@ extension on Translations {
 			case 'dialogs.modify_dataset.basic': return 'Basic Info';
 			case 'dialogs.modify_dataset.dataset_name': return 'Dataset Name*';
 			case 'dialogs.modify_dataset.dataset_type': return 'Dataset Type';
-			case 'dialogs.modify_dataset.dataset_location': return 'Dataset Location*';
+			case 'dialogs.modify_dataset.dataset_location': return 'Original Dataset Location*';
 			case 'dialogs.modify_dataset.path': return 'Dataset Path*';
 			case 'dialogs.modify_dataset.additional': return 'Additional Information';
 			case 'dialogs.modify_dataset.rank': return 'Ranking';
@@ -267,7 +267,7 @@ extension on Translations {
 			case 'dialogs.new_dataset.basic': return 'Basic Info';
 			case 'dialogs.new_dataset.dataset_name': return 'Dataset Name*';
 			case 'dialogs.new_dataset.dataset_type': return 'Dataset Type';
-			case 'dialogs.new_dataset.dataset_location': return 'Dataset Location*';
+			case 'dialogs.new_dataset.dataset_location': return 'Original Dataset Location*';
 			case 'dialogs.new_dataset.path': return 'Dataset Path*';
 			case 'dialogs.new_dataset.additional': return 'Additional Information';
 			case 'dialogs.new_dataset.rank': return 'Ranking';

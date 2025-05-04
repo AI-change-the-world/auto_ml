@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import org.springframework.stereotype.Component;
 
+@Deprecated
 @Component
 public class LocalAnnotationDelegate implements FileDelegate {
   @Override

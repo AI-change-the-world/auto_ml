@@ -11,7 +11,6 @@ import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetFileListRespo
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
 import org.xiaoshuyui.automl.module.dataset.entity.response.NewDatasetResponse;
 import org.xiaoshuyui.automl.module.dataset.service.DatasetService;
-import org.xiaoshuyui.automl.util.GetFileListUtil;
 
 @Slf4j
 @RestController
@@ -57,9 +56,8 @@ public class DatasetController {
   @PostMapping("/file/preview")
   public Result previewFile(@RequestBody GetFilePreviewRequest request) {
     try {
-      String s =
-          datasetService.getFileContent(
-              request.getBaseUrl(), request.getPath(), request.getStorageType());
+      String s = datasetService.getFileContent(
+          request.getPath(), request.getStorageType());
       GetFileContentResponse response = new GetFileContentResponse();
       response.setContent(s);
       return Result.OK_data(response);
@@ -82,23 +80,12 @@ public class DatasetController {
     response.setDatasetType(dataset.getType());
     response.setStorageType(dataset.getStorageType());
     response.setDatasetBaseUrl(dataset.getUrl());
+    List<String> files = datasetService.getFileList(dataset);
 
-    List<String> files = GetFileListUtil.getFileList(dataset.getUrl(), dataset.getStorageType());
+    // List<String> files = GetFileListUtil.getFileList(dataset.getUrl(),
+    // dataset.getStorageType());
     response.setFiles(files);
     return Result.OK_data(response);
   }
 
-  @PostMapping("/content")
-  public Result getFileContent(@RequestBody GetFilePreviewRequest request) {
-    try {
-      GetFileContentResponse response = new GetFileContentResponse();
-      String s =
-          datasetService.getFileContentUnCompress(
-              request.getBaseUrl(), request.getPath(), request.getStorageType());
-      response.setContent(s);
-      return Result.OK_data(response);
-    } catch (Exception e) {
-      return Result.error(e.getMessage());
-    }
-  }
 }
