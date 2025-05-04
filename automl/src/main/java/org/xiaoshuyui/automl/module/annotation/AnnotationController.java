@@ -5,10 +5,10 @@ import java.util.Arrays;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.annotation.entity.AnnotationFileResponse;
+import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
-import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.LocalAnnotationDelegate;
 
 @RestController
@@ -44,21 +44,26 @@ public class AnnotationController {
     response.setStorageType(annotation.getStorageType());
 
     response.setFiles(
-        GetFileListUtil.getFileList(annotation.getAnnotationPath(), annotation.getStorageType()));
+        annotationService.getFileList(annotation));
     return Result.OK_data(response);
   }
-
-  @Resource private LocalAnnotationDelegate fileDelegate;
 
   @PostMapping("/content")
   public Result getAnnotationContent(@RequestBody GetFilePreviewRequest request) {
     try {
-      ///  TODO s3
       GetFileContentResponse response = new GetFileContentResponse();
-      response.setContent(fileDelegate.getFile(request.getBaseUrl() + "/" + request.getPath()));
+      response.setContent(annotationService.getAnnotationContent(request.getPath()));
       return Result.OK_data(response);
     } catch (Exception e) {
       return Result.error(e.getMessage());
     }
   }
+
+  @PostMapping("/new")
+  public Result newAnnotation(@RequestBody NewAnnotationRequest entity) {
+    annotationService.newAnnotation(entity);
+
+    return Result.OK();
+  }
+
 }

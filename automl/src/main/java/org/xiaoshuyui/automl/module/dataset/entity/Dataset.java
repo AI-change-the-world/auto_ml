@@ -38,8 +38,9 @@ public class Dataset {
   @TableField("ranking")
   private double ranking;
 
-  // 存储相关字段（原来是 dataset_storage）
-
+  /*
+   * 2025-05-03,打算除本来就在对象存储的所有数据，都保存到本地对象存储上
+   */
   @TableField("storage_type")
   private Integer storageType;
 
@@ -61,4 +62,9 @@ public class Dataset {
 
   @TableField("sample_file_path")
   String sampleFilePath;
+
+  // since 2025-05-03
+  // 本地对象存储路径
+  @TableField("local_s3_storage_path")
+  String localS3StoragePath;
 }

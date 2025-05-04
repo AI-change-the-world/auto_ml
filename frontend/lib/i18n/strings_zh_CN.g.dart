@@ -180,7 +180,7 @@ class _TranslationsDialogsModifyDatasetZhCn implements TranslationsDialogsModify
 	@override String get basic => '基础信息';
 	@override String get dataset_name => '数据集名称*';
 	@override String get dataset_type => '数据集类型';
-	@override String get dataset_location => '存储地址*';
+	@override String get dataset_location => '原始数据存储地址*';
 	@override String get path => '路径*';
 	@override String get additional => '额外信息';
 	@override String get rank => '评级';
@@ -198,7 +198,7 @@ class _TranslationsDialogsNewDatasetZhCn implements TranslationsDialogsNewDatase
 	@override String get basic => '基础信息';
 	@override String get dataset_name => '数据集名称*';
 	@override String get dataset_type => '数据集类型';
-	@override String get dataset_location => '存储地址*';
+	@override String get dataset_location => '原始数据存储地址*';
 	@override String get path => '路径*';
 	@override String get additional => '额外信息';
 	@override String get rank => '评级';
@@ -255,7 +255,7 @@ extension on TranslationsZhCn {
 			case 'dialogs.modify_dataset.basic': return '基础信息';
 			case 'dialogs.modify_dataset.dataset_name': return '数据集名称*';
 			case 'dialogs.modify_dataset.dataset_type': return '数据集类型';
-			case 'dialogs.modify_dataset.dataset_location': return '存储地址*';
+			case 'dialogs.modify_dataset.dataset_location': return '原始数据存储地址*';
 			case 'dialogs.modify_dataset.path': return '路径*';
 			case 'dialogs.modify_dataset.additional': return '额外信息';
 			case 'dialogs.modify_dataset.rank': return '评级';
@@ -264,7 +264,7 @@ extension on TranslationsZhCn {
 			case 'dialogs.new_dataset.basic': return '基础信息';
 			case 'dialogs.new_dataset.dataset_name': return '数据集名称*';
 			case 'dialogs.new_dataset.dataset_type': return '数据集类型';
-			case 'dialogs.new_dataset.dataset_location': return '存储地址*';
+			case 'dialogs.new_dataset.dataset_location': return '原始数据存储地址*';
 			case 'dialogs.new_dataset.path': return '路径*';
 			case 'dialogs.new_dataset.additional': return '额外信息';
 			case 'dialogs.new_dataset.rank': return '评级';

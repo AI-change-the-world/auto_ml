@@ -7,6 +7,8 @@ import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:riverpod/riverpod.dart';
+// ignore: depend_on_referenced_packages
+import 'package:http/http.dart' as http;
 
 class ImageState {
   ui.Image? image;
@@ -60,6 +62,15 @@ class ImageNotifier extends Notifier<ImageState> {
       final ui.Image image = await decodeImageFromList(
         Uint8List.fromList(bytes),
       );
+      return (image, Size(image.width.toDouble(), image.height.toDouble()));
+    } else if (current.startsWith("http")) {
+      logger.d("Loading image from $current");
+      final http.Response response = await http.get(Uri.parse(current));
+      if (response.statusCode != 200) {
+        throw Exception("Failed to load image from network");
+      }
+      final Uint8List bytes = response.bodyBytes;
+      final ui.Image image = await decodeImageFromList(bytes);
       return (image, Size(image.width.toDouble(), image.height.toDouble()));
     } else {
       /// TODO: load image from url

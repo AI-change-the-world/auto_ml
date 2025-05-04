@@ -14,7 +14,6 @@ import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-@Deprecated("will be removed")
 class DatasetFileListNotifier
     extends AutoDisposeAsyncNotifier<DatasetFileState> {
   final dio = DioClient().instance;

@@ -122,57 +122,21 @@ class CurrentDatasetAnnotationNotifier
 
   changeCurrentData((String, String) data) async {
     logger.d("dataset and annotation $data");
-    if (state.datasetStorageType == 0) {
-      try {
-        final request = FilePreviewRequest(
-          baseUrl: state.datasetPath,
-          storageType: state.datasetStorageType,
-          path: data.$1,
-        );
-        final response = await dio.post(
-          Api.datasetContent,
-          data: request.toJson(),
-        );
 
-        final r = BaseResponse.fromJson(
-          response.data,
-          (v) => FilePreviewResponse.fromJson(v as Map<String, dynamic>),
-        );
+    try {
+      final request = FilePreviewRequest(
+        baseUrl: state.datasetPath,
+        storageType: state.datasetStorageType,
+        path: data.$1,
+      );
+      final response = await dio.post(Api.preview, data: request.toJson());
 
-        if (data.$2 == "") {
-          state = state.copyWith(
-            currentData: r.data?.content,
-            currentFilePath: data.$1,
-          );
+      final r = BaseResponse.fromJson(
+        response.data,
+        (v) => FilePreviewResponse.fromJson(v as Map<String, dynamic>),
+      );
 
-          ref
-              .read(imageNotifierProvider.notifier)
-              .loadImage(r.data?.content ?? "", data.$1)
-              .then((_) {
-                ref
-                    .read(annotationNotifierProvider.notifier)
-                    .setAnnotations("");
-              });
-          return;
-        }
-
-        final request2 = FilePreviewRequest(
-          baseUrl: state.annotationPath,
-          storageType: state.annotationStorageType,
-          path: data.$2,
-        );
-
-        final response2 = await dio.post(
-          Api.annotationContent,
-          data: request2.toJson(),
-        );
-
-        final r2 = BaseResponse.fromJson(
-          response2.data,
-          (v) => FilePreviewResponse.fromJson(v as Map<String, dynamic>),
-        );
-
-        // return r.data?.content;
+      if (data.$2 == "") {
         state = state.copyWith(
           currentData: r.data?.content,
           currentFilePath: data.$1,
@@ -182,13 +146,43 @@ class CurrentDatasetAnnotationNotifier
             .read(imageNotifierProvider.notifier)
             .loadImage(r.data?.content ?? "", data.$1)
             .then((_) {
-              ref
-                  .read(annotationNotifierProvider.notifier)
-                  .setAnnotations(r2.data?.content ?? "");
+              ref.read(annotationNotifierProvider.notifier).setAnnotations("");
             });
-      } catch (e) {
-        logger.e(e);
+        return;
       }
+
+      final request2 = FilePreviewRequest(
+        baseUrl: state.annotationPath,
+        storageType: state.annotationStorageType,
+        path: data.$2,
+      );
+
+      final response2 = await dio.post(
+        Api.annotationContent,
+        data: request2.toJson(),
+      );
+
+      final r2 = BaseResponse.fromJson(
+        response2.data,
+        (v) => FilePreviewResponse.fromJson(v as Map<String, dynamic>),
+      );
+
+      // return r.data?.content;
+      state = state.copyWith(
+        currentData: r.data?.content,
+        currentFilePath: data.$1,
+      );
+
+      ref
+          .read(imageNotifierProvider.notifier)
+          .loadImage(r.data?.content ?? "", data.$1)
+          .then((_) {
+            ref
+                .read(annotationNotifierProvider.notifier)
+                .setAnnotations(r2.data?.content ?? "");
+          });
+    } catch (e) {
+      logger.e(e);
     }
   }
 

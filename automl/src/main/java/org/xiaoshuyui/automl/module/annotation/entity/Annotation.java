@@ -35,7 +35,21 @@ public class Annotation {
   @TableField(value = "annotation_path")
   String annotationPath;
 
+  @TableField(value = "annotation_save_path")
+  String annotationSavePath;
+
   // 0:本地 1:s3 2:webdav 3:其它
   @TableField(value = "storage_type")
   Integer storageType;
+
+  /// TODO later
+  @TableField(value = "username", exist = false)
+  private String username;
+
+  @TableField(value = "password", exist = false)
+  private String password;
+
+  // 0: scanning, 1: scan success, 2: scan failed
+  @TableField(value = "scan_status", exist = false)
+  private Integer scanStatus;
 }

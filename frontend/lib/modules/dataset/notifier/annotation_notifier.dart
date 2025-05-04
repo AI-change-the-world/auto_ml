@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/api.dart';
+import 'package:auto_ml/modules/annotation/models/new_annotation_request.dart';
 import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
@@ -67,6 +68,25 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
         return AnnotationState(annotations: []);
       }
     });
+  }
+
+  newAnnotation(NewAnnotationRequest request) async {
+    try {
+      final response = await dio.post(
+        Api.annotationNew,
+        data: request.toJson(),
+      );
+      final r = BaseResponse.fromJson(response.data, (json) => null);
+      if (r.code == 200) {
+        ToastUtils.sucess(null, title: "New annotation success");
+        updateData();
+      } else {
+        ToastUtils.error(null, title: "New annotation failed");
+      }
+    } catch (e) {
+      logger.e("error: $e");
+      ToastUtils.error(null, title: "Create annotation error");
+    }
   }
 }
 

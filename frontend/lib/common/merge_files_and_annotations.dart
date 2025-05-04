@@ -19,7 +19,8 @@ List<(String, String)> mergeFilesAndAnnotations(
 }
 
 // 去掉扩展名
-String _removeExtension(String filename) {
+String _removeExtension(String filepath) {
+  final filename = filepath.split('/').last;
   final dotIndex = filename.lastIndexOf('.');
   return (dotIndex != -1) ? filename.substring(0, dotIndex) : filename;
 }

@@ -7,6 +7,7 @@ import java.util.Base64;
 import org.springframework.stereotype.Component;
 
 @Component
+@Deprecated
 public class LocalImageDelegate implements FileDelegate {
   @Override
   public String getFile(String path) throws Exception {
