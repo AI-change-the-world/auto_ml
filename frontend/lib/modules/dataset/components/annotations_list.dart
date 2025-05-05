@@ -1,9 +1,14 @@
+import 'package:auto_ml/api.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
+import 'package:auto_ml/modules/task/components/new_train_task_dialog.dart';
+import 'package:auto_ml/modules/task/models/new_training_task_request.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/styles.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data_table_2/data_table_2.dart';
@@ -140,7 +145,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   ),
                 ),
                 InkWell(
-                  onTap: () {},
+                  onTap: () async {},
                   child: Tooltip(
                     message: "Annotate",
                     child: Icon(
@@ -150,7 +155,41 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   ),
                 ),
                 InkWell(
-                  onTap: () {},
+                  onTap: () {
+                    showGeneralDialog(
+                      context: context,
+                      barrierColor: Styles.barriarColor,
+                      barrierDismissible: true,
+                      barrierLabel: "NewTrainTaskDialog",
+                      pageBuilder: (c, _, __) {
+                        return Center(
+                          child: NewTrainTaskDialog(
+                            typeId: DatasetTask.detection.index,
+                          ),
+                        );
+                      },
+                    ).then((v) {
+                      if (v != null && v is Map<String, dynamic>) {
+                        v['annotationId'] = annotation.id;
+                        v['datasetId'] = annotation.datasetId;
+
+                        NewTrainingTaskRequest request =
+                            NewTrainingTaskRequest.fromJson(v);
+
+                        // print(request);
+
+                        DioClient().instance
+                            .post(Api.newTrainTask, data: request.toJson())
+                            .then((v) {
+                              if (v.statusCode == 200) {
+                                ToastUtils.sucess(null, title: "创建成功");
+                              } else {
+                                ToastUtils.error(null, title: "创建失败");
+                              }
+                            });
+                      }
+                    });
+                  },
                   child: Tooltip(
                     message: "Train",
                     child: Icon(

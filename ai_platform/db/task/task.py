@@ -1,4 +1,4 @@
-from sqlalchemy import TIMESTAMP, Column, Integer, SmallInteger, func
+from sqlalchemy import TIMESTAMP, Column, Integer, SmallInteger, String, func
 
 from db import Base
 
@@ -19,3 +19,4 @@ class Task(Base):
     )
     is_deleted = Column(SmallInteger, default=0, comment="逻辑删除标记")
     status = Column(SmallInteger, default=0, comment="任务状态, 0 pre task, 1 on task,2 post task,3 done, 4 other")
+    task_config = Column(String, nullable=True, comment="任务配置")

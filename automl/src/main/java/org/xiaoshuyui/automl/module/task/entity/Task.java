@@ -21,11 +21,11 @@ public class Task {
 
   /** dataset id */
   @TableField("dataset_id")
-  private Integer datasetId;
+  private Long datasetId;
 
   /** annotation id */
   @TableField("annotation_id")
-  private Integer annotationId;
+  private Long annotationId;
 
   /** 创建时间 */
   @TableField(value = "created_at")
@@ -43,4 +43,7 @@ public class Task {
   /** 任务状态 0 pre task, 1 on task,2 post task,3 done, 4 other */
   @TableField("status")
   private Integer status;
+
+  @TableField("task_config")
+  private String taskConfig;
 }

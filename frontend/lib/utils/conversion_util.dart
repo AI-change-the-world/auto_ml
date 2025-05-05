@@ -20,10 +20,8 @@ String taskTypeToString(int datatype) {
       return "Train";
     case 1:
       return "Test";
-    case 2:
-      return "video";
     default:
-      return "other";
+      return "Other";
   }
 }
 

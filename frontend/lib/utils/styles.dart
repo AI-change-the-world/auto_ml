@@ -20,6 +20,13 @@ class Styles {
 
   static TextStyle defaultButtonTextStyleNormal = TextStyle(fontSize: 12);
 
+  static TextStyle titleStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+  );
+
+  static TextStyle hintStyle = TextStyle(fontSize: 12, color: Colors.grey);
+
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
     primaryColor: Colors.blue,

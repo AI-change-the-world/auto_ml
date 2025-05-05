@@ -57,4 +57,11 @@ class Api {
   static final String taskList = "/task/list";
 
   static final String taskLog = "/task/{id}/logs";
+
+  static final String newTrainTask = "/task/create/train";
+
+  /// [base models] base models
+  static final String baseModelsList = "/task/base-models/list";
+
+  static final String baseModelsTypeList = "/task/base-models/list/{type}";
 }

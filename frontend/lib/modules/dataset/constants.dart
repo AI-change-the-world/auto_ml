@@ -84,8 +84,8 @@ extension DatasetTaskExtension on DatasetTask {
   String get name =>
       {
         DatasetTask.classification: "Classification",
-        DatasetTask.segmentation: "Segmentation",
         DatasetTask.detection: "Detection",
+        DatasetTask.segmentation: "Segmentation",
         DatasetTask.other: "Other",
       }[this]!;
 
