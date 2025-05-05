@@ -24,6 +24,7 @@ Task _$TaskFromJson(Map<String, dynamic> json) => Task(
       annotationId: (json['annotationId'] as num).toInt(),
       createdAt: json['createdAt'] as String,
       updatedAt: json['updatedAt'] as String,
+      status: (json['status'] as num).toInt(),
     );
 
 Map<String, dynamic> _$TaskToJson(Task instance) => <String, dynamic>{
@@ -33,4 +34,5 @@ Map<String, dynamic> _$TaskToJson(Task instance) => <String, dynamic>{
       'annotationId': instance.annotationId,
       'createdAt': instance.createdAt,
       'updatedAt': instance.updatedAt,
+      'status': instance.status,
     };

@@ -23,6 +23,7 @@ class Task {
   int annotationId;
   String createdAt;
   String updatedAt;
+  int status;
 
   Task({
     required this.taskId,
@@ -31,6 +32,7 @@ class Task {
     required this.annotationId,
     required this.createdAt,
     required this.updatedAt,
+    required this.status,
   });
 
   factory Task.fromJson(Map<String, dynamic> json) => _$TaskFromJson(json);

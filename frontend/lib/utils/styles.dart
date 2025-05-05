@@ -18,6 +18,8 @@ class Styles {
     fontWeight: FontWeight.bold,
   );
 
+  static TextStyle defaultButtonTextStyleNormal = TextStyle(fontSize: 12);
+
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
     primaryColor: Colors.blue,

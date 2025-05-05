@@ -39,4 +39,8 @@ public class Task {
   @TableField("is_deleted")
   @JsonIgnore
   private Integer isDeleted;
+
+  /** 任务状态 0 pre task, 1 on task,2 post task,3 done, 4 other */
+  @TableField("status")
+  private Integer status;
 }

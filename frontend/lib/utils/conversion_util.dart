@@ -26,3 +26,18 @@ String taskTypeToString(int datatype) {
       return "other";
   }
 }
+
+String taskStatusToString(int status) {
+  switch (status) {
+    case 0:
+      return "Pre task";
+    case 1:
+      return "On task";
+    case 2:
+      return "Post task";
+    case 3:
+      return "Task done";
+    default:
+      return "other";
+  }
+}

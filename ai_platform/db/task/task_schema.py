@@ -10,6 +10,7 @@ class TaskOut(BaseModel):
     annotation_id: int
     created_at: datetime
     updated_at: datetime
+    status: int
 
     class Config:
         orm_mode = True

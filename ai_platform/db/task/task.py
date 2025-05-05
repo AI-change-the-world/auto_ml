@@ -18,3 +18,4 @@ class Task(Base):
         TIMESTAMP, server_default=func.now(), onupdate=func.now(), comment="更新时间"
     )
     is_deleted = Column(SmallInteger, default=0, comment="逻辑删除标记")
+    status = Column(SmallInteger, default=0, comment="任务状态, 0 pre task, 1 on task,2 post task,3 done, 4 other")

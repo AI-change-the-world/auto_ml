@@ -20,7 +20,7 @@ public class TaskController {
     return Result.OK_data(taskService.getTaskList(request.getPageId(), request.getPageSize()));
   }
 
-  @PostMapping("/{id}/logs")
+  @GetMapping("/{id}/logs")
   public Result getTaskLogsById(@PathVariable Long id) {
     return Result.OK_data(taskService.getTaskLogsById(id));
   }

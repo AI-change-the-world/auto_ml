@@ -97,10 +97,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                 Expanded(
                   flex: 2,
                   child: Center(
-                    child: Text(
-                      "Operations",
-                      style: Styles.defaultButtonTextStyle,
-                    ),
+                    child: Text("Status", style: Styles.defaultButtonTextStyle),
                   ),
                 ),
               ],

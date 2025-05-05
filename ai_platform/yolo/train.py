@@ -11,6 +11,7 @@ from ultralytics.engine.trainer import BaseTrainer
 
 from base.file_delegate import get_operator, s3_properties
 from base.nacos_config import get_sync_db
+from db.task.task_crud import update_task
 from db.task_log.task_log_crud import create_log
 from db.task_log.task_log_schema import TaskLogCreate
 from yolo.prepare_dataset import prepare_temp_training_dir_split
@@ -32,7 +33,7 @@ def __download_dataset_from_s3(
         return None
     # 创建临时的工作空间
     folder_name = str(uuid.uuid4())
-    tlc = TaskLogCreate(task_id=task_id, log_content="create temp folder ...")
+    tlc = TaskLogCreate(task_id=task_id, log_content="[pre-train] create temp folder ...")
     create_log(session, tlc)
 
     os.mkdir(f"./runs/{folder_name}")
@@ -41,7 +42,7 @@ def __download_dataset_from_s3(
     os.mkdir(temp_dataset_path)
     os.mkdir(temp_annotation_path)
 
-    tlc = TaskLogCreate(task_id=task_id, log_content="downloading dataset from s3 ...")
+    tlc = TaskLogCreate(task_id=task_id, log_content="[pre-train] downloading dataset from s3 ...")
     create_log(session, tlc)
 
     for i in op.list(dataset_path):
@@ -51,7 +52,7 @@ def __download_dataset_from_s3(
             __download_from_s3(op, i.path, temp_dataset_path + os.sep + file_name)
 
     tlc = TaskLogCreate(
-        task_id=task_id, log_content="downloading annotation from s3 ..."
+        task_id=task_id, log_content="[pre-train] downloading annotation from s3 ..."
     )
     create_log(session, tlc)
 
@@ -83,7 +84,7 @@ def __train_model(
     )
 
     tlc = TaskLogCreate(
-        task_id=task_id, log_content="copying dataset and annotation to temp folder ..."
+        task_id=task_id, log_content="[pre-train] copying dataset and annotation to temp folder ..."
     )
     create_log(session, tlc)
 
@@ -106,10 +107,16 @@ def __train_model(
         global train_context
         save_dir = str(trainer.save_dir.absolute())
         print(f"save_dir  {save_dir}")
+        update_task(session, task_id, {"status": 2})
         tlc = TaskLogCreate(
-            task_id=task_id, log_content=f"task end, model saved to {save_dir}/weights/"
+            task_id=task_id, log_content=f"[post-train] task end, model saved to {save_dir}/weights/"
         )
         create_log(session, tlc)
+        # TODO upload model to s3
+        update_task(session, task_id, {"status": 3})
+        
+    
+    update_task(session, task_id, {"status": 1})
 
     try:
         model = YOLO("yolo11n.pt")  # 加载 YOLO 模型
