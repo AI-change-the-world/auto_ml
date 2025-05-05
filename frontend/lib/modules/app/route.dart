@@ -2,8 +2,10 @@ import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/annotation/label_screen.dart';
+import 'package:auto_ml/modules/task/task_screen.dart';
 import 'package:auto_ml/modules/tool_models/model_screen.dart';
 import 'package:auto_ml/modules/predict/predict_screen.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -41,7 +43,10 @@ final GoRouter router = GoRouter(
                 onPressed: () {
                   context.go("/");
                 },
-                child: Text(t.route.back_to_main),
+                child: Text(
+                  t.route.back_to_main,
+                  style: Styles.defaultButtonTextStyle,
+                ),
               ),
             ],
           ),
@@ -92,6 +97,13 @@ final GoRouter router = GoRouter(
           // builder: (context, state) => Container(),
           pageBuilder:
               (context, state) => noTransitionPage(child: PredictScreen()),
+        ),
+        GoRoute(
+          path: '/task',
+          name: 'task',
+          // builder: (context, state) => Container(),
+          pageBuilder:
+              (context, state) => noTransitionPage(child: TaskScreen()),
         ),
       ],
     ),

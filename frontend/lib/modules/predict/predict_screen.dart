@@ -48,7 +48,10 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                     ),
                   ),
                   onPressed: () {},
-                  child: Text(t.predict_screen.upload),
+                  child: Text(
+                    t.predict_screen.upload,
+                    style: Styles.defaultButtonTextStyle,
+                  ),
                 ),
               ],
             ),

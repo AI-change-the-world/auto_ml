@@ -3,6 +3,7 @@
 import 'package:auto_ml/modules/predict/models/image_preview_model.dart';
 import 'package:auto_ml/modules/predict/notifier/describe_images_notifier.dart';
 import 'package:auto_ml/modules/predict/notifier/image_preview_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
@@ -110,7 +111,10 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                                   .read(describeImagesProvider.notifier)
                                   .chatSingleFile([imgKey], imageDescription);
                             },
-                    child: Text("Deep analysis"),
+                    child: Text(
+                      "Deep analysis",
+                      style: Styles.defaultButtonTextStyle,
+                    ),
                   ),
               ],
             ),

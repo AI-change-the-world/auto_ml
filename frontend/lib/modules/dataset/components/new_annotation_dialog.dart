@@ -1,5 +1,6 @@
 import 'package:auto_ml/modules/dataset/components/selection_widget.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
@@ -409,10 +410,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
 
                       Navigator.of(context).pop(annotation);
                     },
-                    child: Text(
-                      "Submit",
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    child: Text("Submit", style: Styles.defaultButtonTextStyle),
                   ),
                 ],
               ),

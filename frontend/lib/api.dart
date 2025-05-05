@@ -52,4 +52,9 @@ class Api {
   static final String describeImageList = "/predict/describe/list";
 
   static final String describeImage = "/predict/describe";
+
+  /// [task] task
+  static final String taskList = "/task/list";
+
+  static final String taskLog = "/task/{id}/logs";
 }

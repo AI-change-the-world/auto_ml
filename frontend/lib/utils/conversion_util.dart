@@ -13,3 +13,16 @@ String datatypeToString(int datatype) {
       return "other";
   }
 }
+
+String taskTypeToString(int datatype) {
+  switch (datatype) {
+    case 0:
+      return "Train";
+    case 1:
+      return "Test";
+    case 2:
+      return "video";
+    default:
+      return "other";
+  }
+}

@@ -178,8 +178,5 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
   }
 
   TextStyle defaultTextStyle = TextStyle(fontSize: 12);
-  TextStyle defaultTextStyle2 = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.bold,
-  );
+  late TextStyle defaultTextStyle2 = Styles.defaultButtonTextStyle;
 }

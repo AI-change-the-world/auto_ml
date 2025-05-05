@@ -9,6 +9,7 @@ import 'package:auto_ml/modules/predict/models/video_result.dart';
 import 'package:auto_ml/modules/predict/notifier/describe_images_notifier.dart';
 import 'package:auto_ml/modules/predict/notifier/image_preview_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -160,7 +161,10 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
                                             );
                                       });
                                     },
-                                    child: Text("Start analysis"),
+                                    child: Text(
+                                      "Start analysis",
+                                      style: Styles.defaultButtonTextStyle,
+                                    ),
                                   ),
                                 ),
                               ],

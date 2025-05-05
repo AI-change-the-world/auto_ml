@@ -13,6 +13,11 @@ class Styles {
 
   static Color barriarColor = Colors.black.withValues(alpha: 0.1);
 
+  static TextStyle defaultButtonTextStyle = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+  );
+
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
     primaryColor: Colors.blue,
