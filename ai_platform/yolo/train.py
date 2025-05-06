@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import uuid
@@ -11,7 +12,8 @@ from ultralytics.engine.trainer import BaseTrainer
 
 from base.file_delegate import get_operator, s3_properties
 from base.nacos_config import get_sync_db
-from db.task.task_crud import update_task
+from db.available_models.available_models_crud import create_available_model
+from db.task.task_crud import get_task, update_task
 from db.task_log.task_log_crud import create_log
 from db.task_log.task_log_schema import TaskLogCreate
 from yolo.prepare_dataset import prepare_temp_training_dir_split
@@ -33,7 +35,9 @@ def __download_dataset_from_s3(
         return None
     # 创建临时的工作空间
     folder_name = str(uuid.uuid4())
-    tlc = TaskLogCreate(task_id=task_id, log_content="[pre-train] create temp folder ...")
+    tlc = TaskLogCreate(
+        task_id=task_id, log_content="[pre-train] create temp folder ..."
+    )
     create_log(session, tlc)
 
     os.mkdir(f"./runs/{folder_name}")
@@ -42,7 +46,9 @@ def __download_dataset_from_s3(
     os.mkdir(temp_dataset_path)
     os.mkdir(temp_annotation_path)
 
-    tlc = TaskLogCreate(task_id=task_id, log_content="[pre-train] downloading dataset from s3 ...")
+    tlc = TaskLogCreate(
+        task_id=task_id, log_content="[pre-train] downloading dataset from s3 ..."
+    )
     create_log(session, tlc)
 
     for i in op.list(dataset_path):
@@ -69,13 +75,21 @@ def __train_model(
 ):
     session = get_sync_db()
 
+    task = get_task(session, task_id)
+    """
+    like:
+
+    {"name":"yolo11n.pt","size":640,"batch":5,"epoch":5,"datasetId":5,"annotationId":7}
+    """
+    task_config = task.task_config
+    task_config_json = json.loads(task_config)
+
     temp_folder = __download_dataset_from_s3(
         task_id=task_id,
         session=session,
         dataset_path=dataset_path,
         annotation_path=annotation_path,
     )
-
 
     p: str = prepare_temp_training_dir_split(
         all_images_dir=temp_folder + os.sep + "dataset",
@@ -84,7 +98,8 @@ def __train_model(
     )
 
     tlc = TaskLogCreate(
-        task_id=task_id, log_content="[pre-train] copying dataset and annotation to temp folder ..."
+        task_id=task_id,
+        log_content="[pre-train] copying dataset and annotation to temp folder ...",
     )
     create_log(session, tlc)
 
@@ -109,40 +124,63 @@ def __train_model(
         print(f"save_dir  {save_dir}")
         update_task(session, task_id, {"status": 2})
         tlc = TaskLogCreate(
-            task_id=task_id, log_content=f"[post-train] task end, model saved to {save_dir}/weights/"
+            task_id=task_id,
+            log_content=f"[post-train] train end, model saved to {save_dir}/weights/",
         )
         create_log(session, tlc)
-        # TODO upload model to s3
+        # upload to s3
+        uploader_op = get_operator(s3_properties.models_bucket_name)
+        best_pt_path = save_dir + os.sep + "weights" + os.sep + "best.pt"
+        pt_name = str(uuid.uuid4()) + ".pt"
+        uploader_op.write(pt_name, open(best_pt_path, "rb").read())
+        # save to available model   
+        available_model = {
+            "dataset_id": task.dataset_id,
+            "annotation_id": task.annotation_id,
+            "save_path": pt_name,
+            "base_model_name": task_config_json['name'],
+            "loss": trainer.loss.item(),
+            "epoch": task_config_json["epoch"],
+        }
+        create_available_model(session, available_model)
+        tlc = TaskLogCreate(
+            task_id=task_id,
+            log_content=f"[post-train] model uploaded to {pt_name}",
+        )
+        create_log(session, tlc)
+
         update_task(session, task_id, {"status": 3})
-        
-    
+
     update_task(session, task_id, {"status": 1})
 
     try:
-        model = YOLO("yolo11n.pt")  # 加载 YOLO 模型
+        model = YOLO(task_config_json['name'])  # 加载 YOLO 模型
         model.add_callback("on_train_epoch_end", on_train_epoch_end)
         model.add_callback("on_train_end", on_train_end)
         model.train(
             data=p + os.sep + "data.yaml",
-            epochs=2,
-            imgsz=640,
-            batch=5,
+            epochs= task_config_json["epoch"],
+            imgsz=task_config_json['size'],
+            batch=task_config_json['batch'],
             device="cpu",
         )
+
     except Exception as e:
         print(e)
     finally:
         session.close()
         shutil.rmtree(p)
         shutil.rmtree(temp_folder)
+        tlc = TaskLogCreate(
+            task_id=task_id,
+            log_content=f"[post-train] delete temp folder and temp folder",
+        )
+        create_log(session, tlc)
+
 
 
 def train(
     task_id: int,
-    model_name: str = "yolo11n.pt",
-    epochs: int = 5,
-    imgsz: int = 640,
-    batch_size: int = 5,
     classes: List[str] = [],
     dataset_path: str = "",
     annotation_path: str = "",

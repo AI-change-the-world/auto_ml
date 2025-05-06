@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional
+
 from sqlalchemy.orm import Session
 
 from base.deprecated import deprecated
@@ -21,6 +22,7 @@ def update_task(db: Session, task_id: int, updates: Dict[str, Any]) -> Optional[
     db.commit()
     db.refresh(task)
     return task
+
 
 @deprecated("This function is un used in python, use java instead.")
 def delete_task(db: Session, task_id: int):

@@ -26,8 +26,7 @@ public class DatasetService {
     this.s3FileDelegate = s3FileDelegate;
   }
 
-  @Resource
-  private S3ConfigProperties properties;
+  @Resource private S3ConfigProperties properties;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -140,7 +139,8 @@ public class DatasetService {
           storage.setFileCount((long) l.size());
           storage.setLocalS3StoragePath(basePath);
           log.info("files: {}", l);
-          List<String> targets = s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
+          List<String> targets =
+              s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
           storage.setSampleFilePath(targets.get(0));
         }
         storage.setScanStatus(1);
@@ -154,10 +154,11 @@ public class DatasetService {
   }
 
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread = new Thread(
-        () -> {
-          scanAndUploadToLocalS3FolderSync(dataset);
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              scanAndUploadToLocalS3FolderSync(dataset);
+            });
     thread.start();
   }
 }

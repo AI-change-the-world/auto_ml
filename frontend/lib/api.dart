@@ -64,4 +64,7 @@ class Api {
   static final String baseModelsList = "/task/base-models/list";
 
   static final String baseModelsTypeList = "/task/base-models/list/{type}";
+
+  /// [deploy] deploy
+  static final String deployList = "/deploy/available-models/list";
 }

@@ -2,6 +2,7 @@ import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/annotation/label_screen.dart';
+import 'package:auto_ml/modules/deploy/deploy_screen.dart';
 import 'package:auto_ml/modules/task/task_screen.dart';
 import 'package:auto_ml/modules/tool_models/model_screen.dart';
 import 'package:auto_ml/modules/predict/predict_screen.dart';
@@ -104,6 +105,13 @@ final GoRouter router = GoRouter(
           // builder: (context, state) => Container(),
           pageBuilder:
               (context, state) => noTransitionPage(child: TaskScreen()),
+        ),
+        GoRoute(
+          path: '/deploy',
+          name: 'deploy',
+          // builder: (context, state) => Container(),
+          pageBuilder:
+              (context, state) => noTransitionPage(child: DeployScreen()),
         ),
       ],
     ),

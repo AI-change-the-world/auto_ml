@@ -1,9 +1,6 @@
 package org.xiaoshuyui.automl.module.task.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.xiaoshuyui.automl.module.task.entity.BaseModels;
 
-import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-
-public interface BaseModelsMapper extends BaseMapper<BaseModels> {
-
-}
+public interface BaseModelsMapper extends BaseMapper<BaseModels> {}

@@ -5,17 +5,14 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
+import java.io.IOException;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-
-import java.io.IOException;
-import java.util.List;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.common.PageResult;
@@ -58,9 +55,10 @@ public class TaskService {
     return taskLogMapper.selectList(queryWrapper);
   }
 
-  private static Gson gson = new GsonBuilder()
-      .serializeNulls() // 👈 关键：保留 null 字段
-      .create();
+  private static Gson gson =
+      new GsonBuilder()
+          .serializeNulls() // 👈 关键：保留 null 字段
+          .create();
 
   static OkHttpClient client = new OkHttpClient();
 
@@ -73,33 +71,35 @@ public class TaskService {
 
     taskMapper.insert(task);
 
-    var t = new Thread() {
-      @Override
-      public void run() {
-        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    var t =
+        new Thread() {
+          @Override
+          public void run() {
+            MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
-        String json = "{\"task_id\": " + task.getTaskId() + "}";
-        RequestBody body = RequestBody.create(json, JSON);
+            String json = "{\"task_id\": " + task.getTaskId() + "}";
+            RequestBody body = RequestBody.create(json, JSON);
 
-        // 构造请求
-        Request request = new Request.Builder()
-            .url(aiPlatformUrl + trainYolo) // 替换成实际 URL
-            .post(body)
-            .build();
+            // 构造请求
+            Request request =
+                new Request.Builder()
+                    .url(aiPlatformUrl + trainYolo) // 替换成实际 URL
+                    .post(body)
+                    .build();
 
-        // 执行请求
-        try (Response response = client.newCall(request).execute()) {
-          if (response.isSuccessful()) {
-            log.info("Response: " + response.body().string());
-          } else {
-            log.error("Request failed: " + response.code());
+            // 执行请求
+            try (Response response = client.newCall(request).execute()) {
+              if (response.isSuccessful()) {
+                log.info("Response: " + response.body().string());
+              } else {
+                log.error("Request failed: " + response.code());
+              }
+            } catch (IOException e) {
+              e.printStackTrace();
+              log.error("auto label error: {}", e.getMessage());
+            }
           }
-        } catch (IOException e) {
-          e.printStackTrace();
-          log.error("auto label error: {}", e.getMessage());
-        }
-      }
-    };
+        };
 
     t.start();
   }

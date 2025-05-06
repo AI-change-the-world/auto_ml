@@ -168,6 +168,13 @@ class SimpleLayoutShell extends StatelessWidget {
         title: t.sidebar.predict,
         route: "/predict",
       ),
+      SidebarItem(
+        icon: const Icon(Icons.line_axis, color: Colors.blueAccent),
+        iconInactive: const Icon(Icons.line_axis),
+        index: 5,
+        title: "Deploy",
+        route: "/deploy",
+      ),
     ]..sort((a, b) => a.index.compareTo(b.index));
 
     final currentIndex = items.indexWhere((item) => item.route == location);
