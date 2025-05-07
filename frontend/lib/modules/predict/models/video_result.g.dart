@@ -37,6 +37,21 @@ Map<String, dynamic> _$KeyframeToJson(Keyframe instance) => <String, dynamic>{
       'detections': instance.detections,
     };
 
+SingleImageResponse _$SingleImageResponseFromJson(Map<String, dynamic> json) =>
+    SingleImageResponse(
+      imageId: json['image_id'] as String,
+      results: (json['results'] as List<dynamic>)
+          .map((e) => Detection.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+
+Map<String, dynamic> _$SingleImageResponseToJson(
+        SingleImageResponse instance) =>
+    <String, dynamic>{
+      'image_id': instance.imageId,
+      'results': instance.results,
+    };
+
 Detection _$DetectionFromJson(Map<String, dynamic> json) => Detection(
       name: json['name'] as String,
       objClass: (json['obj_class'] as num).toInt(),

@@ -41,6 +41,19 @@ class Keyframe {
 }
 
 @JsonSerializable()
+class SingleImageResponse {
+  @JsonKey(name: 'image_id')
+  final String imageId;
+  final List<Detection> results;
+
+  SingleImageResponse({required this.imageId, required this.results});
+
+  factory SingleImageResponse.fromJson(Map<String, dynamic> json) =>
+      _$SingleImageResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$SingleImageResponseToJson(this);
+}
+
+@JsonSerializable()
 class Detection {
   final String name;
   @JsonKey(name: 'obj_class')

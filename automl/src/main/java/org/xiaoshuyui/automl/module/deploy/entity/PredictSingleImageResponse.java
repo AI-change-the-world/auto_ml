@@ -5,15 +5,8 @@ import java.util.List;
 
 @Data
 public class PredictSingleImageResponse {
-    private int status;
-    private String message;
-    private DataContent data;
-
-    @Data
-    public static class DataContent {
-        private String image_id;
-        private List<Result> results;
-    }
+    private String image_id;
+    private List<Result> results;
 
     @Data
     public static class Result {

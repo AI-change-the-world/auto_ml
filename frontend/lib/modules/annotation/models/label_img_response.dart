@@ -1,3 +1,4 @@
+import 'package:auto_ml/modules/predict/models/video_result.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'label_img_response.g.dart';
@@ -33,5 +34,15 @@ class Labels {
   @override
   String toString() {
     return 'Labels{label: $label, xCenter: $xCenter, yCenter: $yCenter, width: $width, height: $height}';
+  }
+
+  factory Labels.fromDetection(Detection detection) {
+    return Labels(
+      label: detection.name,
+      xCenter: (detection.box.x1 + detection.box.x2) / 2,
+      yCenter: (detection.box.y1 + detection.box.y2) / 2,
+      width: detection.box.x2 - detection.box.x1,
+      height: detection.box.y2 - detection.box.y1,
+    );
   }
 }
