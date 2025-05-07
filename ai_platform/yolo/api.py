@@ -7,6 +7,7 @@ from base import create_response
 from base.deprecated import deprecated
 from base.nacos_config import get_db
 from yolo.request import TrainRequest, YOLORequest
+from yolo.response import RunningModelsResponse
 
 router = APIRouter(
     prefix="/yolo",
@@ -20,6 +21,60 @@ class YOLONewTrainTaskResponse(BaseModel):
 
 class YoloTrainLogs(BaseModel):
     logs: list[str]
+
+
+class PredictSingleImageRequest(BaseModel):
+    data: str
+    model_id: int
+
+
+@router.post("/eval")
+async def deploy_eval(req: PredictSingleImageRequest, db: Session = Depends(get_db)):
+    from yolo.predict import predict_with_certain_model
+    return create_response(
+        status=200,
+        message="OK",
+        data=predict_with_certain_model(
+            model_id=req.model_id,
+            img=req.data,
+            db=db,
+        ),
+    )
+
+@router.get("/start/{id}")
+async def start_model(id: int, db: Session = Depends(get_db)):
+    from yolo.predict import start_model
+    if start_model(id, db) == 0:
+        return create_response(
+            status=200,
+            message="OK",
+            data=None,
+        )
+    else:
+        return create_response(
+            status=400,
+            message="model not found",
+            data=None,
+        )
+
+@router.get("/stop/{id}")
+async def stop_model(id: int):
+    from yolo.predict import stop_model
+    stop_model(id)
+    return create_response(
+        status=200,
+        message="OK",
+        data=None,
+    )
+
+@router.get("/models/running")
+async def running_models():
+    from yolo.predict import get_running_models
+    return create_response(
+        status=200,
+        message="OK",
+        data=RunningModelsResponse(running_models=get_running_models()) ,
+    )
 
 
 ## TODO rewrite this function

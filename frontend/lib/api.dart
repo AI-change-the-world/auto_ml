@@ -67,4 +67,12 @@ class Api {
 
   /// [deploy] deploy
   static final String deployList = "/deploy/available-models/list";
+
+  static final String runningModels = "/deploy/running-models";
+
+  static final String startModel = "/deploy/start/{id}";
+
+  static final String stopModel = "/deploy/stop/{id}";
+
+  static final String predictSingleImage = "/deploy/predict/image";
 }

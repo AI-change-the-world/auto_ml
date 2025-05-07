@@ -30,6 +30,9 @@ class PredictResult(BaseModel):
                 new_dict[key] = value
         return cls(**new_dict)
 
+class RunningModelsResponse(BaseModel):
+    running_models: List[int] = []
+
 
 def predict_result_from_detections(detections: Detections) -> List[PredictResult]:
     results = []

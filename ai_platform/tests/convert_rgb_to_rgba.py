@@ -1,7 +1,9 @@
 from PIL import Image
 
 # 打开图片并转换为 RGBA 模式（支持 alpha 通道）
-img = Image.open("/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/cut_img.png").convert("RGBA")
+img = Image.open(
+    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/cut_img.png"
+).convert("RGBA")
 
 datas = img.getdata()
 new_data = []

@@ -1,4 +1,5 @@
-import 'package:auto_ml/modules/deploy/model/available_models_response.dart';
+import 'package:auto_ml/modules/deploy/components/predict_single_image_dialog.dart';
+import 'package:auto_ml/modules/deploy/models/available_models_response.dart';
 import 'package:auto_ml/modules/deploy/notifier/deploy_notifier.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:data_table_2/data_table_2.dart';
@@ -154,6 +155,10 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
       size: ColumnSize.M,
     ),
     DataColumn2(
+      label: Text('Status', style: Styles.defaultButtonTextStyle),
+      size: ColumnSize.S,
+    ),
+    DataColumn2(
       label: Text('Operations', style: Styles.defaultButtonTextStyle),
       fixedWidth: 120,
     ),
@@ -163,24 +168,118 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
     return models.map((model) {
       return DataRow2(
         cells: [
-          DataCell(Text(model.id.toString())),
-          DataCell(Text(model.savePath)),
-          DataCell(Text(model.baseModelName)),
-          DataCell(Text(model.datasetId.toString())),
-          DataCell(Text(model.annotationId.toString())),
-          DataCell(Text(model.epoch.toString())),
-          DataCell(Text(model.loss.toStringAsFixed(2))),
+          DataCell(
+            Text(
+              model.id.toString(),
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
+          DataCell(
+            Text(model.savePath, style: Styles.defaultButtonTextStyleNormal),
+          ),
+          DataCell(
+            Text(
+              model.baseModelName,
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
+          DataCell(
+            Text(
+              model.datasetId.toString(),
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
+          DataCell(
+            Text(
+              model.annotationId.toString(),
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
+          DataCell(
+            Text(
+              model.epoch.toString(),
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
+          DataCell(
+            Text(
+              model.loss.toStringAsFixed(2),
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
           DataCell(
             Text(
               model.createdAt.toString().split(".").first.replaceAll("T", " "),
+              style: Styles.defaultButtonTextStyleNormal,
             ),
           ),
           DataCell(
             Text(
               model.updatedAt.toString().split(".").first.replaceAll("T", " "),
+              style: Styles.defaultButtonTextStyleNormal,
             ),
           ),
-          DataCell(Row(children: [])),
+          DataCell(
+            Text(
+              model.isOn ? "Online" : "Offline",
+              style: Styles.defaultButtonTextStyleNormal,
+            ),
+          ),
+          DataCell(
+            Row(
+              spacing: 5,
+              children: [
+                InkWell(
+                  onTap: () {
+                    if (model.isOn) {
+                      ref
+                          .read(deployNotifierProvider.notifier)
+                          .stopModel(model.id);
+                    } else {
+                      ref
+                          .read(deployNotifierProvider.notifier)
+                          .startModel(model.id);
+                    }
+                  },
+                  child: Tooltip(
+                    message: model.isOn ? "Stop" : "Start",
+                    child: Icon(
+                      model.isOn ? Icons.stop : Icons.start,
+                      size: Styles.datatableIconSize,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap:
+                      model.isOn
+                          ? () {
+                            showGeneralDialog(
+                              context: context,
+                              barrierDismissible: true,
+                              barrierLabel: "PredictSingleImageDialog",
+                              barrierColor: Styles.barriarColor,
+                              pageBuilder: (c, _, __) {
+                                return Center(
+                                  child: PredictSingleImageDialog(
+                                    modelId: model.id,
+                                  ),
+                                );
+                              },
+                            );
+                          }
+                          : null,
+                  child: Tooltip(
+                    message: "predict",
+                    child: Icon(
+                      Icons.batch_prediction,
+                      size: Styles.datatableIconSize,
+                      color: model.isOn ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       );
     }).toList();

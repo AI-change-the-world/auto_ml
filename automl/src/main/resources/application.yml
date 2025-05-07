@@ -60,3 +60,7 @@ ai-platform:
   video-process: /process/video
   describe-image: /process/describe
   describe-image-list: /process/describe/list
+  get-running-models: /yolo/models/running
+  start-model: /yolo/start/
+  stop-model: /yolo/stop/
+  predict-single-image: /yolo/eval

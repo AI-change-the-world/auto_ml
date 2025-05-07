@@ -133,12 +133,12 @@ def __train_model(
         best_pt_path = save_dir + os.sep + "weights" + os.sep + "best.pt"
         pt_name = str(uuid.uuid4()) + ".pt"
         uploader_op.write(pt_name, open(best_pt_path, "rb").read())
-        # save to available model   
+        # save to available model
         available_model = {
             "dataset_id": task.dataset_id,
             "annotation_id": task.annotation_id,
             "save_path": pt_name,
-            "base_model_name": task_config_json['name'],
+            "base_model_name": task_config_json["name"],
             "loss": trainer.loss.item(),
             "epoch": task_config_json["epoch"],
         }
@@ -154,14 +154,14 @@ def __train_model(
     update_task(session, task_id, {"status": 1})
 
     try:
-        model = YOLO(task_config_json['name'])  # 加载 YOLO 模型
+        model = YOLO(task_config_json["name"])  # 加载 YOLO 模型
         model.add_callback("on_train_epoch_end", on_train_epoch_end)
         model.add_callback("on_train_end", on_train_end)
         model.train(
             data=p + os.sep + "data.yaml",
-            epochs= task_config_json["epoch"],
-            imgsz=task_config_json['size'],
-            batch=task_config_json['batch'],
+            epochs=task_config_json["epoch"],
+            imgsz=task_config_json["size"],
+            batch=task_config_json["batch"],
             device="cpu",
         )
 
@@ -176,7 +176,6 @@ def __train_model(
             log_content=f"[post-train] delete temp folder and temp folder",
         )
         create_log(session, tlc)
-
 
 
 def train(

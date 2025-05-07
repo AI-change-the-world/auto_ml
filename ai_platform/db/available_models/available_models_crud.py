@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,12 @@ def get_available_model(db: Session, model_id: int) -> Optional[AvailableModel]:
         .first()
     )
 
+def get_available_models_in_id_list(db: Session, model_ids: List[int])-> List[AvailableModel]:
+    return (
+        db.query(AvailableModel)
+        .filter(AvailableModel.available_model_id.in_(model_ids), AvailableModel.is_deleted == 0)
+        .all()
+    )
 
 def update_available_model(
     db: Session, model_id: int, updates: Dict[str, Any]

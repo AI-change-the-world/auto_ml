@@ -27,6 +27,7 @@ class AvailableModel {
   final int annotationId;
   final DateTime createdAt;
   final DateTime updatedAt;
+  bool isOn;
 
   AvailableModel({
     required this.id,
@@ -38,6 +39,7 @@ class AvailableModel {
     required this.annotationId,
     required this.createdAt,
     required this.updatedAt,
+    this.isOn = false,
   });
 
   factory AvailableModel.fromJson(Map<String, dynamic> json) =>
