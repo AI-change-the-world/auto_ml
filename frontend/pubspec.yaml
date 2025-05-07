@@ -41,6 +41,7 @@ dependencies:
 
 dev_dependencies:
   build_runner: any
+  flutter_launcher_icons: "^0.14.3"
   flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
@@ -59,3 +60,18 @@ flutter:
     - family: NotoSansSC
       fonts:
         - asset: assets/fonts/NotoSansSC-Regular.ttf
+
+flutter_launcher_icons: # dart run flutter_launcher_icons
+  image_path: "assets/icon.png"
+  web:
+    generate: true
+    image_path: "assets/icon.png"
+    background_color: "#hexcode"
+    theme_color: "#hexcode"
+  windows:
+    generate: true
+    image_path: "assets/icon.png"
+    icon_size: 48 # min:48, max:256, default: 48
+  macos:
+    generate: true
+    image_path: "assets/icon.png"
