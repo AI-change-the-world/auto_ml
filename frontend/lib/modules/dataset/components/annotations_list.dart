@@ -182,7 +182,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                             .post(Api.newTrainTask, data: request.toJson())
                             .then((v) {
                               if (v.statusCode == 200) {
-                                ToastUtils.sucess(null, title: "创建成功");
+                                ToastUtils.success(null, title: "创建成功");
                               } else {
                                 ToastUtils.error(null, title: "创建失败");
                               }

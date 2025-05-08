@@ -115,7 +115,7 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
             ],
           );
         });
-        ToastUtils.sucess(null, title: "Deleted successfully");
+        ToastUtils.success(null, title: "Deleted successfully");
       } else {
         ToastUtils.error(null, title: "Failed to delete");
       }

@@ -129,7 +129,12 @@ class LayoutIcons extends ConsumerWidget {
                       onPressed: () {
                         ref
                             .read(annotationNotifierProvider.notifier)
-                            .getYoloAnnotation();
+                            .putYoloAnnotation()
+                            .then((v) {
+                              ref
+                                  .read(annotationNotifierProvider.notifier)
+                                  .changeModifiedStatus(v != 0);
+                            });
                       },
                       child: Row(
                         children: [

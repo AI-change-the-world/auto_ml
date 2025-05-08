@@ -1,12 +1,14 @@
 import 'dart:math';
 
+import 'package:auto_ml/api.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
+import 'package:auto_ml/modules/annotation/models/api/update_annotation_request.dart';
 import 'package:auto_ml/modules/annotation/models/changed.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/annotation/tools/label_to_annotation.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
-import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
@@ -203,17 +205,45 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
   }
 
   // TODO : support other formats
-  getYoloAnnotation() {
+  Future<int> putYoloAnnotation() async {
     var imgSize = ref.read(imageNotifierProvider).size;
     final String annotationSavePath =
         ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$2 ??
         "";
     if (annotationSavePath.isEmpty) {
-      return;
+      return 1;
     }
-    print(annotationSavePath);
+    // print(annotationSavePath);
 
-    print(toYoloAnnotations(state.annotations, imgSize.width, imgSize.height));
+    var content = toYoloAnnotations(
+      state.annotations,
+      imgSize.width,
+      imgSize.height,
+    );
+    UpdateAnnotationRequest request = UpdateAnnotationRequest(
+      annotationPath: annotationSavePath,
+      content: content,
+    );
+
+    await DioClient().instance
+        .post(Api.annotationUpdate, data: request.toJson())
+        .then((v) {
+          if (v.data == null) {
+            ToastUtils.error(null, title: "Update annotation failed");
+            return 1;
+          }
+          if (v.data!["code"] != 200) {
+            ToastUtils.error(
+              v.data!["message"],
+              title: "Update annotation failed",
+            );
+            return 1;
+          } else {
+            ToastUtils.success(null, title: "Update annotation success");
+          }
+        });
+
+    return 0;
   }
 }
 

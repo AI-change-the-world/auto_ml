@@ -78,7 +78,7 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
       );
       final r = BaseResponse.fromJson(response.data, (json) => null);
       if (r.code == 200) {
-        ToastUtils.sucess(null, title: "New annotation success");
+        ToastUtils.success(null, title: "New annotation success");
         updateData();
       } else {
         ToastUtils.error(null, title: "New annotation failed");

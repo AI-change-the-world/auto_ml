@@ -4,7 +4,7 @@ import 'package:toastification/toastification.dart';
 class ToastUtils {
   ToastUtils._();
 
-  static void sucess(
+  static void success(
     BuildContext? context, {
     required String title,
     String? description,

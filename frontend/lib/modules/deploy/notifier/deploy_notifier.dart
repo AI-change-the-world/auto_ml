@@ -108,7 +108,7 @@ class DeployNotifier extends AutoDisposeAsyncNotifier<DeployState> {
         ToastUtils.error(null, title: "Start Model Error");
         return;
       }
-      ToastUtils.sucess(null, title: "Start Model Success");
+      ToastUtils.success(null, title: "Start Model Success");
       refreshStartStopStatus(id);
     } catch (e, s) {
       logger.e(e);
@@ -126,7 +126,7 @@ class DeployNotifier extends AutoDisposeAsyncNotifier<DeployState> {
         ToastUtils.error(null, title: "Stop Model Error");
         return;
       }
-      ToastUtils.sucess(null, title: "Stop Model Success");
+      ToastUtils.success(null, title: "Stop Model Success");
       refreshStartStopStatus(id);
     } catch (e, s) {
       logger.e(e);
