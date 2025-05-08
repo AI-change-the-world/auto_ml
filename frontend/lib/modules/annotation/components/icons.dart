@@ -1,8 +1,8 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/annotation/components/faded_text.dart';
-import 'package:auto_ml/modules/annotation/models/response/auto_annotation_request.dart';
-import 'package:auto_ml/modules/annotation/models/response/tool_models_response.dart';
+import 'package:auto_ml/modules/annotation/models/api/auto_annotation_request.dart';
+import 'package:auto_ml/modules/annotation/models/api/tool_models_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
@@ -126,7 +126,11 @@ class LayoutIcons extends ConsumerWidget {
                   if (modified)
                     ElevatedButton(
                       style: Styles.getDefaultStyle(),
-                      onPressed: () {},
+                      onPressed: () {
+                        ref
+                            .read(annotationNotifierProvider.notifier)
+                            .getYoloAnnotation();
+                      },
                       child: Row(
                         children: [
                           Icon(

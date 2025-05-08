@@ -1,8 +1,8 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/common/merge_files_and_annotations.dart';
-import 'package:auto_ml/modules/annotation/models/response/annotation_file_response.dart';
-import 'package:auto_ml/modules/annotation/models/response/dataset_file_response.dart';
+import 'package:auto_ml/modules/annotation/models/api/annotation_file_response.dart';
+import 'package:auto_ml/modules/annotation/models/api/dataset_file_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_request.dart';
@@ -19,7 +19,7 @@ class CurrentDatasetAnnotationState {
 
   final String datasetPath;
   final String annotationPath;
-  final String currentData;
+  final (String, String)? currentData;
   final bool isLoading;
   final int datasetStorageType;
   final int annotationStorageType;
@@ -33,7 +33,7 @@ class CurrentDatasetAnnotationState {
     this.annotationId = 0,
     this.datasetPath = "",
     this.annotationPath = "",
-    this.currentData = "",
+    this.currentData,
     this.isLoading = false,
     this.datasetStorageType = 0,
     this.annotationStorageType = 0,
@@ -45,7 +45,7 @@ class CurrentDatasetAnnotationState {
     int? annotationId,
     String? datasetPath,
     String? annotationPath,
-    @Deprecated("will be removed") String? currentData,
+    (String, String)? currentData,
     bool? isLoading,
     int? datasetStorageType,
     List<(String, String)>? data,
@@ -137,10 +137,7 @@ class CurrentDatasetAnnotationNotifier
       );
 
       if (data.$2 == "") {
-        state = state.copyWith(
-          currentData: r.data?.content,
-          currentFilePath: data.$1,
-        );
+        state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
         ref
             .read(imageNotifierProvider.notifier)
@@ -168,10 +165,7 @@ class CurrentDatasetAnnotationNotifier
       );
 
       // return r.data?.content;
-      state = state.copyWith(
-        currentData: r.data?.content,
-        currentFilePath: data.$1,
-      );
+      state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
       ref
           .read(imageNotifierProvider.notifier)

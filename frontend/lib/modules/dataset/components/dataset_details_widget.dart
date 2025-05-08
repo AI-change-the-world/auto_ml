@@ -1,4 +1,4 @@
-import 'package:auto_ml/modules/annotation/models/new_annotation_request.dart';
+import 'package:auto_ml/modules/annotation/models/api/new_annotation_request.dart';
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
 import 'package:auto_ml/modules/dataset/components/new_annotation_dialog.dart';

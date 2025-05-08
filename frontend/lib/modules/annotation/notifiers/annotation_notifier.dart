@@ -6,6 +6,7 @@ import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/annotation/tools/label_to_annotation.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
@@ -201,23 +202,19 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     state = state.copyWith(modified: modified);
   }
 
-  /// FIXME
-  // getYoloAnnotation() async {
-  //   var imageState = ref.read(imageNotifierProvider("assets/test.png")).value;
+  // TODO : support other formats
+  getYoloAnnotation() {
+    var imgSize = ref.read(imageNotifierProvider).size;
+    final String annotationSavePath =
+        ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$2 ??
+        "";
+    if (annotationSavePath.isEmpty) {
+      return;
+    }
+    print(annotationSavePath);
 
-  //   while (imageState == null) {
-  //     await Future.delayed(Duration(milliseconds: 100));
-  //     imageState = ref.read(imageNotifierProvider("assets/test.png")).value;
-  //   }
-
-  //   print(
-  //     toYoloAnnotations(
-  //       state.annotations,
-  //       imageState.size.width,
-  //       imageState.size.height,
-  //     ),
-  //   );
-  // }
+    print(toYoloAnnotations(state.annotations, imgSize.width, imgSize.height));
+  }
 }
 
 final annotationNotifierProvider =

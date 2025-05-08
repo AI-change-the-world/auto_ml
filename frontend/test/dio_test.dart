@@ -1,6 +1,6 @@
 import 'package:auto_ml/common/base_response.dart';
-import 'package:auto_ml/modules/annotation/models/label_img_request.dart';
-import 'package:auto_ml/modules/annotation/models/label_img_response.dart';
+import 'package:auto_ml/modules/annotation/models/api/label_img_request.dart';
+import 'package:auto_ml/modules/annotation/models/api/label_img_response.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 

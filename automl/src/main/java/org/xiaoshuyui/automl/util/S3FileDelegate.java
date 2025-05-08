@@ -21,7 +21,8 @@ import org.xiaoshuyui.automl.config.S3ConfigProperties;
 @Slf4j
 public class S3FileDelegate implements FileDelegate {
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   private final Map<String, AsyncOperator> operatorCache = new ConcurrentHashMap<>();
 
@@ -47,9 +48,8 @@ public class S3FileDelegate implements FileDelegate {
   }
 
   private void initOperator(String bucket) {
-    Map<String, String> conf =
-        createConf(
-            properties.getAccessKey(), properties.getSecretKey(), bucket, properties.getEndpoint());
+    Map<String, String> conf = createConf(
+        properties.getAccessKey(), properties.getSecretKey(), bucket, properties.getEndpoint());
     operatorCache.put(bucket, AsyncOperator.of("s3", conf));
   }
 
@@ -63,12 +63,11 @@ public class S3FileDelegate implements FileDelegate {
     return operatorCache.computeIfAbsent(
         bucketName,
         b -> {
-          Map<String, String> conf =
-              createConf(
-                  properties.getAccessKey(),
-                  properties.getSecretKey(),
-                  b,
-                  properties.getEndpoint());
+          Map<String, String> conf = createConf(
+              properties.getAccessKey(),
+              properties.getSecretKey(),
+              b,
+              properties.getEndpoint());
           return AsyncOperator.of("s3", conf);
         });
   }
@@ -93,6 +92,10 @@ public class S3FileDelegate implements FileDelegate {
   public void putFile(String path, InputStream inputStream) throws Exception {
     byte[] bytes = inputStream.readAllBytes();
     getOperator(properties.getBucketName()).write(path, bytes);
+  }
+
+  public void putFile(String path, String content, String bucket) {
+    getOperator(bucket).write(path, content.getBytes());
   }
 
   public String getFileContent(String path, String bucket) {

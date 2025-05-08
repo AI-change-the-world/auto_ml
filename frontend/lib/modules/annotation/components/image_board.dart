@@ -42,10 +42,10 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
 
   @override
   Widget build(BuildContext context) {
-    final String current = ref.watch(
+    var current = ref.watch(
       currentDatasetAnnotationNotifierProvider.select((v) => v.currentData),
     );
-    if (current.isEmpty) {
+    if (current == null) {
       return Center(child: Text(t.annotation_screen.image_board.empty));
     }
 
