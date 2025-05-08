@@ -5,13 +5,16 @@ from typing import List, Optional, Set
 from sqlalchemy.orm import Session
 from ultralytics import YOLO
 
-from base.logger import logger
 from base.file_delegate import get_operator, s3_properties
-from db.available_models.available_models_crud import get_available_model,get_available_models_in_id_list
+from base.logger import logger
+from db.available_models.available_models_crud import (
+    get_available_model,
+    get_available_models_in_id_list,
+)
 from label.tools import base64_to_cv2_image
 from yolo.response import PredictResults
 
-running_models : Set[int] = set()
+running_models: Set[int] = set()
 
 
 def __predict(model: YOLO, img: str) -> PredictResults:
@@ -31,13 +34,15 @@ async def predict(model_name: str, imgs: List[str]):
     yield "[DONE]"
 
 
-def get_running_models()-> List[int]:
+def get_running_models() -> List[int]:
     global running_models
     return list(running_models)
+
 
 def stop_model(model_id: int):
     global running_models
     running_models.remove(model_id)
+
 
 def start_model(model_id: int, db: Session):
     global running_models
@@ -53,6 +58,7 @@ def start_model(model_id: int, db: Session):
             f.write(op.read(am.save_path))
     running_models.add(model_id)
     return 0
+
 
 def predict_with_certain_model(
     model_id: int, img: str, db: Session

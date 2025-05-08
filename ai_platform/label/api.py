@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from base import create_response
 from base.logger import logger
 from base.nacos_config import get_db
+from db.annotation.annotation_crud import get_annotation
 from db.tool_model.tool_model_crud import get_tool_model
+from label.find_similar import find_similar
 from label.label_img import label_img as impl_label_img
 
 router = APIRouter(
@@ -22,6 +24,17 @@ class LabelImgRequest(BaseModel):
     classes: List[str]
     model_id: int
     prompt: Optional[str]
+
+
+class FindSimilarRequest(BaseModel):
+    path: str
+    left: float
+    top: float
+    right: float
+    bottom: float
+    label: str
+    model: int
+    id: int
 
 
 @router.post("/image")
@@ -51,4 +64,45 @@ async def label_img(req: LabelImgRequest, db: Session = Depends(get_db)):
         return create_response(
             status=500,
             message="Internal Server Error",
+        )
+
+
+@router.post("/similar")
+async def similar_annotation(req: FindSimilarRequest, db: Session = Depends(get_db)):
+    tool_model = get_tool_model(db, req.model)
+    annotation = get_annotation(db, req.id)
+    if not annotation:
+        return create_response(
+            status=500,
+            message="Annotation not found",
+        )
+    if not tool_model:
+        return create_response(
+            status=500,
+            message="Tool model not found",
+        )
+    classes = str(annotation.class_items).split(";")
+    try:
+        res = find_similar(
+            save_path=req.path,
+            left=req.left,
+            top=req.top,
+            bottom=req.bottom,
+            right=req.right,
+            label=req.label,
+            classes=classes,
+            tool_model=tool_model,
+        )
+        return create_response(
+            status=200,
+            message="Success",
+            data=res,
+        )
+    except Exception as e:
+        traceback.print_exc()
+        logger.error(e)
+        return create_response(
+            status=500,
+            message=str(e),
+            data=None,
         )

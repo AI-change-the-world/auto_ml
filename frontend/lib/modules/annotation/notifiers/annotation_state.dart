@@ -8,13 +8,10 @@ class AnnotationState {
   final LabelMode mode;
   final bool modified;
 
-  final String current;
-
   AnnotationState({
     this.annotations = const [],
     this.selectedAnnotationUuid = "",
     this.mode = LabelMode.edit,
-    this.current = "",
     this.modified = false,
   });
 
@@ -22,7 +19,6 @@ class AnnotationState {
     List<Annotation>? annotations,
     String? selectedAnnotationUuid,
     LabelMode? mode,
-    String? current,
     bool? modified,
   }) {
     return AnnotationState(
@@ -30,7 +26,6 @@ class AnnotationState {
       selectedAnnotationUuid:
           selectedAnnotationUuid ?? this.selectedAnnotationUuid,
       mode: mode ?? this.mode,
-      current: current ?? this.current,
       modified: modified ?? this.modified,
     );
   }

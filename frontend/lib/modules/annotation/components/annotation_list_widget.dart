@@ -91,7 +91,11 @@ class AnnotationListWidget extends ConsumerWidget {
                                 ),
                               ),
                               InkWell(
-                                onTap: () {},
+                                onTap: () {
+                                  ref
+                                      .read(annotationNotifierProvider.notifier)
+                                      .findSimilarAnnotation(classes);
+                                },
                                 child: Tooltip(
                                   message: "Find similar",
                                   child: Icon(

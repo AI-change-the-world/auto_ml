@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
+import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;
 import org.xiaoshuyui.automl.module.tool.service.ToolModelService;
 
@@ -36,4 +37,14 @@ public class ToolModelController {
     }
     return Result.OK_data(data.toString());
   }
+
+  @PostMapping("/find/similar")
+  public Result postMethodName(@RequestBody FindSimilarObjectRequest entity) {
+    var res = toolModelService.findSimilar(entity);
+    if (res == null) {
+      return Result.error("Server error");
+    }
+    return Result.OK_data(res);
+  }
+
 }

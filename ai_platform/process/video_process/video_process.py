@@ -3,7 +3,7 @@ import json
 import os
 import shutil
 from glob import glob
-from typing import Any, Dict, List, Optional, Union, overload
+from typing import Any, List, Optional, Union, overload
 
 import cv2
 import ffmpeg

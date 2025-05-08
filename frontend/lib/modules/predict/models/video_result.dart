@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'video_result.g.dart'; // 生成的文件
@@ -67,6 +68,18 @@ class Detection {
     required this.confidence,
     required this.box,
   });
+
+  String toYoloFormat(Size imageSize) {
+    final double imgW = imageSize.width;
+    final double imgH = imageSize.height;
+
+    final double xCenter = ((box.x1 + box.x2) / 2) / imgW;
+    final double yCenter = ((box.y1 + box.y2) / 2) / imgH;
+    final double boxWidth = (box.x2 - box.x1) / imgW;
+    final double boxHeight = (box.y2 - box.y1) / imgH;
+
+    return "$objClass ${xCenter.toStringAsFixed(6)} ${yCenter.toStringAsFixed(6)} ${boxWidth.toStringAsFixed(6)} ${boxHeight.toStringAsFixed(6)}";
+  }
 
   factory Detection.fromJson(Map<String, dynamic> json) =>
       _$DetectionFromJson(json);

@@ -31,6 +31,7 @@ class PredictSingleImageRequest(BaseModel):
 @router.post("/eval")
 async def deploy_eval(req: PredictSingleImageRequest, db: Session = Depends(get_db)):
     from yolo.predict import predict_with_certain_model
+
     return create_response(
         status=200,
         message="OK",
@@ -41,9 +42,11 @@ async def deploy_eval(req: PredictSingleImageRequest, db: Session = Depends(get_
         ),
     )
 
+
 @router.get("/start/{id}")
 async def start_model(id: int, db: Session = Depends(get_db)):
     from yolo.predict import start_model
+
     if start_model(id, db) == 0:
         return create_response(
             status=200,
@@ -57,9 +60,11 @@ async def start_model(id: int, db: Session = Depends(get_db)):
             data=None,
         )
 
+
 @router.get("/stop/{id}")
 async def stop_model(id: int):
     from yolo.predict import stop_model
+
     stop_model(id)
     return create_response(
         status=200,
@@ -67,13 +72,15 @@ async def stop_model(id: int):
         data=None,
     )
 
+
 @router.get("/models/running")
 async def running_models():
     from yolo.predict import get_running_models
+
     return create_response(
         status=200,
         message="OK",
-        data=RunningModelsResponse(running_models=get_running_models()) ,
+        data=RunningModelsResponse(running_models=get_running_models()),
     )
 
 

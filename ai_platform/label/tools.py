@@ -1,11 +1,14 @@
 import base64
+import io
 import re
 from typing import List
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from label.models import ImageModel, LabelModel
+from yolo.response import Box, PredictResult
 
 base_prompt = {
     "type": "text",
@@ -74,6 +77,12 @@ def base64_to_cv2_image(base64_str: str) -> np.ndarray:
     return img
 
 
+def cv2_to_base64(img):
+    _, img_encoded = cv2.imencode(".png", img)
+    base64_str = base64.b64encode(img_encoded).decode("utf-8")
+    return base64_str
+
+
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
@@ -81,6 +90,33 @@ def encode_image(image_path):
 
 def encode_image_bytes(b: bytes):
     return base64.b64encode(b).decode("utf-8")
+
+
+def bytes_to_image(b: bytes, mode: str = "RGB", to_bgr: bool = False) -> np.ndarray:
+    """
+    Convert image bytes to a numpy.ndarray image.
+
+    Args:
+        b (bytes): Image content in bytes.
+        mode (str): Target color mode, e.g., "RGB", "L", etc.
+        to_bgr (bool): If True, convert RGB to BGR (useful for OpenCV).
+
+    Returns:
+        np.ndarray: Image as a numpy array.
+    """
+    try:
+        with Image.open(io.BytesIO(b)) as img:
+            img = img.convert(mode)
+            arr = np.array(img)
+
+            if to_bgr and mode == "RGB":
+                # Convert RGB to BGR if needed (OpenCV style)
+                arr = arr[:, :, ::-1]
+
+            return arr
+
+    except Exception as e:
+        raise ValueError(f"Failed to convert bytes to image: {e}")
 
 
 def result_to_label(result: str, img_data: str, h: int = 0, w: int = 0) -> ImageModel:
@@ -150,6 +186,24 @@ def result_to_label(result: str, img_data: str, h: int = 0, w: int = 0) -> Image
         )
 
     return ImageModel(labels=labels)
+
+
+def parse_boxes_from_string(
+    s: str, obj_class: int = 0, name: str = "auto", confidence: float = 1.0
+) -> List[PredictResult]:
+    # 正则提取所有元组
+    matches = re.findall(r"\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", s)
+
+    results = []
+    for match in matches:
+        x, y, w, h = map(float, match)
+        box = Box(x1=x, y1=y, x2=x + w, y2=y + h)
+        result = PredictResult(
+            name=name, obj_class=obj_class, confidence=confidence, box=box
+        )
+        results.append(result)
+
+    return results
 
 
 if __name__ == "__main__":

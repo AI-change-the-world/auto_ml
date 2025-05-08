@@ -30,7 +30,7 @@ class Annotation {
     try {
       return classes[id];
     } catch (e) {
-      return "Unknown";
+      return "unknown";
     }
   }
 

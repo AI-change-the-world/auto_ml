@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.common.PythonApiResponse;
 import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
+import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
+import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.LabelData;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;
 import org.xiaoshuyui.automl.module.tool.entity.PredictRequest;
@@ -29,6 +31,9 @@ public class ToolModelService {
 
   @Value("${ai-platform.get-label}")
   String getLabelApi;
+
+  @Value("${ai-platform.find-similar}")
+  String findSimilarApi;
 
   private final ToolModelMapper toolModelMapper;
   private final AnnotationService annotationService;
@@ -51,17 +56,15 @@ public class ToolModelService {
     return toolModelMapper.selectOne(queryWrapper);
   }
 
-  private static final OkHttpClient client =
-      new OkHttpClient.Builder()
-          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-          .build();
+  private static final OkHttpClient client = new OkHttpClient.Builder()
+      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+      .build();
 
-  private static Gson gson =
-      new GsonBuilder()
-          .serializeNulls() // 👈 关键：保留 null 字段
-          .create();
+  private static Gson gson = new GsonBuilder()
+      .serializeNulls() // 👈 关键：保留 null 字段
+      .create();
 
   public LabelData getLabel(ModelUseRequest request) {
 
@@ -74,18 +77,36 @@ public class ToolModelService {
       predictRequest.setPrompt(request.getPrompt());
 
       // 创建 RequestBody
-      RequestBody body =
-          RequestBody.create(gson.toJson(predictRequest), MediaType.parse("application/json"));
+      RequestBody body = RequestBody.create(gson.toJson(predictRequest), MediaType.parse("application/json"));
       Request req = new Request.Builder().url(baseUrl + getLabelApi).post(body).build();
 
       Response response = client.newCall(req).execute();
-      Type type = new TypeToken<PythonApiResponse<LabelData>>() {}.getType();
+      Type type = new TypeToken<PythonApiResponse<LabelData>>() {
+      }.getType();
       PythonApiResponse<LabelData> labelData = gson.fromJson(response.body().string(), type);
       return labelData.data;
 
     } catch (Exception e) {
       System.out.println(e);
       log.error("auto label error: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  public PredictSingleImageResponse findSimilar(FindSimilarObjectRequest request) {
+    try {
+      RequestBody body = RequestBody.create(gson.toJson(request), MediaType.parse("application/json"));
+      Request req = new Request.Builder().url(baseUrl + findSimilarApi).post(body).build();
+      Response response = client.newCall(req).execute();
+      Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {
+      }.getType();
+
+      PythonApiResponse<PredictSingleImageResponse> pythonApiResponse = gson.fromJson(response.body().string(), type);
+
+      return pythonApiResponse.data;
+    } catch (Exception e) {
+      e.printStackTrace();
+      log.error("find similar error: {}", e.getMessage());
       return null;
     }
   }

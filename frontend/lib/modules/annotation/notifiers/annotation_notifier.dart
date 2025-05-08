@@ -1,13 +1,16 @@
 import 'dart:math';
 
 import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
+import 'package:auto_ml/modules/annotation/models/api/get_similar_object_request.dart';
 import 'package:auto_ml/modules/annotation/models/api/update_annotation_request.dart';
 import 'package:auto_ml/modules/annotation/models/changed.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/annotation/tools/label_to_annotation.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/predict/models/video_result.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -40,6 +43,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   changeCurrentAnnotation(String uuid) {
     state = state.copyWith(
+      selectedAnnotationUuid: uuid,
       annotations:
           state.annotations.map((e) {
             if (e.uuid == uuid) {
@@ -175,6 +179,79 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
               )
               .toList(),
     );
+  }
+
+  addAnnotation(String content) {
+    var imageState = ref.read(imageNotifierProvider);
+    final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
+    logger.d('Adding annotation: $content');
+    logger.d("classes: $classes");
+    List<Annotation> annotations = parseYoloAnnotations(
+      content,
+      imageState.size.width,
+      imageState.size.height,
+    );
+
+    if (annotations.isNotEmpty) {
+      state = state.copyWith(
+        annotations: [...state.annotations, ...annotations],
+      );
+    }
+  }
+
+  Future findSimilarAnnotation(List<String> classes) async {
+    if (state.selectedAnnotationUuid.isEmpty) {
+      return;
+    }
+
+    final currentAnnotation = state.annotations.firstWhere(
+      (e) => e.uuid == state.selectedAnnotationUuid,
+    );
+
+    if (currentAnnotation.id == -1) {
+      ToastUtils.error(null, title: "Annotaiton must have a valid label");
+      return;
+    }
+    double left = currentAnnotation.position.dx;
+    double top = currentAnnotation.position.dy;
+    double right = left + currentAnnotation.width;
+    double bottom = top + currentAnnotation.height;
+
+    GetSimilarObjectRequest request = GetSimilarObjectRequest(
+      left: left,
+      top: top,
+      right: right,
+      bottom: bottom,
+      path: ref.read(currentDatasetAnnotationNotifierProvider).currentData!.$1,
+      label: currentAnnotation.getLabel(classes),
+      id: ref.read(currentDatasetAnnotationNotifierProvider).annotationId,
+    );
+
+    DioClient().instance.post(Api.getSimilar, data: request.toJson()).then((v) {
+      if (v.data != null) {
+        final imgSize = ref.read(imageNotifierProvider).size;
+        BaseResponse<SingleImageResponse> response =
+            BaseResponse<SingleImageResponse>.fromJson(
+              v.data,
+              (j) => SingleImageResponse.fromJson(j as Map<String, dynamic>),
+            );
+        if (response.code == 200) {
+          if (response.data != null) {
+            StringBuffer sb = StringBuffer();
+            for (final i in response.data!.results) {
+              // print(i.toYoloFormat(imgSize));
+              sb.write(i.toYoloFormat(imgSize));
+              sb.write("\n");
+            }
+            addAnnotation(sb.toString());
+          }
+        } else {
+          ToastUtils.error(null, title: "Find similar annotations failed");
+        }
+      } else {
+        ToastUtils.error(null, title: "Server Error");
+      }
+    });
   }
 
   addFakeAnnotation(Annotation annotation) {

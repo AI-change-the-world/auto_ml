@@ -64,3 +64,4 @@ ai-platform:
   start-model: /yolo/start/
   stop-model: /yolo/stop/
   predict-single-image: /yolo/eval
+  find-similar : /label/similar
