@@ -2,6 +2,8 @@ package org.xiaoshuyui.automl.module.dataset.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
+
+import java.io.InputStream;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +28,8 @@ public class DatasetService {
     this.s3FileDelegate = s3FileDelegate;
   }
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -43,6 +46,10 @@ public class DatasetService {
 
     this.scanFolderParallel(dataset);
     return dataset.getId();
+  }
+
+  public void putFileToDataset(String path, InputStream inputStream) throws Exception {
+    s3FileDelegate.putFile(path, inputStream, properties.getDatasetsBucketName());
   }
 
   public void modifyDataset(ModifyDatasetRequest request) {
@@ -139,8 +146,7 @@ public class DatasetService {
           storage.setFileCount((long) l.size());
           storage.setLocalS3StoragePath(basePath);
           log.info("files: {}", l);
-          List<String> targets =
-              s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
+          List<String> targets = s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
           storage.setSampleFilePath(targets.get(0));
         }
         storage.setScanStatus(1);
@@ -154,11 +160,27 @@ public class DatasetService {
   }
 
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanAndUploadToLocalS3FolderSync(dataset);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(dataset);
+        });
     thread.start();
+  }
+
+  public void updateCount(Long id) {
+    Dataset dataset = datasetMapper.selectById(id);
+    if (dataset == null) {
+      return;
+    }
+    try {
+      int fileCount = s3FileDelegate.listFiles(dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName())
+          .size();
+      dataset.setFileCount((long) fileCount);
+      datasetMapper.updateById(dataset);
+    } catch (Exception e) {
+      e.printStackTrace();
+      log.error("update count error: {}", e.getMessage());
+
+    }
   }
 }

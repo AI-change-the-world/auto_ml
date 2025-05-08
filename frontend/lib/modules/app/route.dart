@@ -23,7 +23,7 @@ final GoRouter router = GoRouter(
             children: [
               Text(t.route.nothing, style: const TextStyle(fontSize: 24)),
               ElevatedButton(
-                style: Styles.getDefaultStyle(width: 200),
+                style: Styles.getDefaultButtonStyle(width: 200),
                 onPressed: () {
                   context.go("/");
                 },

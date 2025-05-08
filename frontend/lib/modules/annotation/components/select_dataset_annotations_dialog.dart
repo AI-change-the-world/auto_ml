@@ -83,6 +83,7 @@ class _SelectDatasetAnnotationsDialogState
                                                   data.datasets[i].id
                                               ? Colors.white
                                               : Colors.black,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
@@ -136,6 +137,7 @@ class _SelectDatasetAnnotationsDialogState
                                       "",
                                   maxLines: 1,
                                   softWrap: true,
+                                  style: Styles.defaultButtonTextStyleNormal,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               );

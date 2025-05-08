@@ -40,7 +40,6 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   changeCurrentAnnotation(String uuid) {
     state = state.copyWith(
-      modified: true,
       annotations:
           state.annotations.map((e) {
             if (e.uuid == uuid) {

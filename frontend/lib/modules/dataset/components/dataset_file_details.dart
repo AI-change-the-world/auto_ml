@@ -1,7 +1,9 @@
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/dataset/components/append_dataset_files_dialog.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_list_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -42,22 +44,70 @@ class DatasetFileDetails extends ConsumerWidget {
                 spacing: 10,
                 children: [
                   Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
+                    child: Row(
+                      children: [
+                        Text.rich(
                           TextSpan(
-                            text: "Current count: ",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                            children: [
+                              TextSpan(
+                                text: "Current count: ",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              TextSpan(
+                                text: "${data.count}",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Material(
+                          borderRadius: BorderRadius.circular(20),
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () async {
+                                showGeneralDialog(
+                                  context: context,
+                                  barrierColor: Styles.barriarColor,
+                                  barrierDismissible: true,
+                                  barrierLabel: "AppendDatasetFilesDialog",
+                                  pageBuilder: (c, _, __) {
+                                    return Center(
+                                      child: AppendDatasetFilesDialog(
+                                        datasetType: dataset.type.index,
+                                        datasetId: dataset.id,
+                                      ),
+                                    );
+                                  },
+                                ).then((v) {
+                                  ref
+                                      .read(
+                                        datasetFileListNotifierProvider
+                                            .notifier,
+                                      )
+                                      .refresh(dataset);
+                                });
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding: EdgeInsets.all(1),
+                                child: Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
                             ),
                           ),
-                          TextSpan(
-                            text: "${data.count}",
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(

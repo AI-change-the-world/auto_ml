@@ -63,7 +63,10 @@ class Styles {
     Color(0xFF78909C), // 灰蓝色
   ];
 
-  static ButtonStyle getDefaultStyle({double width = 100, double height = 20}) {
+  static ButtonStyle getDefaultButtonStyle({
+    double width = 100,
+    double height = 20,
+  }) {
     return ButtonStyle(
       fixedSize: WidgetStateProperty.all(Size(width, height)),
       backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),

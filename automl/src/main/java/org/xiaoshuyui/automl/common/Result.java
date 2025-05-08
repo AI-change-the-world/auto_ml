@@ -9,7 +9,8 @@ import lombok.Data;
 @Schema(name = "接口返回对象", description = "接口返回对象")
 public class Result<T> implements Serializable {
 
-  @Serial private static final long serialVersionUID = 1L;
+  @Serial
+  private static final long serialVersionUID = 1L;
 
   /** 成功标志 */
   @Schema(name = "success")
@@ -31,7 +32,8 @@ public class Result<T> implements Serializable {
   @Schema(name = "timestamp")
   private long timestamp = System.currentTimeMillis();
 
-  public Result() {}
+  public Result() {
+  }
 
   public static <T> Result<T> OK() {
     Result<T> r = new Result<T>();
@@ -41,11 +43,19 @@ public class Result<T> implements Serializable {
     return r;
   }
 
+  public static <T> Result<T> OK_msg(String msg) {
+    Result<T> r = new Result<T>();
+    r.setSuccess(true);
+    r.setCode(CommonConstants.SC_OK_200);
+    r.setMessage(msg);
+    return r;
+  }
+
   public static <T> Result<T> OK_data(T data) {
     Result<T> r = new Result<T>();
     r.setSuccess(true);
     r.setCode(CommonConstants.SC_OK_200);
-    //		r.setResult(data);
+    // r.setResult(data);
     r.setData(data);
     return r;
   }

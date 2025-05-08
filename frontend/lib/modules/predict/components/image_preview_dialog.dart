@@ -106,7 +106,9 @@ class _ImagePreviewDialogState extends ConsumerState<ImagePreviewDialog> {
                                 Visibility(
                                   visible: false,
                                   child: ElevatedButton(
-                                    style: Styles.getDefaultStyle(width: 150),
+                                    style: Styles.getDefaultButtonStyle(
+                                      width: 150,
+                                    ),
                                     onPressed: () async {
                                       ref
                                           .read(

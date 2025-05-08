@@ -29,7 +29,7 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
               children: [
                 Spacer(),
                 ElevatedButton(
-                  style: Styles.getDefaultStyle(),
+                  style: Styles.getDefaultButtonStyle(),
                   onPressed: () {},
                   child: Text("Refresh", style: Styles.defaultButtonTextStyle),
                 ),

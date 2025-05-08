@@ -41,7 +41,10 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
                   },
                 );
               },
-              child: Text(t.label_screen.select),
+              child: Text(
+                t.label_screen.select,
+                style: Styles.defaultButtonTextStyle,
+              ),
             ),
           ],
         ),

@@ -91,6 +91,16 @@ class AnnotationListWidget extends ConsumerWidget {
                                 ),
                               ),
                               InkWell(
+                                onTap: () {},
+                                child: Tooltip(
+                                  message: "Find similar",
+                                  child: Icon(
+                                    Icons.bolt,
+                                    size: Styles.datatableIconSize,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
                                 onTap: () {
                                   ref
                                       .read(annotationNotifierProvider.notifier)

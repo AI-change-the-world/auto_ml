@@ -1,0 +1,139 @@
+import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/dialog_wrapper.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/styles.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
+import 'package:dio/dio.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+
+class AppendDatasetFilesDialog extends StatefulWidget {
+  const AppendDatasetFilesDialog({
+    super.key,
+    required this.datasetType,
+    required this.datasetId,
+  });
+  final int datasetType;
+  final int datasetId;
+
+  @override
+  State<AppendDatasetFilesDialog> createState() =>
+      _AppendDatasetFilesDialogState();
+}
+
+class _AppendDatasetFilesDialogState extends State<AppendDatasetFilesDialog> {
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  static const XTypeGroup typeGroup = XTypeGroup(
+    label: 'images',
+    extensions: <String>['jpg', 'png', 'jpeg'],
+  );
+
+  List<XFile> files = [];
+
+  @override
+  Widget build(BuildContext context) {
+    return dialogWrapper(
+      width: MediaQuery.of(context).size.width * 0.4,
+      height: MediaQuery.of(context).size.height * 0.8,
+      child: Container(
+        padding: EdgeInsets.all(10),
+        child: Column(
+          spacing: 10,
+          children: [
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(color: Colors.white),
+                child: ListView.builder(
+                  itemBuilder: (c, i) {
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        spacing: 10,
+                        children: [
+                          Icon(
+                            Icons.file_upload,
+                            size: Styles.datatableIconSize,
+                          ),
+                          Text(
+                            files[i].name,
+                            style: Styles.defaultButtonTextStyle,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  itemCount: files.length,
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 30,
+              child: Row(
+                spacing: 10,
+                children: [
+                  Spacer(),
+                  ElevatedButton(
+                    style: Styles.getDefaultButtonStyle(),
+                    onPressed: () async {
+                      if (widget.datasetType != 0) {
+                        files = await openFiles();
+                      } else {
+                        files = await openFiles(
+                          acceptedTypeGroups: [typeGroup],
+                        );
+                      }
+                      if (files.isEmpty) {
+                        return;
+                      }
+                      setState(() {});
+                      // FormData formData = FormData.fromMap({"files": files});
+
+                      List<MultipartFile> filesList = [];
+                      for (var file in files) {
+                        filesList.add(
+                          MultipartFile.fromBytes(
+                            await file.readAsBytes(),
+                            filename: file.name,
+                          ),
+                        );
+                      }
+                      FormData formData = FormData.fromMap({
+                        "files": filesList,
+                      });
+
+                      DioClient().instance
+                          .post(
+                            Api.appendDatasetFiles.replaceAll(
+                              "{id}",
+                              widget.datasetId.toString(),
+                            ),
+                            data: formData,
+                          )
+                          .then((v) {
+                            if (v.data != null) {
+                              ToastUtils.info(
+                                null,
+                                title: "Upload finish. ${v.data["message"]}",
+                              );
+                            }
+                          });
+                    },
+                    child: Text(
+                      "Add Files",
+                      style: Styles.defaultButtonTextStyle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

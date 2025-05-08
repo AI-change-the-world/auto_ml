@@ -295,7 +295,7 @@ class _NewTrainTaskDialogState extends State<NewTrainTaskDialog> {
                     children: [
                       Spacer(),
                       ElevatedButton(
-                        style: Styles.getDefaultStyle(),
+                        style: Styles.getDefaultButtonStyle(),
                         onPressed: () {
                           Map<String, dynamic> data = {
                             "name": selectedModel?.name ?? "yolo11n.pt",

@@ -29,7 +29,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               children: [
                 Spacer(),
                 ElevatedButton(
-                  style: Styles.getDefaultStyle(width: 80),
+                  style: Styles.getDefaultButtonStyle(width: 80),
                   onPressed: () {},
                   child: Text(
                     t.predict_screen.upload,

@@ -125,7 +125,7 @@ class LayoutIcons extends ConsumerWidget {
                 children: [
                   if (modified)
                     ElevatedButton(
-                      style: Styles.getDefaultStyle(),
+                      style: Styles.getDefaultButtonStyle(),
                       onPressed: () {
                         ref
                             .read(annotationNotifierProvider.notifier)

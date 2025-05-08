@@ -1,8 +1,12 @@
 package org.xiaoshuyui.automl.module.dataset;
 
+import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
@@ -86,4 +90,34 @@ public class DatasetController {
     response.setFiles(files);
     return Result.OK_data(response);
   }
+
+  @PostMapping("/{id}/append/files")
+  public Result uploadMultipleFiles(@RequestParam("files") MultipartFile[] files, @PathVariable Long id) {
+    var d = datasetService.get(id);
+
+    if (d == null) {
+      return Result.error("dataset not found");
+    }
+    int errorCount = 0;
+    for (MultipartFile file : files) {
+      if (!file.isEmpty()) {
+        String fileName = file.getOriginalFilename();
+
+        String savePath = d.getLocalS3StoragePath() + "/" + fileName;
+
+        try {
+          datasetService.putFileToDataset(savePath, file.getInputStream());
+        } catch (Exception e) {
+          log.error(e.getMessage());
+          errorCount += 1;
+        }
+
+      }
+    }
+
+    datasetService.updateCount(id);
+
+    return Result.OK_msg(errorCount + " files failed");
+  }
+
 }

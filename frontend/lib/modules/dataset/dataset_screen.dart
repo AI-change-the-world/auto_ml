@@ -315,7 +315,10 @@ class _ConfirmDialog extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).pop(true);
                   },
-                  child: Text(t.dataset_screen.confirm),
+                  child: Text(
+                    t.dataset_screen.confirm,
+                    style: Styles.defaultButtonTextStyle,
+                  ),
                 ),
               ],
             ),

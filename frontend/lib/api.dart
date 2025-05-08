@@ -24,6 +24,8 @@ class Api {
 
   static final String datasetFileList = "/dataset/{id}/file/list";
 
+  static final String appendDatasetFiles = "/dataset/{id}/append/files";
+
   // static final String datasetContent = "/dataset/content";
 
   /// [annotation]

@@ -81,7 +81,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
                 Spacer(),
                 if (imageDescription.isNotEmpty)
                   ElevatedButton(
-                    style: Styles.getDefaultStyle(width: 150),
+                    style: Styles.getDefaultButtonStyle(width: 150),
                     onPressed:
                         state.isGenerating
                             ? null

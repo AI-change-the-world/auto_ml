@@ -343,7 +343,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                   Spacer(),
                   if (type != ModelType.vision)
                     ElevatedButton(
-                      style: Styles.getDefaultStyle(),
+                      style: Styles.getDefaultButtonStyle(),
                       onPressed: () {
                         if (_modelNameController.text.isNotEmpty &&
                             _baseUrlController.text.isNotEmpty) {
@@ -365,7 +365,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                       child: Text("Try", style: Styles.defaultButtonTextStyle),
                     ),
                   ElevatedButton(
-                    style: Styles.getDefaultStyle(),
+                    style: Styles.getDefaultButtonStyle(),
                     onPressed: () {
                       // Navigator.of(context).pop(dataset);
                     },

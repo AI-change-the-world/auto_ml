@@ -24,7 +24,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
               children: [
                 Spacer(),
                 ElevatedButton(
-                  style: Styles.getDefaultStyle(),
+                  style: Styles.getDefaultButtonStyle(),
                   onPressed: () {},
                   child: Text("Refresh", style: Styles.defaultButtonTextStyle),
                 ),

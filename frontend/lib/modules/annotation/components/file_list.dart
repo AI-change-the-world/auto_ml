@@ -103,7 +103,10 @@ class FileList extends ConsumerWidget {
                     /// TODO: next data
                     // ref.read(labelNotifierProvider(dl).notifier).nextData();
                   },
-                  child: Text(t.annotation_screen.list.next),
+                  child: Text(
+                    t.annotation_screen.list.next,
+                    style: Styles.defaultButtonTextStyle,
+                  ),
                 ),
               ],
             ),

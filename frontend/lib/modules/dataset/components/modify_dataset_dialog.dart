@@ -520,7 +520,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                   children: [
                     Spacer(),
                     ElevatedButton(
-                      style: Styles.getDefaultStyle(),
+                      style: Styles.getDefaultButtonStyle(),
                       onPressed: () {
                         if (_nameController.text.isEmpty ||
                             _dataPathController.text.isEmpty) {

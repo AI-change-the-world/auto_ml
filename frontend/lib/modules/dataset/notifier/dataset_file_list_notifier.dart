@@ -30,6 +30,11 @@ class DatasetFileListNotifier
     return DatasetFileState(count: 0);
   }
 
+  Future refresh(Dataset dataset) async {
+    logger.i("refresh");
+    init(dataset);
+  }
+
   init(Dataset dataset) async {
     try {
       final response = await dio.get(

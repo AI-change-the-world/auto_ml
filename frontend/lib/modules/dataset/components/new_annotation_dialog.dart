@@ -372,7 +372,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                 children: [
                   Spacer(),
                   ElevatedButton(
-                    style: Styles.getDefaultStyle(),
+                    style: Styles.getDefaultButtonStyle(),
                     onPressed: () {
                       if (_classesController.text.isEmpty) {
                         ToastUtils.error(context, title: "类别不能为空");

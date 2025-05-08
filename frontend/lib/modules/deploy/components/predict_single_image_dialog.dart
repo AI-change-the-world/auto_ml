@@ -51,7 +51,7 @@ class _PredictSingleImageDialogState extends State<PredictSingleImageDialog> {
                     style: Styles.defaultButtonTextStyle,
                   ),
                   ElevatedButton(
-                    style: Styles.getDefaultStyle(width: 200),
+                    style: Styles.getDefaultButtonStyle(width: 200),
                     onPressed: pickImageFile,
                     child: Text(
                       "Select Image",
