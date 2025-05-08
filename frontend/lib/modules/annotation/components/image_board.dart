@@ -35,6 +35,12 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
   Offset? startPoint;
 
   @override
+  void didUpdateWidget(covariant ImageBoard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _transformationController.value = Matrix4.identity();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final String current = ref.watch(
       currentDatasetAnnotationNotifierProvider.select((v) => v.currentData),

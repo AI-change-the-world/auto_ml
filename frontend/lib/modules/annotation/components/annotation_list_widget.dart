@@ -105,6 +105,19 @@ class AnnotationListWidget extends ConsumerWidget {
                                   size: Styles.datatableIconSize,
                                 ),
                               ),
+                              InkWell(
+                                onTap: () {
+                                  ref
+                                      .read(annotationNotifierProvider.notifier)
+                                      .removeAnnotationById(
+                                        state.annotations[index].uuid,
+                                      );
+                                },
+                                child: Icon(
+                                  Icons.delete,
+                                  size: Styles.datatableIconSize,
+                                ),
+                              ),
                             ],
                           ),
                         );

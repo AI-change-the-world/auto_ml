@@ -23,24 +23,7 @@ final GoRouter router = GoRouter(
             children: [
               Text(t.route.nothing, style: const TextStyle(fontSize: 24)),
               ElevatedButton(
-                style: ButtonStyle(
-                  fixedSize: WidgetStateProperty.all(Size(200, 20)),
-                  backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
-                  padding: WidgetStatePropertyAll(
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  textStyle: WidgetStatePropertyAll(
-                    const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  shape: WidgetStatePropertyAll(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4.0),
-                    ),
-                  ),
-                ),
+                style: Styles.getDefaultStyle(width: 200),
                 onPressed: () {
                   context.go("/");
                 },

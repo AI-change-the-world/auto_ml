@@ -18,6 +18,12 @@ class Styles {
     fontWeight: FontWeight.bold,
   );
 
+  static TextStyle defaultButtonTextStyleGrey = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+    color: Colors.grey[500],
+  );
+
   static TextStyle defaultButtonTextStyleNormal = TextStyle(fontSize: 12);
 
   static TextStyle titleStyle = TextStyle(
@@ -56,4 +62,20 @@ class Styles {
     Color(0xFFEF5350), // 红色
     Color(0xFF78909C), // 灰蓝色
   ];
+
+  static ButtonStyle getDefaultStyle({double width = 100, double height = 20}) {
+    return ButtonStyle(
+      fixedSize: WidgetStateProperty.all(Size(width, height)),
+      backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+      padding: WidgetStatePropertyAll(
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      textStyle: WidgetStatePropertyAll(
+        const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
+      ),
+    );
+  }
 }

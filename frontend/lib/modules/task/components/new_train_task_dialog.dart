@@ -295,29 +295,7 @@ class _NewTrainTaskDialogState extends State<NewTrainTaskDialog> {
                     children: [
                       Spacer(),
                       ElevatedButton(
-                        style: ButtonStyle(
-                          fixedSize: WidgetStateProperty.all(Size(100, 20)),
-                          backgroundColor: WidgetStatePropertyAll(
-                            Colors.grey[300],
-                          ),
-                          padding: WidgetStatePropertyAll(
-                            const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                          ),
-                          textStyle: WidgetStatePropertyAll(
-                            const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          shape: WidgetStatePropertyAll(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4.0),
-                            ),
-                          ),
-                        ),
+                        style: Styles.getDefaultStyle(),
                         onPressed: () {
                           Map<String, dynamic> data = {
                             "name": selectedModel?.name ?? "yolo11n.pt",

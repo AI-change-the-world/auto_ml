@@ -343,29 +343,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                   Spacer(),
                   if (type != ModelType.vision)
                     ElevatedButton(
-                      style: ButtonStyle(
-                        fixedSize: WidgetStateProperty.all(Size(100, 20)),
-                        backgroundColor: WidgetStatePropertyAll(
-                          Colors.grey[300],
-                        ),
-                        padding: WidgetStatePropertyAll(
-                          const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                        textStyle: WidgetStatePropertyAll(
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        shape: WidgetStatePropertyAll(
-                          RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4.0),
-                          ),
-                        ),
-                      ),
+                      style: Styles.getDefaultStyle(),
                       onPressed: () {
                         if (_modelNameController.text.isNotEmpty &&
                             _baseUrlController.text.isNotEmpty) {
@@ -387,27 +365,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                       child: Text("Try", style: Styles.defaultButtonTextStyle),
                     ),
                   ElevatedButton(
-                    style: ButtonStyle(
-                      fixedSize: WidgetStateProperty.all(Size(100, 20)),
-                      backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
-                      padding: WidgetStatePropertyAll(
-                        const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      textStyle: WidgetStatePropertyAll(
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      shape: WidgetStatePropertyAll(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4.0),
-                        ),
-                      ),
-                    ),
+                    style: Styles.getDefaultStyle(),
                     onPressed: () {
                       // Navigator.of(context).pop(dataset);
                     },

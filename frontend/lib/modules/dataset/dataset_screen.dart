@@ -278,6 +278,7 @@ class __DeleteZoneState extends ConsumerState<_DeleteZone> {
   }
 }
 
+@Deprecated("dumplicated with `ConfirmDialog`")
 class _ConfirmDialog extends StatelessWidget {
   const _ConfirmDialog({required this.title, required this.content});
   final String title;

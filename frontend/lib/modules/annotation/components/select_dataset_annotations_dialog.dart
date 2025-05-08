@@ -1,5 +1,6 @@
 import 'package:auto_ml/modules/annotation/notifiers/select_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,40 +42,56 @@ class _SelectDatasetAnnotationsDialogState
                       color: Colors.white,
                     ),
                     padding: EdgeInsets.all(10),
-                    child: ListView.builder(
-                      itemBuilder: (c, i) {
-                        return InkWell(
-                          onTap: () {
-                            ref
-                                .read(
-                                  selectDatasetAnnotationNotifierProvider
-                                      .notifier,
-                                )
-                                .onDatasetSelectionChanged(data.datasets[i].id);
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color:
-                                  data.currentDatasetId == data.datasets[i].id
-                                      ? Colors.lightBlueAccent
-                                      : Colors.transparent,
-                            ),
-                            child: Text(
-                              data.datasets[i].name,
-                              maxLines: 1,
-                              softWrap: true,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color:
-                                    data.currentDatasetId == data.datasets[i].id
-                                        ? Colors.white
-                                        : Colors.black,
-                              ),
-                            ),
+                    child: Column(
+                      spacing: 5,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Select dataset: ",
+                          style: Styles.defaultButtonTextStyleGrey,
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemBuilder: (c, i) {
+                              return InkWell(
+                                onTap: () {
+                                  ref
+                                      .read(
+                                        selectDatasetAnnotationNotifierProvider
+                                            .notifier,
+                                      )
+                                      .onDatasetSelectionChanged(
+                                        data.datasets[i].id,
+                                      );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color:
+                                        data.currentDatasetId ==
+                                                data.datasets[i].id
+                                            ? Colors.lightBlueAccent
+                                            : Colors.transparent,
+                                  ),
+                                  child: Text(
+                                    data.datasets[i].name,
+                                    maxLines: 1,
+                                    softWrap: true,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color:
+                                          data.currentDatasetId ==
+                                                  data.datasets[i].id
+                                              ? Colors.white
+                                              : Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            itemCount: data.datasets.length,
                           ),
-                        );
-                      },
-                      itemCount: data.datasets.length,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -85,34 +102,52 @@ class _SelectDatasetAnnotationsDialogState
                       color: Colors.white,
                     ),
                     padding: EdgeInsets.all(10),
-                    child: ListView.builder(
-                      itemBuilder: (c, i) {
-                        return InkWell(
-                          onTap: () {
-                            ref
-                                .read(
-                                  currentDatasetAnnotationNotifierProvider
-                                      .notifier,
-                                )
-                                .changeDatasetAndAnnotation(
-                                  data.currentDatasetId,
-                                  data.anntations[data.currentDatasetId]![i].id,
-                                );
-                            Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            data
-                                    .anntations[data.currentDatasetId]?[i]
-                                    .annotationPath ??
-                                "",
-                            maxLines: 1,
-                            softWrap: true,
-                            overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      spacing: 5,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Select annotation: ",
+                          style: Styles.defaultButtonTextStyleGrey,
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemBuilder: (c, i) {
+                              return InkWell(
+                                onTap: () {
+                                  ref
+                                      .read(
+                                        currentDatasetAnnotationNotifierProvider
+                                            .notifier,
+                                      )
+                                      .changeDatasetAndAnnotation(
+                                        data.currentDatasetId,
+                                        data
+                                            .anntations[data
+                                                .currentDatasetId]![i]
+                                            .id,
+                                      );
+                                  Navigator.of(context).pop();
+                                },
+                                child: Text(
+                                  data
+                                          .anntations[data.currentDatasetId]?[i]
+                                          .annotationPath ??
+                                      "",
+                                  maxLines: 1,
+                                  softWrap: true,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            },
+                            itemCount:
+                                data
+                                    .anntations[data.currentDatasetId]
+                                    ?.length ??
+                                0,
                           ),
-                        );
-                      },
-                      itemCount:
-                          data.anntations[data.currentDatasetId]?.length ?? 0,
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -49,8 +49,10 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
     }
 
     return Container(
+      padding: EdgeInsets.only(top: 10, bottom: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
+
         gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,

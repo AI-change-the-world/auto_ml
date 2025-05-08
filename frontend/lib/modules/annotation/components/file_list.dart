@@ -1,5 +1,8 @@
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/annotation/components/confirm_dialog.dart';
+import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,6 +59,7 @@ class FileList extends ConsumerWidget {
                             ),
                             ref,
                             index,
+                            context,
                           );
                         }
                         return _wrapper(
@@ -78,6 +82,7 @@ class FileList extends ConsumerWidget {
                           ),
                           ref,
                           index,
+                          context,
                         );
                       },
                       itemCount: data.length,
@@ -108,15 +113,52 @@ class FileList extends ConsumerWidget {
     );
   }
 
-  Widget _wrapper(Widget child, WidgetRef ref, int index) {
+  Widget _wrapper(
+    Widget child,
+    WidgetRef ref,
+    int index,
+    BuildContext context,
+  ) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: () {
+        onTap: () async {
           // print("a");
+          if (ref.read(annotationNotifierProvider).modified) {
+            await showGeneralDialog(
+              barrierColor: Styles.barriarColor,
+              barrierDismissible: true,
+              barrierLabel: 'ConfirmDialog',
+              context: context,
+              pageBuilder: (c, _, __) {
+                return Center(
+                  child: ConfirmDialog(
+                    height: 80,
+                    content: "Unsaved changes will be lost. Continue?",
+                  ),
+                );
+              },
+            ).then((v) {
+              if (v == true) {
+                ref
+                    .read(currentDatasetAnnotationNotifierProvider.notifier)
+                    .changeCurrentData(data[index]);
+                ref
+                    .read(annotationNotifierProvider.notifier)
+                    .changeModifiedStatus(false);
+
+                return;
+              }
+            });
+          }
+
           ref
               .read(currentDatasetAnnotationNotifierProvider.notifier)
               .changeCurrentData(data[index]);
+
+          ref
+              .read(annotationNotifierProvider.notifier)
+              .changeModifiedStatus(false);
         },
         child: child,
       ),

@@ -1,5 +1,6 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
+import 'package:auto_ml/modules/annotation/components/faded_text.dart';
 import 'package:auto_ml/modules/annotation/models/response/auto_annotation_request.dart';
 import 'package:auto_ml/modules/annotation/models/response/tool_models_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
@@ -7,6 +8,7 @@ import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,18 +101,50 @@ class LeftToRightIconPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class LayoutIcons extends StatelessWidget {
+class LayoutIcons extends ConsumerWidget {
   const LayoutIcons({super.key, required this.onIconSelected});
   final Function(int type) onIconSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    bool modified = ref.watch(
+      annotationNotifierProvider.select((v) => v.modified),
+    );
     return Row(
       spacing: 10,
       crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisAlignment: MainAxisAlignment.center,
 
       children: [
-        Spacer(),
+        Expanded(
+          child: SizedBox(
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (modified)
+                    ElevatedButton(
+                      style: Styles.getDefaultStyle(),
+                      onPressed: () {},
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check,
+                            color: Colors.green,
+                            size: Styles.menuBarIconSize,
+                          ),
+                          SizedBox(width: 5),
+                          Text("Save", style: Styles.defaultButtonTextStyle),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (modified) FadedText(),
         _DropDownButton(),
         SizedBox(
           height: 15,

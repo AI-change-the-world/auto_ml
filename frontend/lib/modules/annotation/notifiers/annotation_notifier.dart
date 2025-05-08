@@ -37,6 +37,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   changeCurrentAnnotation(String uuid) {
     state = state.copyWith(
+      modified: true,
       annotations:
           state.annotations.map((e) {
             if (e.uuid == uuid) {
@@ -63,6 +64,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   changeAnnotationClassId(String uuid, int classId) {
     state = state.copyWith(
+      modified: true,
       annotations:
           state.annotations.map((e) {
             if (e.uuid == uuid) {
@@ -71,6 +73,14 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
               return e;
             }
           }).toList(),
+    );
+  }
+
+  removeAnnotationById(String uuid) {
+    state = state.copyWith(
+      modified: true,
+      annotations: List.of(state.annotations)
+        ..retainWhere((v) => v.uuid != uuid),
     );
   }
 
@@ -148,6 +158,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     }
 
     state = state.copyWith(
+      modified: true,
       annotations:
           state.annotations
               .map(
@@ -177,9 +188,17 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   fakeAnnotationFinalize() {
     state = state.copyWith(
+      modified: true,
       annotations:
           state.annotations.map((e) => e.copyWith(isOnAdding: false)).toList(),
     );
+  }
+
+  changeModifiedStatus(bool modified) {
+    if (state.modified == modified) {
+      return;
+    }
+    state = state.copyWith(modified: modified);
   }
 
   /// FIXME

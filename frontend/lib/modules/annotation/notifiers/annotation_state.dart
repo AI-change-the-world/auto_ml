@@ -6,6 +6,7 @@ class AnnotationState {
   final List<Annotation> annotations;
   final String selectedAnnotationUuid;
   final LabelMode mode;
+  final bool modified;
 
   final String current;
 
@@ -14,6 +15,7 @@ class AnnotationState {
     this.selectedAnnotationUuid = "",
     this.mode = LabelMode.edit,
     this.current = "",
+    this.modified = false,
   });
 
   AnnotationState copyWith({
@@ -21,6 +23,7 @@ class AnnotationState {
     String? selectedAnnotationUuid,
     LabelMode? mode,
     String? current,
+    bool? modified,
   }) {
     return AnnotationState(
       annotations: annotations ?? this.annotations,
@@ -28,6 +31,7 @@ class AnnotationState {
           selectedAnnotationUuid ?? this.selectedAnnotationUuid,
       mode: mode ?? this.mode,
       current: current ?? this.current,
+      modified: modified ?? this.modified,
     );
   }
 }
