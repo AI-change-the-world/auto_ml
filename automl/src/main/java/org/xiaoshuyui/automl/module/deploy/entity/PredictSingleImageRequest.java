@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class PredictSingleImageRequest {
-    String data;
-    Long modelId;
+  String data;
+  Long modelId;
 }

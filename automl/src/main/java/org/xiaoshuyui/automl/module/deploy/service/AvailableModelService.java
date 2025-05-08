@@ -46,15 +46,17 @@ public class AvailableModelService {
   @Value("${ai-platform.predict-single-image}")
   String predictSingleImage;
 
-  private static final OkHttpClient client = new OkHttpClient.Builder()
-      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-      .build();
+  private static final OkHttpClient client =
+      new OkHttpClient.Builder()
+          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+          .build();
 
-  private static Gson gson = new GsonBuilder()
-      .serializeNulls() // 👈 关键：保留 null 字段
-      .create();
+  private static Gson gson =
+      new GsonBuilder()
+          .serializeNulls() // 👈 关键：保留 null 字段
+          .create();
 
   public PageResult getAvailableModels(PageRequest pageRequest) {
     IPage<AvailableModel> page = new Page<>(pageRequest.getPageId(), pageRequest.getPageSize());
@@ -71,10 +73,10 @@ public class AvailableModelService {
       Request request = new Request.Builder().url(aiPlatformUrl + getRunningModels).get().build();
 
       Response response = client.newCall(request).execute();
-      Type type = new TypeToken<PythonApiResponse<RunningModelsResponse>>() {
-      }.getType();
+      Type type = new TypeToken<PythonApiResponse<RunningModelsResponse>>() {}.getType();
 
-      PythonApiResponse<RunningModelsResponse> runningModelsResponse = gson.fromJson(response.body().string(), type);
+      PythonApiResponse<RunningModelsResponse> runningModelsResponse =
+          gson.fromJson(response.body().string(), type);
 
       return runningModelsResponse.data;
     } catch (Exception e) {
@@ -86,7 +88,8 @@ public class AvailableModelService {
 
   public int startModel(Long id) {
     try {
-      Request request = new Request.Builder().url(aiPlatformUrl + startModel + id.toString()).get().build();
+      Request request =
+          new Request.Builder().url(aiPlatformUrl + startModel + id.toString()).get().build();
       Response response = client.newCall(request).execute();
       if (response.isSuccessful()) {
         log.info("start model success");
@@ -104,7 +107,8 @@ public class AvailableModelService {
 
   public int stopModel(Long id) {
     try {
-      Request request = new Request.Builder().url(aiPlatformUrl + stopModel + id.toString()).get().build();
+      Request request =
+          new Request.Builder().url(aiPlatformUrl + stopModel + id.toString()).get().build();
       Response response = client.newCall(request).execute();
       if (response.isSuccessful()) {
         log.info("start model success");
@@ -121,26 +125,25 @@ public class AvailableModelService {
 
   public PredictSingleImageResponse predictSingleImage(PredictSingleImageRequest entity) {
     try {
-      String json = String.format(
-          "{\"data\":\"%s\",\"model_id\":%d}",
-          escapeJson(entity.getData()), // 避免特殊字符问题
-          entity.getModelId());
+      String json =
+          String.format(
+              "{\"data\":\"%s\",\"model_id\":%d}",
+              escapeJson(entity.getData()), // 避免特殊字符问题
+              entity.getModelId());
 
-      RequestBody body = RequestBody.create(
-          json,
-          MediaType.parse("application/json"));
+      RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
 
-      Request request = new Request.Builder()
-          .url(aiPlatformUrl + predictSingleImage) // 替换为实际地址
-          .post(body)
-          .build();
+      Request request =
+          new Request.Builder()
+              .url(aiPlatformUrl + predictSingleImage) // 替换为实际地址
+              .post(body)
+              .build();
       Response response = client.newCall(request).execute();
       if (response.isSuccessful() && response.body() != null) {
-        Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {
-        }.getType();
+        Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {}.getType();
 
-        PythonApiResponse<PredictSingleImageResponse> pythonApiResponse = gson.fromJson(response.body().string(),
-            type);
+        PythonApiResponse<PredictSingleImageResponse> pythonApiResponse =
+            gson.fromJson(response.body().string(), type);
 
         return pythonApiResponse.data;
 

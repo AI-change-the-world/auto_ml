@@ -207,13 +207,16 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
   // TODO : support other formats
   Future<int> putYoloAnnotation() async {
     var imgSize = ref.read(imageNotifierProvider).size;
-    final String annotationSavePath =
+    var filename = "";
+    String annotationSavePath =
         ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$2 ??
         "";
     if (annotationSavePath.isEmpty) {
-      return 1;
+      filename =
+          "${ref.read(currentDatasetAnnotationNotifierProvider).annotationPath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
+    } else {
+      filename = annotationSavePath;
     }
-    // print(annotationSavePath);
 
     var content = toYoloAnnotations(
       state.annotations,
@@ -221,7 +224,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       imgSize.height,
     );
     UpdateAnnotationRequest request = UpdateAnnotationRequest(
-      annotationPath: annotationSavePath,
+      annotationPath: filename,
       content: content,
     );
 

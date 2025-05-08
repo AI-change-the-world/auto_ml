@@ -38,7 +38,7 @@ public class AnnotationController {
     }
     AnnotationFileResponse response = new AnnotationFileResponse();
     response.setAnnotationId(id);
-    response.setAnnotationPath(annotation.getAnnotationPath());
+    response.setAnnotationPath(annotation.getAnnotationSavePath());
     response.setClasses(Arrays.stream(annotation.getClassItems().split(";")).toList());
     response.setStorageType(annotation.getStorageType());
 
@@ -66,12 +66,13 @@ public class AnnotationController {
 
   @PostMapping("/file/update")
   public Result updateAnnotationFile(@RequestBody UpdateAnnotationRequest entity) {
-    int r = annotationService.updateAnnotationFile(entity.getAnnotationPath(), entity.getContent());
+
+    int r = annotationService.updateAnnotationFile(entity.getAnnotationPath(),
+        entity.getContent());
     if (r == 0) {
       return Result.OK();
     } else {
       return Result.error("更新失败");
     }
   }
-
 }

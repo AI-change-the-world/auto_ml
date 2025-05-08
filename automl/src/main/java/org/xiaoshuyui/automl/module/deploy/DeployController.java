@@ -19,52 +19,51 @@ import org.xiaoshuyui.automl.module.deploy.service.AvailableModelService;
 @Slf4j
 public class DeployController {
 
-    private final AvailableModelService availableModelService;
+  private final AvailableModelService availableModelService;
 
-    public DeployController(AvailableModelService availableModelService) {
-        this.availableModelService = availableModelService;
+  public DeployController(AvailableModelService availableModelService) {
+    this.availableModelService = availableModelService;
+  }
+
+  @PostMapping("/available-models/list")
+  public Result getAvailableModels(@RequestBody PageRequest pageRequest) {
+    PageResult pageResult = availableModelService.getAvailableModels(pageRequest);
+    return Result.OK_data(pageResult);
+  }
+
+  @GetMapping("/running-models")
+  public Result getRunningModels() {
+    RunningModelsResponse response = availableModelService.getRunningModels();
+    return Result.OK_data(response);
+  }
+
+  @GetMapping("/start/{id}")
+  public Result startModel(@PathVariable Long id) {
+    int r = availableModelService.startModel(id);
+    if (r == 0) {
+      return Result.OK();
+    } else {
+      return Result.error("启动模型失败");
     }
+  }
 
-    @PostMapping("/available-models/list")
-    public Result getAvailableModels(@RequestBody PageRequest pageRequest) {
-        PageResult pageResult = availableModelService.getAvailableModels(pageRequest);
-        return Result.OK_data(pageResult);
+  @GetMapping("/stop/{id}")
+  public Result stopModel(@PathVariable Long id) {
+    int r = availableModelService.stopModel(id);
+    if (r == 0) {
+      return Result.OK();
+    } else {
+      return Result.error("关闭模型失败");
     }
+  }
 
-    @GetMapping("/running-models")
-    public Result getRunningModels() {
-        RunningModelsResponse response = availableModelService.getRunningModels();
-        return Result.OK_data(response);
+  @PostMapping("/predict/image")
+  public Result predictSingleImage(@RequestBody PredictSingleImageRequest entity) {
+    var d = availableModelService.predictSingleImage(entity);
+    if (d != null) {
+      return Result.OK_data(d);
+    } else {
+      return Result.error("预测失败");
     }
-
-    @GetMapping("/start/{id}")
-    public Result startModel(@PathVariable Long id) {
-        int r = availableModelService.startModel(id);
-        if (r == 0) {
-            return Result.OK();
-        } else {
-            return Result.error("启动模型失败");
-        }
-    }
-
-    @GetMapping("/stop/{id}")
-    public Result stopModel(@PathVariable Long id) {
-        int r = availableModelService.stopModel(id);
-        if (r == 0) {
-            return Result.OK();
-        } else {
-            return Result.error("关闭模型失败");
-        }
-    }
-
-    @PostMapping("/predict/image")
-    public Result predictSingleImage(@RequestBody PredictSingleImageRequest entity) {
-        var d = availableModelService.predictSingleImage(entity);
-        if (d != null) {
-            return Result.OK_data(d);
-        } else {
-            return Result.error("预测失败");
-        }
-    }
-
+  }
 }

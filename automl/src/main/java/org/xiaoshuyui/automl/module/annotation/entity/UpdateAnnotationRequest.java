@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class UpdateAnnotationRequest {
-    String annotationPath;
     String content;
+    String annotationPath;
 }

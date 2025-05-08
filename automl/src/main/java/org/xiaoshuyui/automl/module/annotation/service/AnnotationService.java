@@ -23,8 +23,7 @@ public class AnnotationService {
     this.annotationMapper = annotationMapper;
   }
 
-  @Resource
-  private S3ConfigProperties properties;
+  @Resource private S3ConfigProperties properties;
 
   public Annotation getById(Long id) {
     return annotationMapper.selectById(id);
@@ -52,7 +51,6 @@ public class AnnotationService {
       log.error("update annotation file error: {}", e.getMessage());
       return 1;
     }
-
   }
 
   public String getAnnotationContent(String path) {
@@ -79,10 +77,11 @@ public class AnnotationService {
   }
 
   private void scanFolderParallel(Annotation annotation) {
-    Thread thread = new Thread(
-        () -> {
-          scanAndUploadToLocalS3FolderSync(annotation);
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              scanAndUploadToLocalS3FolderSync(annotation);
+            });
     thread.start();
   }
 
@@ -98,8 +97,9 @@ public class AnnotationService {
     }
     if (annotation.getStorageType() == 0) {
       try {
-        List<String> l = GetFileListUtil.getFileList(
-            annotation.getAnnotationPath(), annotation.getStorageType());
+        List<String> l =
+            GetFileListUtil.getFileList(
+                annotation.getAnnotationPath(), annotation.getStorageType());
 
         if (!l.isEmpty()) {
 

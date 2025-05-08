@@ -186,6 +186,24 @@ class CurrentDatasetAnnotationNotifier
     }
     state = state.copyWith(classes: [...state.classes, className]);
   }
+
+  updateDataAfterAnnotationUpdate() {
+    var filename = state.currentData?.$1;
+    if (filename == null) {
+      return;
+    }
+    var annotationName =
+        "${state.annotationPath}/${filename.split("/").last.split(".").first}.txt";
+    state = state.copyWith(
+      data:
+          state.data.map((e) {
+            if (e.$1 == filename) {
+              return (filename, annotationName);
+            }
+            return e;
+          }).toList(),
+    );
+  }
 }
 
 final currentDatasetAnnotationNotifierProvider = NotifierProvider<

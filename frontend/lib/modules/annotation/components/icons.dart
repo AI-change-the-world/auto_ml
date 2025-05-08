@@ -134,6 +134,12 @@ class LayoutIcons extends ConsumerWidget {
                               ref
                                   .read(annotationNotifierProvider.notifier)
                                   .changeModifiedStatus(v != 0);
+                              ref
+                                  .read(
+                                    currentDatasetAnnotationNotifierProvider
+                                        .notifier,
+                                  )
+                                  .updateDataAfterAnnotationUpdate();
                             });
                       },
                       child: Row(

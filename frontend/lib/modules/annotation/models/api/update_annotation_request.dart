@@ -4,12 +4,12 @@ part 'update_annotation_request.g.dart';
 
 @JsonSerializable()
 class UpdateAnnotationRequest {
-  final String annotationPath;
   final String content;
+  final String annotationPath;
 
   UpdateAnnotationRequest({
-    required this.annotationPath,
     required this.content,
+    required this.annotationPath,
   });
 
   factory UpdateAnnotationRequest.fromJson(Map<String, dynamic> json) =>
