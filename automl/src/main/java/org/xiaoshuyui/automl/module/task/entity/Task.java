@@ -13,9 +13,9 @@ import lombok.Data;
 public class Task {
 
   @TableId(value = "task_id", type = IdType.AUTO)
-  private Integer taskId;
+  private Long taskId;
 
-  /** 0 train ;1 eval; 2 others */
+  /** 0 train ;1 eval; 2 eval dataset; 3 others */
   @TableField("task_type")
   private Integer taskType;
 

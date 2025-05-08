@@ -1,10 +1,7 @@
 package org.xiaoshuyui.automl.module.dataset;
 
-import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.xiaoshuyui.automl.common.Result;
@@ -92,7 +89,8 @@ public class DatasetController {
   }
 
   @PostMapping("/{id}/append/files")
-  public Result uploadMultipleFiles(@RequestParam("files") MultipartFile[] files, @PathVariable Long id) {
+  public Result uploadMultipleFiles(
+      @RequestParam("files") MultipartFile[] files, @PathVariable Long id) {
     var d = datasetService.get(id);
 
     if (d == null) {
@@ -111,7 +109,6 @@ public class DatasetController {
           log.error(e.getMessage());
           errorCount += 1;
         }
-
       }
     }
 
@@ -119,5 +116,4 @@ public class DatasetController {
 
     return Result.OK_msg(errorCount + " files failed");
   }
-
 }

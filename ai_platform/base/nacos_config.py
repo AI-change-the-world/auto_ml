@@ -82,12 +82,6 @@ def init_db_from_nacos(data_id, group, server="127.0.0.1:8848", namespace="publi
     SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
-def get_db_session():
-    if SessionLocal is None:
-        raise Exception("Database is not initialized. Call init_db_from_nacos first.")
-    return SessionLocal()
-
-
 def get_db():
     if SessionLocal is None:
         raise Exception("DB not initialized")

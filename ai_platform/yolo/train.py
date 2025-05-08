@@ -17,12 +17,7 @@ from db.task.task_crud import get_task, update_task
 from db.task_log.task_log_crud import create_log
 from db.task_log.task_log_schema import TaskLogCreate
 from yolo.prepare_dataset import prepare_temp_training_dir_split
-
-
-def __download_from_s3(op: opendal.Operator, s3_path: str, local_path: str):
-    data = op.read(s3_path)
-    with open(local_path, "wb") as f:
-        f.write(data)
+from yolo.tools import download_from_s3
 
 
 def __download_dataset_from_s3(
@@ -55,7 +50,7 @@ def __download_dataset_from_s3(
         if Path(i.path).suffix != "":
             print(i.path)
             file_name = i.path.split("/")[-1]
-            __download_from_s3(op, i.path, temp_dataset_path + os.sep + file_name)
+            download_from_s3(op, i.path, temp_dataset_path + os.sep + file_name)
 
     tlc = TaskLogCreate(
         task_id=task_id, log_content="[pre-train] downloading annotation from s3 ..."
@@ -65,7 +60,7 @@ def __download_dataset_from_s3(
     for i in op.list(annotation_path):
         if Path(i.path).suffix != "":
             file_name = i.path.split("/")[-1]
-            __download_from_s3(op, i.path, temp_annotation_path + os.sep + file_name)
+            download_from_s3(op, i.path, temp_annotation_path + os.sep + file_name)
 
     return f"./runs/{folder_name}"
 

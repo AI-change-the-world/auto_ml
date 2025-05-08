@@ -5,7 +5,9 @@ from sse_starlette.sse import EventSourceResponse
 
 from base import create_response
 from base.deprecated import deprecated
+from base.logger import logger
 from base.nacos_config import get_db
+from yolo.eval_dataset import YoloDatasetAnalyzer
 from yolo.request import TrainRequest, YOLORequest
 from yolo.response import RunningModelsResponse
 
@@ -26,6 +28,26 @@ class YoloTrainLogs(BaseModel):
 class PredictSingleImageRequest(BaseModel):
     data: str
     model_id: int
+
+
+class EvalDatasetRequest(BaseModel):
+    dataset_id: int
+    annotation_id: int
+    task_id: int
+
+
+@router.post("/eval/dataset")
+def eval_dataset(req: EvalDatasetRequest):
+    a = YoloDatasetAnalyzer(
+        dataset_id=req.dataset_id, annotation_id=req.annotation_id, task_id=req.task_id
+    )
+    res = a.analyze()
+    logger.info(f"res: {res}")
+    return create_response(
+        status=200,
+        data=None,
+        message="OK",
+    )
 
 
 @router.post("/eval")

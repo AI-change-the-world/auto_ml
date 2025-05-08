@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
+import org.xiaoshuyui.automl.module.task.service.TaskService;
+import org.xiaoshuyui.automl.module.tool.entity.EvalDatasetRequest;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;
 import org.xiaoshuyui.automl.module.tool.service.ToolModelService;
@@ -14,9 +16,11 @@ import org.xiaoshuyui.automl.module.tool.service.ToolModelService;
 public class ToolModelController {
 
   final ToolModelService toolModelService;
+  final TaskService taskService;
 
-  public ToolModelController(ToolModelService toolModelService) {
+  public ToolModelController(ToolModelService toolModelService, TaskService taskService) {
     this.toolModelService = toolModelService;
+    this.taskService = taskService;
   }
 
   @GetMapping("/list")
@@ -47,4 +51,9 @@ public class ToolModelController {
     return Result.OK_data(res);
   }
 
+  @PostMapping("/evalation/dataset")
+  public Result evalDataset(@RequestBody EvalDatasetRequest entity) {
+    taskService.newDatasetEvalationTask(entity.getDatasetId(), entity.getAnnotationId());
+    return Result.OK();
+  }
 }

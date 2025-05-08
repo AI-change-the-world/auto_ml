@@ -20,6 +20,7 @@ import org.xiaoshuyui.automl.module.task.entity.NewTrainingTaskRequest;
 import org.xiaoshuyui.automl.module.task.entity.Task;
 import org.xiaoshuyui.automl.module.task.mapper.TaskLogMapper;
 import org.xiaoshuyui.automl.module.task.mapper.TaskMapper;
+import org.xiaoshuyui.automl.module.tool.entity.PythonEvalDatasetRequest;
 
 @Service
 @Slf4j
@@ -61,6 +62,29 @@ public class TaskService {
           .create();
 
   static OkHttpClient client = new OkHttpClient();
+
+  public void newDatasetEvalationTask(Long datasetId, Long annotationId) {
+    Task task = new Task();
+    task.setTaskType(2);
+    task.setDatasetId(datasetId);
+    task.setAnnotationId(annotationId);
+
+    taskMapper.insert(task);
+
+    var t =
+        new Thread() {
+          @Override
+          public void run() {
+            PythonEvalDatasetRequest request = new PythonEvalDatasetRequest();
+            request.setDataset_id(datasetId);
+            request.setAnnotation_id(annotationId);
+            request.setTask_id(task.getTaskId());
+
+            /// TODO 访问python
+          }
+        };
+    t.start();
+  }
 
   public void newTrainTask(NewTrainingTaskRequest entity) {
     Task task = new Task();

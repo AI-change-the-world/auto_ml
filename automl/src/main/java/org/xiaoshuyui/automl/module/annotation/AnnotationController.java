@@ -67,8 +67,7 @@ public class AnnotationController {
   @PostMapping("/file/update")
   public Result updateAnnotationFile(@RequestBody UpdateAnnotationRequest entity) {
 
-    int r = annotationService.updateAnnotationFile(entity.getAnnotationPath(),
-        entity.getContent());
+    int r = annotationService.updateAnnotationFile(entity.getAnnotationPath(), entity.getContent());
     if (r == 0) {
       return Result.OK();
     } else {

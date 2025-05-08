@@ -3,7 +3,7 @@ package org.xiaoshuyui.automl.module.tool.entity;
 import lombok.Data;
 
 /*
- * 
+ *
  * class FindSimilarRequest(BaseModel):
     path: str
     left: float
@@ -16,14 +16,14 @@ import lombok.Data;
 */
 @Data
 public class FindSimilarObjectRequest {
-    String path;
-    double left;
-    double top;
-    double right;
-    double bottom;
-    String label;
-    // model id
-    int model;
-    // annotation id
-    int id;
+  String path;
+  double left;
+  double top;
+  double right;
+  double bottom;
+  String label;
+  // model id
+  int model;
+  // annotation id
+  int id;
 }
