@@ -44,6 +44,9 @@ class Api {
 
   static final String autoLabel = "/tool-model/model/auto-label";
 
+  static final String autoLabelMultiple =
+      "/tool-model/model/auto-label/multiple";
+
   static final String getSimilar = "/tool-model/find/similar";
 
   /// [predict] predict

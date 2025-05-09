@@ -126,6 +126,18 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
+  setAnnotationsInDetections(SingleImageResponse response) {
+    StringBuffer sb = StringBuffer();
+    final imgSize = ref.read(imageNotifierProvider).size;
+    for (final i in response.results) {
+      // print(i.toYoloFormat(imgSize));
+      sb.write(i.toYoloFormat(imgSize));
+      sb.write("\n");
+    }
+    state = state.copyWith(annotations: [], selectedAnnotationUuid: "");
+    addAnnotation(sb.toString());
+  }
+
   updateAnnotation(
     Annotation annotation, {
     DragUpdateDetails? dragDetails,
@@ -194,6 +206,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
     if (annotations.isNotEmpty) {
       state = state.copyWith(
+        modified: true,
         annotations: [...state.annotations, ...annotations],
       );
     }

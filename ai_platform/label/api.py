@@ -37,6 +37,38 @@ class FindSimilarRequest(BaseModel):
     id: int
 
 
+class MultiClassImageAnnotateRequest(BaseModel):
+    image_data: str
+    annotation_id: int
+    tool_model_id: int
+
+
+@router.post("/image/multi-class")
+async def multi_class_image_annotate(
+    req: MultiClassImageAnnotateRequest, db: Session = Depends(get_db)
+):
+    from label.multi_label_image_annotate import annotation_multi_class_image
+
+    try:
+        return create_response(
+            status=200,
+            message="OK",
+            data=annotation_multi_class_image(
+                img=req.image_data,
+                annotation_id=req.annotation_id,
+                tool_model_id=req.tool_model_id,
+                db=db,
+            ),
+        )
+    except Exception as e:
+        traceback.print_exc()
+        logger.fatal(e)
+        return create_response(
+            status=500,
+            message="Internal Server Error",
+        )
+
+
 @router.post("/image")
 async def label_img(req: LabelImgRequest, db: Session = Depends(get_db)):
     tool_model = get_tool_model(db, req.model_id)

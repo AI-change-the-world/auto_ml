@@ -1,14 +1,15 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/annotation/components/faded_text.dart';
-import 'package:auto_ml/modules/annotation/models/api/auto_annotation_request.dart';
 import 'package:auto_ml/modules/annotation/models/api/tool_models_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/predict/models/video_result.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -275,30 +276,61 @@ class __DropDownButtonState extends ConsumerState<_DropDownButton> {
                     currentDatasetAnnotationNotifierProvider,
                   );
 
-                  AutoAnnotationRequest autoAnnotationRequest =
-                      AutoAnnotationRequest(
-                        content: imgName,
-                        prompt: null,
-                        modelId: value.id,
-                        annotationId: state.annotationId,
-                        datasetId: state.datasetId,
-                        image: true,
-                      );
-                  // logger.i(autoAnnotationRequest.toJson());
+                  // AutoAnnotationRequest autoAnnotationRequest =
+                  //     AutoAnnotationRequest(
+                  //       content: imgName,
+                  //       prompt: null,
+                  //       modelId: value.id,
+                  //       annotationId: state.annotationId,
+                  //       datasetId: state.datasetId,
+                  //       image: true,
+                  //     );
+                  // // logger.i(autoAnnotationRequest.toJson());
+                  // try {
+                  //   final response = await dio.post(
+                  //     Api.autoLabel,
+                  //     data: autoAnnotationRequest.toJson(),
+                  //   );
+                  //   BaseResponse<String> baseResponse = BaseResponse.fromJson(
+                  //     response.data,
+                  //     (json) => json.toString(),
+                  //   );
+                  //   logger.i("annotaiton ${baseResponse.data}");
+                  //   if (baseResponse.data != null) {
+                  //     ref
+                  //         .read(annotationNotifierProvider.notifier)
+                  //         .setAnnotationsWithClasses(baseResponse.data!);
+                  //   }
+                  // } catch (e, s) {
+                  //   logger.e(e);
+                  //   logger.e(s);
+                  // }
+
+                  Map<String, dynamic> map = {
+                    "annotationId": state.annotationId,
+                    "imgPath": imgName,
+                  };
                   try {
                     final response = await dio.post(
-                      Api.autoLabel,
-                      data: autoAnnotationRequest.toJson(),
+                      Api.autoLabelMultiple,
+                      data: map,
                     );
-                    BaseResponse<String> baseResponse = BaseResponse.fromJson(
-                      response.data,
-                      (json) => json.toString(),
-                    );
+                    BaseResponse<SingleImageResponse> baseResponse =
+                        BaseResponse.fromJson(
+                          response.data,
+                          (json) => SingleImageResponse.fromJson(
+                            json as Map<String, dynamic>,
+                          ),
+                        );
                     logger.i("annotaiton ${baseResponse.data}");
                     if (baseResponse.data != null) {
-                      ref
-                          .read(annotationNotifierProvider.notifier)
-                          .setAnnotationsWithClasses(baseResponse.data!);
+                      if (baseResponse.data!.results.isNotEmpty) {
+                        ref
+                            .read(annotationNotifierProvider.notifier)
+                            .setAnnotationsInDetections(baseResponse.data!);
+                      } else {
+                        ToastUtils.info(null, title: "");
+                      }
                     }
                   } catch (e, s) {
                     logger.e(e);

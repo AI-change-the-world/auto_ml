@@ -8,6 +8,7 @@ import org.xiaoshuyui.automl.module.task.service.TaskService;
 import org.xiaoshuyui.automl.module.tool.entity.EvalDatasetRequest;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;
+import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
 import org.xiaoshuyui.automl.module.tool.service.ToolModelService;
 
 @RestController
@@ -40,6 +41,16 @@ public class ToolModelController {
       return Result.error("Server error");
     }
     return Result.OK_data(data.toString());
+  }
+
+  @PostMapping("/model/auto-label/multiple")
+  public Result autoLabelMultiObj(@RequestBody MultipleClassAnnotateRequest request) {
+    // TODO : tool model id
+    val data = toolModelService.getMultipleClasses(request.getAnnotationId(), request.getImgPath(), 1L);
+    if (data == null) {
+      return Result.error("Server error");
+    }
+    return Result.OK_data(data);
   }
 
   @PostMapping("/find/similar")
