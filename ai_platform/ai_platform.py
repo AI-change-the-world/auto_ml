@@ -9,6 +9,7 @@ from label.api import router as label_router
 from process.api import router as process_router
 from utils.api import router as utils_router
 from yolo.api import router as yolo_router
+from Aether.api import router as aether_router
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ app.include_router(utils_router)
 app.include_router(yolo_router)
 app.include_router(label_router)
 app.include_router(process_router)
+app.include_router(aether_router)
 
 
 if __name__ == "__main__":

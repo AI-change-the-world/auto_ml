@@ -46,7 +46,8 @@ public class ToolModelController {
   @PostMapping("/model/auto-label/multiple")
   public Result autoLabelMultiObj(@RequestBody MultipleClassAnnotateRequest request) {
     // TODO : tool model id
-    val data = toolModelService.getMultipleClasses(request.getAnnotationId(), request.getImgPath(), 1L);
+    val data =
+        toolModelService.getMultipleClasses(request.getAnnotationId(), request.getImgPath(), 1L);
     if (data == null) {
       return Result.error("Server error");
     }
