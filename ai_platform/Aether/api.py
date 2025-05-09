@@ -1,12 +1,13 @@
 import time
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from Aether import AetherRequest, AetherResponse, ResponseMeta
 from base.logger import logger
 from base.nacos_config import get_db
+from db.annotation.annotation_crud import get_annotation
+from db.tool_model.tool_model_crud import get_tool_model
 from yolo.response import PredictResults
 
 router = APIRouter(
@@ -21,6 +22,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
     try:
         if req.task == "label":
             from label.multi_label_image_annotate import annotation_multi_class_image
+
             logger.info(f"extra: {req.extra}")
             annotation_id = req.extra.get("annotation_id")
             res = annotation_multi_class_image(
@@ -34,7 +36,40 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                 output=res,
                 meta=ResponseMeta(
                     time_cost_ms=int((time.time() - start_time) * 1000),
-                    task_id=str(req.meta.task_id),
+                    task_id=req.meta.task_id,
+                ),
+                error=None,
+            )
+            return response
+        if req.task == "find similar":
+            from label.find_similar import find_similar
+
+            logger.info(f"extra: {req.extra}")
+            annotation_id = req.extra.get("annotation_id")
+            tool_model = get_tool_model(db, req.model_id)
+            annotation = get_annotation(db, annotation_id)
+            classes = str(annotation.class_items).split(";")
+            left = req.extra["left"]
+            top = req.extra["top"]
+            bottom = req.extra["bottom"]
+            right = req.extra["right"]
+            label = req.extra["label"]
+            res = find_similar(
+                save_path=req.input.data,
+                left=left,
+                top=top,
+                bottom=bottom,
+                right=right,
+                label=label,
+                classes=classes,
+                tool_model=tool_model,
+            )
+            response = AetherResponse[PredictResults](
+                success=True,
+                output=res,
+                meta=ResponseMeta(
+                    time_cost_ms=int((time.time() - start_time) * 1000),
+                    task_id=req.meta.task_id,
                 ),
                 error=None,
             )
@@ -47,21 +82,15 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                 ),
                 error="task not supported",
             )
-            return JSONResponse(
-                status_code=500,
-                content=res,
-            )
+            return res
     except Exception as e:
         logger.error(e)
-        return JSONResponse(
-            status_code=500,
-            content=AetherResponse(
-                success=False,
-                output=None,
-                meta=ResponseMeta(
-                    time_cost_ms=int((time.time() - start_time) * 1000),
-                    task_id=req.meta.task_id,
-                ),
-                error=str(e),
+        return AetherResponse(
+            success=False,
+            output=None,
+            meta=ResponseMeta(
+                time_cost_ms=int((time.time() - start_time) * 1000),
+                task_id=req.meta.task_id,
             ),
+            error=str(e),
         )

@@ -3,6 +3,7 @@ package org.xiaoshuyui.automl.module.aether.entity;
 import com.google.gson.annotations.SerializedName;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 public class AetherRequest<T> {
@@ -17,6 +18,7 @@ public class AetherRequest<T> {
 
   @Data
   @AllArgsConstructor
+  @NoArgsConstructor
   public static class Input {
     String data;
 

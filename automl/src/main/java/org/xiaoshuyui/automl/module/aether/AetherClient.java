@@ -3,6 +3,7 @@ package org.xiaoshuyui.automl.module.aether;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import jakarta.annotation.Resource;
 import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.xiaoshuyui.automl.module.aether.entity.AetherRequest;
 import org.xiaoshuyui.automl.module.aether.entity.AetherResponse;
+import org.xiaoshuyui.automl.module.task.service.TaskService;
 
 @Slf4j
 @Component
@@ -21,6 +23,8 @@ public class AetherClient {
 
   @Value("${ai-platform.aether}")
   String aether;
+
+  @Resource private TaskService taskService;
 
   private static final OkHttpClient client =
       new OkHttpClient.Builder()
@@ -48,6 +52,7 @@ public class AetherClient {
 
     AetherRequest.Meta meta = new AetherRequest.Meta();
     meta.setSync(true);
+    // TODO create new task
     meta.setTaskId(System.currentTimeMillis());
     request.setMeta(meta);
 
@@ -58,6 +63,34 @@ public class AetherClient {
 
     // Serialize request
     String requestJson = gson.toJson(request);
+
+    // Send HTTP POST
+    RequestBody body = RequestBody.create(requestJson, MediaType.get("application/json"));
+    Request httpRequest = new Request.Builder().url(url + aether).post(body).build();
+
+    try {
+      Response httpResponse = client.newCall(httpRequest).execute();
+      if (!httpResponse.isSuccessful()) {
+        throw new RuntimeException("Request failed: " + httpResponse.code());
+      }
+
+      String responseJson = httpResponse.body().string();
+
+      // 使用 TypeToken 反序列化
+      Type responseType = TypeToken.getParameterized(AetherResponse.class, outputClass).getType();
+      return gson.fromJson(responseJson, responseType);
+    } catch (Exception e) {
+      log.error("invoke error: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  public <T, R> AetherResponse<R> invoke(AetherRequest request, Class<R> outputClass) {
+
+    // Serialize request
+    String requestJson = gson.toJson(request);
+
+    log.info("param: " + requestJson);
 
     // Send HTTP POST
     RequestBody body = RequestBody.create(requestJson, MediaType.get("application/json"));

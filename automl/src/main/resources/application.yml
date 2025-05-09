@@ -31,10 +31,10 @@ spring:
       - nacos:DB?group=AUTO_ML
       - nacos:LOCAL_S3_CONFIG?group=AUTO_ML
 
-logging:
-  level:
-    org.springframework.web: DEBUG
-    org.springframework.http.converter: TRACE
+# logging:
+#   level:
+#     org.springframework.web: DEBUG
+#     org.springframework.http.converter: TRACE
 
 
 mybatis-plus:

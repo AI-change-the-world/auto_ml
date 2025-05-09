@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline>
+    <step id="1" name="label-image">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.LabelImageAction"/>
+        <aether>
+            <task>label</task>
+            <modelId>1</modelId>
+            <inputType>image</inputType>
+            <inputKey>imgPath</inputKey>
+            <extra>
+                <entry key="annotation_id">${annotationId}</entry>
+            </extra>
+        </aether>
+        <next>2</next>
+    </step>
+    <step id="2" name="post-process">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.PostProcessAction"/>
+    </step>
+</pipeline>

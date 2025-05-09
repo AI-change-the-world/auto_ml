@@ -3,13 +3,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from Aether.api import router as aether_router
 from base.nacos_config import init_db_from_nacos
 from heartbeat.api import router as heartbeat_router
 from label.api import router as label_router
 from process.api import router as process_router
 from utils.api import router as utils_router
 from yolo.api import router as yolo_router
-from Aether.api import router as aether_router
 
 
 @asynccontextmanager

@@ -15,7 +15,7 @@ public class AetherResponse<T> {
     int timeCostMs;
 
     @SerializedName("task_id")
-    String taskId;
+    Long taskId;
   }
 
   String error;
