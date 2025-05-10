@@ -11,9 +11,9 @@
                 <entry key="annotation_id" type="num">${annotation_id}</entry>
             </extra>
         </aether>
-        <next>2</next>
+        <!-- <next>2</next> -->
     </step>
-    <step id="2" name="post-process">
+    <!-- <step id="2" name="post-process">
         <action class="org.xiaoshuyui.automl.module.aether.workflow.action.PostProcessAction"/>
-    </step>
+    </step> -->
 </pipeline>

@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.xiaoshuyui.automl.common.PageRequest;
 import org.xiaoshuyui.automl.common.Result;
+import org.xiaoshuyui.automl.module.aether.service.AgentService;
 import org.xiaoshuyui.automl.module.aether.workflow.Pipeline;
 import org.xiaoshuyui.automl.module.aether.workflow.PipelineParser;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowContext;
@@ -23,10 +25,17 @@ import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
 @Slf4j
 public class AetherController {
     private final AetherClient aetherClient;
+    private final AgentService agentService;
 
-    public AetherController(AetherClient aetherClient) {
+    public AetherController(AetherClient aetherClient, AgentService agentService) {
         System.out.println("✅ AetherController loaded");
         this.aetherClient = aetherClient;
+        this.agentService = agentService;
+    }
+
+    @PostMapping("/agent/list")
+    public Result getAgentList(@RequestBody PageRequest entity) {
+        return Result.OK_data(agentService.list(entity.getPageId(), entity.getPageSize()));
     }
 
     // String task, Map<String, Object> params, Long modelId, Class<R> outputClass

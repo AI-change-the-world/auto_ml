@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:auto_ml/modules/task/models/task_log_response.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/widgets.dart';
 import 'package:community_charts_flutter2/community_charts_flutter2.dart'
@@ -61,49 +62,73 @@ class TaskLogMergedList {
       if (log.logContent == null) {
         continue;
       }
-      if (log.logContent!.startsWith("[pre-train]")) {
+      if (log.logContent!.startsWith("[pre-")) {
+        final str = log.logContent!.substring(
+          0,
+          log.logContent!.indexOf("]") + 1,
+        );
         merged.add(
           TaskLogMerged(
-            step: "pre-train",
-            contents: [log.logContent!.replaceFirst("[pre-train]", "")],
+            step: str.replaceAll("[", "").replaceAll("]", ""),
+            contents: [log.logContent!.replaceFirst(str, "")],
             createdAt: log.createdAt.split(".").first.replaceAll("T", " "),
           ),
         );
-      } else if (log.logContent!.startsWith("[post-train]")) {
+      } else if (log.logContent!.startsWith("[post")) {
+        final str = log.logContent!.substring(
+          0,
+          log.logContent!.indexOf("]") + 1,
+        );
         merged.add(
           TaskLogMerged(
-            step: "post-train",
-            contents: [log.logContent!.replaceFirst("[post-train]", "")],
+            step: str.replaceAll("[", "").replaceAll("]", ""),
+            contents: [log.logContent!.replaceFirst(str, "")],
             createdAt: log.createdAt.split(".").first.replaceAll("T", " "),
           ),
         );
       } else {
-        final jsonString = log.logContent!.replaceAllMapped(
-          RegExp(r"'([^']*)'"),
-          (match) {
-            return '"${match[1]}"';
-          },
-        );
-        final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
+        try {
+          final jsonString = log.logContent!.replaceAllMapped(
+            RegExp(r"'([^']*)'"),
+            (match) {
+              return '"${match[1]}"';
+            },
+          );
+          final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
 
-        // 提取 loss 中的数字部分（使用正则）
-        final lossStr = jsonMap['loss'] as String;
-        final lossMatch = RegExp(r'tensor\(([\d.]+)').firstMatch(lossStr);
+          // 提取 loss 中的数字部分（使用正则）
+          final lossStr = jsonMap['loss'] as String;
+          final lossMatch = RegExp(r'tensor\(([\d.]+)').firstMatch(lossStr);
 
-        final result = {
-          'epoch': jsonMap['epoch'],
-          'loss': lossMatch != null ? double.parse(lossMatch.group(1)!) : null,
-        };
-        if (merged.isNotEmpty &&
-            merged.last.contents.isNotEmpty &&
-            merged.last.contents.first.contains("epoch") &&
-            merged.last.contents.first.contains("loss")) {
-          merged.last.contents.add(jsonEncode(result));
-        } else {
+          final result = {
+            'epoch': jsonMap['epoch'],
+            'loss':
+                lossMatch != null ? double.parse(lossMatch.group(1)!) : null,
+          };
+          if (merged.isNotEmpty &&
+              merged.last.contents.isNotEmpty &&
+              merged.last.contents.first.contains("epoch") &&
+              merged.last.contents.first.contains("loss")) {
+            merged.last.contents.add(jsonEncode(result));
+          } else {
+            merged.add(
+              TaskLogMerged(
+                step: "training",
+                contents: [jsonEncode(result)],
+                createdAt: log.createdAt.split(".").first.replaceAll("T", " "),
+              ),
+            );
+          }
+        } catch (e) {
+          logger.e(e);
+          final str = log.logContent!.substring(
+            0,
+            log.logContent!.indexOf("]") + 1,
+          );
           merged.add(
             TaskLogMerged(
-              step: "training",
-              contents: [jsonEncode(result)],
+              step: str.replaceAll("[", "").replaceAll("]", ""),
+              contents: [log.logContent!],
               createdAt: log.createdAt.split(".").first.replaceAll("T", " "),
             ),
           );
