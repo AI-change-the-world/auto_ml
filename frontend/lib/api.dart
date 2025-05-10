@@ -84,4 +84,11 @@ class Api {
   static final String stopModel = "/deploy/stop/{id}";
 
   static final String predictSingleImage = "/deploy/predict/image";
+
+  /// [aether] aether
+  static final String aetherAgentList = "/aether/agent/list";
+
+  static final String aetherAgentSimpleList = "/aether/agent/list/simple";
+
+  static final String agent = "/aether/workflow/auto-label";
 }

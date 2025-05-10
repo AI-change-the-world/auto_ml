@@ -127,7 +127,12 @@ Rules:
                     name=class_part,
                     box=b,
                     confidence=conf,
-                    obj_class=self.classes.index(class_part),
+                    # obj_class=self.classes.index(class_part),
+                    obj_class=(
+                        self.classes.index(class_part)
+                        if class_part in self.classes
+                        else -1
+                    ),
                 )
                 results.append(p)
             except Exception:

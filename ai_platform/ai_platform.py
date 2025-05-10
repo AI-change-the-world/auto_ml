@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from Aether.api import router as aether_router
 from base.nacos_config import init_db_from_nacos
 from heartbeat.api import router as heartbeat_router
 from label.api import router as label_router
@@ -33,6 +34,7 @@ app.include_router(utils_router)
 app.include_router(yolo_router)
 app.include_router(label_router)
 app.include_router(process_router)
+app.include_router(aether_router)
 
 
 if __name__ == "__main__":

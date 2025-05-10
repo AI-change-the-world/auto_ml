@@ -1,4 +1,4 @@
-package org.xiaoshuyui.automl.module.agent.entity;
+package org.xiaoshuyui.automl.module.aether.entity;
 
 import java.time.LocalDateTime;
 
@@ -14,10 +14,10 @@ import lombok.Data;
 @TableName("agent")
 public class Agent {
     @TableId(value = "agent_id", type = IdType.AUTO)
-    Long agentId;
+    Long id;
 
     @TableField("agent_name")
-    String agentName;
+    String name;
 
     @TableField("description")
     String description;
@@ -29,15 +29,15 @@ public class Agent {
     String pipelineContent;
 
     @TableField("is_embedded")
-    int isEmbedded;
+    Integer isEmbedded;
 
-    @TableField("created_at")
-    LocalDateTime createdAt;
-
-    @TableField("updated_at")
+    @TableField(value = "updated_at")
     LocalDateTime updatedAt;
 
     @JsonIgnore
-    @TableField("is_deleted")
+    @TableField(value = "is_deleted")
     Integer isDeleted;
+
+    @TableField(value = "created_at")
+    LocalDateTime createdAt;
 }

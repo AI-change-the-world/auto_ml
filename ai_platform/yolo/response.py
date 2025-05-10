@@ -11,6 +11,9 @@ class Box(BaseModel):
     x2: float
     y2: float
 
+    def __str__(self):
+        return f"x1: {self.x1}, y1: {self.y1}, x2: {self.x2}, y2: {self.y2}"
+
 
 # 定义主模型
 class PredictResult(BaseModel):
@@ -18,6 +21,9 @@ class PredictResult(BaseModel):
     obj_class: int
     confidence: float
     box: Box
+
+    def __str__(self):
+        return f"name: {self.name}, obj_class: {self.obj_class}, confidence: {self.confidence}, box: {self.box}"
 
     @classmethod
     def from_dict(cls, data):
@@ -57,6 +63,9 @@ def predict_result_from_detections(detections: Detections) -> List[PredictResult
 class PredictResults(BaseModel):
     image_id: str
     results: list[PredictResult]
+
+    def __str__(self):
+        return str(self.results)
 
     @classmethod
     def from_data(cls, data: list, img: str):

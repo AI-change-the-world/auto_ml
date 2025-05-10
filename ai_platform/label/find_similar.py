@@ -126,7 +126,7 @@ def find_similar(
     logger.info("other objects: " + completion.choices[0].message.content)
     l = parse_boxes_from_string(
         completion.choices[0].message.content,
-        obj_class=classes.index(label),
+        obj_class=classes.index(label) if label in classes else -1,
         name=label,
     )
     return PredictResults(image_id="test.png", results=l)

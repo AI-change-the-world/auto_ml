@@ -72,11 +72,15 @@ class Detection {
   String toYoloFormat(Size imageSize) {
     final double imgW = imageSize.width;
     final double imgH = imageSize.height;
+    double left = box.x1 < 0 ? 0 : box.x1;
+    double top = box.y1 < 0 ? 0 : box.y1;
+    double right = box.x2 > imgW ? imgW : box.x2;
+    double bottom = box.y2 > imgH ? imgH : box.y2;
 
-    final double xCenter = ((box.x1 + box.x2) / 2) / imgW;
-    final double yCenter = ((box.y1 + box.y2) / 2) / imgH;
-    final double boxWidth = (box.x2 - box.x1) / imgW;
-    final double boxHeight = (box.y2 - box.y1) / imgH;
+    final double xCenter = ((left + right) / 2) / imgW;
+    final double yCenter = ((top + bottom) / 2) / imgH;
+    final double boxWidth = (right - left) / imgW;
+    final double boxHeight = (bottom - top) / imgH;
 
     return "$objClass ${xCenter.toStringAsFixed(6)} ${yCenter.toStringAsFixed(6)} ${boxWidth.toStringAsFixed(6)} ${boxHeight.toStringAsFixed(6)}";
   }
