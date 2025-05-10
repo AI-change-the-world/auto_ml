@@ -51,10 +51,16 @@ public class AetherWorkflowConfig {
         String resolvedValue = resolvePlaceholders(e.value, context);
         if (e.type.equals("num")) {
           try {
-            result.put(e.key, Long.parseLong(resolvedValue));
+            if (resolvedValue.contains(".")) {
+              result.put(e.key, Double.parseDouble(resolvedValue));
+            } else {
+              result.put(e.key, Long.parseLong(resolvedValue));
+            }
           } catch (NumberFormatException ex) {
             result.put(e.key, resolvedValue);
           }
+        } else {
+          result.put(e.key, resolvedValue);
         }
       }
     }
@@ -62,7 +68,8 @@ public class AetherWorkflowConfig {
   }
 
   private String resolvePlaceholders(String value, WorkflowContext context) {
-    if (value == null) return null;
+    if (value == null)
+      return null;
 
     Pattern pattern = Pattern.compile("\\$\\{(.+?)}");
     Matcher matcher = pattern.matcher(value);
@@ -81,9 +88,12 @@ public class AetherWorkflowConfig {
   @XmlAccessorType(value = XmlAccessType.FIELD)
   @Data
   public static class Entry {
-    @XmlAttribute public String key;
-    @XmlValue public String value;
-    @XmlAttribute public String type = "str"; // 默认类型为字符串
+    @XmlAttribute
+    public String key;
+    @XmlValue
+    public String value;
+    @XmlAttribute
+    public String type = "str"; // 默认类型为字符串
 
     @Override
     public String toString() {

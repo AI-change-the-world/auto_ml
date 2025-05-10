@@ -1,15 +1,12 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
+import 'package:auto_ml/modules/aether_agent/models/agent_simple_response.dart';
 import 'package:auto_ml/modules/annotation/components/faded_text.dart';
-import 'package:auto_ml/modules/annotation/models/api/tool_models_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
-import 'package:auto_ml/modules/predict/models/video_result.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
-import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -202,12 +199,12 @@ class __DropDownButtonState extends ConsumerState<_DropDownButton> {
 
   initData() async {
     try {
-      final response = await dio.get(Api.getToolModels);
-      BaseResponse<ToolModels> baseResponse = BaseResponse.fromJson(
+      final response = await dio.get(Api.aetherAgentSimpleList);
+      BaseResponse<AgentSimpleResponse> baseResponse = BaseResponse.fromJson(
         response.data,
-        (json) => ToolModels.fromJson({"models": json}),
+        (json) => AgentSimpleResponse.fromJson({'data': json}),
       );
-      return baseResponse.data;
+      return baseResponse.data?.data ?? [];
     } catch (e) {
       logger.e(e);
     }
@@ -232,110 +229,39 @@ class __DropDownButtonState extends ConsumerState<_DropDownButton> {
         builder: (c, s) {
           if (s.connectionState == ConnectionState.done) {
             if (s.hasData) {
-              return DropdownButton2<ModelConfig>(
+              return DropdownButton2<AgentSimple>(
                 customButton: const Icon(
                   Icons.settings,
                   size: 15,
                   color: Colors.black,
                 ),
                 items:
-                    (s.data! as ToolModels).models.map((e) {
+                    (s.data! as List<AgentSimple>).map((e) {
                       logger.d(e.name);
-                      return DropdownMenuItem<ModelConfig>(
+                      return DropdownMenuItem<AgentSimple>(
                         value: e,
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: "Auto label with ",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              TextSpan(
-                                text: e.name,
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
+                        child: Tooltip(
+                          message: e.name,
+                          waitDuration: Duration(milliseconds: 500),
+                          child: Text(
+                            e.name,
+                            style: TextStyle(fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       );
                     }).toList(),
                 onChanged: (value) async {
-                  // do something
                   if (value == null) {
                     return;
                   }
-                  final imgName = ref.read(imageNotifierProvider).imgKey;
-                  if (imgName == "") {
-                    return;
-                  }
 
-                  final state = ref.read(
-                    currentDatasetAnnotationNotifierProvider,
-                  );
-
-                  // AutoAnnotationRequest autoAnnotationRequest =
-                  //     AutoAnnotationRequest(
-                  //       content: imgName,
-                  //       prompt: null,
-                  //       modelId: value.id,
-                  //       annotationId: state.annotationId,
-                  //       datasetId: state.datasetId,
-                  //       image: true,
-                  //     );
-                  // // logger.i(autoAnnotationRequest.toJson());
-                  // try {
-                  //   final response = await dio.post(
-                  //     Api.autoLabel,
-                  //     data: autoAnnotationRequest.toJson(),
-                  //   );
-                  //   BaseResponse<String> baseResponse = BaseResponse.fromJson(
-                  //     response.data,
-                  //     (json) => json.toString(),
-                  //   );
-                  //   logger.i("annotaiton ${baseResponse.data}");
-                  //   if (baseResponse.data != null) {
-                  //     ref
-                  //         .read(annotationNotifierProvider.notifier)
-                  //         .setAnnotationsWithClasses(baseResponse.data!);
-                  //   }
-                  // } catch (e, s) {
-                  //   logger.e(e);
-                  //   logger.e(s);
-                  // }
-
-                  Map<String, dynamic> map = {
-                    "annotationId": state.annotationId,
-                    "imgPath": imgName,
-                  };
-                  try {
-                    final response = await dio.post(
-                      Api.autoLabelMultiple,
-                      data: map,
-                    );
-                    BaseResponse<SingleImageResponse> baseResponse =
-                        BaseResponse.fromJson(
-                          response.data,
-                          (json) => SingleImageResponse.fromJson(
-                            json as Map<String, dynamic>,
-                          ),
-                        );
-                    logger.i("annotaiton ${baseResponse.data}");
-                    if (baseResponse.data != null) {
-                      if (baseResponse.data!.results.isNotEmpty) {
-                        ref
-                            .read(annotationNotifierProvider.notifier)
-                            .setAnnotationsInDetections(baseResponse.data!);
-                      } else {
-                        ToastUtils.info(null, title: "");
-                      }
-                    }
-                  } catch (e, s) {
-                    logger.e(e);
-                    logger.e(s);
-                  }
+                  /// TODO:  do something
+                  /// FIXME: 应该从后端获取访问参数列表，暂时先前端定制
+                  ref
+                      .read(annotationNotifierProvider.notifier)
+                      .handleAgent(value.id);
                 },
                 menuItemStyleData: MenuItemStyleData(
                   height: 30,

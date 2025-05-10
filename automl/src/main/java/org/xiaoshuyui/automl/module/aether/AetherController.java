@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +40,11 @@ public class AetherController {
         return Result.OK_data(agentService.list(entity.getPageId(), entity.getPageSize()));
     }
 
+    @GetMapping("/agent/list/simple")
+    public Result getAgentList() {
+        return Result.OK_data(agentService.simpleAgentsList());
+    }
+
     // String task, Map<String, Object> params, Long modelId, Class<R> outputClass
     @PostMapping("/auto-label")
     public Result aetherAutoLabel(@RequestBody MultipleClassAnnotateRequest request) {
@@ -60,16 +67,117 @@ public class AetherController {
     }
 
     @PostMapping("/workflow/auto-label")
-    public Result aetherAutoLabelWorkflow(@RequestBody MultipleClassAnnotateRequest request) {
-        Pipeline pipeline = PipelineParser.loadFromResource("pipeline/pipeline.xml");
+    public Result aetherAutoLabelWorkflow(@RequestBody Map<String, Object> request) {
+        var agentId = (Integer) request.get("agentId");
+        if (agentId == null) {
+            return Result.error("agent not found");
+        }
+        log.info("agent id " + agentId);
+        try {
+            switch (agentId.toString()) {
+                case "1":
+                    return aetherAutoLabelWorkflowImpl((Integer) request.get("annotationId"),
+                            (String) request.get("imgPath"),
+                            agentId);
+
+                case "2":
+                    return aetherAutoLabelWorkflowImpl((Integer) request.get("annotationId"),
+                            (String) request.get("imgPath"),
+                            agentId);
+                case "4":
+                    return aetherAutoLabelWorkflowImpl((Integer) request.get("annotationId"),
+                            (String) request.get("imgPath"),
+                            agentId,
+                            (String) request.get("label"),
+                            (Double) request.get("left"),
+                            (Double) request.get("top"),
+                            (Double) request.get("right"),
+                            (Double) request.get("bottom"));
+                case "3":
+                    return aetherAutoLabelWorkflowImpl((Integer) request.get("annotationId"),
+                            (String) request.get("imgPath"),
+                            agentId,
+                            (String) request.get("template_image"));
+                default:
+                    return Result.error("agent not found");
+            }
+        } catch (Exception e) {
+            log.error("aetherAutoLabelWorkflow error", e);
+            e.printStackTrace();
+            return Result.error("get agent infomation error");
+        }
+
+    }
+
+    private Result aetherAutoLabelWorkflowImpl(int annotationId, String imgPath, int agentId) {
+        var agent = agentService.getById((long) agentId);
+        if (agent == null) {
+            return Result.error("agent not found");
+        }
+
+        Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
         List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
         WorkflowContext context = new WorkflowContext();
-        context.put("annotation_id", request.getAnnotationId());
-        context.put("imgPath", request.getImgPath());
+        context.put("annotation_id", annotationId);
+        context.put("imgPath", imgPath);
         WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
         workflowEngine.run("1");
 
         var res = context.get(pipeline.getOutputKey());
+        log.debug("detect result: " + res);
+        if (res == null) {
+            return Result.error("invoke error");
+        }
+
+        return Result.OK_data(res);
+    }
+
+    private Result aetherAutoLabelWorkflowImpl(int annotationId, String imgPath, int agentId, String templateImage) {
+        var agent = agentService.getById((long) agentId);
+        if (agent == null) {
+            return Result.error("agent not found");
+        }
+
+        Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
+        List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+        WorkflowContext context = new WorkflowContext();
+        context.put("annotation_id", annotationId);
+        context.put("imgPath", imgPath);
+        context.put("template_image", templateImage);
+        WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+        workflowEngine.run("1");
+
+        var res = context.get(pipeline.getOutputKey());
+        log.debug("detect result: " + res);
+        if (res == null) {
+            return Result.error("invoke error");
+        }
+
+        return Result.OK_data(res);
+    }
+
+    private Result aetherAutoLabelWorkflowImpl(int annotationId, String imgPath, int agentId, String label, double left,
+            double top, double right, double bottom) {
+        var agent = agentService.getById((long) agentId);
+        if (agent == null) {
+            return Result.error("agent not found");
+        }
+
+        Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
+        List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+        WorkflowContext context = new WorkflowContext();
+        context.put("annotation_id", annotationId);
+        context.put("imgPath", imgPath);
+        context.put("label", label);
+        context.put("left", left);
+        context.put("top", top);
+        context.put("right", right);
+        context.put("bottom", bottom);
+        WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+        workflowEngine.run("1");
+
+        var res = context.get(pipeline.getOutputKey());
+        log.debug("detect result: " + res);
         if (res == null) {
             return Result.error("invoke error");
         }

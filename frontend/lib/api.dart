@@ -87,4 +87,8 @@ class Api {
 
   /// [aether] aether
   static final String aetherAgentList = "/aether/agent/list";
+
+  static final String aetherAgentSimpleList = "/aether/agent/list/simple";
+
+  static final String agent = "/aether/workflow/auto-label";
 }

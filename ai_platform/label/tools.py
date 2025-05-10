@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from base.logger import logger
 from label.models import ImageModel, LabelModel
 from yolo.response import Box, PredictResult
 
@@ -203,6 +204,32 @@ def parse_boxes_from_string(
         )
         results.append(result)
 
+    return results
+
+
+def parse_response(response: str, classes: List[str]):
+    results = []
+    for line in response.strip().splitlines():
+        logger.info(f"Line: {line}")
+        try:
+            class_part, rest = line.split(":", 1)
+            box_part, conf_part = rest.strip().split("[confidence:")
+            x, y, w, h = map(int, box_part.strip("() ").split(","))
+            conf = float(conf_part.strip(" ]"))
+            # detection = Detection
+            # b = Box(x1=x, y1=y, x2=w +x, y2=h+y)
+            b = Box(x1=x, y1=y, x2=w, y2=h)
+            class_part = class_part.strip()
+            p: PredictResult = PredictResult(
+                name=class_part,
+                box=b,
+                confidence=conf,
+                # obj_class=classes.index(class_part),
+                obj_class=classes.index(class_part) if class_part in classes else -1,
+            )
+            results.append(p)
+        except Exception:
+            continue
     return results
 
 

@@ -1,4 +1,5 @@
 import time
+import traceback
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -21,6 +22,29 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
     start_time = time.time()
     try:
         if req.task == "label":
+            from label.label_img import agent_label_img
+
+            logger.info(f"extra: {req.extra}")
+            annotation_id = req.extra.get("annotation_id")
+            annotation = get_annotation(db, annotation_id)
+            classes = str(annotation.class_items).split(";")
+            res = agent_label_img(
+                img_data=req.input.data,
+                classes=classes,
+                tool_model=get_tool_model(db, req.model_id),
+            )
+            logger.info(f"res: {res}")
+            response = AetherResponse[PredictResults](
+                success=True,
+                output=res,
+                meta=ResponseMeta(
+                    time_cost_ms=int((time.time() - start_time) * 1000),
+                    task_id=req.meta.task_id,
+                ),
+                error=None,
+            )
+            return response
+        elif req.task == "label in batches":
             from label.multi_label_image_annotate import annotation_multi_class_image
 
             logger.info(f"extra: {req.extra}")
@@ -106,6 +130,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
             )
             return res
     except Exception as e:
+        traceback.print_exc()
         logger.error(e)
         return AetherResponse(
             success=False,

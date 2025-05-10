@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline outputKey="1_result">
+    <step id="1" name="label-image">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.LabelWithRefAction"/>
+        <aether>
+            <task>label with reference</task>
+            <modelId>1</modelId>
+            <inputType>image</inputType>
+            <inputKey>imgPath</inputKey>
+            <extra>
+                <entry key="annotation_id" type="num">${annotation_id}</entry>
+                <entry key="template_image" type="str">${template_image}</entry>
+            </extra>
+        </aether>
+    </step>
+</pipeline>

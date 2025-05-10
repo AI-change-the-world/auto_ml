@@ -24,19 +24,18 @@ public class AetherClient {
   @Value("${ai-platform.aether}")
   String aether;
 
-  @Resource private TaskService taskService;
+  @Resource
+  private TaskService taskService;
 
-  private static final OkHttpClient client =
-      new OkHttpClient.Builder()
-          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-          .build();
+  private static final OkHttpClient client = new OkHttpClient.Builder()
+      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+      .build();
 
-  private static Gson gson =
-      new GsonBuilder()
-          .serializeNulls() // 👈 关键：保留 null 字段
-          .create();
+  private static Gson gson = new GsonBuilder()
+      .serializeNulls() // 👈 关键：保留 null 字段
+      .create();
 
   /*
    * params : {"data":str,"data_type":str,"extra":map}
@@ -46,7 +45,7 @@ public class AetherClient {
     AetherRequest<Map<String, Object>> request = new AetherRequest<>();
     request.setTask(task);
     request.setModelId(modelId);
-    log.info("param: " + params);
+    log.debug("param: " + params);
     request.setInput(
         new AetherRequest.Input(params.get("data").toString(), params.get("data_type").toString()));
 
@@ -90,7 +89,7 @@ public class AetherClient {
     // Serialize request
     String requestJson = gson.toJson(request);
 
-    log.info("param: " + requestJson);
+    log.debug("param: " + requestJson);
 
     // Send HTTP POST
     RequestBody body = RequestBody.create(requestJson, MediaType.get("application/json"));

@@ -1,7 +1,7 @@
 import cv2
 
 img = cv2.imread(
-    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_test.png"
+    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_template.png"
 )
 h, w, _ = img.shape
 
@@ -13,6 +13,6 @@ img2 = cv2.resize(
     ),
 )
 cv2.imwrite(
-    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_test_resize.png",
+    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_template2.png",
     img2,
 )

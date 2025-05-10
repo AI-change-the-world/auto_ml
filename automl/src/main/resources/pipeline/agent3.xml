@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline outputKey="1_result">
+    <step id="1" name="label-image">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.FindSimilarAction"/>
+        <aether>
+            <task>find similar</task>
+            <modelId>1</modelId>
+            <inputType>image</inputType>
+            <inputKey>imgPath</inputKey>
+            <extra>
+                <entry key="annotation_id" type="num">${annotation_id}</entry>
+                <entry key="left" type="num">${left}</entry>
+                <entry key="top" type="num">${top}</entry>
+                <entry key="right" type="num">${right}</entry>
+                <entry key="bottom" type="num">${bottom}</entry>
+                <entry key="label" type="str">${label}</entry>
+            </extra>
+        </aether>
+    </step>
+</pipeline>

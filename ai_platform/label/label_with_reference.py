@@ -80,21 +80,18 @@ def label_with_reference(
     # target_b64 = base64.b64encode(target_image_bytes).decode("utf-8")
     target_img_array = bytes_to_image(target_image_bytes)
     h, w, _ = target_img_array.shape
+    logger.info(f"target image shape: {h}x{w}")
     target_b64 = cv2_to_base64(target_img_array)
 
-    if not target_b64.startswith("data:image"):
-        target_b64 = "data:image/png;base64," + target_b64
-    if not template_image.startswith("data:image"):
-        template_image = "data:image/png;base64," + template_image
-
     vl_model = get_model(tool_model)
-    prompt = prompt.format(width=w, height=h)
+    global prompt
+    _prompt = prompt.format(width=w, height=h)
 
     messages = [
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": prompt},
+                {"type": "text", "text": _prompt},
                 {
                     "type": "image_url",
                     "image_url": {
@@ -137,7 +134,8 @@ def label_with_reference(
                 name=class_part,
                 box=b,
                 confidence=conf,
-                obj_class=classes.index(class_part),
+                # obj_class=classes.index(class_part),
+                obj_class=classes.index(class_part) if class_part in classes else -1,
             )
             results.append(p)
         except Exception:

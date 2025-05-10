@@ -74,10 +74,13 @@ def encode_image_to_base64(image_path):
 
 
 template_img = (
-    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_template.png"
+    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_template3.jpg"
 )
+# target_img = (
+#     "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_test_resize.png"
+# )
 target_img = (
-    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_test_resize.png"
+    "/Users/guchengxi/Desktop/projects/auto_ml/ai_platform/tests/road_test_resize2.png"
 )
 
 vl_model = OpenAI(
@@ -94,8 +97,12 @@ vl_model = OpenAI(
 template_base64 = encode_image_to_base64(template_img)
 target_base64 = encode_image_to_base64(target_img)
 
-width = 935
-height = 670
+
+# width = 935
+# height = 670
+
+width = 646
+height = 449
 
 messages = [
     {

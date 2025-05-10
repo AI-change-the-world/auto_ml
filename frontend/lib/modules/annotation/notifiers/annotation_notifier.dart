@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/aether_base_response.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/models/api/get_similar_object_request.dart';
@@ -12,8 +14,10 @@ import 'package:auto_ml/modules/annotation/tools/label_to_annotation.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/predict/models/video_result.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/globals.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -135,6 +139,17 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       sb.write("\n");
     }
     state = state.copyWith(annotations: [], selectedAnnotationUuid: "");
+    addAnnotation(sb.toString());
+  }
+
+  addAnnotationInDetections(SingleImageResponse response) {
+    StringBuffer sb = StringBuffer();
+    final imgSize = ref.read(imageNotifierProvider).size;
+    for (final i in response.results) {
+      // print(i.toYoloFormat(imgSize));
+      sb.write(i.toYoloFormat(imgSize));
+      sb.write("\n");
+    }
     addAnnotation(sb.toString());
   }
 
@@ -336,6 +351,96 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
         });
 
     return 0;
+  }
+
+  void handleAgent(int id) async {
+    logger.d("handleAgent id $id");
+    final filePath =
+        ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1;
+    if (filePath == null) {
+      ToastUtils.error(null, title: "Please select a file");
+      return;
+    }
+    final annotationId =
+        ref.read(currentDatasetAnnotationNotifierProvider).annotationId;
+    final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
+    Map<String, dynamic> data = {};
+
+    if (id == 1) {
+      data = {"annotationId": annotationId, "imgPath": filePath, "agentId": 1};
+    } else if (id == 2) {
+      data = {"annotationId": annotationId, "imgPath": filePath, "agentId": 2};
+    } else if (id == 4) {
+      if (state.selectedAnnotationUuid.isEmpty) {
+        ToastUtils.error(null, title: "Please select an annotation first");
+        return;
+      }
+
+      final currentAnnotation = state.annotations.firstWhere(
+        (e) => e.uuid == state.selectedAnnotationUuid,
+      );
+
+      // if (currentAnnotation.id == -1) {
+      //   ToastUtils.error(null, title: "Annotaiton must have a valid label");
+      //   return;
+      // }
+
+      double left = currentAnnotation.position.dx;
+      double top = currentAnnotation.position.dy;
+      double right = left + currentAnnotation.width;
+      double bottom = top + currentAnnotation.height;
+
+      data = {
+        "annotationId": annotationId,
+        "imgPath": filePath,
+        "agentId": 4,
+        "label": currentAnnotation.getLabel(classes),
+        "left": left,
+        "top": top,
+        "right": right,
+        "bottom": bottom,
+      };
+    } else if (id == 3) {
+      final XFile? file = await openFile(
+        acceptedTypeGroups: [Globals.imageType],
+      );
+      if (file == null) return;
+
+      String base64 = base64Encode(await file.readAsBytes());
+
+      data = {
+        "annotationId": annotationId,
+        "imgPath": filePath,
+        "agentId": 3,
+        "template_image": base64,
+      };
+    } else {
+      return;
+    }
+
+    try {
+      final response = await DioClient().instance.post(Api.agent, data: data);
+      BaseResponse<AetherBaseResponse<SingleImageResponse>> bs =
+          BaseResponse<AetherBaseResponse<SingleImageResponse>>.fromJson(
+            response.data,
+            (json) => AetherBaseResponse<SingleImageResponse>.fromJson(
+              json as Map<String, dynamic>,
+              (json) =>
+                  SingleImageResponse.fromJson(json as Map<String, dynamic>),
+            ),
+          );
+
+      // logger.i(bs.data?.output?.results);
+      if (bs.data != null && bs.data?.output != null) {
+        addAnnotationInDetections(bs.data!.output!);
+        ToastUtils.success(null, title: "Task completed");
+      } else {
+        ToastUtils.info(null, title: "Nothing found");
+      }
+      return;
+    } catch (e) {
+      ToastUtils.error(null, title: "Error labeling");
+    }
   }
 }
 

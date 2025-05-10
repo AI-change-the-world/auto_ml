@@ -1,5 +1,7 @@
 package org.xiaoshuyui.automl.module.aether.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.common.PageResult;
 import org.xiaoshuyui.automl.module.aether.entity.Agent;
@@ -24,5 +26,13 @@ public class AgentService {
         IPage<Agent> resultPage = agentMapper.selectPage(page, queryWrapper);
 
         return new PageResult<>(resultPage.getRecords(), resultPage.getTotal());
+    }
+
+    public Agent getById(Long id) {
+        return agentMapper.selectById(id);
+    }
+
+    public List simpleAgentsList() {
+        return agentMapper.simpleAgentsList();
     }
 }
