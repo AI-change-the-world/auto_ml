@@ -1,6 +1,7 @@
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 
+// TODO: fix this
 enum ModelType { llm, mllm, vision }
 
 extension ModelTypeExtension on ModelType {

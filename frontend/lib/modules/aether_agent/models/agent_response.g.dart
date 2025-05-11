@@ -15,6 +15,7 @@ Agent _$AgentFromJson(Map<String, dynamic> json) => Agent(
       isEmbedded: (json['isEmbedded'] as num).toInt(),
       updatedAt: json['updatedAt'] as String,
       createdAt: json['createdAt'] as String,
+      isRecommended: (json['isRecommended'] as num).toInt(),
     );
 
 Map<String, dynamic> _$AgentToJson(Agent instance) => <String, dynamic>{
@@ -26,4 +27,5 @@ Map<String, dynamic> _$AgentToJson(Agent instance) => <String, dynamic>{
       'isEmbedded': instance.isEmbedded,
       'updatedAt': instance.updatedAt,
       'createdAt': instance.createdAt,
+      'isRecommended': instance.isRecommended,
     };

@@ -1,0 +1,3 @@
+[submodule "ai_platform/gd"]
+	path = ai_platform/gd
+	url = https://github.com/IDEA-Research/GroundingDINO

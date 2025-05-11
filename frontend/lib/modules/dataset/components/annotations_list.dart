@@ -1,5 +1,6 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/dataset/components/modify_annotation_classes_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
@@ -199,7 +200,38 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   ),
                 ),
                 InkWell(
-                  onTap: () {},
+                  onTap: () async {
+                    showGeneralDialog(
+                      barrierColor: Styles.barriarColor,
+                      barrierDismissible: true,
+                      barrierLabel: "ModifyAnnotationClassesDialog",
+                      context: context,
+                      pageBuilder: (c, _, __) {
+                        return Center(
+                          child: ModifyAnnotationClassesDialog(
+                            annotationString: annotation.classItems ?? "",
+                          ),
+                        );
+                      },
+                    ).then((v) {
+                      if (v != null) {
+                        Map<String, dynamic> map = {
+                          "id": annotation.id,
+                          "classes": v,
+                        };
+
+                        DioClient().instance
+                            .post(Api.annotationClassesUpdate, data: map)
+                            .then((v) {
+                              if (v.statusCode == 200) {
+                                ToastUtils.success(null, title: "修改成功");
+                              } else {
+                                ToastUtils.error(null, title: "修改失败");
+                              }
+                            });
+                      }
+                    });
+                  },
                   child: Tooltip(
                     message: "classes",
                     child: Icon(

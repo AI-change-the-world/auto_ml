@@ -11,35 +11,34 @@ import org.xiaoshuyui.automl.util.SpringContextUtil;
 
 public class FindSimilarAction implements WorkflowAction {
 
-    private final AetherClient aetherClient;
+  private final AetherClient aetherClient;
 
-    public FindSimilarAction() {
-        this.aetherClient = SpringContextUtil.getBean(AetherClient.class);
-    }
+  public FindSimilarAction() {
+    this.aetherClient = SpringContextUtil.getBean(AetherClient.class);
+  }
 
-    @Override
-    public void execute(WorkflowStep step, WorkflowContext context) {
+  @Override
+  public void execute(WorkflowStep step, WorkflowContext context) {
 
-        AetherWorkflowConfig config = step.getAetherConfig();
+    AetherWorkflowConfig config = step.getAetherConfig();
 
-        AetherRequest<Object> request = new AetherRequest<>();
-        request.setTask(config.getTask());
-        request.setModelId(config.getModelId());
+    AetherRequest<Object> request = new AetherRequest<>();
+    request.setTask(config.getTask());
+    request.setModelId(config.getModelId());
 
-        AetherRequest.Input input = new AetherRequest.Input();
-        input.setData((String) context.get(config.getInputKey()));
-        input.setDataType(config.getInputType());
-        request.setInput(input);
+    AetherRequest.Input input = new AetherRequest.Input();
+    input.setData((String) context.get(config.getInputKey()));
+    input.setDataType(config.getInputType());
+    request.setInput(input);
 
-        AetherRequest.Meta meta = new AetherRequest.Meta();
-        meta.setTaskId(System.currentTimeMillis());
-        meta.setSync(true);
-        request.setMeta(meta);
+    AetherRequest.Meta meta = new AetherRequest.Meta();
+    meta.setTaskId(System.currentTimeMillis());
+    meta.setSync(true);
+    request.setMeta(meta);
 
-        request.setExtra(config.getExtra(context));
+    request.setExtra(config.getExtra(context));
 
-        AetherResponse<?> result = aetherClient.invoke(request, Object.class);
-        context.put(step.getId() + "_result", result);
-    }
-
+    AetherResponse<?> result = aetherClient.invoke(request, Object.class);
+    context.put(step.getId() + "_result", result);
+  }
 }

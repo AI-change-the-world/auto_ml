@@ -69,7 +69,7 @@ class Styles {
   }) {
     return ButtonStyle(
       fixedSize: WidgetStateProperty.all(Size(width, height)),
-      backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+      backgroundColor: WidgetStatePropertyAll(Colors.grey[100]),
       padding: WidgetStatePropertyAll(
         const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),

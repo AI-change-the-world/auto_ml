@@ -24,18 +24,19 @@ public class AetherClient {
   @Value("${ai-platform.aether}")
   String aether;
 
-  @Resource
-  private TaskService taskService;
+  @Resource private TaskService taskService;
 
-  private static final OkHttpClient client = new OkHttpClient.Builder()
-      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-      .build();
+  private static final OkHttpClient client =
+      new OkHttpClient.Builder()
+          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+          .build();
 
-  private static Gson gson = new GsonBuilder()
-      .serializeNulls() // 👈 关键：保留 null 字段
-      .create();
+  private static Gson gson =
+      new GsonBuilder()
+          .serializeNulls() // 👈 关键：保留 null 字段
+          .create();
 
   /*
    * params : {"data":str,"data_type":str,"extra":map}

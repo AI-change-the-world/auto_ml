@@ -4,6 +4,7 @@ import jakarta.annotation.Resource;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
 import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
 import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
@@ -23,7 +24,8 @@ public class AnnotationService {
     this.annotationMapper = annotationMapper;
   }
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   public Annotation getById(Long id) {
     return annotationMapper.selectById(id);
@@ -77,11 +79,10 @@ public class AnnotationService {
   }
 
   private void scanFolderParallel(Annotation annotation) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanAndUploadToLocalS3FolderSync(annotation);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(annotation);
+        });
     thread.start();
   }
 
@@ -97,9 +98,8 @@ public class AnnotationService {
     }
     if (annotation.getStorageType() == 0) {
       try {
-        List<String> l =
-            GetFileListUtil.getFileList(
-                annotation.getAnnotationPath(), annotation.getStorageType());
+        List<String> l = GetFileListUtil.getFileList(
+            annotation.getAnnotationPath(), annotation.getStorageType());
 
         if (!l.isEmpty()) {
 
@@ -113,5 +113,12 @@ public class AnnotationService {
         log.error("scan folder error: {}", e.getMessage());
       }
     }
+  }
+
+  @Transactional
+  public void updateAnnotationClasses(Long id, String classes) {
+    Annotation annotation = annotationMapper.selectById(id);
+    annotation.setClassItems(classes);
+    annotationMapper.updateById(annotation);
   }
 }

@@ -65,11 +65,11 @@ class AnnotationWidget extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.topLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(top: 10, left: 10),
+                      padding: EdgeInsets.only(top: 1, left: 1),
                       child: Text(
                         label,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 8,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                         ),

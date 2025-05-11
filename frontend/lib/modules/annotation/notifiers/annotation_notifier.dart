@@ -414,7 +414,10 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
         "agentId": 3,
         "template_image": base64,
       };
+    } else if (id == 5) {
+      data = {"annotationId": annotationId, "imgPath": filePath, "agentId": 5};
     } else {
+      ToastUtils.error(null, title: "Invalid agent id");
       return;
     }
 

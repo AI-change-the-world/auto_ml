@@ -22,10 +22,12 @@ Map<String, dynamic> _$AgentSimpleResponseToJson(
 AgentSimple _$AgentSimpleFromJson(Map<String, dynamic> json) => AgentSimple(
       id: (json['id'] as num).toInt(),
       name: json['name'] as String,
+      isRecommended: (json['isRecommended'] as num).toInt(),
     );
 
 Map<String, dynamic> _$AgentSimpleToJson(AgentSimple instance) =>
     <String, dynamic>{
       'id': instance.id,
       'name': instance.name,
+      'isRecommended': instance.isRecommended,
     };

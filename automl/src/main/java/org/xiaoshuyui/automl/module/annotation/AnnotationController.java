@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.annotation.entity.AnnotationFileResponse;
 import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
+import org.xiaoshuyui.automl.module.annotation.entity.UpdateAnnotationClassesRequest;
 import org.xiaoshuyui.automl.module.annotation.entity.UpdateAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
@@ -73,5 +74,11 @@ public class AnnotationController {
     } else {
       return Result.error("更新失败");
     }
+  }
+
+  @PostMapping("/update/classes")
+  public Result updateAnnotationClasses(@RequestBody UpdateAnnotationClassesRequest entity) {
+    annotationService.updateAnnotationClasses(entity.getId(), entity.getClasses());
+    return Result.OK();
   }
 }

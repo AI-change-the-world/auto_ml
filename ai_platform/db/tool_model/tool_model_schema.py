@@ -14,6 +14,7 @@ class ToolModelOut(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
     model_name: str | None = None
+    model_save_path: str | None = None
 
     class Config:
         orm_mode = True

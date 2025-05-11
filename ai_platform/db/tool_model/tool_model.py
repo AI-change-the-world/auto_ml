@@ -11,7 +11,7 @@ class ToolModel(Base):
     id = Column("tool_model_id", Integer, primary_key=True, autoincrement=True)
     name = Column("tool_model_name", String)
     description = Column("tool_model_description", String)
-    type = Column("tool_model_type", Integer)  # 0: llm, 1: M-LLM, 2: vision, 3: others
+    type = Column("tool_model_type", String)  # 0: llm, 1: M-LLM, 2: vision, 3: others
     is_embedded = Column("is_embedded", Integer)  # 0: embedded, 1: remote
     created_at = Column("created_at", DateTime, default=datetime.utcnow)
     updated_at = Column(
@@ -21,3 +21,4 @@ class ToolModel(Base):
     base_url = Column("base_url", String)
     api_key = Column("api_key", String)
     model_name = Column("model_name", String)
+    model_save_path = Column("model_save_path", String)

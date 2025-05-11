@@ -68,8 +68,7 @@ public class AetherWorkflowConfig {
   }
 
   private String resolvePlaceholders(String value, WorkflowContext context) {
-    if (value == null)
-      return null;
+    if (value == null) return null;
 
     Pattern pattern = Pattern.compile("\\$\\{(.+?)}");
     Matcher matcher = pattern.matcher(value);
@@ -88,12 +87,9 @@ public class AetherWorkflowConfig {
   @XmlAccessorType(value = XmlAccessType.FIELD)
   @Data
   public static class Entry {
-    @XmlAttribute
-    public String key;
-    @XmlValue
-    public String value;
-    @XmlAttribute
-    public String type = "str"; // 默认类型为字符串
+    @XmlAttribute public String key;
+    @XmlValue public String value;
+    @XmlAttribute public String type = "str"; // 默认类型为字符串
 
     @Override
     public String toString() {

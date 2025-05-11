@@ -65,7 +65,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                 error=None,
             )
             return response
-        if req.task == "find similar":
+        elif req.task == "find similar":
             from label.find_similar import find_similar
 
             logger.info(f"extra: {req.extra}")
@@ -109,6 +109,29 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                 template_image=req.extra.get("template_image"),
                 tool_model=tool_model,
                 classes=classes,
+            )
+            response = AetherResponse[PredictResults](
+                success=True,
+                output=res,
+                meta=ResponseMeta(
+                    time_cost_ms=int((time.time() - start_time) * 1000),
+                    task_id=req.meta.task_id,
+                ),
+                error=None,
+            )
+            return response
+        elif req.task == "label with gd":
+            from label.label_with_gd import label_with_gd
+
+            logger.info(f"label with gd, model id: {req.model_id}")
+
+            tool_model = get_tool_model(db, req.model_id)
+            annotation = get_annotation(db, req.extra.get("annotation_id"))
+            classes = str(annotation.class_items).split(";")
+            res = label_with_gd(
+                img_path=req.input.data,
+                classes=classes,
+                tool_model=tool_model,
             )
             response = AetherResponse[PredictResults](
                 success=True,

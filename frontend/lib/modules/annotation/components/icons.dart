@@ -243,11 +243,26 @@ class __DropDownButtonState extends ConsumerState<_DropDownButton> {
                         child: Tooltip(
                           message: e.name,
                           waitDuration: Duration(milliseconds: 500),
-                          child: Text(
-                            e.name,
-                            style: TextStyle(fontSize: 12),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          child: Row(
+                            spacing: 5,
+                            children: [
+                              Icon(
+                                e.isRecommended == 1
+                                    ? Icons.check
+                                    : Icons.error,
+                                size: Styles.datatableIconSize,
+                                color:
+                                    e.isRecommended == 1
+                                        ? Colors.green
+                                        : Colors.amber,
+                              ),
+                              Text(
+                                e.name,
+                                style: TextStyle(fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
                           ),
                         ),
                       );

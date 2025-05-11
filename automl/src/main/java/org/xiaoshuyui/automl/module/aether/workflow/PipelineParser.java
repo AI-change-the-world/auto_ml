@@ -7,7 +7,8 @@ import java.io.StringReader;
 
 public class PipelineParser {
   public static Pipeline loadFromResource(String resourcePath) {
-    try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(resourcePath)) {
+    try (InputStream is =
+        Thread.currentThread().getContextClassLoader().getResourceAsStream(resourcePath)) {
       JAXBContext ctx = JAXBContext.newInstance(Pipeline.class);
       Unmarshaller um = ctx.createUnmarshaller();
       return (Pipeline) um.unmarshal(is);

@@ -22,7 +22,7 @@ public class ToolModel {
 
   // 0 llm; 1 M-LLM ;2 vision; 3 others
   @TableField("tool_model_type")
-  Integer type;
+  String type;
 
   // 0 embedded 1 remote
   @TableField("is_embedded")

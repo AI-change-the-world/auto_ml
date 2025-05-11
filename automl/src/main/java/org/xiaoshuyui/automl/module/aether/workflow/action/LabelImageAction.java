@@ -9,6 +9,9 @@ import org.xiaoshuyui.automl.module.aether.workflow.WorkflowContext;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
 import org.xiaoshuyui.automl.util.SpringContextUtil;
 
+/*
+ * This is the basic action for label image. only with 2 parameters: modelId ,imagePath and annotationId.
+ */
 public class LabelImageAction implements WorkflowAction {
 
   private final AetherClient aetherClient;

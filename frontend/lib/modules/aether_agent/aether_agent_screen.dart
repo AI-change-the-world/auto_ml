@@ -114,6 +114,10 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
       size: ColumnSize.L,
     ),
     DataColumn2(
+      label: Text('Recommend', style: Styles.defaultButtonTextStyle),
+      size: ColumnSize.S,
+    ),
+    DataColumn2(
       label: Text('Created at', style: Styles.defaultButtonTextStyle),
       size: ColumnSize.M,
     ),
@@ -149,6 +153,22 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: Styles.defaultButtonTextStyleNormal,
               ),
+            ),
+          ),
+          DataCell(
+            Row(
+              spacing: 5,
+              children: [
+                Icon(
+                  agent.isRecommended == 1 ? Icons.check : Icons.error,
+                  size: Styles.datatableIconSize,
+                  color: agent.isRecommended == 1 ? Colors.green : Colors.amber,
+                ),
+                Text(
+                  agent.isRecommended == 1 ? "Recommended" : "Not recommended",
+                  style: Styles.defaultButtonTextStyleNormal,
+                ),
+              ],
             ),
           ),
 

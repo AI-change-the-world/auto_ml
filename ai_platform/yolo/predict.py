@@ -78,5 +78,5 @@ def predict_with_certain_model(
     # eval
     detections = model(img_data)
     if len(detections) == 0:
-        return PredictResults.from_data([], img)
+        return PredictResults.from_data([], img="test.png")
     return PredictResults.from_data(json.loads(detections[0].to_json()), img="test.png")

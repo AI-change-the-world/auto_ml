@@ -159,8 +159,8 @@ def annotation_multi_class_image(
     img_bytes = op.read(img)
     classes = str(annotation.class_items).split(";")
     # TODO remove this logic
-    if classes.__len__() > 10:
-        classes = classes[:10]
+    # if classes.__len__() > 10:
+    #     classes = classes[:10]
     annotator = MultiClassImageAnnotator(tool_model, classes=classes)
     res = annotator.annotate(img_bytes)
     return PredictResults(image_id=img, results=res)

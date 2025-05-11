@@ -25,6 +25,7 @@ class Agent {
   final int isEmbedded;
   final String updatedAt;
   final String createdAt;
+  final int isRecommended;
 
   Agent({
     required this.id,
@@ -35,6 +36,7 @@ class Agent {
     required this.isEmbedded,
     required this.updatedAt,
     required this.createdAt,
+    required this.isRecommended,
   });
 
   factory Agent.fromJson(Map<String, dynamic> json) => _$AgentFromJson(json);

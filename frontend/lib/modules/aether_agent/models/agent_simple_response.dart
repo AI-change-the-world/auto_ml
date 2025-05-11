@@ -19,8 +19,13 @@ class AgentSimpleResponse {
 class AgentSimple {
   final int id;
   final String name;
+  final int isRecommended;
 
-  AgentSimple({required this.id, required this.name});
+  AgentSimple({
+    required this.id,
+    required this.name,
+    required this.isRecommended,
+  });
 
   factory AgentSimple.fromJson(Map<String, dynamic> json) =>
       _$AgentSimpleFromJson(json);
