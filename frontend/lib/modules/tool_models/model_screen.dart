@@ -1,13 +1,14 @@
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/tool_models/components/new_model_dialog.dart';
+import 'package:auto_ml/modules/tool_models/models/tool_model_response.dart';
 import 'package:auto_ml/modules/tool_models/notifier/model_notifier.dart';
 import 'package:auto_ml/modules/tool_models/notifier/model_page_notifier.dart';
-import 'package:auto_ml/modules/tool_models/notifier/model_state.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
+import 'package:he/he.dart' show AnimatedTile;
 
 class ModelScreen extends ConsumerStatefulWidget {
   const ModelScreen({super.key});
@@ -25,14 +26,22 @@ class _ModelScreenState extends ConsumerState<ModelScreen> {
       data: (data) {
         var datasets = data.models;
 
-        Map<ModelType, List<Model>> map = {
-          ModelType.llm: [],
-          ModelType.mllm: [],
-          ModelType.vision: [],
-        };
+        Map<String, List<ToolModel>> map = {};
 
         for (var dataset in datasets) {
-          map[dataset.modelType]?.add(dataset);
+          if (dataset.type != null) {
+            if (map.containsKey(dataset.type)) {
+              map[dataset.type]?.add(dataset);
+            } else {
+              map[dataset.type!] = [dataset];
+            }
+          } else {
+            if (map.containsKey("others")) {
+              map["others"]?.add(dataset);
+            } else {
+              map["others"] = [dataset];
+            }
+          }
         }
 
         return Padding(
@@ -52,7 +61,7 @@ class _ModelScreenState extends ConsumerState<ModelScreen> {
 
 class _Inner extends ConsumerWidget {
   const _Inner({required this.map});
-  final Map<ModelType, List<Model>> map;
+  final Map<String, List<ToolModel>> map;
   static const Color color = Color.fromARGB(255, 118, 156, 222);
 
   @override
@@ -85,13 +94,13 @@ class _Inner extends ConsumerWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             spacing: 5,
                             children: [
-                              entry.key.icon(
-                                color:
-                                    i == pageState ? Colors.black : Colors.grey,
-                                size: 16,
-                              ),
+                              // entry.key.icon(
+                              //   color:
+                              //       i == pageState ? Colors.black : Colors.grey,
+                              //   size: 16,
+                              // ),
                               Text(
-                                "${entry.key.name} (${entry.value.length})",
+                                "${entry.key} (${entry.value.length})",
                                 style: TextStyle(
                                   fontWeight:
                                       i == pageState ? FontWeight.bold : null,
@@ -163,10 +172,39 @@ class _Inner extends ConsumerWidget {
           child: PageView(
             physics: NeverScrollableScrollPhysics(),
             controller: ref.read(modelPageNotifierProvider.notifier).controller,
-            children: [Container(), Container(), Container()],
+            children:
+                map.entries.map((v) => _ToolModelScreen(models: v)).toList(),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ToolModelScreen extends StatelessWidget {
+  const _ToolModelScreen({required this.models});
+  final MapEntry<String, List<ToolModel>> models;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(left: 10, right: 10),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children:
+            models.value
+                .map(
+                  (v) => AnimatedTile(
+                    color: Colors.lightBlueAccent,
+                    title: v.name,
+                    description: v.description,
+                    icon: Icon(Icons.abc, color: Colors.white),
+                    onTap: () {},
+                  ),
+                )
+                .toList(),
+      ),
     );
   }
 }

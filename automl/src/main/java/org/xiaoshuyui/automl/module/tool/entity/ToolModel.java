@@ -38,12 +38,15 @@ public class ToolModel {
   @TableField("is_deleted")
   private Integer isDeleted;
 
+  @JsonIgnore
   @TableField("base_url")
   String baseUrl;
 
+  @JsonIgnore
   @TableField("api_key")
   String apiKey;
 
+  @JsonIgnore
   @TableField("model_name")
   String modelName;
 }

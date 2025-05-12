@@ -1,25 +1,11 @@
-import 'package:auto_ml/modules/dataset/constants.dart';
+import 'package:auto_ml/modules/tool_models/models/tool_model_response.dart';
 
 class ModelState {
-  final List<Model> models;
+  final List<ToolModel> models;
 
   ModelState({required this.models});
 
-  ModelState copyWith({List<Model>? models}) {
+  ModelState copyWith({List<ToolModel>? models}) {
     return ModelState(models: models ?? this.models);
   }
-}
-
-class Model {
-  int? id;
-  String? name;
-  String? description;
-
-  ModelType modelType = ModelType.vision;
-
-  int createAt = DateTime.now().millisecondsSinceEpoch;
-
-  String? baseUrl;
-  String? apiKey;
-  String? modelName;
 }
