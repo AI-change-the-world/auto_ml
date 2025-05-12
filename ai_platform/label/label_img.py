@@ -109,7 +109,7 @@ def label_img(
 
 
 def agent_label_img(
-    img_data: str, classes: List[str], tool_model: ToolModel
+    img_name: str, classes: List[str], tool_model: ToolModel
 ) -> ImageModel:
     """
     对图像进行标注
@@ -126,7 +126,7 @@ def agent_label_img(
     # get s3 image data
     b: Optional[bytes] = delegate.get_file(
         GetFileRequest(
-            file_name=img_data,
+            file_name=img_name,
             file_type=0,
             storage_type=1,
             url="/",
@@ -172,5 +172,5 @@ def agent_label_img(
     res = completion.choices[0].message.content
     logger.info(res)
     l = parse_response(res, classes)
-    return PredictResults(image_id=img_data, results=l)
+    return PredictResults(image_id=img_name, results=l)
     # return result_to_label(completion.choices[0].message.content, img_data, h=h, w=w)

@@ -32,5 +32,7 @@ public class AetherRequest<T> {
     Long taskId;
 
     boolean sync;
+
+    boolean stream = false;
   }
 }

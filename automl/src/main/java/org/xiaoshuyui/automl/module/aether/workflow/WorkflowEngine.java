@@ -2,6 +2,7 @@ package org.xiaoshuyui.automl.module.aether.workflow;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,6 +29,19 @@ public class WorkflowEngine {
       WorkflowStep step = steps.get(currentStep);
       System.out.println("Running step: " + step.getAetherConfig());
       runStep(step);
+      currentStep = step.getNextStepId();
+    }
+  }
+
+  public void run(String startId, Consumer<Object> callback) {
+    String currentStep = startId;
+    while (currentStep != null) {
+      WorkflowStep step = steps.get(currentStep);
+      System.out.println("Running step: " + step.getAetherConfig());
+      runStep(step);
+      var currentStepResultId = startId + "_result";
+      var currentStepResult = context.get(currentStepResultId);
+      callback.accept(currentStepResult);
       currentStep = step.getNextStepId();
     }
   }

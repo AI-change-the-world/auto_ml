@@ -29,7 +29,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
             annotation = get_annotation(db, annotation_id)
             classes = str(annotation.class_items).split(";")
             res = agent_label_img(
-                img_data=req.input.data,
+                img_name=req.input.data,
                 classes=classes,
                 tool_model=get_tool_model(db, req.model_id),
             )

@@ -3,14 +3,18 @@ package org.xiaoshuyui.automl.module.aether;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.xiaoshuyui.automl.common.PageRequest;
 import org.xiaoshuyui.automl.common.Result;
+import org.xiaoshuyui.automl.common.SseResponse;
 import org.xiaoshuyui.automl.module.aether.service.AgentService;
 import org.xiaoshuyui.automl.module.aether.workflow.Pipeline;
 import org.xiaoshuyui.automl.module.aether.workflow.PipelineParser;
@@ -20,6 +24,7 @@ import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
 import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
+import org.xiaoshuyui.automl.util.SseUtil;
 
 @RestController
 @RequestMapping("/aether")
@@ -66,50 +71,84 @@ public class AetherController {
   }
 
   @PostMapping("/workflow/auto-label")
-  public Result aetherAutoLabelWorkflow(@RequestBody Map<String, Object> request) {
+  public Object aetherAutoLabelWorkflow(@RequestBody Map<String, Object> request) {
+    log.info("request:  " + request);
     var agentId = (Integer) request.get("agentId");
     if (agentId == null) {
       return Result.error("agent not found");
     }
+    var isStream = (boolean) request.getOrDefault("stream", false);
     log.info("agent id " + agentId);
-    try {
+    if (isStream == false) {
+      try {
+        switch (agentId.toString()) {
+          case "1":
+            return aetherAutoLabelWorkflowImpl(
+                (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
+
+          case "2":
+            return aetherAutoLabelWorkflowImpl(
+                (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
+          case "4":
+            return aetherAutoLabelWorkflowImpl(
+                (Integer) request.get("annotationId"),
+                (String) request.get("imgPath"),
+                agentId,
+                (String) request.get("label"),
+                (Double) request.get("left"),
+                (Double) request.get("top"),
+                (Double) request.get("right"),
+                (Double) request.get("bottom"));
+          case "3":
+            return aetherAutoLabelWorkflowImpl(
+                (Integer) request.get("annotationId"),
+                (String) request.get("imgPath"),
+                agentId,
+                (String) request.get("template_image"));
+          case "5":
+            return aetherAutoLabelWorkflowImpl(
+                (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
+          default:
+            return Result.error("agent not found");
+        }
+      } catch (Exception e) {
+        log.error("aetherAutoLabelWorkflow error", e);
+        e.printStackTrace();
+        return Result.error("get agent infomation error");
+      }
+    }
+
+    SseEmitter emitter = new SseEmitter(3600 * 1000L);
+
+    Executors.newSingleThreadExecutor().execute(() -> {
+      SseResponse sseResponse = new SseResponse();
+      sseResponse.setDone(false);
+      sseResponse.setStatus("Running");
+      sseResponse.setMessage("Start pipeline ...");
+      SseUtil.sseSend(emitter, sseResponse);
+
       switch (agentId.toString()) {
         case "1":
-          return aetherAutoLabelWorkflowImpl(
-              (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
+          aetherAutoLabelWorkflowImplStream(
+              (Integer) request.get("annotationId"),
+              (String) request.get("imgPath"),
+              agentId,
+              emitter,
+              sseResponse);
+          break;
 
-        case "2":
-          return aetherAutoLabelWorkflowImpl(
-              (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
-        case "4":
-          return aetherAutoLabelWorkflowImpl(
-              (Integer) request.get("annotationId"),
-              (String) request.get("imgPath"),
-              agentId,
-              (String) request.get("label"),
-              (Double) request.get("left"),
-              (Double) request.get("top"),
-              (Double) request.get("right"),
-              (Double) request.get("bottom"));
-        case "3":
-          return aetherAutoLabelWorkflowImpl(
-              (Integer) request.get("annotationId"),
-              (String) request.get("imgPath"),
-              agentId,
-              (String) request.get("template_image"));
-        case "5":
-          return aetherAutoLabelWorkflowImpl(
-              (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
         default:
-          return Result.error("agent not found");
+          sseResponse.setMessage("agent not support");
+          sseResponse.setDone(true);
+          SseUtil.sseSend(emitter, sseResponse);
+          emitter.complete();
       }
-    } catch (Exception e) {
-      log.error("aetherAutoLabelWorkflow error", e);
-      e.printStackTrace();
-      return Result.error("get agent infomation error");
-    }
+    });
+
+    return emitter;
   }
 
+  // 非流式实现
   private Result aetherAutoLabelWorkflowImpl(int annotationId, String imgPath, int agentId) {
     var agent = agentService.getById((long) agentId);
     if (agent == null) {
@@ -117,8 +156,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -134,6 +172,49 @@ public class AetherController {
     return Result.OK_data(res);
   }
 
+  // 流式实现
+  private void aetherAutoLabelWorkflowImplStream(int annotationId, String imgPath, int agentId, SseEmitter emitter,
+      SseResponse response) {
+    var agent = agentService.getById((long) agentId);
+    if (agent == null) {
+      response.setMessage("agent not found");
+      response.setStatus("Error");
+      response.setDone(true);
+      SseUtil.sseSend(emitter, response);
+      emitter.complete();
+      return;
+    }
+
+    Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    WorkflowContext context = new WorkflowContext();
+    context.put("annotation_id", annotationId);
+    context.put("imgPath", imgPath);
+    WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+    workflowEngine.run("1", (v) -> {
+      response.setData(v);
+      SseUtil.sseSend(emitter, response);
+    });
+
+    var res = context.get(pipeline.getOutputKey());
+    log.debug("detect result: " + res);
+    if (res == null) {
+      response.setMessage("invoke error");
+      response.setStatus("Error");
+      response.setDone(true);
+      SseUtil.sseSend(emitter, response);
+      emitter.complete();
+      return;
+    } else {
+      response.setMessage("done");
+      response.setStatus("Done");
+      response.setDone(true);
+      response.setData(res);
+      SseUtil.sseSend(emitter, response);
+      emitter.complete();
+    }
+  }
+
   private Result aetherAutoLabelWorkflowImpl(
       int annotationId, String imgPath, int agentId, String templateImage) {
     var agent = agentService.getById((long) agentId);
@@ -142,8 +223,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -175,8 +255,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);

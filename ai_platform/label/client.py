@@ -5,9 +5,9 @@ from typing import List, Tuple, Union
 
 import groundingdino.datasets.transforms as T
 import numpy as np
-import supervision as sv
 import torch
-from groundingdino.util.inference import box_convert, load_model, predict
+from groundingdino.util.inference import load_model, predict
+from torchvision.ops import box_convert
 from openai import OpenAI
 from PIL import Image
 
@@ -73,6 +73,7 @@ def _tensor_to_predict_results(
         )
     return PredictResults(image_id="test.png", results=results)
 
+global_activated_model = {}
 
 class ProvidedModelClient:
     def __init__(
@@ -131,22 +132,33 @@ class ProvidedModelClient:
 
 
 def get_model(tool_model: ToolModel) -> Union[OpenAI, ProvidedModelClient, None]:
+    global global_activated_model
+    model = global_activated_model.get(tool_model.id)
+    if model is not None:
+        return model
+
     if (
         tool_model.base_url is not None
         and tool_model.base_url.startswith("http")
         and tool_model.type == "mllm"
     ):
-        return OpenAI(api_key=tool_model.api_key, base_url=tool_model.base_url)
+        model = OpenAI(api_key=tool_model.api_key, base_url=tool_model.base_url)
+        global_activated_model[tool_model.id] = model
+        return model
     if tool_model.type == "yolo":
-        return ProvidedModelClient(
+        model = ProvidedModelClient(
             model_save_path=tool_model.model_save_path,
             model_name=tool_model.model_name,
             model_type=ProvidedModelEnum.yolo,
         )
+        global_activated_model[tool_model.id] = model
+        return model
     if tool_model.type == "gd":
-        return ProvidedModelClient(
+        model = ProvidedModelClient(
             model_save_path=tool_model.model_save_path,
             model_name=tool_model.model_name,
             model_type=ProvidedModelEnum.gd,
         )
+        global_activated_model[tool_model.id] = model
+        return model
     return None

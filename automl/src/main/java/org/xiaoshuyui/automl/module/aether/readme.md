@@ -13,7 +13,8 @@
   },
   "meta": {
     "task_id": 1,
-    "sync": true  // default: true
+    "sync": true,  // default: true
+    "stream": false, // default: false
   }
 }
 ```

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/aether_base_response.dart';
 import 'package:auto_ml/common/base_response.dart';
+import 'package:auto_ml/common/sse/sse.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/models/api/get_similar_object_request.dart';
 import 'package:auto_ml/modules/annotation/models/api/update_annotation_request.dart';
@@ -22,8 +24,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
+  final StreamController<String> ss = StreamController.broadcast();
   @override
   AnnotationState build() {
+    ref.onDispose(() {
+      ss.close();
+    });
     return AnnotationState();
   }
 
@@ -353,7 +359,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     return 0;
   }
 
-  void handleAgent(int id) async {
+  void handleAgent(int id, {bool stream = false}) async {
     logger.d("handleAgent id $id");
     final filePath =
         ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1;
@@ -364,85 +370,114 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     final annotationId =
         ref.read(currentDatasetAnnotationNotifierProvider).annotationId;
     final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
-    Map<String, dynamic> data = {};
+    Map<String, dynamic> data = {"stream": stream};
+    if (!stream) {
+      if (id == 1) {
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": 1,
+        });
+      } else if (id == 2) {
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": 2,
+        });
+      } else if (id == 4) {
+        if (state.selectedAnnotationUuid.isEmpty) {
+          ToastUtils.error(null, title: "Please select an annotation first");
+          return;
+        }
 
-    if (id == 1) {
-      data = {"annotationId": annotationId, "imgPath": filePath, "agentId": 1};
-    } else if (id == 2) {
-      data = {"annotationId": annotationId, "imgPath": filePath, "agentId": 2};
-    } else if (id == 4) {
-      if (state.selectedAnnotationUuid.isEmpty) {
-        ToastUtils.error(null, title: "Please select an annotation first");
+        final currentAnnotation = state.annotations.firstWhere(
+          (e) => e.uuid == state.selectedAnnotationUuid,
+        );
+
+        // if (currentAnnotation.id == -1) {
+        //   ToastUtils.error(null, title: "Annotaiton must have a valid label");
+        //   return;
+        // }
+
+        double left = currentAnnotation.position.dx;
+        double top = currentAnnotation.position.dy;
+        double right = left + currentAnnotation.width;
+        double bottom = top + currentAnnotation.height;
+
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": 4,
+          "label": currentAnnotation.getLabel(classes),
+          "left": left,
+          "top": top,
+          "right": right,
+          "bottom": bottom,
+        });
+      } else if (id == 3) {
+        final XFile? file = await openFile(
+          acceptedTypeGroups: [Globals.imageType],
+        );
+        if (file == null) return;
+
+        String base64 = base64Encode(await file.readAsBytes());
+
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": 3,
+          "template_image": base64,
+        });
+      } else if (id == 5) {
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": 5,
+        });
+      } else {
+        ToastUtils.error(null, title: "Invalid agent id");
         return;
       }
 
-      final currentAnnotation = state.annotations.firstWhere(
-        (e) => e.uuid == state.selectedAnnotationUuid,
-      );
+      try {
+        final response = await DioClient().instance.post(Api.agent, data: data);
+        BaseResponse<AetherBaseResponse<SingleImageResponse>> bs =
+            BaseResponse<AetherBaseResponse<SingleImageResponse>>.fromJson(
+              response.data,
+              (json) => AetherBaseResponse<SingleImageResponse>.fromJson(
+                json as Map<String, dynamic>,
+                (json) =>
+                    SingleImageResponse.fromJson(json as Map<String, dynamic>),
+              ),
+            );
 
-      // if (currentAnnotation.id == -1) {
-      //   ToastUtils.error(null, title: "Annotaiton must have a valid label");
-      //   return;
-      // }
-
-      double left = currentAnnotation.position.dx;
-      double top = currentAnnotation.position.dy;
-      double right = left + currentAnnotation.width;
-      double bottom = top + currentAnnotation.height;
-
-      data = {
-        "annotationId": annotationId,
-        "imgPath": filePath,
-        "agentId": 4,
-        "label": currentAnnotation.getLabel(classes),
-        "left": left,
-        "top": top,
-        "right": right,
-        "bottom": bottom,
-      };
-    } else if (id == 3) {
-      final XFile? file = await openFile(
-        acceptedTypeGroups: [Globals.imageType],
-      );
-      if (file == null) return;
-
-      String base64 = base64Encode(await file.readAsBytes());
-
-      data = {
-        "annotationId": annotationId,
-        "imgPath": filePath,
-        "agentId": 3,
-        "template_image": base64,
-      };
-    } else if (id == 5) {
-      data = {"annotationId": annotationId, "imgPath": filePath, "agentId": 5};
-    } else {
-      ToastUtils.error(null, title: "Invalid agent id");
-      return;
-    }
-
-    try {
-      final response = await DioClient().instance.post(Api.agent, data: data);
-      BaseResponse<AetherBaseResponse<SingleImageResponse>> bs =
-          BaseResponse<AetherBaseResponse<SingleImageResponse>>.fromJson(
-            response.data,
-            (json) => AetherBaseResponse<SingleImageResponse>.fromJson(
-              json as Map<String, dynamic>,
-              (json) =>
-                  SingleImageResponse.fromJson(json as Map<String, dynamic>),
-            ),
-          );
-
-      // logger.i(bs.data?.output?.results);
-      if (bs.data != null && bs.data?.output != null) {
-        addAnnotationInDetections(bs.data!.output!);
-        ToastUtils.success(null, title: "Task completed");
-      } else {
-        ToastUtils.info(null, title: "Nothing found");
+        // logger.i(bs.data?.output?.results);
+        if (bs.data != null && bs.data?.output != null) {
+          addAnnotationInDetections(bs.data!.output!);
+          ToastUtils.success(null, title: "Task completed");
+        } else {
+          ToastUtils.info(null, title: "Nothing found");
+        }
+        return;
+      } catch (e, s) {
+        logger.e(e);
+        logger.e(s);
+        ToastUtils.error(null, title: "Error labeling");
       }
-      return;
-    } catch (e) {
-      ToastUtils.error(null, title: "Error labeling");
+    } else {
+      /// stream
+      ss.stream.listen((v) {
+        print(v);
+      });
+
+      if (id == 1) {
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": 1,
+        });
+      }
+      sse(Api.baseUrl + Api.agent, data, ss);
     }
   }
 }

@@ -276,7 +276,7 @@ class __DropDownButtonState extends ConsumerState<_DropDownButton> {
                   /// FIXME: 应该从后端获取访问参数列表，暂时先前端定制
                   ref
                       .read(annotationNotifierProvider.notifier)
-                      .handleAgent(value.id);
+                      .handleAgent(value.id, stream: false);
                 },
                 menuItemStyleData: MenuItemStyleData(
                   height: 30,
