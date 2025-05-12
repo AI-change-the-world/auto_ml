@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class WorkflowEngine {
 
-  private final Map<String, WorkflowStep> steps;
+  private final Map<Integer, WorkflowStep> steps;
   private final WorkflowContext context;
 
   public WorkflowEngine(List<WorkflowStep> steps, WorkflowContext context) {
@@ -22,8 +22,8 @@ public class WorkflowEngine {
     this.context = new WorkflowContext();
   }
 
-  public void run(String startId) {
-    String currentStep = startId;
+  public void run(Integer startId) {
+    Integer currentStep = startId;
 
     while (currentStep != null) {
       WorkflowStep step = steps.get(currentStep);
@@ -33,8 +33,8 @@ public class WorkflowEngine {
     }
   }
 
-  public void run(String startId, Consumer<Object> callback) {
-    String currentStep = startId;
+  public void run(Integer startId, Consumer<Object> callback) {
+    Integer currentStep = startId;
     while (currentStep != null) {
       WorkflowStep step = steps.get(currentStep);
       System.out.println("Running step: " + step.getAetherConfig());

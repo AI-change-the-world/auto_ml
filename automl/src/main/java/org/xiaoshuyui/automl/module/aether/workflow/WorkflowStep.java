@@ -8,11 +8,13 @@ import lombok.Data;
 @AllArgsConstructor
 @Builder
 public class WorkflowStep {
-  private String id;
+  private int id;
   private String name;
   private String actionClass;
   private AetherWorkflowConfig aetherConfig;
-  private String nextStepId;
+  private Integer nextStepId;
+  private String outputKey;
+  private String outputKeyType;
 
   public static WorkflowStep fromConfig(WorkflowStepConfig config) {
     return WorkflowStep.builder()
@@ -21,6 +23,8 @@ public class WorkflowStep {
         .id(config.getId())
         .name(config.getName())
         .nextStepId(config.getNext())
+        .outputKey(config.getOutputKey())
+        .outputKeyType(config.getOutputType())
         .build();
   }
 }

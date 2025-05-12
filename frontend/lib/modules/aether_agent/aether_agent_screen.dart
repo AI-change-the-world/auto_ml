@@ -114,6 +114,10 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
       size: ColumnSize.L,
     ),
     DataColumn2(
+      label: Text('Module', style: Styles.defaultButtonTextStyle),
+      size: ColumnSize.S,
+    ),
+    DataColumn2(
       label: Text('Recommend', style: Styles.defaultButtonTextStyle),
       size: ColumnSize.S,
     ),
@@ -154,6 +158,9 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                 style: Styles.defaultButtonTextStyleNormal,
               ),
             ),
+          ),
+          DataCell(
+            Text(agent.module, style: Styles.defaultButtonTextStyleNormal),
           ),
           DataCell(
             Row(

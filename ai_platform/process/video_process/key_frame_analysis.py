@@ -451,6 +451,50 @@ async def deep_describe_frame(frame_path: str, tool_model: ToolModel, prompt: st
         yield "[DONE]"
 
 
+def deep_describe_frame_sync(frame_path: str, tool_model: ToolModel, prompt: str)-> str:
+    if tool_model is None:
+        return "tool_model is None"
+
+    try:
+        op = get_operator()
+
+        file_data = op.read(frame_path)
+        b64 = base64.encodebytes(file_data).decode("utf-8")
+        b64_with_header = f"data:image/jpeg;base64,{b64}"
+        vl_model = get_model(tool_model)
+
+        prompt = single_frame_deep_analyze_prompt.replace("{{yolo_result}}", prompt)
+
+        req = {"type": "text", "text": prompt}
+
+        completion = vl_model.chat.completions.create(
+            model=tool_model.model_name,
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": "You are a helpful assistant."}
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        req,
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": b64_with_header},
+                        },
+                    ],
+                },
+            ],
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        logger.error(e)
+        return ""
+
+
 async def describe_frames(
     frame_paths: List[str],
     tool_model,

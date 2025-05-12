@@ -26,6 +26,7 @@ class Agent {
   final String updatedAt;
   final String createdAt;
   final int isRecommended;
+  final String module;
 
   Agent({
     required this.id,
@@ -37,6 +38,7 @@ class Agent {
     required this.updatedAt,
     required this.createdAt,
     required this.isRecommended,
+    this.module = "annotation",
   });
 
   factory Agent.fromJson(Map<String, dynamic> json) => _$AgentFromJson(json);

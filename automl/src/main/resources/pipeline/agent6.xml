@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline outputKey="2_result">
+    <step id="1" name="label-image" outputKey="1_result" outputType="org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.LabelImageAction"/>
+        <aether>
+            <task>label with gd</task>
+            <modelId>2</modelId>
+            <inputType>image</inputType>
+            <inputKey>imgPath</inputKey>
+            <extra>
+                <entry key="annotation_id" type="num">${annotation_id}</entry>
+            </extra>
+        </aether>
+        <next>2</next>
+    </step>
+    <step id="2" name="analysis" outputKey="2_result">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.DeepAnalysisImageAction"/>
+        <aether>
+            <task>deep analysis image</task>
+            <modelId>1</modelId>
+            <inputType>image</inputType>
+            <inputKey>imgPath</inputKey>
+            <extra>
+                <entry key="prompt" type="str">${prompt}</entry>
+                <!-- <entry key="annotation_id" type="num">${annotation_id}</entry> -->
+            </extra>
+        </aether>
+    </step>
+</pipeline>

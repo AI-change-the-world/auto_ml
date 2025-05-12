@@ -9,8 +9,14 @@ import lombok.Data;
 @Data
 @XmlAccessorType(value = XmlAccessType.FIELD)
 public class WorkflowStepConfig {
-  @XmlAttribute private String id;
-  @XmlAttribute private String name;
+  @XmlAttribute
+  private int id;
+  @XmlAttribute
+  private String name;
+  @XmlAttribute(name = "outputKey")
+  private String outputKey;
+  @XmlAttribute(name = "outputType")
+  private String outputType;
 
   @XmlElement(name = "action")
   private ActionConfig action;
@@ -19,5 +25,5 @@ public class WorkflowStepConfig {
   private AetherWorkflowConfig aether;
 
   @XmlElement(name = "next")
-  private String next;
+  private Integer next;
 }

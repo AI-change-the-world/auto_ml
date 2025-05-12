@@ -161,7 +161,7 @@ public class AetherController {
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-    workflowEngine.run("1");
+    workflowEngine.run(1);
 
     var res = context.get(pipeline.getOutputKey());
     log.debug("detect result: " + res);
@@ -191,7 +191,7 @@ public class AetherController {
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-    workflowEngine.run("1", (v) -> {
+    workflowEngine.run(1, (v) -> {
       response.setData(v);
       SseUtil.sseSend(emitter, response);
     });
@@ -229,7 +229,7 @@ public class AetherController {
     context.put("imgPath", imgPath);
     context.put("template_image", templateImage);
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-    workflowEngine.run("1");
+    workflowEngine.run(1);
 
     var res = context.get(pipeline.getOutputKey());
     log.debug("detect result: " + res);
@@ -265,7 +265,7 @@ public class AetherController {
     context.put("right", right);
     context.put("bottom", bottom);
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-    workflowEngine.run("1");
+    workflowEngine.run(1);
 
     var res = context.get(pipeline.getOutputKey());
     log.debug("detect result: " + res);

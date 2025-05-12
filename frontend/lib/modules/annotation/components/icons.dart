@@ -189,117 +189,95 @@ class LayoutIcons extends ConsumerWidget {
   }
 }
 
-class _DropDownButton extends ConsumerStatefulWidget {
+class _DropDownButton extends ConsumerWidget {
   @override
-  ConsumerState<_DropDownButton> createState() => __DropDownButtonState();
-}
-
-class __DropDownButtonState extends ConsumerState<_DropDownButton> {
-  final dio = DioClient().instance;
-
-  initData() async {
-    try {
-      final response = await dio.get(Api.aetherAgentSimpleList);
-      BaseResponse<AgentSimpleResponse> baseResponse = BaseResponse.fromJson(
-        response.data,
-        (json) => AgentSimpleResponse.fromJson({'data': json}),
-      );
-      return baseResponse.data?.data ?? [];
-    } catch (e) {
-      logger.e(e);
-    }
-  }
-
-  // ignore: prefer_typing_uninitialized_variables
-  var future;
-
-  @override
-  void initState() {
-    super.initState();
-    future = initData();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(agentSimpleListProvider);
     return SizedBox(
       width: 15,
       height: 15,
-      child: FutureBuilder(
-        future: future,
-        builder: (c, s) {
-          if (s.connectionState == ConnectionState.done) {
-            if (s.hasData) {
-              return DropdownButton2<AgentSimple>(
-                customButton: const Icon(
-                  Icons.settings,
-                  size: 15,
-                  color: Colors.black,
-                ),
-                items:
-                    (s.data! as List<AgentSimple>).map((e) {
-                      logger.d(e.name);
-                      return DropdownMenuItem<AgentSimple>(
-                        value: e,
-                        child: Tooltip(
-                          message: e.name,
-                          waitDuration: Duration(milliseconds: 500),
-                          child: Row(
-                            spacing: 5,
-                            children: [
-                              Icon(
+      child: asyncData.when(
+        data: (data) {
+          return DropdownButton2<AgentSimple>(
+            customButton: const Icon(
+              Icons.settings,
+              size: 15,
+              color: Colors.black,
+            ),
+            items:
+                data.map((e) {
+                  logger.d(e.name);
+                  return DropdownMenuItem<AgentSimple>(
+                    value: e,
+                    child: Tooltip(
+                      message: e.name,
+                      waitDuration: Duration(milliseconds: 500),
+                      child: Row(
+                        spacing: 5,
+                        children: [
+                          Icon(
+                            e.isRecommended == 1 ? Icons.check : Icons.error,
+                            size: Styles.datatableIconSize,
+                            color:
                                 e.isRecommended == 1
-                                    ? Icons.check
-                                    : Icons.error,
-                                size: Styles.datatableIconSize,
-                                color:
-                                    e.isRecommended == 1
-                                        ? Colors.green
-                                        : Colors.amber,
-                              ),
-                              Text(
-                                e.name,
-                                style: TextStyle(fontSize: 12),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                                    ? Colors.green
+                                    : Colors.amber,
                           ),
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (value) async {
-                  if (value == null) {
-                    return;
-                  }
+                          Text(
+                            e.name,
+                            style: TextStyle(fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+            onChanged: (value) async {
+              if (value == null) {
+                return;
+              }
 
-                  /// TODO:  do something
-                  /// FIXME: 应该从后端获取访问参数列表，暂时先前端定制
-                  ref
-                      .read(annotationNotifierProvider.notifier)
-                      .handleAgent(value.id, stream: false);
-                },
-                menuItemStyleData: MenuItemStyleData(
-                  height: 30,
-                  padding: const EdgeInsets.only(left: 16, right: 16),
-                ),
-                dropdownStyleData: DropdownStyleData(
-                  width: 200,
-                  // maxHeight: 35,
-                  // padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.white,
-                  ),
-                  offset: const Offset(0, 8),
-                ),
-              );
-            } else {
-              return Icon(Icons.error);
-            }
-          }
-          return CircularProgressIndicator();
+              /// TODO:  do something
+              /// FIXME: 应该从后端获取访问参数列表，暂时先前端定制
+              ref
+                  .read(annotationNotifierProvider.notifier)
+                  .handleAgent(value.id, stream: false);
+            },
+            menuItemStyleData: MenuItemStyleData(
+              height: 30,
+              padding: const EdgeInsets.only(left: 16, right: 16),
+            ),
+            dropdownStyleData: DropdownStyleData(
+              width: 200,
+              // maxHeight: 35,
+              // padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                color: Colors.white,
+              ),
+              offset: const Offset(0, 8),
+            ),
+          );
+        },
+        error: (e, s) => Icon(Icons.error),
+        loading: () {
+          return const CircularProgressIndicator();
         },
       ),
     );
   }
 }
+
+final agentSimpleListProvider = FutureProvider<List<AgentSimple>>((ref) async {
+  final dio = DioClient().instance;
+  final response = await dio.get(Api.aetherAgentSimpleList);
+
+  final baseResponse = BaseResponse.fromJson(
+    response.data,
+    (json) => AgentSimpleResponse.fromJson({'data': json}),
+  );
+
+  return baseResponse.data?.data ?? [];
+}, name: "agentSimpleListProvider");

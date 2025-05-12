@@ -42,4 +42,7 @@ public class Agent {
 
   @TableField(value = "is_recommended")
   Integer isRecommended;
+
+  @TableField(value = "module")
+  String module;
 }

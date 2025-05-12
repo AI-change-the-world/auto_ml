@@ -17,6 +17,14 @@ class LabelScreen extends ConsumerStatefulWidget {
 }
 
 class _LabelScreenState extends ConsumerState<LabelScreen> {
+  late final Widget _cachedDropDownButton;
+
+  @override
+  void initState() {
+    super.initState();
+    _cachedDropDownButton = LayoutIcons(onIconSelected: (_) {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final current = ref.watch(currentDatasetAnnotationNotifierProvider);
@@ -66,7 +74,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
       child: Column(
         spacing: 10,
         children: [
-          SizedBox(height: 20, child: LayoutIcons(onIconSelected: (type) {})),
+          SizedBox(height: 20, child: _cachedDropDownButton),
           Expanded(
             child: Row(
               spacing: 10,
