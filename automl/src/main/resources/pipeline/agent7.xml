@@ -28,8 +28,8 @@
         <aether>
             <task>save result</task>
             <modelId></modelId>
-            <inputType></inputType>
-            <inputKey></inputKey>
+            <inputType>eval response</inputType>
+            <inputKey>item</inputKey>
             <extra>
                 <entry key="annotation_id" type="num">${annotation_id}</entry>
             </extra>

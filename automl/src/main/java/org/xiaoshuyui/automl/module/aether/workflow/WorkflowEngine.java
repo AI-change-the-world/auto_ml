@@ -34,24 +34,24 @@ public class WorkflowEngine {
     }
   }
 
-  public void run(Integer startId, boolean sync) {
-    if (sync) {
-      run(startId);
-    } else {
-      new Thread(
-              () -> {
-                Integer currentStep = startId;
+  // public void run(Integer startId, boolean sync) {
+  // if (sync) {
+  // run(startId);
+  // } else {
+  // new Thread(
+  // () -> {
+  // Integer currentStep = startId;
 
-                while (currentStep != null) {
-                  WorkflowStep step = steps.get(currentStep);
-                  System.out.println("Running step: " + step.getAetherConfig());
-                  runStep(step);
-                  currentStep = step.getNextStepId();
-                }
-              })
-          .start();
-    }
-  }
+  // while (currentStep != null) {
+  // WorkflowStep step = steps.get(currentStep);
+  // System.out.println("Running step: " + step.getAetherConfig());
+  // runStep(step);
+  // currentStep = step.getNextStepId();
+  // }
+  // })
+  // .start();
+  // }
+  // }
 
   public void run(Integer startId, Consumer<Object> callback) {
     Integer currentStep = startId;

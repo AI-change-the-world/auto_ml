@@ -93,4 +93,6 @@ class Api {
   static final String aetherAgentSimpleList = "/aether/agent/list/simple";
 
   static final String agent = "/aether/workflow/auto-label";
+
+  static final String annotationDataset = "/aether/workflow/auto-label/dataset";
 }

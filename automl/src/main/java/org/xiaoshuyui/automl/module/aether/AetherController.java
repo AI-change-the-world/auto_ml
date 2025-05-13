@@ -14,12 +14,15 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.xiaoshuyui.automl.common.PageRequest;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.common.SseResponse;
+import org.xiaoshuyui.automl.module.aether.entity.Agent;
 import org.xiaoshuyui.automl.module.aether.service.AgentService;
 import org.xiaoshuyui.automl.module.aether.workflow.Pipeline;
 import org.xiaoshuyui.automl.module.aether.workflow.PipelineParser;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowContext;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowEngine;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
+import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
+import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.service.DatasetService;
 import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
 import org.xiaoshuyui.automl.module.task.entity.Task;
@@ -36,17 +39,19 @@ public class AetherController {
   private final AgentService agentService;
   private final DatasetService datasetService;
   private final TaskService taskService;
+  private final AnnotationService annotationService;
 
   public AetherController(
       AetherClient aetherClient,
       AgentService agentService,
       DatasetService datasetService,
-      TaskService taskService) {
+      TaskService taskService, AnnotationService annotationService) {
     System.out.println("✅ AetherController loaded");
     this.aetherClient = aetherClient;
     this.agentService = agentService;
     this.datasetService = datasetService;
     this.taskService = taskService;
+    this.annotationService = annotationService;
   }
 
   @PostMapping("/agent/list")
@@ -78,6 +83,43 @@ public class AetherController {
     }
 
     return Result.OK_data(res);
+  }
+
+  @PostMapping("workflow/auto-label/dataset")
+  public Result aetherAutoLabelDatasetWorkflow(@RequestBody Map<String, Object> request) {
+    log.info("request:  " + request);
+    var agentId = (Integer) request.get("agentId");
+    if (agentId == null) {
+      return Result.error("agent not found");
+    }
+    Agent agent = agentService.getById((long) agentId);
+    Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
+    WorkflowContext context = new WorkflowContext();
+    int annotationId = (int) request.get("annotationId");
+    // String imgPath = (String) request.get("imgPath");
+    int datasetId = (Integer) request.getOrDefault("datasetId", -1);
+    var dataset = datasetService.get((long) datasetId);
+
+    Task taskEntity = new Task();
+    taskEntity.setAnnotationId((long) annotationId);
+    taskEntity.setDatasetId((long) datasetId);
+    taskEntity.setTaskType(pipeline.getName());
+    taskService.newTask(taskEntity);
+
+    context.put("annotation_id", annotationId);
+    context.put("taskId", taskEntity.getTaskId());
+    context.put("sync", pipeline.getSync());
+    context.put("agentId", agentId);
+    context.put("imgPath", dataset.getLocalS3StoragePath());
+
+    Thread thread = new Thread(() -> {
+      List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+      WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+      workflowEngine.run(1);
+    });
+    thread.start();
+
+    return Result.OK_msg("Task Created");
   }
 
   @PostMapping("/workflow/auto-label")
@@ -168,8 +210,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -213,8 +254,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -253,8 +293,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -300,8 +339,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);

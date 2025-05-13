@@ -1,4 +1,5 @@
 import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/modify_annotation_classes_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
@@ -146,9 +147,25 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   ),
                 ),
                 InkWell(
-                  onTap: () async {},
+                  onTap: () async {
+                    DioClient().instance
+                        .post(
+                          Api.annotationDataset,
+                          data: {
+                            "datasetId": annotation.datasetId,
+                            "annotationId": annotation.id,
+                            // TODO: agentId
+                            "agentId": 7,
+                          },
+                        )
+                        .then((v) {
+                          final BaseResponse<dynamic> bs =
+                              BaseResponse<dynamic>.fromJson(v.data, (d) {});
+                          ToastUtils.info(null, title: bs.message ?? "Error");
+                        });
+                  },
                   child: Tooltip(
-                    message: "Annotate",
+                    message: "Auto Annotate",
                     child: Icon(
                       Icons.square_outlined,
                       size: Styles.datatableIconSize,
