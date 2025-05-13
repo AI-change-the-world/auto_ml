@@ -9,12 +9,12 @@ class Dataset {
   final String description;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final int type;
+  int type;
   final double ranking;
   final int storageType;
-  final String url;
-  final String username;
-  final String password;
+  String? url;
+  String? username;
+  String? password;
   final int scanStatus;
   final int fileCount;
   final String? sampleFilePath;
@@ -25,12 +25,12 @@ class Dataset {
     required this.description,
     required this.createdAt,
     required this.updatedAt,
-    required this.type,
+    this.type = 0,
     required this.ranking,
     required this.storageType,
-    required this.url,
-    required this.username,
-    required this.password,
+    this.url,
+    this.username,
+    this.password,
     required this.scanStatus,
     required this.fileCount,
     required this.sampleFilePath,

@@ -124,6 +124,17 @@ async def train(req: TrainRequest, db: Session = Depends(get_db)):
     from yolo.train import train
 
     task = get_task(db, req.task_id)
+    if (
+        task.dataset_id == 0
+        or task.annotation_id == 0
+        or task.dataset_id is None
+        or task.annotation_id is None
+    ):
+        return create_response(
+            status=400,
+            message="dataset id is 0",
+            data=None,
+        )
     dataset = get_dataset(db, task.dataset_id)
     annotation = get_annotation(db, task.annotation_id)
 

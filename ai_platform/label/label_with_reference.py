@@ -140,4 +140,6 @@ def label_with_reference(
             results.append(p)
         except Exception:
             continue
-    return PredictResults(results=results, image_id=target_image)
+    return PredictResults(
+        results=results, image_id=target_image, image_height=h, image_width=w
+    )

@@ -23,8 +23,10 @@ public class LabelWithRefAction extends WorkflowAction {
     request.setInput(input);
 
     AetherRequest.Meta meta = new AetherRequest.Meta();
-    meta.setTaskId(System.currentTimeMillis());
-    meta.setSync(true);
+    Long taskId = (Long) context.getOrDefault("taskId", System.currentTimeMillis());
+    meta.setTaskId(taskId);
+    Boolean sync = (Boolean) context.getOrDefault("sync", true);
+    meta.setSync(sync);
     request.setMeta(meta);
 
     request.setExtra(config.getExtra(context));

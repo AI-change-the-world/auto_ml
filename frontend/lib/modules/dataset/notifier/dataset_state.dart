@@ -59,11 +59,11 @@ class Dataset {
       updatedAt: d.updatedAt.toLocal().toString(),
       type: getType(d.type),
       ranking: d.ranking,
-      datasetPath: d.url,
+      datasetPath: d.url ?? "Unknown",
       labelPath: "",
       storageType: d.storageType,
-      username: d.username,
-      password: d.password,
+      username: d.username ?? "",
+      password: d.password ?? "",
       scanStatus: d.scanStatus,
     );
   }

@@ -15,9 +15,8 @@ public class Task {
   @TableId(value = "task_id", type = IdType.AUTO)
   private Long taskId;
 
-  /** 0 train ;1 eval; 2 eval dataset; 3 others */
   @TableField("task_type")
-  private Integer taskType;
+  private String taskType;
 
   /** dataset id */
   @TableField("dataset_id")

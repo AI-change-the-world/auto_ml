@@ -106,9 +106,9 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
           DataCell(Text(annotation.id.toString(), style: defaultTextStyle)),
           DataCell(
             Tooltip(
-              message: annotation.annotationPath.toString(),
+              message: annotation.annotationSavePath.toString(),
               child: Text(
-                annotation.annotationPath.toString(),
+                annotation.annotationSavePath.toString(),
                 style: defaultTextStyle,
                 maxLines: 1,
                 softWrap: true,

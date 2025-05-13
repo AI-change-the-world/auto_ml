@@ -29,6 +29,7 @@ Annotation _$AnnotationFromJson(Map<String, dynamic> json) => Annotation(
       createdAt: DateTime.parse(json['createdAt'] as String),
       classItems: json['classItems'] as String?,
       annotationPath: json['annotationPath'] as String?,
+      annotationSavePath: json['annotationSavePath'] as String?,
     );
 
 Map<String, dynamic> _$AnnotationToJson(Annotation instance) =>
@@ -41,4 +42,5 @@ Map<String, dynamic> _$AnnotationToJson(Annotation instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'classItems': instance.classItems,
       'annotationPath': instance.annotationPath,
+      'annotationSavePath': instance.annotationSavePath,
     };

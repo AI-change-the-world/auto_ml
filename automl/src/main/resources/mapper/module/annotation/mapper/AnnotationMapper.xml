@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="org.xiaoshuyui.automl.module.annotation.mapper.AnnotationMapper">
-
     <select id="getAnnotationsByDatasetId" resultType="org.xiaoshuyui.automl.module.annotation.entity.Annotation"
             parameterType="java.lang.Long">
         SELECT
@@ -12,7 +11,7 @@
             a.created_at AS createdAt,
             a.is_deleted AS isDeleted,
             a.class_items AS classItems,
-            a.annotation_path AS annotationPath
+            a.annotation_save_path AS annotationSavePath
         FROM annotation a
         WHERE a.dataset_id = #{datasetId}
           AND a.is_deleted = 0

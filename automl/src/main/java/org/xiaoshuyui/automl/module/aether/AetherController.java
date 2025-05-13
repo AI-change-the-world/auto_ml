@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +20,10 @@ import org.xiaoshuyui.automl.module.aether.workflow.PipelineParser;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowContext;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowEngine;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
+import org.xiaoshuyui.automl.module.dataset.service.DatasetService;
 import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
+import org.xiaoshuyui.automl.module.task.entity.Task;
+import org.xiaoshuyui.automl.module.task.service.TaskService;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
 import org.xiaoshuyui.automl.util.SseUtil;
@@ -32,11 +34,19 @@ import org.xiaoshuyui.automl.util.SseUtil;
 public class AetherController {
   private final AetherClient aetherClient;
   private final AgentService agentService;
+  private final DatasetService datasetService;
+  private final TaskService taskService;
 
-  public AetherController(AetherClient aetherClient, AgentService agentService) {
+  public AetherController(
+      AetherClient aetherClient,
+      AgentService agentService,
+      DatasetService datasetService,
+      TaskService taskService) {
     System.out.println("✅ AetherController loaded");
     this.aetherClient = aetherClient;
     this.agentService = agentService;
+    this.datasetService = datasetService;
+    this.taskService = taskService;
   }
 
   @PostMapping("/agent/list")
@@ -120,30 +130,32 @@ public class AetherController {
 
     SseEmitter emitter = new SseEmitter(3600 * 1000L);
 
-    Executors.newSingleThreadExecutor().execute(() -> {
-      SseResponse sseResponse = new SseResponse();
-      sseResponse.setDone(false);
-      sseResponse.setStatus("Running");
-      sseResponse.setMessage("Start pipeline ...");
-      SseUtil.sseSend(emitter, sseResponse);
+    Executors.newSingleThreadExecutor()
+        .execute(
+            () -> {
+              SseResponse sseResponse = new SseResponse();
+              sseResponse.setDone(false);
+              sseResponse.setStatus("Running");
+              sseResponse.setMessage("Start pipeline ...");
+              SseUtil.sseSend(emitter, sseResponse);
 
-      switch (agentId.toString()) {
-        case "1":
-          aetherAutoLabelWorkflowImplStream(
-              (Integer) request.get("annotationId"),
-              (String) request.get("imgPath"),
-              agentId,
-              emitter,
-              sseResponse);
-          break;
+              switch (agentId.toString()) {
+                case "1":
+                  aetherAutoLabelWorkflowImplStream(
+                      (Integer) request.get("annotationId"),
+                      (String) request.get("imgPath"),
+                      agentId,
+                      emitter,
+                      sseResponse);
+                  break;
 
-        default:
-          sseResponse.setMessage("agent not support");
-          sseResponse.setDone(true);
-          SseUtil.sseSend(emitter, sseResponse);
-          emitter.complete();
-      }
-    });
+                default:
+                  sseResponse.setMessage("agent not support");
+                  sseResponse.setDone(true);
+                  SseUtil.sseSend(emitter, sseResponse);
+                  emitter.complete();
+              }
+            });
 
     return emitter;
   }
@@ -156,10 +168,25 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
+
+    Task taskEntity = new Task();
+    taskEntity.setTaskType(pipeline.getName());
+
+    var dataset = datasetService.findDatasetByDataPath(imgPath);
+    if (dataset != null) {
+      taskEntity.setDatasetId(dataset.getId());
+    }
+    taskEntity.setAnnotationId((long) annotationId);
+    taskService.newTask(taskEntity);
+
+    context.put("taskId", taskEntity.getTaskId());
+    context.put("sync", pipeline.getSync());
+
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
     workflowEngine.run(1);
 
@@ -172,9 +199,9 @@ public class AetherController {
     return Result.OK_data(res);
   }
 
-  // 流式实现
-  private void aetherAutoLabelWorkflowImplStream(int annotationId, String imgPath, int agentId, SseEmitter emitter,
-      SseResponse response) {
+  // TODO : 流式实现
+  private void aetherAutoLabelWorkflowImplStream(
+      int annotationId, String imgPath, int agentId, SseEmitter emitter, SseResponse response) {
     var agent = agentService.getById((long) agentId);
     if (agent == null) {
       response.setMessage("agent not found");
@@ -186,15 +213,18 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-    workflowEngine.run(1, (v) -> {
-      response.setData(v);
-      SseUtil.sseSend(emitter, response);
-    });
+    workflowEngine.run(
+        1,
+        (v) -> {
+          response.setData(v);
+          SseUtil.sseSend(emitter, response);
+        });
 
     var res = context.get(pipeline.getOutputKey());
     log.debug("detect result: " + res);
@@ -223,11 +253,26 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
     context.put("template_image", templateImage);
+
+    Task taskEntity = new Task();
+    taskEntity.setTaskType(pipeline.getName());
+
+    var dataset = datasetService.findDatasetByDataPath(imgPath);
+    if (dataset != null) {
+      taskEntity.setDatasetId(dataset.getId());
+    }
+    taskEntity.setAnnotationId((long) annotationId);
+    taskService.newTask(taskEntity);
+
+    context.put("taskId", taskEntity.getTaskId());
+    context.put("sync", pipeline.getSync());
+
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
     workflowEngine.run(1);
 
@@ -255,7 +300,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -264,6 +310,20 @@ public class AetherController {
     context.put("top", top);
     context.put("right", right);
     context.put("bottom", bottom);
+
+    Task taskEntity = new Task();
+    taskEntity.setTaskType(pipeline.getName());
+
+    var dataset = datasetService.findDatasetByDataPath(imgPath);
+    if (dataset != null) {
+      taskEntity.setDatasetId(dataset.getId());
+    }
+    taskEntity.setAnnotationId((long) annotationId);
+    taskService.newTask(taskEntity);
+
+    context.put("taskId", taskEntity.getTaskId());
+    context.put("sync", pipeline.getSync());
+
     WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
     workflowEngine.run(1);
 
@@ -277,6 +337,7 @@ public class AetherController {
   }
 
   @PostMapping("/auto-find-similar")
+  @Deprecated(since = "unused")
   public Result aetherAutoFindSimilar(@RequestBody FindSimilarObjectRequest request) {
     log.info("AetherController.aetherAutoLabel");
     Map<String, Object> params = new HashMap<>();
@@ -292,6 +353,7 @@ public class AetherController {
     extra.put("right", request.getRight());
     extra.put("bottom", request.getBottom());
     params.put("extra", extra);
+
     var res = aetherClient.invoke("find similar", params, 1L, PredictSingleImageResponse.class);
 
     if (res == null) {

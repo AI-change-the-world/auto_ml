@@ -13,7 +13,7 @@ DatasetFileResponse _$DatasetFileResponseFromJson(Map<String, dynamic> json) =>
       files: (json['files'] as List<dynamic>).map((e) => e as String).toList(),
       datasetType: (json['datasetType'] as num).toInt(),
       storageType: (json['storageType'] as num).toInt(),
-      datasetBaseUrl: json['datasetBaseUrl'] as String,
+      datasetBaseUrl: json['datasetBaseUrl'] as String?,
     );
 
 Map<String, dynamic> _$DatasetFileResponseToJson(

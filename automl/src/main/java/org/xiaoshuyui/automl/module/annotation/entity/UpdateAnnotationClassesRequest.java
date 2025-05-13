@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class UpdateAnnotationClassesRequest {
-    String classes;
-    Long id;
+  String classes;
+  Long id;
 }

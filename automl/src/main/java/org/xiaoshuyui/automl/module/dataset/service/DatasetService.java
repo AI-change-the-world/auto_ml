@@ -184,4 +184,39 @@ public class DatasetService {
       log.error("update count error: {}", e.getMessage());
     }
   }
+
+  public Dataset findDatasetByDataPath(String path) {
+    if (path == null || path.isEmpty()) {
+      return null;
+    }
+
+    var datasetName = removeFilenameIfHasExtension(path);
+
+    log.info("datasetName: {}", datasetName);
+
+    if (datasetName == null || datasetName.isEmpty()) {
+      return null;
+    }
+    return datasetMapper.selectOne(
+        new QueryWrapper<Dataset>().like("local_s3_storage_path", datasetName));
+  }
+
+  public static String removeFilenameIfHasExtension(String path) {
+    if (path == null || path.isEmpty()) return path;
+
+    // 去掉结尾的 `/`，避免误判目录
+    String cleanPath = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
+
+    int lastSlash = cleanPath.lastIndexOf('/');
+    if (lastSlash == -1) return path;
+
+    String lastSegment = cleanPath.substring(lastSlash + 1);
+
+    // 如果最后一段包含“.”，且不是以“.”开头，认为是文件名
+    if (lastSegment.contains(".") && !lastSegment.startsWith(".")) {
+      return cleanPath.substring(0, lastSlash);
+    }
+
+    return path;
+  }
 }

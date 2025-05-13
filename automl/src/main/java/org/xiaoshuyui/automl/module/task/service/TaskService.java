@@ -65,7 +65,7 @@ public class TaskService {
 
   public void newDatasetEvalationTask(Long datasetId, Long annotationId) {
     Task task = new Task();
-    task.setTaskType(2);
+    task.setTaskType("test");
     task.setDatasetId(datasetId);
     task.setAnnotationId(annotationId);
 
@@ -86,9 +86,13 @@ public class TaskService {
     t.start();
   }
 
+  public void newTask(Task task) {
+    taskMapper.insert(task);
+  }
+
   public void newTrainTask(NewTrainingTaskRequest entity) {
     Task task = new Task();
-    task.setTaskType(0);
+    task.setTaskType("train");
     task.setDatasetId(entity.getDatasetId());
     task.setAnnotationId(entity.getAnnotationId());
     task.setTaskConfig(gson.toJson(entity));

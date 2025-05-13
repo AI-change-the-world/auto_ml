@@ -9,7 +9,7 @@ class DatasetFileResponse {
   final List<String> files;
   final int datasetType;
   final int storageType;
-  final String datasetBaseUrl;
+  String? datasetBaseUrl;
 
   DatasetFileResponse({
     required this.datasetId,
@@ -17,7 +17,7 @@ class DatasetFileResponse {
     required this.files,
     required this.datasetType,
     required this.storageType,
-    required this.datasetBaseUrl,
+    this.datasetBaseUrl,
   });
 
   factory DatasetFileResponse.fromJson(Map<String, dynamic> json) =>

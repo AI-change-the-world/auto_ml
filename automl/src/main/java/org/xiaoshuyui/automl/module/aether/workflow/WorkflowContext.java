@@ -16,6 +16,10 @@ public class WorkflowContext {
     return data.get(key);
   }
 
+  public Object getOrDefault(String key, Object defaultVal) {
+    return data.getOrDefault(key, defaultVal);
+  }
+
   public void print() {
     for (Map.Entry<String, Object> entry : data.entrySet()) {
       System.out.println(entry.getKey() + " = " + entry.getValue());
