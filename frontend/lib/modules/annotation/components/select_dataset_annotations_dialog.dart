@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/notifiers/select_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -47,7 +48,7 @@ class _SelectDatasetAnnotationsDialogState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Select dataset: ",
+                          "${t.annotation_screen.select_dataset}: ",
                           style: Styles.defaultButtonTextStyleGrey,
                         ),
                         Expanded(
@@ -108,7 +109,7 @@ class _SelectDatasetAnnotationsDialogState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Select annotation: ",
+                          "${t.annotation_screen.select_annotation}:",
                           style: Styles.defaultButtonTextStyleGrey,
                         ),
                         Expanded(

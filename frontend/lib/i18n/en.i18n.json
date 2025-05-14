@@ -3,11 +3,31 @@
         "not_selected": "Dataset or label is not selected",
         "select": "Select"
     },
+    "refresh": "Refresh",
+    "table": {
+        "createat": "Created At",
+        "updateat": "Updated At",
+        "operation": "Operation"
+    },
     "dataset_screen": {
         "confirm": "Confirm",
         "files": {
             "file_details": {
                 "empty": "No dataset selected"
+            }
+        },
+        "table": {
+            "id": "Dataset Id",
+            "name": "Dataset Name",
+            "details": "Details",
+            "annotations": "Annotations",
+            "count": "Count",
+            "status": "Status",
+            "preview": "Preview",
+            "annotation": {
+                "id": "Id",
+                "path": "Annotation Path",
+                "type": "Type"
             }
         }
     },
@@ -16,7 +36,10 @@
         "label": "Label",
         "annotation": "Annotation",
         "tool_model": "Tool Model",
-        "predict": "Predict"
+        "predict": "Predict",
+        "agent": "Aether Agent",
+        "task": "task",
+        "deploy": "Deploy"
     },
     "route": {
         "back_to_main": "Back to Main",
@@ -31,11 +54,14 @@
             "file_list": "File List",
             "empty": "Dateset is empty",
             "prev": "Prev",
-            "next": "Next"
+            "next": "Next",
+            "annotation_list": "Annotation List"
         },
         "image_board": {
             "empty": "No image"
-        }
+        },
+        "select_dataset": "Select Dataset",
+        "select_annotation": "Select Annotation"
     },
     "dialogs": {
         "modify_dataset": {
@@ -68,6 +94,34 @@
         }
     },
     "predict_screen": {
-        "upload": "Upload"
+        "upload": "Upload",
+        "id": "Id",
+        "name": "File Name",
+        "type": "File Type",
+        "uploaded": "Uploaded"
+    },
+    "agent_screen": {
+        "id": "Id",
+        "name": "Name",
+        "description": "Description",
+        "module": "Module",
+        "recommend": "Recommend"
+    },
+    "task_screen": {
+        "id": "Id",
+        "type": "Type",
+        "dataset_id": "Dataset Id",
+        "annotation_id": "Annotation Id",
+        "status": "Status"
+    },
+    "deploy_screen": {
+        "id": "Id",
+        "model_path": "Model Path",
+        "base_model": "Base Model",
+        "dataset_id": "Dataset Id",
+        "annotation_id": "Annotation Id",
+        "Epoch": "Epoch",
+        "Loss": "Loss",
+        "status": "Status"
     }
 }

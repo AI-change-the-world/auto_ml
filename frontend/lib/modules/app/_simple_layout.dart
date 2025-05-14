@@ -158,14 +158,14 @@ class SimpleLayoutShell extends StatelessWidget {
         icon: const Icon(Icons.rocket, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.rocket),
         index: 3,
-        title: "Aether Agent",
+        title: t.sidebar.agent,
         route: "/aether/agent",
       ),
       SidebarItem(
         icon: const Icon(Icons.rule, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.rule),
         index: 4,
-        title: "Task",
+        title: t.sidebar.task,
         route: "/task",
       ),
       SidebarItem(
@@ -179,7 +179,7 @@ class SimpleLayoutShell extends StatelessWidget {
         icon: const Icon(Icons.line_axis, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.line_axis),
         index: 6,
-        title: "Deploy",
+        title: t.sidebar.deploy,
         route: "/deploy",
       ),
     ]..sort((a, b) => a.index.compareTo(b.index));

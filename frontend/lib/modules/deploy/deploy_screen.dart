@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/deploy/components/predict_single_image_dialog.dart';
 import 'package:auto_ml/modules/deploy/models/available_models_response.dart';
 import 'package:auto_ml/modules/deploy/notifier/deploy_notifier.dart';
@@ -31,7 +32,7 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
                 ElevatedButton(
                   style: Styles.getDefaultButtonStyle(),
                   onPressed: () {},
-                  child: Text("Refresh", style: Styles.defaultButtonTextStyle),
+                  child: Text(t.refresh, style: Styles.defaultButtonTextStyle),
                 ),
               ],
             ),
@@ -106,47 +107,59 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
 
   late List<DataColumn> columns = [
     DataColumn2(
-      label: Text('Id', style: Styles.defaultButtonTextStyle),
+      label: Text(t.deploy_screen.id, style: Styles.defaultButtonTextStyle),
       fixedWidth: 40,
     ),
     DataColumn2(
-      label: Text('Model path', style: Styles.defaultButtonTextStyle),
+      label: Text(
+        t.deploy_screen.model_path,
+        style: Styles.defaultButtonTextStyle,
+      ),
       size: ColumnSize.L,
     ),
     DataColumn2(
-      label: Text('Base model', style: Styles.defaultButtonTextStyle),
+      label: Text(
+        t.deploy_screen.base_model,
+        style: Styles.defaultButtonTextStyle,
+      ),
       fixedWidth: 100,
     ),
     DataColumn2(
-      label: Text('Dataset id', style: Styles.defaultButtonTextStyle),
+      label: Text(
+        t.deploy_screen.dataset_id,
+        style: Styles.defaultButtonTextStyle,
+      ),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Annotation id', style: Styles.defaultButtonTextStyle),
+      label: Text(
+        t.deploy_screen.annotation_id,
+        style: Styles.defaultButtonTextStyle,
+      ),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Epoch', style: Styles.defaultButtonTextStyle),
+      label: Text(t.deploy_screen.Epoch, style: Styles.defaultButtonTextStyle),
       fixedWidth: 60,
     ),
     DataColumn2(
-      label: Text('Loss', style: Styles.defaultButtonTextStyle),
+      label: Text(t.deploy_screen.Loss, style: Styles.defaultButtonTextStyle),
       fixedWidth: 60,
     ),
     DataColumn2(
-      label: Text('Created at', style: Styles.defaultButtonTextStyle),
+      label: Text(t.table.createat, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Updated at', style: Styles.defaultButtonTextStyle),
+      label: Text(t.table.updateat, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Status', style: Styles.defaultButtonTextStyle),
+      label: Text(t.deploy_screen.status, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Operations', style: Styles.defaultButtonTextStyle),
+      label: Text(t.table.operation, style: Styles.defaultButtonTextStyle),
       fixedWidth: 120,
     ),
   ];

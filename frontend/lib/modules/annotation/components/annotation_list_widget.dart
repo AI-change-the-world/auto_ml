@@ -26,7 +26,7 @@ class AnnotationListWidget extends ConsumerWidget {
         spacing: 10,
         children: [
           Text(
-            "Annotation List",
+            t.annotation_screen.list.annotation_list,
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           Expanded(

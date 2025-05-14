@@ -50,7 +50,7 @@ class DatasetFileDetails extends ConsumerWidget {
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: "Current count: ",
+                                text: "${t.dataset_screen.table.count}: ",
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -115,7 +115,7 @@ class DatasetFileDetails extends ConsumerWidget {
                       TextSpan(
                         children: [
                           TextSpan(
-                            text: "Status: ",
+                            text: "${t.dataset_screen.table.status}: ",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -137,7 +137,7 @@ class DatasetFileDetails extends ConsumerWidget {
                   TextSpan(
                     children: [
                       TextSpan(
-                        text: "Preview: ",
+                        text: "${t.dataset_screen.table.preview}: ",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,

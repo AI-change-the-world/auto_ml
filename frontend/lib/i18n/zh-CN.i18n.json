@@ -3,11 +3,31 @@
         "not_selected": "数据集或标注未选择",
         "select": "选择..."
     },
+    "refresh": "刷新",
+    "table": {
+        "createat": "创建时间",
+        "updateat": "更新时间",
+        "operation": "操作"
+    },
     "dataset_screen": {
         "confirm": "确认",
         "files": {
             "file_details": {
                 "empty": "未选择数据集"
+            }
+        },
+        "table": {
+            "id": "数据集编号",
+            "name": "数据集名称",
+            "details": "数据集详情",
+            "annotations": "标注集",
+            "count": "数据集数量",
+            "status": "状态",
+            "preview": "预览",
+            "annotation": {
+                "id": "编号",
+                "path": "标注集路径",
+                "type": "标注类型"
             }
         }
     },
@@ -20,7 +40,10 @@
         "label": "标注",
         "annotation": "标注",
         "tool_model": "工具",
-        "predict": "测试"
+        "predict": "测试",
+        "agent": "Aether智能体",
+        "task": "任务",
+        "deploy": "部署"
     },
     "annotation_screen": {
         "list_widget": {
@@ -31,11 +54,14 @@
             "file_list": "文件列表",
             "empty": "数据集为空",
             "prev": "前一个",
-            "next": "后一个"
+            "next": "后一个",
+            "annotation_list": "标注列表"
         },
         "image_board": {
             "empty": "无数据"
-        }
+        },
+        "select_dataset": "选择数据集",
+        "select_annotation": "选择标注集"
     },
     "dialogs": {
         "modify_dataset": {
@@ -68,6 +94,34 @@
         }
     },
     "predict_screen": {
-        "upload": "上传"
+        "upload": "上传",
+        "id": "编号",
+        "name": "文件名",
+        "type": "文件类型",
+        "uploaded": "上传于"
+    },
+    "agent_screen": {
+        "id": "编号",
+        "name": "名称",
+        "description": "描述",
+        "module": "关联模块",
+        "recommend": "是否推荐"
+    },
+    "task_screen": {
+        "id": "编号",
+        "type": "任务类型",
+        "dataset_id": "数据集编号",
+        "annotation_id": "标注集编号",
+        "status": "状态"
+    },
+    "deploy_screen": {
+        "id": "编号",
+        "model_path": "模型存储路径",
+        "base_model": "基础模型",
+        "dataset_id": "数据集编号",
+        "annotation_id": "标注集编号",
+        "Epoch": "训练轮数",
+        "Loss": "损失",
+        "status": "状态"
     }
 }
