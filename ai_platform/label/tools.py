@@ -1,6 +1,7 @@
 import base64
 import io
 import re
+import traceback
 from typing import List
 
 import cv2
@@ -214,7 +215,7 @@ def parse_response(response: str, classes: List[str]):
         try:
             class_part, rest = line.split(":", 1)
             box_part, conf_part = rest.strip().split("[confidence:")
-            x, y, w, h = map(int, box_part.strip("() ").split(","))
+            x, y, w, h = map(float, box_part.strip("() ").split(","))
             conf = float(conf_part.strip(" ]"))
             # detection = Detection
             # b = Box(x1=x, y1=y, x2=w +x, y2=h+y)
@@ -229,6 +230,7 @@ def parse_response(response: str, classes: List[str]):
             )
             results.append(p)
         except Exception:
+            traceback.print_exc()
             continue
     return results
 

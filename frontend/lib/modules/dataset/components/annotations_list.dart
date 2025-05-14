@@ -242,6 +242,9 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                             .then((v) {
                               if (v.statusCode == 200) {
                                 ToastUtils.success(null, title: "修改成功");
+                                ref
+                                    .read(annotationListProvider.notifier)
+                                    .updateData();
                               } else {
                                 ToastUtils.error(null, title: "修改失败");
                               }

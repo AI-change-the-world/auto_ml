@@ -3,11 +3,12 @@ package org.xiaoshuyui.automl.module.aether.workflow.action;
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
 import com.google.gson.reflect.TypeToken;
-
 import java.lang.reflect.Type;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
-import org.xiaoshuyui.automl.config.S3ConfigProperties;
+import org.xiaoshuyui.automl.module.aether.entity.AetherRequest;
 import org.xiaoshuyui.automl.module.aether.entity.AetherResponse;
 import org.xiaoshuyui.automl.module.aether.workflow.AetherWorkflowConfig;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowAction;
@@ -15,23 +16,17 @@ import org.xiaoshuyui.automl.module.aether.workflow.WorkflowContext;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
-import org.xiaoshuyui.automl.util.S3FileDelegate;
 import org.xiaoshuyui.automl.util.SpringContextUtil;
 
 @Slf4j
-public class SaveAnnotationToS3Action extends WorkflowAction {
-
-  private final S3FileDelegate s3FileDelegate;
-  private final S3ConfigProperties s3ConfigProperties;
-  private final AnnotationService annotationService;
-
-  public SaveAnnotationToS3Action() {
-    this.s3FileDelegate = SpringContextUtil.getBean(S3FileDelegate.class);
-    this.s3ConfigProperties = SpringContextUtil.getBean(S3ConfigProperties.class);
-    this.annotationService = SpringContextUtil.getBean(AnnotationService.class);
-  }
+public class CheckAnnotationAction extends WorkflowAction {
 
   static final Gson gson = new Gson();
+  private final AnnotationService annotationService;
+
+  public CheckAnnotationAction() {
+    this.annotationService = SpringContextUtil.getBean(AnnotationService.class);
+  }
 
   public void execute(WorkflowStep step, WorkflowContext context) {
     var annotationId = (Integer) context.get("annotation_id");
@@ -45,7 +40,8 @@ public class SaveAnnotationToS3Action extends WorkflowAction {
       log.error("annotation not found");
       return;
     }
-    String annotationSavePath = annotation.getAnnotationSavePath();
+    List<String> annotationClasses = List.of(annotation.getClassItems().split(";"));
+
     AetherWorkflowConfig config = step.getAetherConfig();
     log.info("config.getInputKey()   :" + config.getInputKey());
     // AetherResponse<PredictSingleImageResponse> response =
@@ -57,8 +53,7 @@ public class SaveAnnotationToS3Action extends WorkflowAction {
     if (raw instanceof LinkedTreeMap) {
       // 先反序列化外层
       String json = gson.toJson(raw);
-      Type type = new TypeToken<AetherResponse<Object>>() {
-      }.getType();
+      Type type = new TypeToken<AetherResponse<Object>>() {}.getType();
       tempResponse = gson.fromJson(json, type);
     } else {
       tempResponse = (AetherResponse<?>) raw;
@@ -66,15 +61,34 @@ public class SaveAnnotationToS3Action extends WorkflowAction {
 
     // 手动反序列化内部 output 字段
     String outputJson = gson.toJson(tempResponse.getOutput());
-    PredictSingleImageResponse realOutput = gson.fromJson(outputJson, PredictSingleImageResponse.class);
+    PredictSingleImageResponse realOutput =
+        gson.fromJson(outputJson, PredictSingleImageResponse.class);
+    String annotations = realOutput.toYoloAnnotation(annotationClasses);
 
-    List<String> l = List.of(realOutput.getImage_id().split("/"));
-    // List.getLast() 方式估计要求版本比较高，无法适用
-    String imageName = l.get(l.size() - 1).substring(0, l.get(l.size() - 1).lastIndexOf("."));
-    String annotationSaveFilePath = annotationSavePath + "/" + imageName + ".txt";
-    String yoloContent = realOutput.toYoloAnnotation();
-    log.info("yolo content ====> " + yoloContent);
-    s3FileDelegate.putFile(
-        annotationSaveFilePath, yoloContent, s3ConfigProperties.getDatasetsBucketName());
+    // context.put(config.getInputKey(), realOutput.getImage_id());
+    // context.put("annotations", annotations);
+
+    AetherRequest<Object> request = new AetherRequest<>();
+    request.setTask(config.getTask());
+    request.setModelId(config.getModelId());
+    AetherRequest.Input input = new AetherRequest.Input();
+    input.setData(realOutput.getImage_id());
+    input.setDataType(config.getInputType());
+    request.setInput(input);
+
+    AetherRequest.Meta meta = new AetherRequest.Meta();
+    Long taskId = (Long) context.getOrDefault("taskId", System.currentTimeMillis());
+    meta.setTaskId(taskId);
+    Boolean sync = (Boolean) context.getOrDefault("sync", true);
+    meta.setSync(sync);
+    request.setMeta(meta);
+
+    Map<String, Object> extra = new HashMap<>();
+    extra.put("annotations", annotations);
+    extra.put("annotation_id", annotationId);
+
+    request.setExtra(extra);
+    AetherResponse<?> result = aetherClient.invoke(request, Object.class);
+    context.put(step.getId() + "_result", result);
   }
 }

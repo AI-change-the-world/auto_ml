@@ -70,4 +70,22 @@ public class PredictSingleImageResponse {
 
     return sb.toString().trim(); // 去除最后一个换行符
   }
+
+  public String toYoloAnnotation(List<String> classes) {
+    StringBuilder sb = new StringBuilder();
+
+    for (PredictSingleImageResponse.Result result : this.getResults()) {
+      PredictSingleImageResponse.Box box = result.getBox();
+
+      double x1 = box.getX1();
+      double y1 = box.getY1();
+      double x2 = box.getX2();
+      double y2 = box.getY2();
+
+      String formatter = "%s: (%f, %f, %f, %f) [confidence: %.6f]\n";
+      sb.append(String.format(formatter, result.getName(), x1, y1, x2, y2, result.getConfidence()));
+    }
+
+    return sb.toString().trim(); // 去除最后一个换行符
+  }
 }

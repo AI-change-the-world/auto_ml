@@ -8,7 +8,7 @@ from Aether import AetherRequest, AetherResponse, ResponseMeta
 from base.logger import logger
 from base.nacos_config import get_db
 from db.annotation.annotation_crud import get_annotation
-from db.task.task_crud import get_task, update_task
+from db.task.task_crud import get_task
 from db.task_log.task_log_crud import create_log
 from db.task_log.task_log_schema import TaskLogCreate
 from db.tool_model.tool_model_crud import get_tool_model
@@ -65,7 +65,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                     log_content=f"[post-task] eval done",
                 )
                 create_log(db, tlc)
-                update_task(db, req.meta.task_id, {"status": 3})
+                # update_task(db, req.meta.task_id, {"status": 3})
             return response
         elif req.task == "label in batches":
             from label.multi_label_image_annotate import annotation_multi_class_image
@@ -84,7 +84,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                     log_content=f"[on task] merge results ...",
                 )
                 create_log(db, tlc)
-                update_task(db, req.meta.task_id, {"status": 3})
+                # update_task(db, req.meta.task_id, {"status": 3})
             response = AetherResponse[PredictResults](
                 success=True,
                 output=res,
@@ -100,7 +100,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                     log_content=f"[post-task] eval done",
                 )
                 create_log(db, tlc)
-                update_task(db, req.meta.task_id, {"status": 3})
+                # update_task(db, req.meta.task_id, {"status": 3})
             return response
         elif req.task == "find similar":
             from label.find_similar import find_similar
@@ -140,7 +140,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                     log_content=f"[post-task] eval done",
                 )
                 create_log(db, tlc)
-                update_task(db, req.meta.task_id, {"status": 3})
+                # update_task(db, req.meta.task_id, {"status": 3})
             return response
         elif req.task == "label with reference":
             from label.label_with_reference import label_with_reference
@@ -169,7 +169,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                     log_content=f"[post-task] eval done",
                 )
                 create_log(db, tlc)
-                update_task(db, req.meta.task_id, {"status": 3})
+                # update_task(db, req.meta.task_id, {"status": 3})
             return response
         elif req.task == "label with gd":
             from label.label_with_gd import label_with_gd
@@ -199,7 +199,36 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
                     log_content=f"[post-task] eval done",
                 )
                 create_log(db, tlc)
-                update_task(db, req.meta.task_id, {"status": 3})
+                # update_task(db, req.meta.task_id, {"status": 3})
+            return response
+        elif req.task == "check annotation":
+            from label.check_annotation import check_annotation
+            tool_model = get_tool_model(db, req.model_id)
+            annotation = get_annotation(db, req.extra.get("annotation_id"))
+            classes = str(annotation.class_items).split(";")
+            annotations = req.extra.get("annotations")
+            res = check_annotation(
+                img=req.input.data,
+                classes=classes,
+                annotations= str(annotations),
+                tool_model=tool_model,
+            )
+            # logger.info(f"check annotation res : {res.model_dump_json()}")
+            response = AetherResponse[PredictResults](
+                success=True,
+                output=res,
+                meta=ResponseMeta(
+                    time_cost_ms=int((time.time() - start_time) * 1000),
+                    task_id=req.meta.task_id,
+                ),
+                error=None,
+            )
+            if task_available:
+                tlc = TaskLogCreate(
+                    task_id=req.meta.task_id,
+                    log_content=f"[post-task] check annotations done",
+                )
+                create_log(db, tlc)
             return response
         else:
             res = AetherResponse(

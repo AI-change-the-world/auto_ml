@@ -21,11 +21,11 @@ import org.xiaoshuyui.automl.module.aether.workflow.PipelineParser;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowContext;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowEngine;
 import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
-import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.service.DatasetService;
 import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
 import org.xiaoshuyui.automl.module.task.entity.Task;
+import org.xiaoshuyui.automl.module.task.service.TaskLogService;
 import org.xiaoshuyui.automl.module.task.service.TaskService;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
@@ -40,18 +40,21 @@ public class AetherController {
   private final DatasetService datasetService;
   private final TaskService taskService;
   private final AnnotationService annotationService;
+  private final TaskLogService taskLogService;
 
   public AetherController(
       AetherClient aetherClient,
       AgentService agentService,
       DatasetService datasetService,
-      TaskService taskService, AnnotationService annotationService) {
+      TaskService taskService,
+      AnnotationService annotationService, TaskLogService taskLogService) {
     System.out.println("✅ AetherController loaded");
     this.aetherClient = aetherClient;
     this.agentService = agentService;
     this.datasetService = datasetService;
     this.taskService = taskService;
     this.annotationService = annotationService;
+    this.taskLogService = taskLogService;
   }
 
   @PostMapping("/agent/list")
@@ -112,11 +115,13 @@ public class AetherController {
     context.put("agentId", agentId);
     context.put("imgPath", dataset.getLocalS3StoragePath());
 
-    Thread thread = new Thread(() -> {
-      List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
-      WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-      workflowEngine.run(1);
-    });
+    Thread thread = new Thread(
+        () -> {
+          List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+          WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+          workflowEngine.run(1);
+          taskLogService.save(taskEntity.getTaskId(), "[post task] done");
+        });
     thread.start();
 
     return Result.OK_msg("Task Created");
