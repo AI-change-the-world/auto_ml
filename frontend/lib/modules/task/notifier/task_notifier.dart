@@ -70,6 +70,80 @@ class TaskNotifier extends AutoDisposeAsyncNotifier<TaskState> {
       return TaskState();
     }
   }
+
+  nextPage(int totalPage) async {
+    if (state.value!.pageId == totalPage) {
+      return;
+    }
+
+    state = await AsyncValue.guard(() async {
+      try {
+        PaginateRequest paginateRequest = PaginateRequest(
+          pageId: state.value!.pageId + 1,
+          pageSize: 10,
+        );
+        final response = await dioInstance.post(
+          Api.taskList,
+          data: paginateRequest.toJson(),
+        );
+
+        final bs = BaseResponse<BasePageResult<Task>>.fromJson(
+          response.data,
+          (d) => BasePageResult.fromJson(d as Map<String, dynamic>, (j) {
+            return Task.fromJson(j);
+          }),
+        );
+
+        return TaskState(
+          pageId: state.value!.pageId + 1,
+          tasks: bs.data?.records ?? [],
+          total: bs.data?.total ?? 0,
+        );
+      } catch (e, s) {
+        logger.e(e);
+        logger.e(s);
+        ToastUtils.error(null, title: "Get Task Error");
+        return TaskState();
+      }
+    });
+  }
+
+  prevPage() async {
+    if (state.value!.pageId == 1) {
+      return;
+    }
+
+    state = await AsyncValue.guard(() async {
+      try {
+        PaginateRequest paginateRequest = PaginateRequest(
+          pageId: state.value!.pageId - 1,
+          pageSize: 10,
+        );
+        final response = await dioInstance.post(
+          Api.taskList,
+          data: paginateRequest.toJson(),
+        );
+
+        final bs = BaseResponse<BasePageResult<Task>>.fromJson(
+          response.data,
+          (d) => BasePageResult.fromJson(d as Map<String, dynamic>, (j) {
+            return Task.fromJson(j);
+          }),
+        );
+
+        return TaskState(
+          pageId: state.value!.pageId - 1,
+          tasks: bs.data?.records ?? [],
+          total: bs.data?.total ?? 0,
+        );
+      } catch (e, s) {
+        logger.e(e);
+        logger.e(s);
+        ToastUtils.error(null, title: "Get Task Error");
+        return TaskState();
+      }
+    });
+  }
 }
 
 final taskNotifierProvider =

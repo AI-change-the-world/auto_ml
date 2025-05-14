@@ -91,6 +91,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
             child: Builder(
               builder: (c) {
                 final state = ref.watch(taskNotifierProvider);
+
                 return state.when(
                   loading:
                       () => const Center(child: CircularProgressIndicator()),
@@ -98,6 +99,10 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                       (err, stack) =>
                           Center(child: Center(child: Text("Error: $err"))),
                   data: (data) {
+                    int totolPages =
+                        data.total % 10 == 0
+                            ? data.total ~/ data.pageSize
+                            : data.total ~/ data.pageSize + 1;
                     return Column(
                       spacing: 10,
                       children: [
@@ -117,7 +122,11 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                             spacing: 20,
                             children: [
                               TextButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  ref
+                                      .read(taskNotifierProvider.notifier)
+                                      .prevPage();
+                                },
                                 child: Text(
                                   'Previous',
                                   style: Styles.defaultButtonTextStyle,
@@ -125,14 +134,18 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                               ),
 
                               TextButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  ref
+                                      .read(taskNotifierProvider.notifier)
+                                      .nextPage(totolPages);
+                                },
                                 child: Text(
                                   'Next',
                                   style: Styles.defaultButtonTextStyle,
                                 ),
                               ),
                               Text(
-                                "Page ${data.pageId} of ${data.total ~/ data.pageSize + 1}",
+                                "Page ${data.pageId} of $totolPages",
                                 style: Styles.defaultButtonTextStyle,
                               ),
                             ],

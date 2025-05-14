@@ -7,9 +7,9 @@ import groundingdino.datasets.transforms as T
 import numpy as np
 import torch
 from groundingdino.util.inference import load_model, predict
-from torchvision.ops import box_convert
 from openai import OpenAI
 from PIL import Image
+from torchvision.ops import box_convert
 
 from base.file_delegate import get_operator, s3_properties
 from base.logger import logger
@@ -48,6 +48,7 @@ def _tensor_to_predict_results(
     height,
     width,
     classes: List[str],
+    image_save_path: str = "test.png",
 ) -> PredictResults:
     logits_list = logits.tolist()
     logger.info(f"classes: {classes}")
@@ -71,9 +72,16 @@ def _tensor_to_predict_results(
                 box=box,
             )
         )
-    return PredictResults(image_id="test.png", results=results)
+    return PredictResults(
+        image_id=image_save_path,
+        results=results,
+        image_height=height,
+        image_width=width,
+    )
+
 
 global_activated_model = {}
+
 
 class ProvidedModelClient:
     def __init__(
@@ -103,14 +111,22 @@ class ProvidedModelClient:
         else:
             self.model = None
 
-    def predict(self, image: bytes, classes: List[str]) -> Union[PredictResults, None]:
+    def predict(
+        self, image: bytes, image_save_path: str, classes: List[str]
+    ) -> Union[PredictResults, None]:
         if self.model_type == ProvidedModelEnum.yolo:
             img_data = bytes_to_image(image)
+            h, w = img_data.shape[:2]
             detections = self.model(img_data)
             if len(detections) == 0:
-                return PredictResults.from_data([], img="test.png")
+                return PredictResults.from_data(
+                    [], img=image_save_path, image_height=h, image_width=w
+                )
             return PredictResults.from_data(
-                json.loads(detections[0].to_json()), img="test.png"
+                json.loads(detections[0].to_json()),
+                img=image_save_path,
+                image_height=h,
+                image_width=w,
             )
         elif self.model_type == ProvidedModelEnum.gd:
             image_source, image_tensor = load_image(image)
@@ -125,7 +141,13 @@ class ProvidedModelClient:
             )
             h, w = image_source.shape[:2]
             return _tensor_to_predict_results(
-                boxes, logits, phrases, height=h, width=w, classes=classes
+                boxes,
+                logits,
+                phrases,
+                height=h,
+                width=w,
+                classes=classes,
+                image_save_path=image_save_path,
             )
         else:
             return None

@@ -15,6 +15,10 @@ public class WorkflowStep {
   private Integer nextStepId;
   private String outputKey;
   private String outputKeyType;
+  private boolean loop;
+  private String loopVar;
+  private String inputKey;
+  private String inputKeyType;
 
   public static WorkflowStep fromConfig(WorkflowStepConfig config) {
     return WorkflowStep.builder()
@@ -25,6 +29,10 @@ public class WorkflowStep {
         .nextStepId(config.getNext())
         .outputKey(config.getOutputKey())
         .outputKeyType(config.getOutputType())
+        .loop(config.getLoop())
+        .loopVar(config.getLoopVar())
+        .inputKey(config.getInputKey())
+        .inputKeyType(config.getInputType())
         .build();
   }
 }

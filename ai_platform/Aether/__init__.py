@@ -1,7 +1,8 @@
 from typing import Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
-from pydantic.generics import GenericModel
+
+# from pydantic.generics import GenericModel
 
 T = TypeVar("T")
 
@@ -16,7 +17,7 @@ class RequestMeta(BaseModel):
     sync: bool
 
 
-class AetherRequest(GenericModel, Generic[T]):
+class AetherRequest(BaseModel, Generic[T]):
     task: str
     model_id: int = Field(..., alias="model_id")
     input: Input
@@ -29,7 +30,7 @@ class ResponseMeta(BaseModel):
     task_id: Optional[int] = Field(None, alias="task_id")
 
 
-class AetherResponse(GenericModel, Generic[T]):
+class AetherResponse(BaseModel, Generic[T]):
     success: bool
     output: Optional[T] = None
     meta: ResponseMeta

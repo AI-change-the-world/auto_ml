@@ -2,6 +2,7 @@ import base64
 from io import BytesIO
 from typing import Any, List, Tuple, Union
 
+import cv2
 import numpy as np
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -157,10 +158,12 @@ def annotation_multi_class_image(
     tool_model = get_tool_model(db, tool_model_id)
     annotation = get_annotation(db, annotation_id)
     img_bytes = op.read(img)
+    _img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+    h, w = _img.shape[:2]
     classes = str(annotation.class_items).split(";")
     # TODO remove this logic
     # if classes.__len__() > 10:
     #     classes = classes[:10]
     annotator = MultiClassImageAnnotator(tool_model, classes=classes)
     res = annotator.annotate(img_bytes)
-    return PredictResults(image_id=img, results=res)
+    return PredictResults(image_id=img, results=res, image_height=h, image_width=w)

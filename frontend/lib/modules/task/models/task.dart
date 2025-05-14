@@ -18,9 +18,9 @@ class TaskResponse {
 @JsonSerializable()
 class Task {
   int taskId;
-  int taskType;
-  int datasetId;
-  int annotationId;
+  String taskType;
+  int? datasetId;
+  int? annotationId;
   String createdAt;
   String updatedAt;
   int status;

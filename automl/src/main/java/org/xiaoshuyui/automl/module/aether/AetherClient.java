@@ -41,6 +41,7 @@ public class AetherClient {
   /*
    * params : {"data":str,"data_type":str,"extra":map}
    */
+  @Deprecated(since = "use  `invoke(AetherRequest request, Class<R> outputClass)` ")
   public <T, R> AetherResponse<R> invoke(
       String task, Map<String, Object> params, Long modelId, Class<R> outputClass) {
     AetherRequest<Map<String, Object>> request = new AetherRequest<>();
@@ -52,14 +53,12 @@ public class AetherClient {
 
     AetherRequest.Meta meta = new AetherRequest.Meta();
     meta.setSync(true);
-    // TODO create new task
-    meta.setTaskId(System.currentTimeMillis());
-    request.setMeta(meta);
 
     // 设置 extra 可选参数
     if (params.containsKey("extra")) {
       request.setExtra((Map<String, Object>) params.get("extra"));
     }
+    request.setMeta(meta);
 
     // Serialize request
     String requestJson = gson.toJson(request);

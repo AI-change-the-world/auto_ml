@@ -172,5 +172,5 @@ def agent_label_img(
     res = completion.choices[0].message.content
     logger.info(res)
     l = parse_response(res, classes)
-    return PredictResults(image_id=img_name, results=l)
+    return PredictResults(image_id=img_name, results=l, image_height=h, image_width=w)
     # return result_to_label(completion.choices[0].message.content, img_data, h=h, w=w)

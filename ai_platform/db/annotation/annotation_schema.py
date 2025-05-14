@@ -16,4 +16,4 @@ class AnnotationOut(BaseModel):
     storage_type: Optional[int]
 
     class Config:
-        orm_mode = True
+        from_attributes = True

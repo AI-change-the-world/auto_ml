@@ -63,13 +63,17 @@ def predict_result_from_detections(detections: Detections) -> List[PredictResult
 class PredictResults(BaseModel):
     image_id: str
     results: list[PredictResult]
+    image_width: int
+    image_height: int
 
     def __str__(self):
         return str(self.results)
 
     @classmethod
-    def from_data(cls, data: list, img: str):
-        p: PredictResults = PredictResults(image_id=img, results=[])
+    def from_data(cls, data: list, img: str, image_width: int, image_height: int):
+        p: PredictResults = PredictResults(
+            image_id=img, results=[], image_width=image_width, image_height=image_height
+        )
         for r in data:
             p.results.append(PredictResult.from_dict(r))
 

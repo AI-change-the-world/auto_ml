@@ -16,11 +16,27 @@ public class Pipeline {
   @XmlAttribute(name = "outputKey")
   private String outputKey;
 
+  @XmlAttribute(name = "name")
+  private String name;
+
+  @XmlElement(name = "sync")
+  private Boolean sync;
+
   public List<WorkflowStepConfig> getSteps() {
     return steps;
   }
 
   public String getOutputKey() {
     return outputKey;
+  }
+
+  public String getName() {
+    if (name == null) return "label image";
+    return name;
+  }
+
+  public Boolean getSync() {
+    if (sync == null) return true;
+    return sync;
   }
 }

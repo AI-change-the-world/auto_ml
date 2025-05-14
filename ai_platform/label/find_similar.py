@@ -98,6 +98,7 @@ def find_similar(
 
     # 绘制白色矩形框（BGR = (255, 255, 255)）
     img = cv2.rectangle(img, pt1, pt2, color=(255, 255, 255), thickness=2)
+    h, w = img.shape[:2]
     # b64 = base64.b64encode(file_bytes).decode("utf-8")
     b64 = cv2_to_base64(img)
     b64_with_header = f"data:image/png;base64,{b64}"
@@ -129,4 +130,4 @@ def find_similar(
         obj_class=classes.index(label) if label in classes else -1,
         name=label,
     )
-    return PredictResults(image_id="test.png", results=l)
+    return PredictResults(image_id=save_path, results=l, image_width=w, image_height=h)

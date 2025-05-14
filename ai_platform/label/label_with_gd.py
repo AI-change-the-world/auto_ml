@@ -13,5 +13,5 @@ def label_with_gd(img_path:str, classes: List[str], tool_model: ToolModel) -> Un
     logger.info(f"label_with_gd model ; model is None : {model is None}  {type(model)}")
     assert model is not None and  isinstance(model, ProvidedModelClient)
     img_data = op.read(img_path)
-    res = model.predict(img_data, classes)
+    res = model.predict(image= img_data, image_save_path= img_path, classes= classes)
     return res

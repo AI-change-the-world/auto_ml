@@ -19,9 +19,9 @@ Map<String, dynamic> _$TaskResponseToJson(TaskResponse instance) =>
 
 Task _$TaskFromJson(Map<String, dynamic> json) => Task(
       taskId: (json['taskId'] as num).toInt(),
-      taskType: (json['taskType'] as num).toInt(),
-      datasetId: (json['datasetId'] as num).toInt(),
-      annotationId: (json['annotationId'] as num).toInt(),
+      taskType: json['taskType'] as String,
+      datasetId: (json['datasetId'] as num?)?.toInt(),
+      annotationId: (json['annotationId'] as num?)?.toInt(),
       createdAt: json['createdAt'] as String,
       updatedAt: json['updatedAt'] as String,
       status: (json['status'] as num).toInt(),

@@ -17,4 +17,4 @@ class ToolModelOut(BaseModel):
     model_save_path: str | None = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

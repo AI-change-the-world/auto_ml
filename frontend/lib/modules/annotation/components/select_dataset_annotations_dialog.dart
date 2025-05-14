@@ -133,7 +133,7 @@ class _SelectDatasetAnnotationsDialogState
                                 child: Text(
                                   data
                                           .anntations[data.currentDatasetId]?[i]
-                                          .annotationPath ??
+                                          .annotationSavePath ??
                                       "",
                                   maxLines: 1,
                                   softWrap: true,

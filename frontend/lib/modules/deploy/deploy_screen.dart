@@ -39,6 +39,10 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
           Expanded(
             child: state.when(
               data: (data) {
+                int totolPages =
+                    data.total % 10 == 0
+                        ? data.total ~/ data.pageSize
+                        : data.total ~/ data.pageSize + 1;
                 return Column(
                   spacing: 10,
                   children: [
@@ -75,7 +79,7 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
                             ),
                           ),
                           Text(
-                            "Page ${data.pageId} of ${data.total ~/ data.pageSize + 1}",
+                            "Page ${data.pageId} of $totolPages",
                             style: Styles.defaultButtonTextStyle,
                           ),
                         ],

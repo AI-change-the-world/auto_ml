@@ -115,7 +115,9 @@ class CurrentDatasetAnnotationNotifier
         isLoading: false,
         classes: a.data?.classes ?? [],
       );
-    } catch (e) {
+    } catch (e, s) {
+      logger.e(e);
+      logger.e(s);
       state = CurrentDatasetAnnotationState();
     }
   }

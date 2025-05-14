@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class TaskOut(BaseModel):
     task_id: int
-    task_type: int
+    task_type: str
     dataset_id: int
     annotation_id: int
     created_at: datetime
@@ -13,4 +13,4 @@ class TaskOut(BaseModel):
     status: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True

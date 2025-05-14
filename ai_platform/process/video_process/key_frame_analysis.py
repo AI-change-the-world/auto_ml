@@ -451,7 +451,9 @@ async def deep_describe_frame(frame_path: str, tool_model: ToolModel, prompt: st
         yield "[DONE]"
 
 
-def deep_describe_frame_sync(frame_path: str, tool_model: ToolModel, prompt: str)-> str:
+def deep_describe_frame_sync(
+    frame_path: str, tool_model: ToolModel, prompt: str
+) -> str:
     if tool_model is None:
         return "tool_model is None"
 

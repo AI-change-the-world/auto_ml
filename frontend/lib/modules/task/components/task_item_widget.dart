@@ -3,8 +3,7 @@ import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/task/models/task.dart';
 import 'package:auto_ml/modules/task/models/task_log_response.dart';
 import 'package:auto_ml/modules/task/utils/task_log_utils.dart';
-import 'package:auto_ml/utils/conversion_util.dart'
-    show taskTypeToString, taskStatusToString;
+import 'package:auto_ml/utils/conversion_util.dart' show taskStatusToString;
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -83,7 +82,7 @@ class _TaskItemWidgetState extends ConsumerState<TaskItemWidget> {
                       flex: 2,
                       child: Center(
                         child: Text(
-                          taskTypeToString(widget.task.taskType),
+                          widget.task.taskType,
                           style: defaultTextStyle,
                         ),
                       ),

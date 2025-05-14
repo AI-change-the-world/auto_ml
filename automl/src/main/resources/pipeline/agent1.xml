@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<pipeline outputKey="1_result">
+<pipeline outputKey="1_result" name="label-image" sync="true">
     <step id="1" name="label-image">
         <action class="org.xiaoshuyui.automl.module.aether.workflow.action.LabelImageAction"/>
         <aether>
