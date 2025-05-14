@@ -40,12 +40,17 @@ class Translations implements BaseTranslations<AppLocale, Translations> {
 
 	// Translations
 	late final TranslationsLabelScreenEn label_screen = TranslationsLabelScreenEn._(_root);
+	String get refresh => 'Refresh';
+	late final TranslationsTableEn table = TranslationsTableEn._(_root);
 	late final TranslationsDatasetScreenEn dataset_screen = TranslationsDatasetScreenEn._(_root);
 	late final TranslationsSidebarEn sidebar = TranslationsSidebarEn._(_root);
 	late final TranslationsRouteEn route = TranslationsRouteEn._(_root);
 	late final TranslationsAnnotationScreenEn annotation_screen = TranslationsAnnotationScreenEn._(_root);
 	late final TranslationsDialogsEn dialogs = TranslationsDialogsEn._(_root);
 	late final TranslationsPredictScreenEn predict_screen = TranslationsPredictScreenEn._(_root);
+	late final TranslationsAgentScreenEn agent_screen = TranslationsAgentScreenEn._(_root);
+	late final TranslationsTaskScreenEn task_screen = TranslationsTaskScreenEn._(_root);
+	late final TranslationsDeployScreenEn deploy_screen = TranslationsDeployScreenEn._(_root);
 }
 
 // Path: label_screen
@@ -59,6 +64,18 @@ class TranslationsLabelScreenEn {
 	String get select => 'Select';
 }
 
+// Path: table
+class TranslationsTableEn {
+	TranslationsTableEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get createat => 'Created At';
+	String get updateat => 'Updated At';
+	String get operation => 'Operation';
+}
+
 // Path: dataset_screen
 class TranslationsDatasetScreenEn {
 	TranslationsDatasetScreenEn._(this._root);
@@ -68,6 +85,7 @@ class TranslationsDatasetScreenEn {
 	// Translations
 	String get confirm => 'Confirm';
 	late final TranslationsDatasetScreenFilesEn files = TranslationsDatasetScreenFilesEn._(_root);
+	late final TranslationsDatasetScreenTableEn table = TranslationsDatasetScreenTableEn._(_root);
 }
 
 // Path: sidebar
@@ -82,6 +100,9 @@ class TranslationsSidebarEn {
 	String get annotation => 'Annotation';
 	String get tool_model => 'Tool Model';
 	String get predict => 'Predict';
+	String get agent => 'Aether Agent';
+	String get task => 'task';
+	String get deploy => 'Deploy';
 }
 
 // Path: route
@@ -105,6 +126,8 @@ class TranslationsAnnotationScreenEn {
 	late final TranslationsAnnotationScreenListWidgetEn list_widget = TranslationsAnnotationScreenListWidgetEn._(_root);
 	late final TranslationsAnnotationScreenListEn list = TranslationsAnnotationScreenListEn._(_root);
 	late final TranslationsAnnotationScreenImageBoardEn image_board = TranslationsAnnotationScreenImageBoardEn._(_root);
+	String get select_dataset => 'Select Dataset';
+	String get select_annotation => 'Select Annotation';
 }
 
 // Path: dialogs
@@ -127,6 +150,55 @@ class TranslationsPredictScreenEn {
 
 	// Translations
 	String get upload => 'Upload';
+	String get id => 'Id';
+	String get name => 'File Name';
+	String get type => 'File Type';
+	String get uploaded => 'Uploaded';
+}
+
+// Path: agent_screen
+class TranslationsAgentScreenEn {
+	TranslationsAgentScreenEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get id => 'Id';
+	String get name => 'Name';
+	String get description => 'Description';
+	String get module => 'Module';
+	String get recommend => 'Recommend';
+}
+
+// Path: task_screen
+class TranslationsTaskScreenEn {
+	TranslationsTaskScreenEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get id => 'Id';
+	String get type => 'Type';
+	String get dataset_id => 'Dataset Id';
+	String get annotation_id => 'Annotation Id';
+	String get status => 'Status';
+}
+
+// Path: deploy_screen
+class TranslationsDeployScreenEn {
+	TranslationsDeployScreenEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get id => 'Id';
+	String get model_path => 'Model Path';
+	String get base_model => 'Base Model';
+	String get dataset_id => 'Dataset Id';
+	String get annotation_id => 'Annotation Id';
+	String get Epoch => 'Epoch';
+	String get Loss => 'Loss';
+	String get status => 'Status';
 }
 
 // Path: dataset_screen.files
@@ -137,6 +209,23 @@ class TranslationsDatasetScreenFilesEn {
 
 	// Translations
 	late final TranslationsDatasetScreenFilesFileDetailsEn file_details = TranslationsDatasetScreenFilesFileDetailsEn._(_root);
+}
+
+// Path: dataset_screen.table
+class TranslationsDatasetScreenTableEn {
+	TranslationsDatasetScreenTableEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get id => 'Dataset Id';
+	String get name => 'Dataset Name';
+	String get details => 'Details';
+	String get annotations => 'Annotations';
+	String get count => 'Count';
+	String get status => 'Status';
+	String get preview => 'Preview';
+	late final TranslationsDatasetScreenTableAnnotationEn annotation = TranslationsDatasetScreenTableAnnotationEn._(_root);
 }
 
 // Path: annotation_screen.list_widget
@@ -161,6 +250,7 @@ class TranslationsAnnotationScreenListEn {
 	String get empty => 'Dateset is empty';
 	String get prev => 'Prev';
 	String get next => 'Next';
+	String get annotation_list => 'Annotation List';
 }
 
 // Path: annotation_screen.image_board
@@ -232,6 +322,18 @@ class TranslationsDatasetScreenFilesFileDetailsEn {
 	String get empty => 'No dataset selected';
 }
 
+// Path: dataset_screen.table.annotation
+class TranslationsDatasetScreenTableAnnotationEn {
+	TranslationsDatasetScreenTableAnnotationEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get id => 'Id';
+	String get path => 'Annotation Path';
+	String get type => 'Type';
+}
+
 /// Flat map(s) containing all translations.
 /// Only for edge cases! For simple maps, use the map function of this library.
 extension on Translations {
@@ -239,13 +341,30 @@ extension on Translations {
 		switch (path) {
 			case 'label_screen.not_selected': return 'Dataset or label is not selected';
 			case 'label_screen.select': return 'Select';
+			case 'refresh': return 'Refresh';
+			case 'table.createat': return 'Created At';
+			case 'table.updateat': return 'Updated At';
+			case 'table.operation': return 'Operation';
 			case 'dataset_screen.confirm': return 'Confirm';
 			case 'dataset_screen.files.file_details.empty': return 'No dataset selected';
+			case 'dataset_screen.table.id': return 'Dataset Id';
+			case 'dataset_screen.table.name': return 'Dataset Name';
+			case 'dataset_screen.table.details': return 'Details';
+			case 'dataset_screen.table.annotations': return 'Annotations';
+			case 'dataset_screen.table.count': return 'Count';
+			case 'dataset_screen.table.status': return 'Status';
+			case 'dataset_screen.table.preview': return 'Preview';
+			case 'dataset_screen.table.annotation.id': return 'Id';
+			case 'dataset_screen.table.annotation.path': return 'Annotation Path';
+			case 'dataset_screen.table.annotation.type': return 'Type';
 			case 'sidebar.dataset': return 'Dataset';
 			case 'sidebar.label': return 'Label';
 			case 'sidebar.annotation': return 'Annotation';
 			case 'sidebar.tool_model': return 'Tool Model';
 			case 'sidebar.predict': return 'Predict';
+			case 'sidebar.agent': return 'Aether Agent';
+			case 'sidebar.task': return 'task';
+			case 'sidebar.deploy': return 'Deploy';
 			case 'route.back_to_main': return 'Back to Main';
 			case 'route.nothing': return 'Woops! There is nothing here.';
 			case 'annotation_screen.list_widget.empty': return 'annotations is empty';
@@ -254,7 +373,10 @@ extension on Translations {
 			case 'annotation_screen.list.empty': return 'Dateset is empty';
 			case 'annotation_screen.list.prev': return 'Prev';
 			case 'annotation_screen.list.next': return 'Next';
+			case 'annotation_screen.list.annotation_list': return 'Annotation List';
 			case 'annotation_screen.image_board.empty': return 'No image';
+			case 'annotation_screen.select_dataset': return 'Select Dataset';
+			case 'annotation_screen.select_annotation': return 'Select Annotation';
 			case 'dialogs.modify_dataset.basic': return 'Basic Info';
 			case 'dialogs.modify_dataset.dataset_name': return 'Dataset Name*';
 			case 'dialogs.modify_dataset.dataset_type': return 'Dataset Type';
@@ -278,6 +400,28 @@ extension on Translations {
 			case 'dialogs.new_model.model_name': return 'Model Name';
 			case 'dialogs.new_model.description': return 'Description';
 			case 'predict_screen.upload': return 'Upload';
+			case 'predict_screen.id': return 'Id';
+			case 'predict_screen.name': return 'File Name';
+			case 'predict_screen.type': return 'File Type';
+			case 'predict_screen.uploaded': return 'Uploaded';
+			case 'agent_screen.id': return 'Id';
+			case 'agent_screen.name': return 'Name';
+			case 'agent_screen.description': return 'Description';
+			case 'agent_screen.module': return 'Module';
+			case 'agent_screen.recommend': return 'Recommend';
+			case 'task_screen.id': return 'Id';
+			case 'task_screen.type': return 'Type';
+			case 'task_screen.dataset_id': return 'Dataset Id';
+			case 'task_screen.annotation_id': return 'Annotation Id';
+			case 'task_screen.status': return 'Status';
+			case 'deploy_screen.id': return 'Id';
+			case 'deploy_screen.model_path': return 'Model Path';
+			case 'deploy_screen.base_model': return 'Base Model';
+			case 'deploy_screen.dataset_id': return 'Dataset Id';
+			case 'deploy_screen.annotation_id': return 'Annotation Id';
+			case 'deploy_screen.Epoch': return 'Epoch';
+			case 'deploy_screen.Loss': return 'Loss';
+			case 'deploy_screen.status': return 'Status';
 			default: return null;
 		}
 	}

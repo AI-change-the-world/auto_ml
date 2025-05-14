@@ -149,21 +149,24 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
   );
 
   List<DataColumn2> get columns => [
-    DataColumn2(label: Text('Id', style: defaultTextStyle2), fixedWidth: 40),
     DataColumn2(
-      label: Text('File Name', style: defaultTextStyle2),
+      label: Text(t.predict_screen.id, style: defaultTextStyle2),
+      fixedWidth: 40,
+    ),
+    DataColumn2(
+      label: Text(t.predict_screen.name, style: defaultTextStyle2),
       size: ColumnSize.L,
     ),
     DataColumn2(
-      label: Text('File Type', style: defaultTextStyle2),
+      label: Text(t.predict_screen.type, style: defaultTextStyle2),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Uploaded', style: defaultTextStyle2),
+      label: Text(t.predict_screen.uploaded, style: defaultTextStyle2),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Operations', style: defaultTextStyle2),
+      label: Text(t.table.operation, style: defaultTextStyle2),
       fixedWidth: 120,
     ),
   ];

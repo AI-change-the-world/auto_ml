@@ -80,22 +80,37 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
   }
 
   late List<DataColumn> columns = [
-    DataColumn2(label: Text('Id', style: defaultTextStyle2), fixedWidth: 40),
     DataColumn2(
-      label: Text('Annotation path', style: defaultTextStyle2),
+      label: Text(
+        t.dataset_screen.table.annotation.id,
+        style: defaultTextStyle2,
+      ),
+      fixedWidth: 40,
+    ),
+    DataColumn2(
+      label: Text(
+        t.dataset_screen.table.annotation.path,
+        style: defaultTextStyle2,
+      ),
       size: ColumnSize.L,
     ),
-    DataColumn2(label: Text('Type', style: defaultTextStyle2), fixedWidth: 100),
     DataColumn2(
-      label: Text('Created at', style: defaultTextStyle2),
+      label: Text(
+        t.dataset_screen.table.annotation.type,
+        style: defaultTextStyle2,
+      ),
+      fixedWidth: 100,
+    ),
+    DataColumn2(
+      label: Text(t.table.createat, style: defaultTextStyle2),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Updated at', style: defaultTextStyle2),
+      label: Text(t.table.updateat, style: defaultTextStyle2),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Operations', style: defaultTextStyle2),
+      label: Text(t.table.operation, style: defaultTextStyle2),
       fixedWidth: 120,
     ),
   ];

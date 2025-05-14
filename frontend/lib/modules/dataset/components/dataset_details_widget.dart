@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/models/api/new_annotation_request.dart';
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
@@ -67,7 +68,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
         child: Column(
           children: [
             Text(
-              "Id: ${current?.id} Name: ${current?.name}",
+              "${t.dataset_screen.table.id}: ${current?.id}     ${t.dataset_screen.table.name}: ${current?.name}",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 5),
@@ -76,7 +77,10 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
               child: Row(
                 spacing: 10,
                 children: [
-                  ...["Details", "Annotations"].mapIndexed((i, entry) {
+                  ...[
+                    t.dataset_screen.table.details,
+                    t.dataset_screen.table.annotations,
+                  ].mapIndexed((i, entry) {
                     return Column(
                       children: [
                         SizedBox(

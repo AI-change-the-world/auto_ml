@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/aether_agent/components/pipeline_preview_dialog.dart';
 import 'package:auto_ml/modules/aether_agent/models/agent_response.dart';
 import 'package:auto_ml/modules/aether_agent/notifier/agent_notifier.dart';
@@ -31,7 +32,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                 ElevatedButton(
                   style: Styles.getDefaultButtonStyle(),
                   onPressed: () {},
-                  child: Text("Refresh", style: Styles.defaultButtonTextStyle),
+                  child: Text(t.refresh, style: Styles.defaultButtonTextStyle),
                 ),
               ],
             ),
@@ -106,35 +107,41 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
 
   late List<DataColumn> columns = [
     DataColumn2(
-      label: Text('Id', style: Styles.defaultButtonTextStyle),
+      label: Text(t.agent_screen.id, style: Styles.defaultButtonTextStyle),
       fixedWidth: 40,
     ),
     DataColumn2(
-      label: Text('Name', style: Styles.defaultButtonTextStyle),
+      label: Text(t.agent_screen.name, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Description', style: Styles.defaultButtonTextStyle),
+      label: Text(
+        t.agent_screen.description,
+        style: Styles.defaultButtonTextStyle,
+      ),
       size: ColumnSize.L,
     ),
     DataColumn2(
-      label: Text('Module', style: Styles.defaultButtonTextStyle),
+      label: Text(t.agent_screen.module, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Recommend', style: Styles.defaultButtonTextStyle),
+      label: Text(
+        t.agent_screen.recommend,
+        style: Styles.defaultButtonTextStyle,
+      ),
       size: ColumnSize.S,
     ),
     DataColumn2(
-      label: Text('Created at', style: Styles.defaultButtonTextStyle),
+      label: Text(t.table.createat, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Updated at', style: Styles.defaultButtonTextStyle),
+      label: Text(t.table.updateat, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.M,
     ),
     DataColumn2(
-      label: Text('Operations', style: Styles.defaultButtonTextStyle),
+      label: Text(t.table.operation, style: Styles.defaultButtonTextStyle),
       fixedWidth: 120,
     ),
   ];

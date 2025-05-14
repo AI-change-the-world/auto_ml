@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/task/components/task_item_widget.dart';
 import 'package:auto_ml/modules/task/notifier/task_notifier.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -26,7 +27,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                 ElevatedButton(
                   style: Styles.getDefaultButtonStyle(),
                   onPressed: () {},
-                  child: Text("Refresh", style: Styles.defaultButtonTextStyle),
+                  child: Text(t.refresh, style: Styles.defaultButtonTextStyle),
                 ),
               ],
             ),
@@ -41,20 +42,8 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                 Expanded(
                   flex: 1,
                   child: Center(
-                    child: Text("Id", style: Styles.defaultButtonTextStyle),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Center(
-                    child: Text("Type", style: Styles.defaultButtonTextStyle),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Center(
                     child: Text(
-                      "Dataset Id",
+                      t.task_screen.id,
                       style: Styles.defaultButtonTextStyle,
                     ),
                   ),
@@ -63,7 +52,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                   flex: 2,
                   child: Center(
                     child: Text(
-                      "Annotation Id",
+                      t.task_screen.type,
                       style: Styles.defaultButtonTextStyle,
                     ),
                   ),
@@ -72,7 +61,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                   flex: 2,
                   child: Center(
                     child: Text(
-                      "Created At",
+                      t.task_screen.dataset_id,
                       style: Styles.defaultButtonTextStyle,
                     ),
                   ),
@@ -80,7 +69,28 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                 Expanded(
                   flex: 2,
                   child: Center(
-                    child: Text("Status", style: Styles.defaultButtonTextStyle),
+                    child: Text(
+                      t.task_screen.annotation_id,
+                      style: Styles.defaultButtonTextStyle,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Center(
+                    child: Text(
+                      t.table.createat,
+                      style: Styles.defaultButtonTextStyle,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Center(
+                    child: Text(
+                      t.task_screen.status,
+                      style: Styles.defaultButtonTextStyle,
+                    ),
                   ),
                 ),
               ],
