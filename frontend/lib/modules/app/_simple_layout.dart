@@ -171,14 +171,14 @@ class SimpleLayoutShell extends StatelessWidget {
       SidebarItem(
         icon: const Icon(Icons.text_fields, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.text_fields),
-        index: 5,
+        index: 6,
         title: t.sidebar.predict,
         route: "/predict",
       ),
       SidebarItem(
         icon: const Icon(Icons.line_axis, color: Colors.blueAccent),
         iconInactive: const Icon(Icons.line_axis),
-        index: 6,
+        index: 5,
         title: t.sidebar.deploy,
         route: "/deploy",
       ),

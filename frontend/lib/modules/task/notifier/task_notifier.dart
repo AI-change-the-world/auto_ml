@@ -8,6 +8,7 @@ import 'package:auto_ml/modules/task/models/task.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class TaskState {
@@ -15,12 +16,14 @@ class TaskState {
   final int pageSize;
   final List<Task> tasks;
   final int total;
+  final Task? selectedTask;
 
   TaskState({
     this.pageId = 1,
     this.pageSize = 10,
     this.tasks = const [],
     this.total = 0,
+    this.selectedTask,
   });
 
   TaskState copyWith({
@@ -28,13 +31,28 @@ class TaskState {
     int? pageSize,
     List<Task>? tasks,
     int? total,
+    Task? selectedTask,
   }) {
     return TaskState(
       pageId: pageId ?? this.pageId,
       pageSize: pageSize ?? this.pageSize,
       tasks: tasks ?? this.tasks,
       total: total ?? this.total,
+      selectedTask: selectedTask,
     );
+  }
+}
+
+class TaskDrawer {
+  TaskDrawer._();
+  static GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  static showDrawer() {
+    TaskDrawer.scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  static hideDrawer() {
+    TaskDrawer.scaffoldKey.currentState?.closeEndDrawer();
   }
 }
 
@@ -142,6 +160,12 @@ class TaskNotifier extends AutoDisposeAsyncNotifier<TaskState> {
         ToastUtils.error(null, title: "Get Task Error");
         return TaskState();
       }
+    });
+  }
+
+  void changeCurrent(Task? task) async {
+    state = await AsyncValue.guard(() async {
+      return state.value!.copyWith(selectedTask: task);
     });
   }
 }

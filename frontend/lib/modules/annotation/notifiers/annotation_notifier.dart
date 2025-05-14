@@ -78,6 +78,28 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
+  changeCurrentSelectedAnnotationVisibility() {
+    state = state.copyWith(
+      annotations:
+          state.annotations.map((e) {
+            if (e.uuid == state.selectedAnnotationUuid) {
+              return e.copyWith(visible: !e.visible);
+            } else {
+              return e;
+            }
+          }).toList(),
+    );
+  }
+
+  deleteCurrentSelectedAnnotation() {
+    state = state.copyWith(
+      modified: true,
+      selectedAnnotationUuid: null,
+      annotations: List.of(state.annotations)
+        ..removeWhere((v) => v.uuid == state.selectedAnnotationUuid),
+    );
+  }
+
   changeAnnotationClassId(String uuid, int classId) {
     state = state.copyWith(
       modified: true,

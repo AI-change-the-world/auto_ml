@@ -2,6 +2,7 @@ import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/modules/aether_agent/models/agent_simple_response.dart';
 import 'package:auto_ml/modules/annotation/components/faded_text.dart';
+import 'package:auto_ml/modules/annotation/components/short_cut_dialog.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
@@ -114,6 +115,35 @@ class LayoutIcons extends ConsumerWidget {
       mainAxisAlignment: MainAxisAlignment.center,
 
       children: [
+        SizedBox(width: 1),
+        Tooltip(
+          message: 'Back',
+          child: InkWell(
+            onTap: () {
+              ref
+                  .read(currentDatasetAnnotationNotifierProvider.notifier)
+                  .changeDatasetAndAnnotation(0, 0);
+            },
+            child: Icon(Icons.chevron_left, color: Colors.black),
+          ),
+        ),
+        Tooltip(
+          message: 'Shortcuts',
+          child: InkWell(
+            onTap: () {
+              showGeneralDialog(
+                context: context,
+                barrierColor: Styles.barriarColor,
+                barrierDismissible: true,
+                barrierLabel: "ShortCutDialog",
+                pageBuilder: (c, _, __) {
+                  return Center(child: ShortCutDialog());
+                },
+              );
+            },
+            child: Icon(Icons.info, color: Colors.blue),
+          ),
+        ),
         Expanded(
           child: SizedBox(
             child: Center(

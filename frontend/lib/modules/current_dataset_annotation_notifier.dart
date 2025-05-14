@@ -80,6 +80,14 @@ class CurrentDatasetAnnotationNotifier
   }
 
   changeDatasetAndAnnotation(int datasetId, int annotationId) async {
+    if (datasetId == 0 && annotationId == 0) {
+      state = state.copyWith(
+        datasetId: datasetId,
+        annotationId: annotationId,
+        isLoading: false,
+      );
+      return;
+    }
     state = state.copyWith(isLoading: true);
     try {
       final response = await dio.get(

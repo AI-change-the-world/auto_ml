@@ -52,10 +52,40 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
     final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));
 
     return KeyboardListener(
-      onKeyEvent: (value) {
-        if (value is KeyDownEvent &&
-            value.logicalKey == LogicalKeyboardKey.keyW) {
+      onKeyEvent: (event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyS) {
+          if (ref.read(annotationNotifierProvider).modified) {
+            ref
+                .read(annotationNotifierProvider.notifier)
+                .putYoloAnnotation()
+                .then((v) {
+                  ref
+                      .read(annotationNotifierProvider.notifier)
+                      .changeModifiedStatus(v != 0);
+                  ref
+                      .read(currentDatasetAnnotationNotifierProvider.notifier)
+                      .updateDataAfterAnnotationUpdate();
+                });
+          }
+        }
+
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyW) {
           ref.read(annotationNotifierProvider.notifier).easyChangeMode();
+        }
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyH) {
+          ref
+              .read(annotationNotifierProvider.notifier)
+              .changeCurrentSelectedAnnotationVisibility();
+        }
+
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyD) {
+          ref
+              .read(annotationNotifierProvider.notifier)
+              .deleteCurrentSelectedAnnotation();
         }
       },
       focusNode: focusNode,
