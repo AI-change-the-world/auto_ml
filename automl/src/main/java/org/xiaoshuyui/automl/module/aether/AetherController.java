@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +31,7 @@ import org.xiaoshuyui.automl.module.task.service.TaskService;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
 import org.xiaoshuyui.automl.util.SseUtil;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/aether")
@@ -86,6 +88,22 @@ public class AetherController {
     }
 
     return Result.OK_data(res);
+  }
+
+  @GetMapping("/pipeline/content/{id}")
+  public Result getPipelineContent(@PathVariable Long id) {
+    Agent agent = agentService.getById(id);
+    if (agent == null) {
+      return Result.error("agent not found");
+    }
+    try {
+      String r = AetherPipelineConverter.convert(agent.getPipelineContent());
+      return Result.OK_data(r);
+    } catch (Exception e) {
+      log.error("convert error: ", e);
+      return Result.error("convert error");
+    }
+
   }
 
   @PostMapping("workflow/auto-label/dataset")

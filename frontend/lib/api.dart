@@ -95,4 +95,6 @@ class Api {
   static final String agent = "/aether/workflow/auto-label";
 
   static final String annotationDataset = "/aether/workflow/auto-label/dataset";
+
+  static final String agentWorkflowContent = "/aether/pipeline/content/{id}";
 }

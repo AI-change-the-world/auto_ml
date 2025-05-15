@@ -1,8 +1,14 @@
+import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/aether_agent/components/pipeline_preview_dialog.dart';
+import 'package:auto_ml/modules/aether_agent/components/pipeline_workflow_dialog.dart';
 import 'package:auto_ml/modules/aether_agent/models/agent_response.dart';
 import 'package:auto_ml/modules/aether_agent/notifier/agent_notifier.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -227,6 +233,59 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                   child: Tooltip(
                     message: "View pipeline content",
                     child: Icon(Icons.preview, size: Styles.datatableIconSize),
+                  ),
+                ),
+                InkWell(
+                  onTap: () async {
+                    if (agent.pipelineContent != null) {
+                      try {
+                        final response = await DioClient().instance.get(
+                          Api.agentWorkflowContent.replaceAll(
+                            "{id}",
+                            agent.id.toString(),
+                          ),
+                        );
+                        BaseResponse<String> baseResponse =
+                            BaseResponse.fromJson(
+                              response.data,
+                              (j) => j.toString(),
+                            );
+                        if (baseResponse.data != null) {
+                          showGeneralDialog(
+                            barrierColor: Styles.barriarColor,
+                            barrierDismissible: true,
+                            barrierLabel: 'PipelineWorkflowDialog',
+                            // ignore: use_build_context_synchronously
+                            context: context,
+                            pageBuilder: (c, _, __) {
+                              return Center(
+                                child: PipelineWorkflowDialog(
+                                  content: baseResponse.data!,
+                                ),
+                              );
+                            },
+                          );
+                        } else {
+                          ToastUtils.error(
+                            null,
+                            title: "Get workflow content is empty",
+                          );
+                        }
+                      } catch (e) {
+                        ToastUtils.error(
+                          null,
+                          title: "Get workflow content error",
+                        );
+                        logger.e(e);
+                      }
+                    }
+                  },
+                  child: Tooltip(
+                    message: "View workflow",
+                    child: Icon(
+                      Icons.poll_outlined,
+                      size: Styles.datatableIconSize,
+                    ),
                   ),
                 ),
               ],

@@ -398,6 +398,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  flow_compose:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: "3a8946f0ef8d777a5a690813435dfd3a7f252d15"
+      resolved-ref: "3a8946f0ef8d777a5a690813435dfd3a7f252d15"
+      url: "https://github.com/guchengxi1994/flow_compose"
+    source: git
+    version: "0.0.1+7"
   flutter:
     dependency: "direct main"
     description: flutter
