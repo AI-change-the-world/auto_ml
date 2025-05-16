@@ -1,6 +1,7 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/dataset/components/append_annotation_files_dialog.dart';
 import 'package:auto_ml/modules/dataset/components/modify_annotation_classes_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
@@ -155,14 +156,36 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
               spacing: 10,
               children: [
                 InkWell(
-                  onTap: () {},
+                  onTap: () {
+                    showGeneralDialog(
+                      context: context,
+                      barrierColor: Styles.barriarColor,
+                      barrierDismissible: true,
+                      barrierLabel: "AppendAnntationFilesDialog",
+                      pageBuilder: (c, _, __) {
+                        return Center(
+                          child: AppendAnntationFilesDialog(
+                            annotationId: annotation.id,
+                          ),
+                        );
+                      },
+                    );
+                  },
                   child: Tooltip(
-                    message: "Edit",
+                    message: "Upload annotation files",
                     child: Icon(Icons.edit, size: Styles.datatableIconSize),
                   ),
                 ),
                 InkWell(
                   onTap: () async {
+                    if (annotation.annotationType != 1) {
+                      ToastUtils.info(
+                        null,
+                        title: "Only support detection annotation right now",
+                      );
+                      return;
+                    }
+
                     DioClient().instance
                         .post(
                           Api.annotationDataset,

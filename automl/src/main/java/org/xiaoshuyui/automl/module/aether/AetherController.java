@@ -31,7 +31,6 @@ import org.xiaoshuyui.automl.module.task.service.TaskService;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
 import org.xiaoshuyui.automl.util.SseUtil;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/aether")
@@ -49,7 +48,8 @@ public class AetherController {
       AgentService agentService,
       DatasetService datasetService,
       TaskService taskService,
-      AnnotationService annotationService, TaskLogService taskLogService) {
+      AnnotationService annotationService,
+      TaskLogService taskLogService) {
     System.out.println("✅ AetherController loaded");
     this.aetherClient = aetherClient;
     this.agentService = agentService;
@@ -103,7 +103,6 @@ public class AetherController {
       log.error("convert error: ", e);
       return Result.error("convert error");
     }
-
   }
 
   @PostMapping("workflow/auto-label/dataset")
@@ -133,13 +132,15 @@ public class AetherController {
     context.put("agentId", agentId);
     context.put("imgPath", dataset.getLocalS3StoragePath());
 
-    Thread thread = new Thread(
-        () -> {
-          List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
-          WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-          workflowEngine.run(1);
-          taskLogService.save(taskEntity.getTaskId(), "[post task] done");
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              List<WorkflowStep> steps =
+                  pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+              WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+              workflowEngine.run(1);
+              taskLogService.save(taskEntity.getTaskId(), "[post task] done");
+            });
     thread.start();
 
     return Result.OK_msg("Task Created");
@@ -233,7 +234,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -277,7 +279,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -316,7 +319,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -362,7 +366,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);

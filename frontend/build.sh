@@ -1,1 +1,1 @@
-dart run build_runner build && dart run slang
+dart run build_runner build 

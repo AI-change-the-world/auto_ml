@@ -79,7 +79,13 @@ extension DatasetExtension on DatasetType {
   }
 }
 
-enum DatasetTask { classification, detection, segmentation, other }
+enum DatasetTask {
+  classification,
+  detection,
+  segmentation,
+  understanding,
+  other,
+}
 
 extension DatasetTaskExtension on DatasetTask {
   String get name =>
@@ -87,6 +93,7 @@ extension DatasetTaskExtension on DatasetTask {
         DatasetTask.classification: "Classification",
         DatasetTask.detection: "Detection",
         DatasetTask.segmentation: "Segmentation",
+        DatasetTask.understanding: "Understanding",
         DatasetTask.other: "Other",
       }[this]!;
 
@@ -98,6 +105,8 @@ extension DatasetTaskExtension on DatasetTask {
         return Icon(Icons.segment, color: color ?? Colors.white, size: size);
       case DatasetTask.detection:
         return Icon(Icons.search, color: color ?? Colors.white, size: size);
+      case DatasetTask.understanding:
+        return Icon(Icons.info, color: color ?? Colors.white, size: size);
       default:
         return Icon(Icons.extension, color: color ?? Colors.white, size: size);
     }
@@ -112,6 +121,8 @@ DatasetTask datasetTaskGetById(int id) {
       return DatasetTask.detection;
     case 2:
       return DatasetTask.segmentation;
+    case 3:
+      return DatasetTask.understanding;
     default:
       return DatasetTask.other;
   }

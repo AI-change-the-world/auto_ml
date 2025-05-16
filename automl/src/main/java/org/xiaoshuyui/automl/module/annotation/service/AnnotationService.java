@@ -1,9 +1,11 @@
 package org.xiaoshuyui.automl.module.annotation.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
+
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,8 +15,6 @@ import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.mapper.AnnotationMapper;
 import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.S3FileDelegate;
-
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 
 @Service
 @Slf4j
@@ -68,6 +68,10 @@ public class AnnotationService {
     }
   }
 
+  public void putFileToDataset(String path, InputStream inputStream) throws Exception {
+    s3FileDelegate.putFile(path, inputStream, properties.getDatasetsBucketName());
+  }
+
   public Long newAnnotation(NewAnnotationRequest request) {
     Annotation annotation = new Annotation();
     annotation.setDatasetId(request.getDatasetId());
@@ -83,7 +87,7 @@ public class AnnotationService {
       // create annotation save path
       String p;
       if (request.getSavePath() != null && !request.getSavePath().isEmpty() && count == 0) {
-        p = request.getSavePath();
+        p = "/annotation/" + request.getSavePath();
       } else {
         p = "/annotation/" + UUID.randomUUID() + "/";
       }

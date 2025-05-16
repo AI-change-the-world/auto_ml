@@ -41,6 +41,8 @@ class Api {
 
   static final String annotationClassesUpdate = "/annotation/update/classes";
 
+  static final String appendAnnotationFiles = "/annotation/{id}/append/files";
+
   /// [tools] label image
   static final String getToolModels = "/tool-model/list";
 

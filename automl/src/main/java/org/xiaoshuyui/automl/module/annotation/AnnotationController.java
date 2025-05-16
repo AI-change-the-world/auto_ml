@@ -2,6 +2,7 @@ package org.xiaoshuyui.automl.module.annotation;
 
 import java.util.Arrays;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.annotation.entity.AnnotationFileResponse;
 import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
@@ -11,6 +12,9 @@ import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/annotation")
 public class AnnotationController {
@@ -56,6 +60,33 @@ public class AnnotationController {
     } catch (Exception e) {
       return Result.error(e.getMessage());
     }
+  }
+
+  @PostMapping("/{id}/append/files")
+  public Result uploadMultipleFiles(
+      @RequestParam("files") MultipartFile[] files, @PathVariable Long id) {
+    var a = annotationService.getById(id);
+    if (a == null) {
+      return Result.error("annotation not found");
+    }
+
+    int errorCount = 0;
+    for (MultipartFile file : files) {
+
+      if (!file.isEmpty()) {
+        String fileName = file.getOriginalFilename();
+
+        String savePath = a.getAnnotationSavePath() + "/" + fileName;
+
+        try {
+          annotationService.putFileToDataset(savePath, file.getInputStream());
+        } catch (Exception e) {
+          log.error(e.getMessage());
+          errorCount += 1;
+        }
+      }
+    }
+    return Result.OK_msg(errorCount + " files failed");
   }
 
   @PostMapping("/new")

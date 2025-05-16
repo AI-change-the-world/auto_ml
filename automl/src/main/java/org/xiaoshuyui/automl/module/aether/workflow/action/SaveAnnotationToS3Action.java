@@ -3,7 +3,6 @@ package org.xiaoshuyui.automl.module.aether.workflow.action;
 import com.google.gson.Gson;
 import com.google.gson.internal.LinkedTreeMap;
 import com.google.gson.reflect.TypeToken;
-
 import java.lang.reflect.Type;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -57,8 +56,7 @@ public class SaveAnnotationToS3Action extends WorkflowAction {
     if (raw instanceof LinkedTreeMap) {
       // 先反序列化外层
       String json = gson.toJson(raw);
-      Type type = new TypeToken<AetherResponse<Object>>() {
-      }.getType();
+      Type type = new TypeToken<AetherResponse<Object>>() {}.getType();
       tempResponse = gson.fromJson(json, type);
     } else {
       tempResponse = (AetherResponse<?>) raw;
@@ -66,7 +64,8 @@ public class SaveAnnotationToS3Action extends WorkflowAction {
 
     // 手动反序列化内部 output 字段
     String outputJson = gson.toJson(tempResponse.getOutput());
-    PredictSingleImageResponse realOutput = gson.fromJson(outputJson, PredictSingleImageResponse.class);
+    PredictSingleImageResponse realOutput =
+        gson.fromJson(outputJson, PredictSingleImageResponse.class);
 
     List<String> l = List.of(realOutput.getImage_id().split("/"));
     // List.getLast() 方式估计要求版本比较高，无法适用
