@@ -117,13 +117,13 @@ DatasetTask datasetTaskGetById(int id) {
   }
 }
 
-enum DatasetFrom { local, s3, webdav, others }
+enum DatasetFrom { empty, s3, webdav, others }
 
 extension DatasetFromExtension on DatasetFrom {
   String get name {
     switch (this) {
-      case DatasetFrom.local:
-        return 'Local';
+      case DatasetFrom.empty:
+        return 'Empty';
       case DatasetFrom.s3:
         return 'S3';
       case DatasetFrom.webdav:
@@ -135,7 +135,7 @@ extension DatasetFromExtension on DatasetFrom {
 
   int get index {
     switch (this) {
-      case DatasetFrom.local:
+      case DatasetFrom.empty:
         return 0;
       case DatasetFrom.s3:
         return 1;

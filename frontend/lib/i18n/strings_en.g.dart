@@ -51,6 +51,7 @@ class Translations implements BaseTranslations<AppLocale, Translations> {
 	late final TranslationsAgentScreenEn agent_screen = TranslationsAgentScreenEn._(_root);
 	late final TranslationsTaskScreenEn task_screen = TranslationsTaskScreenEn._(_root);
 	late final TranslationsDeployScreenEn deploy_screen = TranslationsDeployScreenEn._(_root);
+	late final TranslationsErrorsEn errors = TranslationsErrorsEn._(_root);
 }
 
 // Path: label_screen
@@ -201,6 +202,16 @@ class TranslationsDeployScreenEn {
 	String get status => 'Status';
 }
 
+// Path: errors
+class TranslationsErrorsEn {
+	TranslationsErrorsEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get name_cannot_be_empty => 'Name cannot be empty';
+}
+
 // Path: dataset_screen.files
 class TranslationsDatasetScreenFilesEn {
 	TranslationsDatasetScreenFilesEn._(this._root);
@@ -226,6 +237,7 @@ class TranslationsDatasetScreenTableEn {
 	String get status => 'Status';
 	String get preview => 'Preview';
 	late final TranslationsDatasetScreenTableAnnotationEn annotation = TranslationsDatasetScreenTableAnnotationEn._(_root);
+	String get no_preview => 'No preview image found';
 }
 
 // Path: annotation_screen.list_widget
@@ -357,6 +369,7 @@ extension on Translations {
 			case 'dataset_screen.table.annotation.id': return 'Id';
 			case 'dataset_screen.table.annotation.path': return 'Annotation Path';
 			case 'dataset_screen.table.annotation.type': return 'Type';
+			case 'dataset_screen.table.no_preview': return 'No preview image found';
 			case 'sidebar.dataset': return 'Dataset';
 			case 'sidebar.label': return 'Label';
 			case 'sidebar.annotation': return 'Annotation';
@@ -422,6 +435,7 @@ extension on Translations {
 			case 'deploy_screen.Epoch': return 'Epoch';
 			case 'deploy_screen.Loss': return 'Loss';
 			case 'deploy_screen.status': return 'Status';
+			case 'errors.name_cannot_be_empty': return 'Name cannot be empty';
 			default: return null;
 		}
 	}

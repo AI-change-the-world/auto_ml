@@ -76,7 +76,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
         ),
         width: 400,
         height:
-            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 470 : 540,
+            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 400 : 530,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(10),
           child: Column(
@@ -235,7 +235,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                   items: DatasetFrom.values.map((e) => e.name).toList(),
                   onChanged: (s) {
                     switch (s) {
-                      case "Local":
+                      case "Empty":
                         selectedDatasetFrom = 0;
                         break;
                       case "S3":
@@ -325,64 +325,64 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                     ],
                   ),
                 ),
-
-              // dataset path
-              SizedBox(
-                child: Row(
-                  children: [
-                    Text(t.dialogs.modify_dataset.path, style: labelStyle),
-                    Spacer(),
-                  ],
+              if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
+                // dataset path
+                SizedBox(
+                  child: Row(
+                    children: [
+                      Text(t.dialogs.modify_dataset.path, style: labelStyle),
+                      Spacer(),
+                    ],
+                  ),
                 ),
-              ),
-
-              SizedBox(
-                height: 30,
-                child: Row(
-                  spacing: 10,
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: TextField(
-                        controller: _dataPathController,
-                        style: textStyle,
-                        decoration: InputDecoration(
-                          hintStyle: hintStyle,
-                          contentPadding: EdgeInsets.only(
-                            top: 10,
-                            left: 10,
-                            right: 10,
+              if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
+                SizedBox(
+                  height: 30,
+                  child: Row(
+                    spacing: 10,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: TextField(
+                          controller: _dataPathController,
+                          style: textStyle,
+                          decoration: InputDecoration(
+                            hintStyle: hintStyle,
+                            contentPadding: EdgeInsets.only(
+                              top: 10,
+                              left: 10,
+                              right: 10,
+                            ),
+                            border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                            ),
+                            hintText: "Dataset Path (required)",
                           ),
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.blueAccent),
-                          ),
-                          hintText: "Dataset Path (required)",
                         ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 20,
-                      child: InkWell(
-                        onTap: () async {
-                          final String? directoryPath =
-                              await getDirectoryPath();
-                          if (directoryPath == null) {
-                            // Operation was canceled by the user.
-                            return;
-                          }
-                          _dataPathController.text = directoryPath;
-                        },
-                        child: Icon(
-                          Icons.file_open,
-                          size: 14,
-                          color: Colors.grey,
+                      SizedBox(
+                        width: 20,
+                        child: InkWell(
+                          onTap: () async {
+                            final String? directoryPath =
+                                await getDirectoryPath();
+                            if (directoryPath == null) {
+                              // Operation was canceled by the user.
+                              return;
+                            }
+                            _dataPathController.text = directoryPath;
+                          },
+                          child: Icon(
+                            Icons.file_open,
+                            size: 14,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               // label path
               // SizedBox(
               //   child: Row(

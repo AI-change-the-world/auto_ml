@@ -19,7 +19,7 @@ class DatasetFileDetails extends ConsumerWidget {
       case 2:
         return "Scan failed";
       default:
-        return "Unknown";
+        return "Others";
     }
   }
 
@@ -180,9 +180,14 @@ class _ListFile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return SizedBox(
       child:
-          state.currentContent != null
+          state.currentContent != null && state.currentContent!.isNotEmpty
               ? Image.network(state.currentContent!)
-              : null,
+              : Center(
+                child: Text(
+                  t.dataset_screen.table.no_preview,
+                  style: Styles.defaultButtonTextStyle,
+                ),
+              ),
     );
   }
 }

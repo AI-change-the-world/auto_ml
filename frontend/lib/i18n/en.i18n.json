@@ -28,7 +28,8 @@
                 "id": "Id",
                 "path": "Annotation Path",
                 "type": "Type"
-            }
+            },
+            "no_preview": "No preview image found"
         }
     },
     "sidebar": {
@@ -123,5 +124,8 @@
         "Epoch": "Epoch",
         "Loss": "Loss",
         "status": "Status"
+    },
+    "errors": {
+        "name_cannot_be_empty": "Name cannot be empty"
     }
 }

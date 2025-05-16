@@ -48,6 +48,7 @@ class TranslationsZhCn implements Translations {
 	@override late final _TranslationsAgentScreenZhCn agent_screen = _TranslationsAgentScreenZhCn._(_root);
 	@override late final _TranslationsTaskScreenZhCn task_screen = _TranslationsTaskScreenZhCn._(_root);
 	@override late final _TranslationsDeployScreenZhCn deploy_screen = _TranslationsDeployScreenZhCn._(_root);
+	@override late final _TranslationsErrorsZhCn errors = _TranslationsErrorsZhCn._(_root);
 }
 
 // Path: label_screen
@@ -198,6 +199,16 @@ class _TranslationsDeployScreenZhCn implements TranslationsDeployScreenEn {
 	@override String get status => '状态';
 }
 
+// Path: errors
+class _TranslationsErrorsZhCn implements TranslationsErrorsEn {
+	_TranslationsErrorsZhCn._(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get name_cannot_be_empty => '名称不可为空';
+}
+
 // Path: dataset_screen.files
 class _TranslationsDatasetScreenFilesZhCn implements TranslationsDatasetScreenFilesEn {
 	_TranslationsDatasetScreenFilesZhCn._(this._root);
@@ -223,6 +234,7 @@ class _TranslationsDatasetScreenTableZhCn implements TranslationsDatasetScreenTa
 	@override String get status => '状态';
 	@override String get preview => '预览';
 	@override late final _TranslationsDatasetScreenTableAnnotationZhCn annotation = _TranslationsDatasetScreenTableAnnotationZhCn._(_root);
+	@override String get no_preview => '无预览文件';
 }
 
 // Path: annotation_screen.list_widget
@@ -354,6 +366,7 @@ extension on TranslationsZhCn {
 			case 'dataset_screen.table.annotation.id': return '编号';
 			case 'dataset_screen.table.annotation.path': return '标注集路径';
 			case 'dataset_screen.table.annotation.type': return '标注类型';
+			case 'dataset_screen.table.no_preview': return '无预览文件';
 			case 'route.back_to_main': return '返回首页';
 			case 'route.nothing': return '这里空无一物';
 			case 'sidebar.dataset': return '数据集';
@@ -419,6 +432,7 @@ extension on TranslationsZhCn {
 			case 'deploy_screen.Epoch': return '训练轮数';
 			case 'deploy_screen.Loss': return '损失';
 			case 'deploy_screen.status': return '状态';
+			case 'errors.name_cannot_be_empty': return '名称不可为空';
 			default: return null;
 		}
 	}

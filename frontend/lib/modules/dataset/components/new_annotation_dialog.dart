@@ -4,8 +4,6 @@ import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
-import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class NewAnnotationDialog extends StatefulWidget {
@@ -79,7 +77,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                 items: DatasetFrom.values.map((e) => e.name).toList(),
                 onChanged: (s) {
                   switch (s) {
-                    case "Local":
+                    case "Empty":
                       selectedDatasetFrom = 0;
                       break;
                     case "S3":
@@ -335,34 +333,34 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                       ),
                     ),
                   ),
-                  SizedBox(
-                    width: 20,
-                    child: InkWell(
-                      onTap: () async {
-                        if (kIsWeb) {
-                          ToastUtils.error(
-                            context,
-                            title: "Not supported",
-                            description:
-                                "Sorry, this feature is not supported in web, please input local path instead.",
-                          );
-                          return;
-                        }
+                  // SizedBox(
+                  //   width: 20,
+                  //   child: InkWell(
+                  //     onTap: () async {
+                  //       if (kIsWeb) {
+                  //         ToastUtils.error(
+                  //           context,
+                  //           title: "Not supported",
+                  //           description:
+                  //               "Sorry, this feature is not supported in web, please input local path instead.",
+                  //         );
+                  //         return;
+                  //       }
 
-                        final String? directoryPath = await getDirectoryPath();
-                        if (directoryPath == null) {
-                          // Operation was canceled by the user.
-                          return;
-                        }
-                        _labelPathController.text = directoryPath;
-                      },
-                      child: Icon(
-                        Icons.file_open,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
+                  //       final String? directoryPath = await getDirectoryPath();
+                  //       if (directoryPath == null) {
+                  //         // Operation was canceled by the user.
+                  //         return;
+                  //       }
+                  //       _labelPathController.text = directoryPath;
+                  //     },
+                  //     child: Icon(
+                  //       Icons.file_open,
+                  //       size: 14,
+                  //       color: Colors.grey,
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ),

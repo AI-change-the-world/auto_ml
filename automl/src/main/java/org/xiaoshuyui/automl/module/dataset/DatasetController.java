@@ -56,9 +56,14 @@ public class DatasetController {
 
   @PostMapping("/file/preview")
   public Result previewFile(@RequestBody GetFilePreviewRequest request) {
+    GetFileContentResponse response = new GetFileContentResponse();
     try {
+      if (request.getPath() == null || request.getPath().isEmpty()) {
+        response.setContent("");
+        return Result.OK_data(response);
+      }
       String s = datasetService.getFileContent(request.getPath(), request.getStorageType());
-      GetFileContentResponse response = new GetFileContentResponse();
+
       response.setContent(s);
       return Result.OK_data(response);
     } catch (Exception e) {
@@ -98,10 +103,16 @@ public class DatasetController {
     }
     int errorCount = 0;
     for (MultipartFile file : files) {
+
       if (!file.isEmpty()) {
         String fileName = file.getOriginalFilename();
 
         String savePath = d.getLocalS3StoragePath() + "/" + fileName;
+
+        if (d.getSampleFilePath() == null || d.getSampleFilePath().isEmpty()) {
+          d.setSampleFilePath(savePath);
+          datasetService.updateDataset(d);
+        }
 
         try {
           datasetService.putFileToDataset(savePath, file.getInputStream());

@@ -2,6 +2,8 @@ package org.xiaoshuyui.automl.module.annotation.service;
 
 import jakarta.annotation.Resource;
 import java.util.List;
+import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +13,8 @@ import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.mapper.AnnotationMapper;
 import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.S3FileDelegate;
+
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 
 @Service
 @Slf4j
@@ -24,7 +28,8 @@ public class AnnotationService {
     this.annotationMapper = annotationMapper;
   }
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   public Annotation getById(Long id) {
     return annotationMapper.selectById(id);
@@ -70,19 +75,33 @@ public class AnnotationService {
     annotation.setAnnotationPath(request.getSavePath());
     annotation.setAnnotationType(request.getType());
     annotation.setClassItems(request.getClasses());
+    QueryWrapper<Annotation> queryWrapper = new QueryWrapper<>();
+    queryWrapper.eq("annotation_save_path", annotation.getAnnotationPath());
+    Long count = annotationMapper.selectCount(queryWrapper);
+
+    if (request.getStorageType() == 0) {
+      // create annotation save path
+      String p;
+      if (request.getSavePath() != null && !request.getSavePath().isEmpty() && count == 0) {
+        p = request.getSavePath();
+      } else {
+        p = "/annotation/" + UUID.randomUUID() + "/";
+      }
+
+      s3FileDelegate.createDir(p, properties.getDatasetsBucketName());
+      annotation.setAnnotationSavePath(p);
+    }
 
     annotationMapper.insert(annotation);
 
-    scanFolderParallel(annotation);
     return annotation.getId();
   }
 
   private void scanFolderParallel(Annotation annotation) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanAndUploadToLocalS3FolderSync(annotation);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(annotation);
+        });
     thread.start();
   }
 
@@ -98,9 +117,8 @@ public class AnnotationService {
     }
     if (annotation.getStorageType() == 0) {
       try {
-        List<String> l =
-            GetFileListUtil.getFileList(
-                annotation.getAnnotationPath(), annotation.getStorageType());
+        List<String> l = GetFileListUtil.getFileList(
+            annotation.getAnnotationPath(), annotation.getStorageType());
 
         if (!l.isEmpty()) {
 

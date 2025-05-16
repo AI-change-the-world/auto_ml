@@ -28,7 +28,8 @@
                 "id": "编号",
                 "path": "标注集路径",
                 "type": "标注类型"
-            }
+            },
+            "no_preview": "无预览文件"
         }
     },
     "route": {
@@ -123,5 +124,8 @@
         "Epoch": "训练轮数",
         "Loss": "损失",
         "status": "状态"
+    },
+    "errors": {
+        "name_cannot_be_empty": "名称不可为空"
     }
 }

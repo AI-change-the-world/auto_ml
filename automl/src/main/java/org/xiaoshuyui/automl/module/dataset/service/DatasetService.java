@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import java.io.InputStream;
 import java.util.List;
+import java.util.UUID;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
@@ -27,7 +29,8 @@ public class DatasetService {
     this.s3FileDelegate = s3FileDelegate;
   }
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -38,12 +41,22 @@ public class DatasetService {
     dataset.setUrl(request.getUrl());
     dataset.setUsername(request.getUsername());
     dataset.setPassword(request.getPassword());
+    if (request.getStorageType() == 0) {
+      // 创建s3目录
+      String p = "/dataset/" + UUID.randomUUID() + "/";
+      s3FileDelegate.createDir(p, properties.getDatasetsBucketName());
+      dataset.setLocalS3StoragePath(p);
+      dataset.setScanStatus(3);
+    }
 
     datasetMapper.insert(dataset);
-    dataset.setId(dataset.getId());
 
-    this.scanFolderParallel(dataset);
+    // this.scanFolderParallel(dataset);
     return dataset.getId();
+  }
+
+  public void updateDataset(Dataset dataset) {
+    datasetMapper.updateById(dataset);
   }
 
   public void putFileToDataset(String path, InputStream inputStream) throws Exception {
@@ -144,8 +157,7 @@ public class DatasetService {
           storage.setFileCount((long) l.size());
           storage.setLocalS3StoragePath(basePath);
           log.info("files: {}", l);
-          List<String> targets =
-              s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
+          List<String> targets = s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
           storage.setSampleFilePath(targets.get(0));
         }
         storage.setScanStatus(1);
@@ -159,11 +171,10 @@ public class DatasetService {
   }
 
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanAndUploadToLocalS3FolderSync(dataset);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(dataset);
+        });
     thread.start();
   }
 
@@ -173,10 +184,9 @@ public class DatasetService {
       return;
     }
     try {
-      int fileCount =
-          s3FileDelegate
-              .listFiles(dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName())
-              .size();
+      int fileCount = s3FileDelegate
+          .listFiles(dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName())
+          .size();
       dataset.setFileCount((long) fileCount);
       datasetMapper.updateById(dataset);
     } catch (Exception e) {
@@ -202,13 +212,15 @@ public class DatasetService {
   }
 
   public static String removeFilenameIfHasExtension(String path) {
-    if (path == null || path.isEmpty()) return path;
+    if (path == null || path.isEmpty())
+      return path;
 
     // 去掉结尾的 `/`，避免误判目录
     String cleanPath = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
 
     int lastSlash = cleanPath.lastIndexOf('/');
-    if (lastSlash == -1) return path;
+    if (lastSlash == -1)
+      return path;
 
     String lastSegment = cleanPath.substring(lastSlash + 1);
 

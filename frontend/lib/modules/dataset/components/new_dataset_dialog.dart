@@ -6,8 +6,6 @@ import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
-import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_stars/flutter_rating_stars.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,7 +73,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
         ),
         width: 400,
         height:
-            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 470 : 540,
+            selectedDatasetFrom == 0 || selectedDatasetFrom == 3 ? 400 : 530,
         child: SingleChildScrollView(
           padding: EdgeInsets.all(10),
           child: Column(
@@ -240,7 +238,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                   items: DatasetFrom.values.map((e) => e.name).toList(),
                   onChanged: (s) {
                     switch (s) {
-                      case "Local":
+                      case "Empty":
                         selectedDatasetFrom = 0;
                         break;
                       case "S3":
@@ -330,73 +328,74 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                     ],
                   ),
                 ),
-
-              // dataset path
-              SizedBox(
-                child: Row(
-                  children: [
-                    Text(t.dialogs.new_dataset.path, style: labelStyle),
-                    Spacer(),
-                  ],
+              if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
+                // dataset path
+                SizedBox(
+                  child: Row(
+                    children: [
+                      Text(t.dialogs.new_dataset.path, style: labelStyle),
+                      Spacer(),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(
-                height: 30,
-                child: Row(
-                  spacing: 10,
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: TextField(
-                        controller: _dataPathController,
-                        style: textStyle,
-                        decoration: InputDecoration(
-                          hintStyle: hintStyle,
-                          contentPadding: EdgeInsets.only(
-                            top: 10,
-                            left: 10,
-                            right: 10,
+              if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
+                SizedBox(
+                  height: 30,
+                  child: Row(
+                    spacing: 10,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: TextField(
+                          controller: _dataPathController,
+                          style: textStyle,
+                          decoration: InputDecoration(
+                            hintStyle: hintStyle,
+                            contentPadding: EdgeInsets.only(
+                              top: 10,
+                              left: 10,
+                              right: 10,
+                            ),
+                            border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blueAccent),
+                            ),
+                            hintText: "Dataset Path (required)",
                           ),
-                          border: OutlineInputBorder(),
-                          focusedBorder: OutlineInputBorder(
-                            borderSide: BorderSide(color: Colors.blueAccent),
-                          ),
-                          hintText: "Dataset Path (required)",
                         ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 20,
-                      child: InkWell(
-                        onTap: () async {
-                          if (kIsWeb) {
-                            ToastUtils.error(
-                              context,
-                              title: "Not supported",
-                              description:
-                                  "Sorry, this feature is not supported in web, please input local path instead.",
-                            );
-                            return;
-                          }
+                      // SizedBox(
+                      //   width: 20,
+                      //   child: InkWell(
+                      //     onTap: () async {
+                      //       if (kIsWeb) {
+                      //         ToastUtils.error(
+                      //           context,
+                      //           title: "Not supported",
+                      //           description:
+                      //               "Sorry, this feature is not supported in web, please input local path instead.",
+                      //         );
+                      //         return;
+                      //       }
 
-                          final String? directoryPath =
-                              await getDirectoryPath();
-                          if (directoryPath == null) {
-                            // Operation was canceled by the user.
-                            return;
-                          }
-                          _dataPathController.text = directoryPath;
-                        },
-                        child: Icon(
-                          Icons.file_open,
-                          size: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ],
+                      //       final String? directoryPath =
+                      //           await getDirectoryPath();
+                      //       if (directoryPath == null) {
+                      //         // Operation was canceled by the user.
+                      //         return;
+                      //       }
+                      //       _dataPathController.text = directoryPath;
+                      //     },
+                      //     child: Icon(
+                      //       Icons.file_open,
+                      //       size: 14,
+                      //       color: Colors.grey,
+                      //     ),
+                      //   ),
+                      // ),
+                    ],
+                  ),
                 ),
-              ),
               // label path
               // SizedBox(
               //   child: Row(
@@ -530,9 +529,11 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                     ElevatedButton(
                       style: Styles.getDefaultButtonStyle(),
                       onPressed: () {
-                        if (_nameController.text.isEmpty ||
-                            _dataPathController.text.isEmpty) {
-                          ToastUtils.error(context, title: "Input Error");
+                        if (_nameController.text.isEmpty) {
+                          ToastUtils.error(
+                            context,
+                            title: t.errors.name_cannot_be_empty,
+                          );
                           return;
                         }
                         Dataset dataset =

@@ -53,7 +53,7 @@ public class Dataset {
   @TableField("password")
   private String password;
 
-  // 0: scanning, 1: scan success, 2: scan failed
+  // 0: scanning, 1: scan success, 2: scan failed, 3: others
   @TableField("scan_status")
   private Integer scanStatus;
 
