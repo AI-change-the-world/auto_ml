@@ -203,6 +203,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
             return response
         elif req.task == "check annotation":
             from label.check_annotation import check_annotation
+
             tool_model = get_tool_model(db, req.model_id)
             annotation = get_annotation(db, req.extra.get("annotation_id"))
             classes = str(annotation.class_items).split(";")
@@ -210,7 +211,7 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
             res = check_annotation(
                 img=req.input.data,
                 classes=classes,
-                annotations= str(annotations),
+                annotations=str(annotations),
                 tool_model=tool_model,
             )
             # logger.info(f"check annotation res : {res.model_dump_json()}")

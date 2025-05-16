@@ -111,7 +111,7 @@ Rules:
         )
         return response.choices[0].message.content
 
-    def _parse_response(self, response: str):
+    def _parse_response(self, response: str, threshold=5):
         results = []
         logger.info(f"Response: {response}")
         for line in response.strip().splitlines():
@@ -120,6 +120,8 @@ Rules:
                 box_part, conf_part = rest.strip().split("[confidence:")
                 x, y, w, h = map(int, box_part.strip("() ").split(","))
                 conf = float(conf_part.strip(" ]"))
+                if w < threshold or h < threshold:
+                    continue
                 # detection = Detection
                 # b = Box(x1=x, y1=y, x2=w +x, y2=h+y)
                 b = Box(x1=x, y1=y, x2=w, y2=h)

@@ -5,6 +5,8 @@ import 'package:auto_ml/modules/annotation/components/faded_text.dart';
 import 'package:auto_ml/modules/annotation/components/short_cut_dialog.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
+import 'package:auto_ml/modules/dataset/models/get_all_dataset_response.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -122,7 +124,10 @@ class LayoutIcons extends ConsumerWidget {
             onTap: () {
               ref
                   .read(currentDatasetAnnotationNotifierProvider.notifier)
-                  .changeDatasetAndAnnotation(0, 0);
+                  .changeDatasetAndAnnotation(
+                    Dataset.fake(),
+                    Annotation.fake(),
+                  );
             },
             child: Icon(Icons.chevron_left, color: Colors.black),
           ),

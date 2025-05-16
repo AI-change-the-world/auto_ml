@@ -94,6 +94,79 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                 },
               ),
             ),
+
+            // dataset path
+            SizedBox(
+              child: Row(
+                spacing: 5,
+                children: [
+                  Text("Annotation path", style: labelStyle),
+                  Tooltip(
+                    waitDuration: Duration(milliseconds: 500),
+                    message: "如果为空，则默认创建一个新的空标注集",
+                    child: Icon(Icons.info, size: 18),
+                  ),
+                  Spacer(),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 30,
+              child: Row(
+                spacing: 10,
+                children: [
+                  Expanded(
+                    flex: 1,
+                    child: TextField(
+                      controller: _labelPathController,
+                      style: textStyle,
+                      decoration: InputDecoration(
+                        hintStyle: hintStyle,
+                        contentPadding: EdgeInsets.only(
+                          top: 10,
+                          left: 10,
+                          right: 10,
+                        ),
+                        border: OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.blueAccent),
+                        ),
+                        hintText: "Annotation Path",
+                      ),
+                    ),
+                  ),
+                  // SizedBox(
+                  //   width: 20,
+                  //   child: InkWell(
+                  //     onTap: () async {
+                  //       if (kIsWeb) {
+                  //         ToastUtils.error(
+                  //           context,
+                  //           title: "Not supported",
+                  //           description:
+                  //               "Sorry, this feature is not supported in web, please input local path instead.",
+                  //         );
+                  //         return;
+                  //       }
+
+                  //       final String? directoryPath = await getDirectoryPath();
+                  //       if (directoryPath == null) {
+                  //         // Operation was canceled by the user.
+                  //         return;
+                  //       }
+                  //       _labelPathController.text = directoryPath;
+                  //     },
+                  //     child: Icon(
+                  //       Icons.file_open,
+                  //       size: 14,
+                  //       color: Colors.grey,
+                  //     ),
+                  //   ),
+                  // ),
+                ],
+              ),
+            ),
+
             if (selectedDatasetFrom == 1 || selectedDatasetFrom == 2)
               Row(
                 children: [
@@ -230,7 +303,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                                   },
                                   buttonStyle: ButtonStyle(
                                     fixedSize: WidgetStateProperty.all(
-                                      Size(100, 20),
+                                      Size(120, 20),
                                     ),
                                     backgroundColor: WidgetStatePropertyAll(
                                       Colors.grey[300],
@@ -271,6 +344,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                   Expanded(
                     flex: 2,
                     child: TextField(
+                      enabled: type != DatasetTask.understanding,
                       controller: _classesController,
                       // controller: _nameController,
                       style: textStyle,
@@ -285,7 +359,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                         focusedBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.blueAccent),
                         ),
-                        hintText: "标注类型(必填，以英文分号';'隔开)",
+                        hintText: "标注类型(以英文分号';'隔开)",
                       ),
                     ),
                   ),
@@ -293,77 +367,6 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
               ),
             ),
 
-            // dataset path
-            SizedBox(
-              child: Row(
-                spacing: 5,
-                children: [
-                  Text("Annotation path", style: labelStyle),
-                  Tooltip(
-                    waitDuration: Duration(milliseconds: 500),
-                    message: "如果为空，则默认创建一个新的空标注集",
-                    child: Icon(Icons.info, size: 18),
-                  ),
-                  Spacer(),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 30,
-              child: Row(
-                spacing: 10,
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: TextField(
-                      controller: _labelPathController,
-                      style: textStyle,
-                      decoration: InputDecoration(
-                        hintStyle: hintStyle,
-                        contentPadding: EdgeInsets.only(
-                          top: 10,
-                          left: 10,
-                          right: 10,
-                        ),
-                        border: OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.blueAccent),
-                        ),
-                        hintText: "Annotation Path",
-                      ),
-                    ),
-                  ),
-                  // SizedBox(
-                  //   width: 20,
-                  //   child: InkWell(
-                  //     onTap: () async {
-                  //       if (kIsWeb) {
-                  //         ToastUtils.error(
-                  //           context,
-                  //           title: "Not supported",
-                  //           description:
-                  //               "Sorry, this feature is not supported in web, please input local path instead.",
-                  //         );
-                  //         return;
-                  //       }
-
-                  //       final String? directoryPath = await getDirectoryPath();
-                  //       if (directoryPath == null) {
-                  //         // Operation was canceled by the user.
-                  //         return;
-                  //       }
-                  //       _labelPathController.text = directoryPath;
-                  //     },
-                  //     child: Icon(
-                  //       Icons.file_open,
-                  //       size: 14,
-                  //       color: Colors.grey,
-                  //     ),
-                  //   ),
-                  // ),
-                ],
-              ),
-            ),
             SizedBox(
               height: 30,
               child: Row(
@@ -372,7 +375,8 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                   ElevatedButton(
                     style: Styles.getDefaultButtonStyle(),
                     onPressed: () {
-                      if (_classesController.text.isEmpty) {
+                      if (_classesController.text.isEmpty &&
+                          type != DatasetTask.understanding) {
                         ToastUtils.error(context, title: "类别不能为空");
                         return;
                       }

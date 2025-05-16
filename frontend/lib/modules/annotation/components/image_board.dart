@@ -45,7 +45,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
     var current = ref.watch(
       currentDatasetAnnotationNotifierProvider.select((v) => v.currentData),
     );
-    if (current == null) {
+    if (current == null || current.$1 == "") {
       return Center(child: Text(t.annotation_screen.image_board.empty));
     }
 

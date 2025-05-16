@@ -44,4 +44,18 @@ class Annotation {
       _$AnnotationFromJson(json);
 
   Map<String, dynamic> toJson() => _$AnnotationToJson(this);
+
+  factory Annotation.fake() {
+    return Annotation(
+      id: 0,
+      datasetId: 1,
+      annotationType: 1,
+      updatedAt: DateTime.now(),
+      isDeleted: 0,
+      createdAt: DateTime.now(),
+      classItems: "class1,class2,class3",
+      annotationPath: "annotationPath",
+      annotationSavePath: "annotationSavePath",
+    );
+  }
 }

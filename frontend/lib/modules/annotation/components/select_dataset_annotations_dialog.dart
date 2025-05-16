@@ -115,6 +115,9 @@ class _SelectDatasetAnnotationsDialogState
                         Expanded(
                           child: ListView.builder(
                             itemBuilder: (c, i) {
+                              var dataset = data.datasets.firstWhere(
+                                (v) => v.id == data.currentDatasetId,
+                              );
                               return InkWell(
                                 onTap: () {
                                   ref
@@ -123,11 +126,9 @@ class _SelectDatasetAnnotationsDialogState
                                             .notifier,
                                       )
                                       .changeDatasetAndAnnotation(
-                                        data.currentDatasetId,
-                                        data
-                                            .anntations[data
-                                                .currentDatasetId]![i]
-                                            .id,
+                                        dataset,
+                                        data.anntations[data
+                                            .currentDatasetId]![i],
                                       );
                                   Navigator.of(context).pop();
                                 },
