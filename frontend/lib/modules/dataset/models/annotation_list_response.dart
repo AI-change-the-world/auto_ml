@@ -26,6 +26,7 @@ class Annotation {
   final String? classItems;
   final String? annotationPath;
   final String? annotationSavePath;
+  final String? prompt;
 
   Annotation({
     required this.id,
@@ -38,6 +39,7 @@ class Annotation {
     this.classItems,
     this.annotationPath,
     this.annotationSavePath,
+    this.prompt,
   });
 
   factory Annotation.fromJson(Map<String, dynamic> json) =>

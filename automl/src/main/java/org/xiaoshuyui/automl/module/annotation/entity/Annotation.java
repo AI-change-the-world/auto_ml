@@ -49,7 +49,11 @@ public class Annotation {
   @TableField(value = "password", exist = false)
   private String password;
 
+  @Deprecated
   // 0: scanning, 1: scan success, 2: scan failed
   @TableField(value = "scan_status", exist = false)
   private Integer scanStatus;
+
+  @TableField(value = "prompt")
+  String prompt;
 }

@@ -64,7 +64,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
     }
 
     if (current.annotation!.annotationType == 3) {
-      return MllmAnnotationWidget();
+      return MllmAnnotationWidget(data: current.data);
     } else if (current.annotation!.annotationType == 1) {
       return Container(
         padding: EdgeInsets.only(top: 10, bottom: 10),

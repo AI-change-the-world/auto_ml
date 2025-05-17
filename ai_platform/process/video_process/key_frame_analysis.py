@@ -452,20 +452,20 @@ async def deep_describe_frame(frame_path: str, tool_model: ToolModel, prompt: st
 
 
 def deep_describe_frame_sync(
-    frame_path: str, tool_model: ToolModel, prompt: str
+    frame_path: str, tool_model: ToolModel, prompt: str, bucket:Optional[str] = None
 ) -> str:
     if tool_model is None:
         return "tool_model is None"
 
     try:
-        op = get_operator()
+        op = get_operator(bucket)
 
         file_data = op.read(frame_path)
         b64 = base64.encodebytes(file_data).decode("utf-8")
         b64_with_header = f"data:image/jpeg;base64,{b64}"
         vl_model = get_model(tool_model)
 
-        prompt = single_frame_deep_analyze_prompt.replace("{{yolo_result}}", prompt)
+        # prompt = single_frame_deep_analyze_prompt.replace("{{yolo_result}}", prompt)
 
         req = {"type": "text", "text": prompt}
 

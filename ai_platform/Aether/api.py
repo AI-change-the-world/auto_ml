@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from Aether import AetherRequest, AetherResponse, ResponseMeta
 from base.logger import logger
 from base.nacos_config import get_db
+from base.file_delegate import s3_properties
 from db.annotation.annotation_crud import get_annotation
 from db.task.task_crud import get_task
 from db.task_log.task_log_crud import create_log
@@ -216,6 +217,33 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
             )
             # logger.info(f"check annotation res : {res.model_dump_json()}")
             response = AetherResponse[PredictResults](
+                success=True,
+                output=res,
+                meta=ResponseMeta(
+                    time_cost_ms=int((time.time() - start_time) * 1000),
+                    task_id=req.meta.task_id,
+                ),
+                error=None,
+            )
+            if task_available:
+                tlc = TaskLogCreate(
+                    task_id=req.meta.task_id,
+                    log_content=f"[post-task] check annotations done",
+                )
+                create_log(db, tlc)
+            return response
+        elif req.task == "deep describe":
+            from process.video_process.key_frame_analysis import deep_describe_frame_sync
+            tool_model = get_tool_model(db, req.model_id)
+            annotation = get_annotation(db, req.extra.get("annotation_id"))
+            prompt = req.extra.get("prompt")
+            res = deep_describe_frame_sync(
+                frame_path= req.input.data,
+                tool_model=tool_model,
+                prompt=prompt,
+                bucket= s3_properties.datasets_bucket_name
+            )
+            response = AetherResponse[str](
                 success=True,
                 output=res,
                 meta=ResponseMeta(

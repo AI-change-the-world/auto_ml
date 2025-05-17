@@ -114,6 +114,17 @@ class CurrentDatasetAnnotationNotifier
   }
 
   changeCurrentData((String, String) data) async {
+    if (state.annotation == null) {
+      return;
+    }
+    if (state.annotation!.annotationType == 1) {
+      return _changeCurrentDataForObjectDetection(data);
+    } else if (state.annotation!.annotationType == 3) {
+      return _changeCurrentDataForImageUnderstanding(data);
+    }
+  }
+
+  _changeCurrentDataForObjectDetection((String, String) data) async {
     logger.d("dataset and annotation $data");
 
     try {
@@ -173,6 +184,11 @@ class CurrentDatasetAnnotationNotifier
     }
   }
 
+  _changeCurrentDataForImageUnderstanding((String, String) data) async {
+    logger.d("dataset and annotation $data");
+    state = state.copyWith(currentData: data, currentFilePath: data.$1);
+  }
+
   addClassType(String className) {
     if (state.classes.contains(className)) {
       return;
@@ -188,6 +204,7 @@ class CurrentDatasetAnnotationNotifier
     var annotationName =
         "${state.annotation?.annotationSavePath}/${filename.split("/").last.split(".").first}.txt";
     state = state.copyWith(
+      currentData: (filename, annotationName),
       data:
           state.data.map((e) {
             if (e.$1 == filename) {

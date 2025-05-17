@@ -11,7 +11,8 @@
             a.created_at AS createdAt,
             a.is_deleted AS isDeleted,
             a.class_items AS classItems,
-            a.annotation_save_path AS annotationSavePath
+            a.annotation_save_path AS annotationSavePath,
+            a.prompt AS prompt
         FROM annotation a
         WHERE a.dataset_id = #{datasetId}
           AND a.is_deleted = 0
