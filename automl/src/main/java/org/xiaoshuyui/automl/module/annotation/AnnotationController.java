@@ -1,5 +1,6 @@
 package org.xiaoshuyui.automl.module.annotation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -47,7 +48,13 @@ public class AnnotationController {
     AnnotationFileResponse response = new AnnotationFileResponse();
     response.setAnnotationId(id);
     response.setAnnotationPath(annotation.getAnnotationSavePath());
-    response.setClasses(Arrays.stream(annotation.getClassItems().split(";")).toList());
+    String classes = annotation.getClassItems();
+    if (classes == null || classes.isEmpty()) {
+      response.setClasses(new ArrayList<>());
+    } else {
+      response.setClasses(Arrays.stream(classes.split(";")).toList());
+    }
+
     response.setStorageType(annotation.getStorageType());
 
     response.setFiles(annotationService.getFileList(annotation));

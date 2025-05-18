@@ -452,7 +452,7 @@ async def deep_describe_frame(frame_path: str, tool_model: ToolModel, prompt: st
 
 
 def deep_describe_frame_sync(
-    frame_path: str, tool_model: ToolModel, prompt: str, bucket:Optional[str] = None
+    frame_path: str, tool_model: ToolModel, prompt: str, bucket: Optional[str] = None
 ) -> str:
     if tool_model is None:
         return "tool_model is None"

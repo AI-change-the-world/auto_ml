@@ -1,5 +1,6 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/annotation_list_widget.dart';
+import 'package:auto_ml/modules/annotation/components/cls_annotation_widget.dart';
 import 'package:auto_ml/modules/annotation/components/mllm_annotation_widget.dart';
 import 'package:auto_ml/modules/annotation/components/select_dataset_annotations_dialog.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
@@ -100,6 +101,8 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
           ],
         ),
       );
+    } else if (current.annotation!.annotationType == 0) {
+      return ClsAnnotationWidget(data: current.data);
     }
     return Center(
       child: Text("Unsupport type", style: Styles.defaultButtonTextStyle),
