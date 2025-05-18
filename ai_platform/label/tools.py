@@ -191,7 +191,7 @@ def result_to_label(result: str, img_data: str, h: int = 0, w: int = 0) -> Image
 
 
 def parse_boxes_from_string(
-    s: str, obj_class: int = 0, name: str = "auto", confidence: float = 1.0
+    s: str, obj_class: int = 0, name: str = "auto", confidence: float = 1.0, threshold=5
 ) -> List[PredictResult]:
     # 正则提取所有元组
     matches = re.findall(r"\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", s)
@@ -199,6 +199,8 @@ def parse_boxes_from_string(
     results = []
     for match in matches:
         x, y, w, h = map(float, match)
+        if w < threshold or h < threshold:
+            continue
         box = Box(x1=x, y1=y, x2=x + w, y2=y + h)
         result = PredictResult(
             name=name, obj_class=obj_class, confidence=confidence, box=box
@@ -208,7 +210,7 @@ def parse_boxes_from_string(
     return results
 
 
-def parse_response(response: str, classes: List[str]):
+def parse_response(response: str, classes: List[str], threshold=5):
     results = []
     for line in response.strip().splitlines():
         logger.info(f"Line: {line}")
@@ -219,6 +221,9 @@ def parse_response(response: str, classes: List[str]):
             conf = float(conf_part.strip(" ]"))
             # detection = Detection
             # b = Box(x1=x, y1=y, x2=w +x, y2=h+y)
+            if w - x < threshold or h - y < threshold:
+                continue
+
             b = Box(x1=x, y1=y, x2=w, y2=h)
             class_part = class_part.strip()
             p: PredictResult = PredictResult(

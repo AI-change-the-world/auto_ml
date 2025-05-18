@@ -30,6 +30,7 @@ Annotation _$AnnotationFromJson(Map<String, dynamic> json) => Annotation(
       classItems: json['classItems'] as String?,
       annotationPath: json['annotationPath'] as String?,
       annotationSavePath: json['annotationSavePath'] as String?,
+      prompt: json['prompt'] as String?,
     );
 
 Map<String, dynamic> _$AnnotationToJson(Annotation instance) =>
@@ -43,4 +44,5 @@ Map<String, dynamic> _$AnnotationToJson(Annotation instance) =>
       'classItems': instance.classItems,
       'annotationPath': instance.annotationPath,
       'annotationSavePath': instance.annotationSavePath,
+      'prompt': instance.prompt,
     };

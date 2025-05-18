@@ -1,6 +1,7 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/notifiers/select_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -115,6 +116,9 @@ class _SelectDatasetAnnotationsDialogState
                         Expanded(
                           child: ListView.builder(
                             itemBuilder: (c, i) {
+                              var dataset = data.datasets.firstWhere(
+                                (v) => v.id == data.currentDatasetId,
+                              );
                               return InkWell(
                                 onTap: () {
                                   ref
@@ -123,23 +127,38 @@ class _SelectDatasetAnnotationsDialogState
                                             .notifier,
                                       )
                                       .changeDatasetAndAnnotation(
-                                        data.currentDatasetId,
-                                        data
-                                            .anntations[data
-                                                .currentDatasetId]![i]
-                                            .id,
+                                        dataset,
+                                        data.anntations[data
+                                            .currentDatasetId]![i],
                                       );
                                   Navigator.of(context).pop();
                                 },
-                                child: Text(
-                                  data
-                                          .anntations[data.currentDatasetId]?[i]
+                                child: Tooltip(
+                                  message:
+                                      data
+                                          .anntations[data.currentDatasetId]![i]
                                           .annotationSavePath ??
                                       "",
-                                  maxLines: 1,
-                                  softWrap: true,
-                                  style: Styles.defaultButtonTextStyleNormal,
-                                  overflow: TextOverflow.ellipsis,
+                                  child: Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text:
+                                              "${datasetTaskGetById(data.anntations[data.currentDatasetId]![i].annotationType).name}: ",
+                                          style: Styles.defaultButtonTextStyle,
+                                        ),
+                                        TextSpan(
+                                          text:
+                                              "  ${data.anntations[data.currentDatasetId]![i].annotationSavePath}",
+                                          style:
+                                              Styles.defaultButtonTextStyleGrey,
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    softWrap: true,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               );
                             },

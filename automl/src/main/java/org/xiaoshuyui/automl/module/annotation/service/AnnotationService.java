@@ -144,4 +144,10 @@ public class AnnotationService {
     annotation.setClassItems(classes);
     annotationMapper.updateById(annotation);
   }
+
+  public void updateAnnotationPrompt(String prompt, Long id) {
+    Annotation annotation = annotationMapper.selectById(id);
+    annotation.setPrompt(prompt);
+    annotationMapper.updateById(annotation);
+  }
 }

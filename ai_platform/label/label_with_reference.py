@@ -74,6 +74,7 @@ def label_with_reference(
     template_image: str,  # base64
     tool_model: ToolModel,
     classes: List[str],
+    threshold: int = 5,
 ):
     op = get_operator(s3_properties.datasets_bucket_name)
     target_image_bytes = op.read(target_image)
@@ -128,6 +129,8 @@ def label_with_reference(
             conf = float(conf_part.strip(" ]"))
             # detection = Detection
             # b = Box(x1=x, y1=y, x2=w +x, y2=h+y)
+            if w - x < threshold or h - y < threshold:
+                continue
             b = Box(x1=x, y1=y, x2=w, y2=h)
             class_part = class_part.strip()
             p: PredictResult = PredictResult(

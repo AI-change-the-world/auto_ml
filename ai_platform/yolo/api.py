@@ -121,7 +121,7 @@ async def train(req: TrainRequest, db: Session = Depends(get_db)):
     from db.annotation.annotation_crud import get_annotation
     from db.dataset.dataset_crud import get_dataset
     from db.task.task_crud import get_task
-    from yolo.train import train
+    from yolo.train import cls_train, train
 
     task = get_task(db, req.task_id)
     if (
@@ -138,12 +138,22 @@ async def train(req: TrainRequest, db: Session = Depends(get_db)):
     dataset = get_dataset(db, task.dataset_id)
     annotation = get_annotation(db, task.annotation_id)
 
-    train(
-        task_id=req.task_id,
-        dataset_path=dataset.local_s3_storage_path,
-        annotation_path=annotation.annotation_save_path,
-        classes=annotation.class_items.split(";"),
-    )
+    if task.task_type == "train":
+        train(
+            task_id=req.task_id,
+            dataset_path=dataset.local_s3_storage_path,
+            annotation_path=annotation.annotation_save_path,
+            classes=annotation.class_items.split(";"),
+        )
+    elif task.task_type == "cls_train":
+        cls_train(
+            task_id=req.task_id,
+            dataset_path=dataset.local_s3_storage_path,
+            annotation_path=annotation.annotation_save_path,
+        )
+    else:
+        # TODO 训练其他模型
+        pass
 
     return create_response(
         status=200,

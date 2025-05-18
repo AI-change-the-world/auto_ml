@@ -7,62 +7,46 @@ import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_request.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_response.dart';
+import 'package:auto_ml/modules/dataset/models/get_all_dataset_response.dart';
 
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/logger.dart';
+import 'dataset/models/annotation_list_response.dart';
 
 class CurrentDatasetAnnotationState {
-  final int datasetId;
-  final int annotationId;
-
-  final String datasetPath;
-  final String annotationPath;
+  final Dataset? dataset;
+  final Annotation? annotation;
   final (String, String)? currentData;
   final bool isLoading;
-  final int datasetStorageType;
-  final int annotationStorageType;
   final List<String> classes;
 
   late List<(String, String)> data = [];
   late String currentFilePath = "";
 
   CurrentDatasetAnnotationState({
-    this.datasetId = 0,
-    this.annotationId = 0,
-    this.datasetPath = "",
-    this.annotationPath = "",
+    this.dataset,
+    this.annotation,
     this.currentData,
     this.isLoading = false,
-    this.datasetStorageType = 0,
-    this.annotationStorageType = 0,
     this.classes = const [],
   });
 
   CurrentDatasetAnnotationState copyWith({
-    int? datasetId,
-    int? annotationId,
-    String? datasetPath,
-    String? annotationPath,
+    Dataset? dataset,
+    Annotation? annotation,
     (String, String)? currentData,
     bool? isLoading,
-    int? datasetStorageType,
     List<(String, String)>? data,
     String? currentFilePath,
-    int? annotationStorageType,
     List<String>? classes,
   }) {
     final current = CurrentDatasetAnnotationState(
-      datasetId: datasetId ?? this.datasetId,
-      annotationId: annotationId ?? this.annotationId,
-      datasetPath: datasetPath ?? this.datasetPath,
-      annotationPath: annotationPath ?? this.annotationPath,
+      dataset: dataset ?? this.dataset,
+      annotation: annotation ?? this.annotation,
       currentData: currentData ?? this.currentData,
       isLoading: isLoading ?? this.isLoading,
-      datasetStorageType: datasetStorageType ?? this.datasetStorageType,
-      annotationStorageType:
-          annotationStorageType ?? this.annotationStorageType,
       classes: classes ?? this.classes,
     );
     current.data = data ?? this.data;
@@ -79,19 +63,22 @@ class CurrentDatasetAnnotationNotifier
     return CurrentDatasetAnnotationState();
   }
 
-  changeDatasetAndAnnotation(int datasetId, int annotationId) async {
-    if (datasetId == 0 && annotationId == 0) {
+  changeDatasetAndAnnotation(Dataset? dataset, Annotation? annotation) async {
+    if ((dataset == null && annotation == null) ||
+        (dataset?.id == 0 && annotation?.id == 0)) {
       state = state.copyWith(
-        datasetId: datasetId,
-        annotationId: annotationId,
+        dataset: dataset,
+        annotation: annotation,
         isLoading: false,
+        currentData: ("", ""),
+        // currentFilePath: null,
       );
       return;
     }
     state = state.copyWith(isLoading: true);
     try {
       final response = await dio.get(
-        Api.datasetFileList.replaceAll("{id}", datasetId.toString()),
+        Api.datasetFileList.replaceAll("{id}", dataset!.id.toString()),
       );
       final d = BaseResponse.fromJson(
         response.data,
@@ -99,7 +86,7 @@ class CurrentDatasetAnnotationNotifier
       );
 
       final response2 = await dio.get(
-        Api.annotationFileList.replaceAll("{id}", annotationId.toString()),
+        Api.annotationFileList.replaceAll("{id}", annotation!.id.toString()),
       );
 
       final a = BaseResponse.fromJson(
@@ -113,13 +100,9 @@ class CurrentDatasetAnnotationNotifier
       );
 
       state = state.copyWith(
-        datasetId: datasetId,
-        annotationId: annotationId,
-        datasetPath: d.data?.datasetBaseUrl ?? "",
-        annotationPath: a.data?.annotationPath ?? "",
+        dataset: dataset,
+        annotation: annotation,
         data: data,
-        datasetStorageType: d.data?.storageType ?? 0,
-        annotationStorageType: a.data?.storageType ?? 0,
         isLoading: false,
         classes: a.data?.classes ?? [],
       );
@@ -131,12 +114,25 @@ class CurrentDatasetAnnotationNotifier
   }
 
   changeCurrentData((String, String) data) async {
+    if (state.annotation == null) {
+      return;
+    }
+    if (state.annotation!.annotationType == 1) {
+      return _changeCurrentDataForObjectDetection(data);
+    } else if (state.annotation!.annotationType == 3) {
+      return _changeCurrentDataForImageUnderstanding(data);
+    } else if (state.annotation!.annotationType == 0) {
+      return _changeCurrentDataForCls(data.$1);
+    }
+  }
+
+  _changeCurrentDataForObjectDetection((String, String) data) async {
     logger.d("dataset and annotation $data");
 
     try {
       final request = FilePreviewRequest(
-        baseUrl: state.datasetPath,
-        storageType: state.datasetStorageType,
+        baseUrl: state.dataset?.localS3StoragePath ?? "",
+        storageType: state.dataset?.storageType ?? 0,
         path: data.$1,
       );
       final response = await dio.post(Api.preview, data: request.toJson());
@@ -159,8 +155,8 @@ class CurrentDatasetAnnotationNotifier
       }
 
       final request2 = FilePreviewRequest(
-        baseUrl: state.annotationPath,
-        storageType: state.annotationStorageType,
+        baseUrl: state.annotation?.annotationSavePath ?? "",
+        storageType: 1,
         path: data.$2,
       );
 
@@ -190,6 +186,16 @@ class CurrentDatasetAnnotationNotifier
     }
   }
 
+  _changeCurrentDataForImageUnderstanding((String, String) data) async {
+    logger.d("dataset and annotation $data");
+    state = state.copyWith(currentData: data, currentFilePath: data.$1);
+  }
+
+  _changeCurrentDataForCls(String data) async {
+    logger.d("dataset and annotation $data");
+    state = state.copyWith(currentData: (data, ""), currentFilePath: data);
+  }
+
   addClassType(String className) {
     if (state.classes.contains(className)) {
       return;
@@ -203,8 +209,9 @@ class CurrentDatasetAnnotationNotifier
       return;
     }
     var annotationName =
-        "${state.annotationPath}/${filename.split("/").last.split(".").first}.txt";
+        "${state.annotation?.annotationSavePath}/${filename.split("/").last.split(".").first}.txt";
     state = state.copyWith(
+      currentData: (filename, annotationName),
       data:
           state.data.map((e) {
             if (e.$1 == filename) {

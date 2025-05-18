@@ -1,5 +1,6 @@
 package org.xiaoshuyui.automl.module.annotation;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -7,12 +8,15 @@ import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.annotation.entity.AnnotationFileResponse;
 import org.xiaoshuyui.automl.module.annotation.entity.NewAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.entity.UpdateAnnotationClassesRequest;
+import org.xiaoshuyui.automl.module.annotation.entity.UpdateAnnotationPromptRequest;
 import org.xiaoshuyui.automl.module.annotation.entity.UpdateAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @Slf4j
 @RestController
@@ -44,7 +48,13 @@ public class AnnotationController {
     AnnotationFileResponse response = new AnnotationFileResponse();
     response.setAnnotationId(id);
     response.setAnnotationPath(annotation.getAnnotationSavePath());
-    response.setClasses(Arrays.stream(annotation.getClassItems().split(";")).toList());
+    String classes = annotation.getClassItems();
+    if (classes == null || classes.isEmpty()) {
+      response.setClasses(new ArrayList<>());
+    } else {
+      response.setClasses(Arrays.stream(classes.split(";")).toList());
+    }
+
     response.setStorageType(annotation.getStorageType());
 
     response.setFiles(annotationService.getFileList(annotation));
@@ -112,4 +122,11 @@ public class AnnotationController {
     annotationService.updateAnnotationClasses(entity.getId(), entity.getClasses());
     return Result.OK();
   }
+
+  @PostMapping("/update/prompt")
+  public Result updatePrompt(@RequestBody UpdateAnnotationPromptRequest entity) {
+    annotationService.updateAnnotationPrompt(entity.getPrompt(), entity.getAnnotationId());
+    return Result.OK();
+  }
+
 }

@@ -37,7 +37,6 @@ class _PipelineWorkflowDialogState extends State<PipelineWorkflowDialog> {
 
   @override
   void dispose() {
-    boardController.dispose();
     super.dispose();
   }
 

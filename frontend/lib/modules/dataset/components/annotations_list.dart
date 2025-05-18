@@ -1,5 +1,6 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
+import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/append_annotation_files_dialog.dart';
 import 'package:auto_ml/modules/dataset/components/modify_annotation_classes_dialog.dart';
@@ -15,6 +16,7 @@ import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data_table_2/data_table_2.dart';
+import 'package:markdown_widget/markdown_widget.dart';
 
 class AnnotationsList extends ConsumerStatefulWidget {
   const AnnotationsList({super.key});
@@ -256,44 +258,70 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                 ),
                 InkWell(
                   onTap: () async {
-                    showGeneralDialog(
-                      barrierColor: Styles.barriarColor,
-                      barrierDismissible: true,
-                      barrierLabel: "ModifyAnnotationClassesDialog",
-                      context: context,
-                      pageBuilder: (c, _, __) {
-                        return Center(
-                          child: ModifyAnnotationClassesDialog(
-                            annotationString: annotation.classItems ?? "",
-                          ),
-                        );
-                      },
-                    ).then((v) {
-                      if (v != null) {
-                        Map<String, dynamic> map = {
-                          "id": annotation.id,
-                          "classes": v,
-                        };
+                    if (annotation.annotationType != 3) {
+                      showGeneralDialog(
+                        barrierColor: Styles.barriarColor,
+                        barrierDismissible: true,
+                        barrierLabel: "ModifyAnnotationClassesDialog",
+                        context: context,
+                        pageBuilder: (c, _, __) {
+                          return Center(
+                            child: ModifyAnnotationClassesDialog(
+                              annotationString: annotation.classItems ?? "",
+                            ),
+                          );
+                        },
+                      ).then((v) {
+                        if (v != null) {
+                          Map<String, dynamic> map = {
+                            "id": annotation.id,
+                            "classes": v,
+                          };
 
-                        DioClient().instance
-                            .post(Api.annotationClassesUpdate, data: map)
-                            .then((v) {
-                              if (v.statusCode == 200) {
-                                ToastUtils.success(null, title: "修改成功");
-                                ref
-                                    .read(annotationListProvider.notifier)
-                                    .updateData();
-                              } else {
-                                ToastUtils.error(null, title: "修改失败");
-                              }
-                            });
-                      }
-                    });
+                          DioClient().instance
+                              .post(Api.annotationClassesUpdate, data: map)
+                              .then((v) {
+                                if (v.statusCode == 200) {
+                                  ToastUtils.success(null, title: "修改成功");
+                                  ref
+                                      .read(annotationListProvider.notifier)
+                                      .updateData();
+                                } else {
+                                  ToastUtils.error(null, title: "修改失败");
+                                }
+                              });
+                        }
+                      });
+                    } else {
+                      showGeneralDialog(
+                        barrierColor: Styles.barriarColor,
+                        barrierDismissible: true,
+                        barrierLabel: "ModifyAnnotationClassesDialog",
+                        context: context,
+                        pageBuilder: (c, _, __) {
+                          return Center(
+                            child: dialogWrapper(
+                              width: 400,
+                              height: 400,
+                              child: Container(
+                                padding: EdgeInsets.all(10),
+                                child: MarkdownWidget(
+                                  data: annotation.prompt ?? "**Prompt unset**",
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }
                   },
                   child: Tooltip(
-                    message: "classes",
+                    message:
+                        annotation.annotationType == 3 ? "Prompt" : "classes",
                     child: Icon(
-                      Icons.class_outlined,
+                      annotation.annotationType == 3
+                          ? Icons.text_format
+                          : Icons.class_outlined,
                       size: Styles.datatableIconSize,
                     ),
                   ),

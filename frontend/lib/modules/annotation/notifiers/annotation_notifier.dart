@@ -280,7 +280,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       bottom: bottom,
       path: ref.read(currentDatasetAnnotationNotifierProvider).currentData!.$1,
       label: currentAnnotation.getLabel(classes),
-      id: ref.read(currentDatasetAnnotationNotifierProvider).annotationId,
+      id: ref.read(currentDatasetAnnotationNotifierProvider).annotation!.id,
     );
 
     DioClient().instance.post(Api.getSimilar, data: request.toJson()).then((v) {
@@ -345,7 +345,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
         "";
     if (annotationSavePath.isEmpty) {
       filename =
-          "${ref.read(currentDatasetAnnotationNotifierProvider).annotationPath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
+          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
     } else {
       filename = annotationSavePath;
     }
@@ -390,7 +390,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       return;
     }
     final annotationId =
-        ref.read(currentDatasetAnnotationNotifierProvider).annotationId;
+        ref.read(currentDatasetAnnotationNotifierProvider).annotation?.id;
     final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
     Map<String, dynamic> data = {"stream": stream};
     if (!stream) {

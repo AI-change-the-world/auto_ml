@@ -1,5 +1,6 @@
 def extract_keyframes(video_path, interval_sec=2.0):
     import os
+
     import cv2
     import ffmpeg
 
@@ -27,5 +28,6 @@ def extract_keyframes(video_path, interval_sec=2.0):
         current_time += interval_sec  # 每隔 interval 秒取一帧
 
     cap.release()
+
 
 extract_keyframes("./test.mp4")

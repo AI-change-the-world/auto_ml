@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline outputKey="1_result" name="label-image" sync="true">
+    <step id="1" name="describe-image">
+        <action class="org.xiaoshuyui.automl.module.aether.workflow.action.DescribeImageAction"/>
+        <aether>
+            <task>deep describe</task>
+            <modelId>1</modelId>
+            <inputType>image</inputType>
+            <inputKey>imgPath</inputKey>
+            <extra>
+                <entry key="annotation_id" type="num">${annotation_id}</entry>
+                <entry key="prompt" type="str">${prompt}</entry>
+            </extra>
+        </aether>
+    </step>
+</pipeline>

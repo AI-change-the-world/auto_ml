@@ -49,6 +49,7 @@ def _tensor_to_predict_results(
     width,
     classes: List[str],
     image_save_path: str = "test.png",
+    threshold=5,
 ) -> PredictResults:
     logits_list = logits.tolist()
     logger.info(f"classes: {classes}")
@@ -63,6 +64,10 @@ def _tensor_to_predict_results(
             x2=boxes_list[i][2] * width,
             y2=boxes_list[i][3] * height,
         )
+
+        if box.x2 - box.x1 < threshold or box.y2 - box.y1 < threshold:
+            continue
+
         logger.info(f"box: {box}")
         results.append(
             PredictResult(

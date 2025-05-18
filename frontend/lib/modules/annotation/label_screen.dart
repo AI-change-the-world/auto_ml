@@ -1,5 +1,7 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/annotation_list_widget.dart';
+import 'package:auto_ml/modules/annotation/components/cls_annotation_widget.dart';
+import 'package:auto_ml/modules/annotation/components/mllm_annotation_widget.dart';
 import 'package:auto_ml/modules/annotation/components/select_dataset_annotations_dialog.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/components/file_list.dart';
@@ -29,7 +31,10 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
   Widget build(BuildContext context) {
     final current = ref.watch(currentDatasetAnnotationNotifierProvider);
 
-    if (current.annotationId == 0 || current.datasetId == 0) {
+    if (current.annotation == null ||
+        current.dataset == null ||
+        current.dataset?.id == 0 ||
+        current.annotation?.id == null) {
       return Center(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -59,39 +64,48 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
       );
     }
 
-    return Container(
-      padding: EdgeInsets.only(top: 10, bottom: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+    if (current.annotation!.annotationType == 3) {
+      return MllmAnnotationWidget(data: current.data);
+    } else if (current.annotation!.annotationType == 1) {
+      return Container(
+        padding: EdgeInsets.only(top: 10, bottom: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
 
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          stops: [0.1, 0.9, 1.0],
-          colors: [Colors.grey[200]!, Colors.white, Colors.grey[200]!],
-        ),
-      ),
-      child: Column(
-        spacing: 10,
-        children: [
-          SizedBox(height: 20, child: _cachedDropDownButton),
-          Expanded(
-            child: Row(
-              spacing: 10,
-              children: [
-                FileList(data: current.data),
-                Expanded(child: ImageBoard()),
-                AnnotationListWidget(
-                  classes:
-                      ref
-                          .read(currentDatasetAnnotationNotifierProvider)
-                          .classes,
-                ),
-              ],
-            ),
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            stops: [0.1, 0.9, 1.0],
+            colors: [Colors.grey[200]!, Colors.white, Colors.grey[200]!],
           ),
-        ],
-      ),
+        ),
+        child: Column(
+          spacing: 10,
+          children: [
+            SizedBox(height: 20, child: _cachedDropDownButton),
+            Expanded(
+              child: Row(
+                spacing: 10,
+                children: [
+                  FileList(data: current.data),
+                  Expanded(child: ImageBoard()),
+                  AnnotationListWidget(
+                    classes:
+                        ref
+                            .read(currentDatasetAnnotationNotifierProvider)
+                            .classes,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (current.annotation!.annotationType == 0) {
+      return ClsAnnotationWidget(data: current.data);
+    }
+    return Center(
+      child: Text("Unsupport type", style: Styles.defaultButtonTextStyle),
     );
   }
 }
