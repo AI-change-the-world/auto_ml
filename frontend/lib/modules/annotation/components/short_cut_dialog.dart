@@ -30,6 +30,22 @@ class _ShortCutDialogState extends State<ShortCutDialog> {
               spacing: 5,
               children: [
                 Icon(Icons.keyboard),
+                Text("Q", style: Styles.defaultButtonTextStyle),
+                Text("Previous data", style: Styles.defaultButtonTextStyleGrey),
+              ],
+            ),
+            Row(
+              spacing: 5,
+              children: [
+                Icon(Icons.keyboard),
+                Text("E", style: Styles.defaultButtonTextStyle),
+                Text("Next data", style: Styles.defaultButtonTextStyleGrey),
+              ],
+            ),
+            Row(
+              spacing: 5,
+              children: [
+                Icon(Icons.keyboard),
                 Text("W", style: Styles.defaultButtonTextStyle),
                 Text(
                   "Switch to Add/Modify mode",

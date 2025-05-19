@@ -54,6 +54,20 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
     return KeyboardListener(
       onKeyEvent: (event) {
         if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyQ) {
+          ref
+              .read(currentDatasetAnnotationNotifierProvider.notifier)
+              .prevData();
+        }
+
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.keyE) {
+          ref
+              .read(currentDatasetAnnotationNotifierProvider.notifier)
+              .nextData();
+        }
+
+        if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyS) {
           if (ref.read(annotationNotifierProvider).modified) {
             ref

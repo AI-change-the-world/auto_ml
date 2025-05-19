@@ -23,7 +23,7 @@ void main() async {
             return MaterialApp.router(
               locale: Locale(ref.watch(i18nProvider)),
               theme: ThemeData(
-                fontFamily: "NotoSansSC",
+                fontFamily: "ph",
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: const Color.fromARGB(255, 61, 124, 219),
                   brightness: Brightness.light,

@@ -63,9 +63,9 @@ flutter:
     - assets/test.txt
 
   fonts:
-    - family: NotoSansSC
+    - family: ph
       fonts:
-        - asset: assets/fonts/NotoSansSC-Regular.ttf
+        - asset: assets/fonts/AlibabaPuHuiTi-3-55-Regular.ttf
 
 flutter_launcher_icons: # dart run flutter_launcher_icons
   image_path: "assets/icon.png"

@@ -95,13 +95,18 @@ class FileList extends ConsumerWidget {
               children: [
                 Spacer(),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    ref
+                        .read(currentDatasetAnnotationNotifierProvider.notifier)
+                        .prevData();
+                  },
                   child: Text(t.annotation_screen.list.prev),
                 ),
                 TextButton(
                   onPressed: () {
-                    /// TODO: next data
-                    // ref.read(labelNotifierProvider(dl).notifier).nextData();
+                    ref
+                        .read(currentDatasetAnnotationNotifierProvider.notifier)
+                        .nextData();
                   },
                   child: Text(
                     t.annotation_screen.list.next,

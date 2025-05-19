@@ -7,6 +7,7 @@ import 'package:auto_ml/modules/dataset/models/annotation_list_response.dart';
 import 'package:auto_ml/modules/dataset/models/get_all_dataset_response.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
+import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -87,7 +88,66 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
                         style: Styles.defaultButtonTextStyle,
                       ),
                     )
-                    : Container(),
+                    : Container(
+                      height: double.infinity,
+                      width: double.infinity,
+                      padding: EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: 10,
+                        children: [
+                          Center(
+                            child: Text(
+                              "Supported classes",
+                              style: Styles.defaultButtonTextStyle,
+                            ),
+                          ),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              alignment: WrapAlignment.start,
+                              runAlignment: WrapAlignment.start,
+                              children:
+                                  currentAnnotation!.classItems!.split(";").map(
+                                    (e) {
+                                      return InkWell(
+                                        onTap: () {
+                                          if (selectedImage == "") {
+                                            ToastUtils.info(
+                                              context,
+                                              title: "No image selected",
+                                            );
+                                            return;
+                                          }
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey[200]!,
+                                            ),
+                                          ),
+                                          alignment: Alignment.centerLeft,
+                                          padding: EdgeInsets.only(
+                                            left: 5,
+                                            right: 5,
+                                          ),
+                                          height: 30,
+                                          width: 100,
+                                          child: Text(
+                                            e,
+                                            style:
+                                                Styles.defaultButtonTextStyle,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
           ),
         ),
       ],

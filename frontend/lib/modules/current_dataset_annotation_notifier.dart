@@ -113,6 +113,22 @@ class CurrentDatasetAnnotationNotifier
     }
   }
 
+  prevData() {
+    if (state.currentData == null) return;
+    int currentIndex = state.data.indexOf(state.currentData!);
+    if (currentIndex == 0) return;
+    var prevData = state.data[currentIndex - 1];
+    changeCurrentData(prevData);
+  }
+
+  nextData() {
+    if (state.currentData == null) return;
+    int currentIndex = state.data.indexOf(state.currentData!);
+    if (currentIndex == state.data.length - 1) return;
+    var nextData = state.data[currentIndex + 1];
+    changeCurrentData(nextData);
+  }
+
   changeCurrentData((String, String) data) async {
     if (state.annotation == null) {
       return;
