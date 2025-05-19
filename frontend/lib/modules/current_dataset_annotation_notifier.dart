@@ -138,7 +138,7 @@ class CurrentDatasetAnnotationNotifier
     } else if (state.annotation!.annotationType == 3) {
       return _changeCurrentDataForImageUnderstanding(data);
     } else if (state.annotation!.annotationType == 0) {
-      return _changeCurrentDataForCls(data.$1);
+      return _changeCurrentDataForCls(data);
     }
   }
 
@@ -207,9 +207,9 @@ class CurrentDatasetAnnotationNotifier
     state = state.copyWith(currentData: data, currentFilePath: data.$1);
   }
 
-  _changeCurrentDataForCls(String data) async {
+  _changeCurrentDataForCls((String, String) data) async {
     logger.d("dataset and annotation $data");
-    state = state.copyWith(currentData: (data, ""), currentFilePath: data);
+    state = state.copyWith(currentData: data, currentFilePath: data.$1);
   }
 
   addClassType(String className) {

@@ -4,6 +4,8 @@ import shutil
 import tempfile
 from typing import Dict
 
+from base.logger import logger
+
 __basic_path = "./runs/"
 
 
@@ -93,6 +95,8 @@ def prepare_dataset_for_cls(
     - 格式为：temp_dir/train/class_x/*.jpg 和 temp_dir/val/class_x/*.jpg
     """
     temp_dir = os.path.abspath(tempfile.mkdtemp(prefix="yolo_cls_", dir=tmp_root))
+    logger.info(f"class_info: {class_info}")
+    logger.info(f"all_images_dir images: {all_images_dir}")
 
     all_image_files = [
         f
@@ -129,10 +133,5 @@ def prepare_dataset_for_cls(
 
     copy_cls_images(train_files, "train")
     copy_cls_images(val_files, "val")
-
-    # 写入 class names 到元信息文件（可选）
-    with open(os.path.join(temp_dir, "classes.txt"), "w") as f:
-        for name in class_names:
-            f.write(name + "\n")
 
     return temp_dir

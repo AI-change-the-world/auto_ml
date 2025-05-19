@@ -2,7 +2,10 @@ package org.xiaoshuyui.automl.module.annotation;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.annotation.entity.AnnotationFileResponse;
@@ -13,10 +16,6 @@ import org.xiaoshuyui.automl.module.annotation.entity.UpdateAnnotationRequest;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.request.GetFilePreviewRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.GetFileContentResponse;
-
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @Slf4j
 @RestController
@@ -128,5 +127,4 @@ public class AnnotationController {
     annotationService.updateAnnotationPrompt(entity.getPrompt(), entity.getAnnotationId());
     return Result.OK();
   }
-
 }

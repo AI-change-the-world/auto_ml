@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class UpdateAnnotationPromptRequest {
-    Long annotationId;
-    String prompt;
+  Long annotationId;
+  String prompt;
 }

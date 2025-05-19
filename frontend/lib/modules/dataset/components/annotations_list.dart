@@ -214,6 +214,16 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                 ),
                 InkWell(
                   onTap: () {
+                    if (annotation.annotationType != 0 &&
+                        annotation.annotationType != 1) {
+                      ToastUtils.info(
+                        context,
+                        title:
+                            "Only classification and detection trainning supported right now",
+                      );
+                      return;
+                    }
+
                     showGeneralDialog(
                       context: context,
                       barrierColor: Styles.barriarColor,
@@ -222,7 +232,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                       pageBuilder: (c, _, __) {
                         return Center(
                           child: NewTrainTaskDialog(
-                            typeId: DatasetTask.detection.index,
+                            typeId: annotation.annotationType,
                           ),
                         );
                       },

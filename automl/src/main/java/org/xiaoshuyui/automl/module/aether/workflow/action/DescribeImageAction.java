@@ -9,30 +9,29 @@ import org.xiaoshuyui.automl.module.aether.workflow.WorkflowStep;
 
 public class DescribeImageAction extends WorkflowAction {
 
-    @Override
-    public void execute(WorkflowStep step, WorkflowContext context) {
-        AetherWorkflowConfig config = step.getAetherConfig();
+  @Override
+  public void execute(WorkflowStep step, WorkflowContext context) {
+    AetherWorkflowConfig config = step.getAetherConfig();
 
-        AetherRequest<Object> request = new AetherRequest<>();
-        request.setTask(config.getTask());
-        request.setModelId(config.getModelId());
+    AetherRequest<Object> request = new AetherRequest<>();
+    request.setTask(config.getTask());
+    request.setModelId(config.getModelId());
 
-        AetherRequest.Input input = new AetherRequest.Input();
-        input.setData((String) context.get(config.getInputKey()));
-        input.setDataType(config.getInputType());
-        request.setInput(input);
+    AetherRequest.Input input = new AetherRequest.Input();
+    input.setData((String) context.get(config.getInputKey()));
+    input.setDataType(config.getInputType());
+    request.setInput(input);
 
-        AetherRequest.Meta meta = new AetherRequest.Meta();
-        Long taskId = (Long) context.getOrDefault("taskId", System.currentTimeMillis());
-        meta.setTaskId(taskId);
-        Boolean sync = (Boolean) context.getOrDefault("sync", true);
-        meta.setSync(sync);
-        request.setMeta(meta);
-        request.setExtra(config.getExtra(context));
+    AetherRequest.Meta meta = new AetherRequest.Meta();
+    Long taskId = (Long) context.getOrDefault("taskId", System.currentTimeMillis());
+    meta.setTaskId(taskId);
+    Boolean sync = (Boolean) context.getOrDefault("sync", true);
+    meta.setSync(sync);
+    request.setMeta(meta);
+    request.setExtra(config.getExtra(context));
 
-        AetherResponse<?> result = aetherClient.invoke(request, Object.class);
-        context.put(step.getId() + "_result", result);
-        super.execute(step, context);
-    }
-
+    AetherResponse<?> result = aetherClient.invoke(request, Object.class);
+    context.put(step.getId() + "_result", result);
+    super.execute(step, context);
+  }
 }

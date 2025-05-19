@@ -133,13 +133,15 @@ public class AetherController {
     context.put("agentId", agentId);
     context.put("imgPath", dataset.getLocalS3StoragePath());
 
-    Thread thread = new Thread(
-        () -> {
-          List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
-          WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-          workflowEngine.run(1);
-          taskLogService.save(taskEntity.getTaskId(), "[post task] done");
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              List<WorkflowStep> steps =
+                  pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+              WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+              workflowEngine.run(1);
+              taskLogService.save(taskEntity.getTaskId(), "[post task] done");
+            });
     thread.start();
 
     return Result.OK_msg("Task Created");
@@ -184,7 +186,8 @@ public class AetherController {
             return aetherAutoLabelWorkflowImpl(
                 (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
           case "9":
-            return describeImage((Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
+            return describeImage(
+                (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
           default:
             return Result.error("agent not found");
         }
@@ -235,7 +238,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -272,7 +276,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -318,7 +323,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -357,7 +363,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -403,7 +410,8 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps =
+        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);

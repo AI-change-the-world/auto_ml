@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import traceback
 import uuid
 from pathlib import Path
 from typing import List, Optional
@@ -83,6 +84,8 @@ def __train_cls_model(task_id: int, dataset_path: str, annotation_path: str):
         annotation_path=annotation_path,
     )
 
+    logger.info(f"download dataset from s3: {temp_folder}")
+
     if not os.path.exists(temp_folder + "/annotations/classes.json"):
         logger.error("classes.json not found")
 
@@ -91,9 +94,22 @@ def __train_cls_model(task_id: int, dataset_path: str, annotation_path: str):
             log_content="[post-train] error : classes.json not found ...",
         )
         create_log(session, tlc)
+        return
 
     _json = json.load(open(temp_folder + "/annotations/classes.json"))
-    p: str = prepare_dataset_for_cls(temp_folder + os.sep + "dataset", _json)
+    p: str = ""
+    try:
+        p = prepare_dataset_for_cls(temp_folder + os.sep + "dataset", _json)
+    except Exception as e:
+        traceback.print_exc()
+        tlc = TaskLogCreate(
+            task_id=task_id,
+            log_content="[post-train] error : dataset create failed ...",
+        )
+        create_log(session, tlc)
+        return
+
+    logger.info(f"prepare dataset for cls: {p}")
 
     tlc = TaskLogCreate(
         task_id=task_id,

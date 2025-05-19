@@ -15,6 +15,7 @@ import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
@@ -36,8 +37,17 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
   late TextEditingController controller2 = TextEditingController();
   bool loading = false;
 
+  FocusNode focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    focusNode.requestFocus();
+  }
+
   @override
   void dispose() {
+    focusNode.dispose();
     controller.dispose();
     controller2.dispose();
     super.dispose();
@@ -73,35 +83,60 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
               spacing: 10,
               children: [
                 Expanded(
-                  child: Container(
-                    height: double.infinity,
-                    decoration: BoxDecoration(color: Colors.white),
-                    child: Center(
-                      child: Consumer(
-                        builder: (c, ref, _) {
-                          if (currentDataset == null || selectedImage == "") {
-                            return Text(
-                              "No image selected",
-                              style: Styles.defaultButtonTextStyle,
+                  child: KeyboardListener(
+                    focusNode: focusNode,
+                    onKeyEvent: (event) {
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.keyQ) {
+                        ref
+                            .read(
+                              currentDatasetAnnotationNotifierProvider.notifier,
+                            )
+                            .prevData();
+                      }
+
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.keyE) {
+                        ref
+                            .read(
+                              currentDatasetAnnotationNotifierProvider.notifier,
+                            )
+                            .nextData();
+                      }
+                    },
+                    child: Container(
+                      height: double.infinity,
+                      decoration: BoxDecoration(color: Colors.white),
+                      child: Center(
+                        child: Consumer(
+                          builder: (c, ref, _) {
+                            if (currentDataset == null || selectedImage == "") {
+                              return Text(
+                                "No image selected",
+                                style: Styles.defaultButtonTextStyle,
+                              );
+                            }
+
+                            final asyncDetail = ref.watch(
+                              getDatasetPreview((
+                                currentDataset!,
+                                selectedImage,
+                              )),
                             );
-                          }
 
-                          final asyncDetail = ref.watch(
-                            getDatasetPreview((currentDataset!, selectedImage)),
-                          );
-
-                          return asyncDetail.when(
-                            data: (data) {
-                              return Image.network(data, fit: BoxFit.contain);
-                            },
-                            error: (e, _) {
-                              return Text("Error: $e");
-                            },
-                            loading: () {
-                              return CircularProgressIndicator();
-                            },
-                          );
-                        },
+                            return asyncDetail.when(
+                              data: (data) {
+                                return Image.network(data, fit: BoxFit.contain);
+                              },
+                              error: (e, _) {
+                                return Text("Error: $e");
+                              },
+                              loading: () {
+                                return CircularProgressIndicator();
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

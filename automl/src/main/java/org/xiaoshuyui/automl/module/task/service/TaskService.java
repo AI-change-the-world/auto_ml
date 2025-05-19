@@ -6,7 +6,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -16,11 +18,16 @@ import okhttp3.Response;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.common.PageResult;
+import org.xiaoshuyui.automl.config.S3ConfigProperties;
+import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
+import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.task.entity.NewTrainingTaskRequest;
 import org.xiaoshuyui.automl.module.task.entity.Task;
+import org.xiaoshuyui.automl.module.task.entity.TaskLog;
 import org.xiaoshuyui.automl.module.task.mapper.TaskLogMapper;
 import org.xiaoshuyui.automl.module.task.mapper.TaskMapper;
 import org.xiaoshuyui.automl.module.tool.entity.PythonEvalDatasetRequest;
+import org.xiaoshuyui.automl.util.S3FileDelegate;
 
 @Service
 @Slf4j
@@ -28,6 +35,9 @@ public class TaskService {
 
   private final TaskMapper taskMapper;
   private final TaskLogMapper taskLogMapper;
+  private final AnnotationService annotationService;
+  private final S3FileDelegate s3FileDelegate;
+  private final S3ConfigProperties s3ConfigProperties;
 
   @Value("${ai-platform.url}")
   String aiPlatformUrl;
@@ -35,9 +45,17 @@ public class TaskService {
   @Value("${ai-platform.train-yolo}")
   String trainYolo;
 
-  public TaskService(TaskMapper taskMapper, TaskLogMapper taskLogMapper) {
+  public TaskService(
+      TaskMapper taskMapper,
+      TaskLogMapper taskLogMapper,
+      AnnotationService annotationService,
+      S3FileDelegate s3FileDelegate,
+      S3ConfigProperties s3ConfigProperties) {
     this.taskMapper = taskMapper;
     this.taskLogMapper = taskLogMapper;
+    this.annotationService = annotationService;
+    this.s3FileDelegate = s3FileDelegate;
+    this.s3ConfigProperties = s3ConfigProperties;
   }
 
   public PageResult getTaskList(int pageId, int pageSize) {
@@ -94,6 +112,11 @@ public class TaskService {
     Task task = new Task();
     task.setTaskType("train");
     task.setDatasetId(entity.getDatasetId());
+    Annotation annotation = annotationService.getById(entity.getAnnotationId());
+    if (annotation.getAnnotationType() == 0) {
+      task.setTaskType("cls_train");
+    }
+
     task.setAnnotationId(entity.getAnnotationId());
     task.setTaskConfig(gson.toJson(entity));
 
@@ -103,6 +126,49 @@ public class TaskService {
         new Thread() {
           @Override
           public void run() {
+
+            if (annotation.getAnnotationType() == 0) {
+              // collection classification
+              TaskLog taskLog = new TaskLog();
+              taskLog.setTaskId(task.getTaskId());
+              taskLog.setLogContent("[pre-train] collect all files");
+              taskLogMapper.insert(taskLog);
+              try {
+                List<String> files =
+                    s3FileDelegate.listFiles(
+                        annotation.getAnnotationSavePath(),
+                        s3ConfigProperties.getDatasetsBucketName());
+
+                Map<String, String> classMap = new HashMap<>();
+                for (String file : files) {
+                  String content =
+                      s3FileDelegate.getFileContent(
+                          file, s3ConfigProperties.getDatasetsBucketName());
+                  List<String> lines = content.lines().toList();
+                  if (lines.size() != 2) {
+                    continue;
+                  }
+                  String lineFileName = lines.get(0).substring(lines.get(0).lastIndexOf("/") + 1);
+                  classMap.put(lineFileName, lines.get(1));
+                }
+                String json = gson.toJson(classMap);
+                s3FileDelegate.putFile(
+                    annotation.getAnnotationSavePath() + "/" + "classes.json",
+                    json,
+                    s3ConfigProperties.getDatasetsBucketName());
+                taskLog.setLogContent("[pre-train] collect files success");
+                taskLogMapper.insert(taskLog);
+
+              } catch (Exception e) {
+                taskLog.setLogContent("[post-train] collect files error");
+                taskLogMapper.insert(taskLog);
+                task.setStatus(3);
+                taskMapper.updateById(task);
+                e.printStackTrace();
+                return;
+              }
+            }
+
             MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
             String json = "{\"task_id\": " + task.getTaskId() + "}";

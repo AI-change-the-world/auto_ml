@@ -48,7 +48,7 @@ class _NewTrainTaskDialogState extends State<NewTrainTaskDialog> {
         final state = ref.watch(baseModelsProvider(widget.typeId));
 
         return dialogWrapper(
-          width: 300,
+          width: 400,
           height: 270,
           child: Container(
             padding: EdgeInsets.all(10),
