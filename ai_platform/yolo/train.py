@@ -155,6 +155,7 @@ def __train_cls_model(task_id: int, dataset_path: str, annotation_path: str):
             "base_model_name": task_config_json["name"],
             "loss": trainer.loss.item(),
             "epoch": task_config_json["epoch"],
+            "model_type": "classification",
         }
         create_available_model(session, available_model)
         tlc = TaskLogCreate(
@@ -263,6 +264,7 @@ def __train_model(
             "base_model_name": task_config_json["name"],
             "loss": trainer.loss.item(),
             "epoch": task_config_json["epoch"],
+            "model_type": "detection",
         }
         create_available_model(session, available_model)
         tlc = TaskLogCreate(

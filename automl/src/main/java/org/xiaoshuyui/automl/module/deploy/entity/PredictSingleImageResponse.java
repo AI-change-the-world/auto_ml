@@ -26,6 +26,7 @@ public class PredictSingleImageResponse {
     private double y2;
   }
 
+  @Deprecated
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();

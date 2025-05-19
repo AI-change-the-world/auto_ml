@@ -59,7 +59,17 @@ public class DeployController {
 
   @PostMapping("/predict/image")
   public Result predictSingleImage(@RequestBody PredictSingleImageRequest entity) {
-    var d = availableModelService.predictSingleImage(entity);
+    var model = availableModelService.getAvailableModelById(entity.getModelId());
+    if (model == null) {
+      return Result.error("模型不存在");
+    }
+    Object d;
+    if (model.getModelType().equals("classification")) {
+      d = availableModelService.predictClsSingleImage(entity);
+    } else {
+      d = availableModelService.predictSingleImage(entity);
+    }
+
     if (d != null) {
       return Result.OK_data(d);
     } else {

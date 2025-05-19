@@ -70,6 +70,7 @@ ai-platform:
   start-model: /yolo/start/
   stop-model: /yolo/stop/
   predict-single-image: /yolo/eval
+  cls-predict: /yolo/cls/eval
   find-similar : /label/similar
   eval-dataset: /yolo/eval/dataset
   aether: /aether

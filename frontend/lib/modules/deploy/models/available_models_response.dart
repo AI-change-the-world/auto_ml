@@ -28,6 +28,7 @@ class AvailableModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   bool isOn;
+  final String modelType;
 
   AvailableModel({
     required this.id,
@@ -40,6 +41,7 @@ class AvailableModel {
     required this.createdAt,
     required this.updatedAt,
     this.isOn = false,
+    this.modelType = "unknown",
   });
 
   factory AvailableModel.fromJson(Map<String, dynamic> json) =>

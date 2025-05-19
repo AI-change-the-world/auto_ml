@@ -60,6 +60,13 @@ def predict_result_from_detections(detections: Detections) -> List[PredictResult
     return results
 
 
+class ClsPredictResults(BaseModel):
+    image_id: str
+    class_id: int
+    name: str
+    confidence: float
+
+
 class PredictResults(BaseModel):
     image_id: str
     results: list[PredictResult]

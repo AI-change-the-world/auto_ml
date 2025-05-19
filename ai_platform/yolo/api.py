@@ -65,6 +65,21 @@ async def deploy_eval(req: PredictSingleImageRequest, db: Session = Depends(get_
     )
 
 
+@router.post("/cls/eval")
+async def deploy_eval(req: PredictSingleImageRequest, db: Session = Depends(get_db)):
+    from yolo.predict import cls_predict_with_certain_model
+
+    return create_response(
+        status=200,
+        message="OK",
+        data=cls_predict_with_certain_model(
+            model_id=req.model_id,
+            img=req.data,
+            db=db,
+        ),
+    )
+
+
 @router.get("/start/{id}")
 async def start_model(id: int, db: Session = Depends(get_db)):
     from yolo.predict import start_model

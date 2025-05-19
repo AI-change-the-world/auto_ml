@@ -43,6 +43,8 @@ SingleImageResponse _$SingleImageResponseFromJson(Map<String, dynamic> json) =>
       results: (json['results'] as List<dynamic>)
           .map((e) => Detection.fromJson(e as Map<String, dynamic>))
           .toList(),
+      imageWidth: (json['image_width'] as num?)?.toInt() ?? 0,
+      imageHeight: (json['image_height'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$SingleImageResponseToJson(
@@ -50,6 +52,8 @@ Map<String, dynamic> _$SingleImageResponseToJson(
     <String, dynamic>{
       'image_id': instance.imageId,
       'results': instance.results,
+      'image_width': instance.imageWidth,
+      'image_height': instance.imageHeight,
     };
 
 Detection _$DetectionFromJson(Map<String, dynamic> json) => Detection(

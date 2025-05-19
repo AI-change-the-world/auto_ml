@@ -46,8 +46,17 @@ class SingleImageResponse {
   @JsonKey(name: 'image_id')
   final String imageId;
   final List<Detection> results;
+  @JsonKey(name: 'image_width')
+  final int imageWidth;
+  @JsonKey(name: 'image_height')
+  final int imageHeight;
 
-  SingleImageResponse({required this.imageId, required this.results});
+  SingleImageResponse({
+    required this.imageId,
+    required this.results,
+    this.imageWidth = 0,
+    this.imageHeight = 0,
+  });
 
   factory SingleImageResponse.fromJson(Map<String, dynamic> json) =>
       _$SingleImageResponseFromJson(json);

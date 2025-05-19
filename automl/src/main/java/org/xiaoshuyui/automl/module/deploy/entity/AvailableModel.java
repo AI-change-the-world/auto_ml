@@ -41,4 +41,7 @@ public class AvailableModel {
   @JsonIgnore
   @TableField("is_deleted")
   Integer isDeleted;
+
+  @TableField("model_type")
+  String modelType;
 }

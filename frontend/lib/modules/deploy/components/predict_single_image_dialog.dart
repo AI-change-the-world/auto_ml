@@ -13,8 +13,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class PredictSingleImageDialog extends StatefulWidget {
-  const PredictSingleImageDialog({super.key, required this.modelId});
+  const PredictSingleImageDialog({
+    super.key,
+    required this.modelId,
+    required this.modelType,
+  });
   final int modelId;
+  final String modelType;
 
   @override
   State<PredictSingleImageDialog> createState() =>
@@ -61,6 +66,34 @@ class _PredictSingleImageDialogState extends State<PredictSingleImageDialog> {
                 ],
               );
             } else {
+              if (widget.modelType == "classification") {
+                final predictDetail = ref.watch(
+                  predictClsSingleImageProvider(_request!),
+                );
+                return predictDetail.when(
+                  data: (d) {
+                    return Row(
+                      spacing: 10,
+                      children: [
+                        Expanded(child: Image.memory(image!)),
+                        Expanded(
+                          child: Column(
+                            spacing: 10,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text("Name: ${d?.name}"),
+                              Text("Confidence: ${d?.confidence}"),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                  error: (e, _) => Center(child: Text(e.toString())),
+                  loading: () => Center(child: CircularProgressIndicator()),
+                );
+              }
+
               final predictDetail = ref.watch(
                 predictSingleImageProvider(_request!),
               );

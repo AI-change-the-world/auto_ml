@@ -118,6 +118,10 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
       size: ColumnSize.L,
     ),
     DataColumn2(
+      label: Text("Model type", style: Styles.defaultButtonTextStyle),
+      size: ColumnSize.S,
+    ),
+    DataColumn2(
       label: Text(
         t.deploy_screen.base_model,
         style: Styles.defaultButtonTextStyle,
@@ -176,6 +180,9 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
           ),
           DataCell(
             Text(model.savePath, style: Styles.defaultButtonTextStyleNormal),
+          ),
+          DataCell(
+            Text(model.modelType, style: Styles.defaultButtonTextStyleNormal),
           ),
           DataCell(
             Text(
@@ -262,6 +269,7 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
                                 return Center(
                                   child: PredictSingleImageDialog(
                                     modelId: model.id,
+                                    modelType: model.modelType,
                                   ),
                                 );
                               },

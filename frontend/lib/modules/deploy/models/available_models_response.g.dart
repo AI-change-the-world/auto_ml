@@ -18,6 +18,7 @@ AvailableModel _$AvailableModelFromJson(Map<String, dynamic> json) =>
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       isOn: json['isOn'] as bool? ?? false,
+      modelType: json['modelType'] as String? ?? "unknown",
     );
 
 Map<String, dynamic> _$AvailableModelToJson(AvailableModel instance) =>
@@ -32,4 +33,5 @@ Map<String, dynamic> _$AvailableModelToJson(AvailableModel instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
       'isOn': instance.isOn,
+      'modelType': instance.modelType,
     };

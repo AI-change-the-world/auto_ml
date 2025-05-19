@@ -21,3 +21,4 @@ class AvailableModel(Base):
         DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间"
     )
     is_deleted = Column(Integer, default=0, comment="逻辑删除标志")
+    model_type = Column(String, nullable=True, comment="模型类型", default="detection")
