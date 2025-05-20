@@ -94,7 +94,6 @@ class TranslationsDatasetScreenEn {
 	late final TranslationsDatasetScreenAddDatasetEn add_dataset = TranslationsDatasetScreenAddDatasetEn._(_root);
 	late final TranslationsDatasetScreenCardEn card = TranslationsDatasetScreenCardEn._(_root);
 	String get new_annotation_class => 'Input new class name';
-	late final TranslationsDatasetScreenNewAnnotationDialogEn new_annotation_dialog = TranslationsDatasetScreenNewAnnotationDialogEn._(_root);
 }
 
 // Path: sidebar
@@ -147,6 +146,7 @@ class TranslationsDialogsEn {
 
 	// Translations
 	late final TranslationsDialogsModifyDatasetEn modify_dataset = TranslationsDialogsModifyDatasetEn._(_root);
+	late final TranslationsDialogsNewAnnotationDialogEn new_annotation_dialog = TranslationsDialogsNewAnnotationDialogEn._(_root);
 	late final TranslationsDialogsNewDatasetEn new_dataset = TranslationsDialogsNewDatasetEn._(_root);
 	late final TranslationsDialogsNewModelEn new_model = TranslationsDialogsNewModelEn._(_root);
 }
@@ -290,23 +290,6 @@ class TranslationsDatasetScreenCardEn {
 	String get unknown_msg => 'Unknown';
 }
 
-// Path: dataset_screen.new_annotation_dialog
-class TranslationsDatasetScreenNewAnnotationDialogEn {
-	TranslationsDatasetScreenNewAnnotationDialogEn._(this._root);
-
-	final Translations _root; // ignore: unused_field
-
-	// Translations
-	String get title => 'Create new';
-	String get original => 'Original annotation folder*';
-	String get tool_tip => 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
-	String get path => 'Annotation Path';
-	String get path_tool_tip => 'If empty, a new empty annotation set will be created by default.';
-	String get task_type => 'Task Type';
-	String get classes => 'Classes';
-	String get classes_tool_tip => 'Annotation classes (separated by semicolons ‘;’)';
-}
-
 // Path: annotation_screen.list_widget
 class TranslationsAnnotationScreenListWidgetEn {
 	TranslationsAnnotationScreenListWidgetEn._(this._root);
@@ -360,6 +343,23 @@ class TranslationsDialogsModifyDatasetEn {
 	String get description_hint => 'Dataset Description';
 }
 
+// Path: dialogs.new_annotation_dialog
+class TranslationsDialogsNewAnnotationDialogEn {
+	TranslationsDialogsNewAnnotationDialogEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get title => 'Create new';
+	String get original => 'Original annotation folder*';
+	String get tool_tip => 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
+	String get path => 'Annotation Path';
+	String get path_tool_tip => 'If empty, a new empty annotation set will be created by default.';
+	String get task_type => 'Task Type';
+	String get classes => 'Classes';
+	String get classes_tool_tip => 'Annotation classes (separated by semicolons ‘;’)';
+}
+
 // Path: dialogs.new_dataset
 class TranslationsDialogsNewDatasetEn {
 	TranslationsDialogsNewDatasetEn._(this._root);
@@ -376,6 +376,9 @@ class TranslationsDialogsNewDatasetEn {
 	String get rank => 'Ranking';
 	String get description => 'Description';
 	String get description_hint => 'Dataset Description';
+	String get name_hint => 'Dataset Name (required)';
+	String get tool_tip => 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
+	String get dataset_path_hint => 'Dataset Path (required)';
 }
 
 // Path: dialogs.new_model
@@ -479,14 +482,6 @@ extension on Translations {
 			case 'dataset_screen.card.save_msg': return ({required Object message}) => 'This dataset is saved at ${message}';
 			case 'dataset_screen.card.unknown_msg': return 'Unknown';
 			case 'dataset_screen.new_annotation_class': return 'Input new class name';
-			case 'dataset_screen.new_annotation_dialog.title': return 'Create new';
-			case 'dataset_screen.new_annotation_dialog.original': return 'Original annotation folder*';
-			case 'dataset_screen.new_annotation_dialog.tool_tip': return 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
-			case 'dataset_screen.new_annotation_dialog.path': return 'Annotation Path';
-			case 'dataset_screen.new_annotation_dialog.path_tool_tip': return 'If empty, a new empty annotation set will be created by default.';
-			case 'dataset_screen.new_annotation_dialog.task_type': return 'Task Type';
-			case 'dataset_screen.new_annotation_dialog.classes': return 'Classes';
-			case 'dataset_screen.new_annotation_dialog.classes_tool_tip': return 'Annotation classes (separated by semicolons ‘;’)';
 			case 'sidebar.dataset': return 'Dataset';
 			case 'sidebar.label': return 'Label';
 			case 'sidebar.annotation': return 'Annotation';
@@ -516,6 +511,14 @@ extension on Translations {
 			case 'dialogs.modify_dataset.rank': return 'Ranking';
 			case 'dialogs.modify_dataset.description': return 'Description';
 			case 'dialogs.modify_dataset.description_hint': return 'Dataset Description';
+			case 'dialogs.new_annotation_dialog.title': return 'Create new';
+			case 'dialogs.new_annotation_dialog.original': return 'Original annotation folder*';
+			case 'dialogs.new_annotation_dialog.tool_tip': return 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
+			case 'dialogs.new_annotation_dialog.path': return 'Annotation Path';
+			case 'dialogs.new_annotation_dialog.path_tool_tip': return 'If empty, a new empty annotation set will be created by default.';
+			case 'dialogs.new_annotation_dialog.task_type': return 'Task Type';
+			case 'dialogs.new_annotation_dialog.classes': return 'Classes';
+			case 'dialogs.new_annotation_dialog.classes_tool_tip': return 'Annotation classes (separated by semicolons ‘;’)';
 			case 'dialogs.new_dataset.basic': return 'Basic Info';
 			case 'dialogs.new_dataset.dataset_name': return 'Dataset Name*';
 			case 'dialogs.new_dataset.dataset_type': return 'Dataset Type';
@@ -525,6 +528,9 @@ extension on Translations {
 			case 'dialogs.new_dataset.rank': return 'Ranking';
 			case 'dialogs.new_dataset.description': return 'Description';
 			case 'dialogs.new_dataset.description_hint': return 'Dataset Description';
+			case 'dialogs.new_dataset.name_hint': return 'Dataset Name (required)';
+			case 'dialogs.new_dataset.tool_tip': return 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
+			case 'dialogs.new_dataset.dataset_path_hint': return 'Dataset Path (required)';
 			case 'dialogs.new_model.name': return 'Name*';
 			case 'dialogs.new_model.model_type': return 'Model Type';
 			case 'dialogs.new_model.model_name': return 'Model Name';

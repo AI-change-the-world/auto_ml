@@ -91,7 +91,6 @@ class _TranslationsDatasetScreenZhCn implements TranslationsDatasetScreenEn {
 	@override late final _TranslationsDatasetScreenAddDatasetZhCn add_dataset = _TranslationsDatasetScreenAddDatasetZhCn._(_root);
 	@override late final _TranslationsDatasetScreenCardZhCn card = _TranslationsDatasetScreenCardZhCn._(_root);
 	@override String get new_annotation_class => '输入新的类别名称';
-	@override late final _TranslationsDatasetScreenNewAnnotationDialogZhCn new_annotation_dialog = _TranslationsDatasetScreenNewAnnotationDialogZhCn._(_root);
 }
 
 // Path: route
@@ -144,6 +143,7 @@ class _TranslationsDialogsZhCn implements TranslationsDialogsEn {
 
 	// Translations
 	@override late final _TranslationsDialogsModifyDatasetZhCn modify_dataset = _TranslationsDialogsModifyDatasetZhCn._(_root);
+	@override late final _TranslationsDialogsNewAnnotationDialogZhCn new_annotation_dialog = _TranslationsDialogsNewAnnotationDialogZhCn._(_root);
 	@override late final _TranslationsDialogsNewDatasetZhCn new_dataset = _TranslationsDialogsNewDatasetZhCn._(_root);
 	@override late final _TranslationsDialogsNewModelZhCn new_model = _TranslationsDialogsNewModelZhCn._(_root);
 }
@@ -287,23 +287,6 @@ class _TranslationsDatasetScreenCardZhCn implements TranslationsDatasetScreenCar
 	@override String get unknown_msg => '未知';
 }
 
-// Path: dataset_screen.new_annotation_dialog
-class _TranslationsDatasetScreenNewAnnotationDialogZhCn implements TranslationsDatasetScreenNewAnnotationDialogEn {
-	_TranslationsDatasetScreenNewAnnotationDialogZhCn._(this._root);
-
-	final TranslationsZhCn _root; // ignore: unused_field
-
-	// Translations
-	@override String get title => '创建新的标注集';
-	@override String get original => '标注集来源*';
-	@override String get tool_tip => '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
-	@override String get path => '路径';
-	@override String get path_tool_tip => '如果为空，则默认创建一个新的空标注集';
-	@override String get task_type => '标注任务类型';
-	@override String get classes => '类别';
-	@override String get classes_tool_tip => '标注类型(以英文分号\';\'隔开)';
-}
-
 // Path: annotation_screen.list_widget
 class _TranslationsAnnotationScreenListWidgetZhCn implements TranslationsAnnotationScreenListWidgetEn {
 	_TranslationsAnnotationScreenListWidgetZhCn._(this._root);
@@ -357,6 +340,23 @@ class _TranslationsDialogsModifyDatasetZhCn implements TranslationsDialogsModify
 	@override String get description_hint => '数据集简介';
 }
 
+// Path: dialogs.new_annotation_dialog
+class _TranslationsDialogsNewAnnotationDialogZhCn implements TranslationsDialogsNewAnnotationDialogEn {
+	_TranslationsDialogsNewAnnotationDialogZhCn._(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '创建新的标注集';
+	@override String get original => '标注集来源*';
+	@override String get tool_tip => '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
+	@override String get path => '路径';
+	@override String get path_tool_tip => '如果为空，则默认创建一个新的空标注集';
+	@override String get task_type => '标注任务类型';
+	@override String get classes => '类别';
+	@override String get classes_tool_tip => '标注类型(以英文分号\';\'隔开)';
+}
+
 // Path: dialogs.new_dataset
 class _TranslationsDialogsNewDatasetZhCn implements TranslationsDialogsNewDatasetEn {
 	_TranslationsDialogsNewDatasetZhCn._(this._root);
@@ -373,6 +373,9 @@ class _TranslationsDialogsNewDatasetZhCn implements TranslationsDialogsNewDatase
 	@override String get rank => '评级';
 	@override String get description => '简介';
 	@override String get description_hint => '数据集简介';
+	@override String get name_hint => '名称 (非空)';
+	@override String get tool_tip => '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
+	@override String get dataset_path_hint => '路径 (非空)';
 }
 
 // Path: dialogs.new_model
@@ -476,14 +479,6 @@ extension on TranslationsZhCn {
 			case 'dataset_screen.card.save_msg': return ({required Object message}) => '此数据集保存于 ${message}';
 			case 'dataset_screen.card.unknown_msg': return '未知';
 			case 'dataset_screen.new_annotation_class': return '输入新的类别名称';
-			case 'dataset_screen.new_annotation_dialog.title': return '创建新的标注集';
-			case 'dataset_screen.new_annotation_dialog.original': return '标注集来源*';
-			case 'dataset_screen.new_annotation_dialog.tool_tip': return '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
-			case 'dataset_screen.new_annotation_dialog.path': return '路径';
-			case 'dataset_screen.new_annotation_dialog.path_tool_tip': return '如果为空，则默认创建一个新的空标注集';
-			case 'dataset_screen.new_annotation_dialog.task_type': return '标注任务类型';
-			case 'dataset_screen.new_annotation_dialog.classes': return '类别';
-			case 'dataset_screen.new_annotation_dialog.classes_tool_tip': return '标注类型(以英文分号\';\'隔开)';
 			case 'route.back_to_main': return '返回首页';
 			case 'route.nothing': return '这里空无一物';
 			case 'sidebar.dataset': return '数据集';
@@ -513,6 +508,14 @@ extension on TranslationsZhCn {
 			case 'dialogs.modify_dataset.rank': return '评级';
 			case 'dialogs.modify_dataset.description': return '简介';
 			case 'dialogs.modify_dataset.description_hint': return '数据集简介';
+			case 'dialogs.new_annotation_dialog.title': return '创建新的标注集';
+			case 'dialogs.new_annotation_dialog.original': return '标注集来源*';
+			case 'dialogs.new_annotation_dialog.tool_tip': return '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
+			case 'dialogs.new_annotation_dialog.path': return '路径';
+			case 'dialogs.new_annotation_dialog.path_tool_tip': return '如果为空，则默认创建一个新的空标注集';
+			case 'dialogs.new_annotation_dialog.task_type': return '标注任务类型';
+			case 'dialogs.new_annotation_dialog.classes': return '类别';
+			case 'dialogs.new_annotation_dialog.classes_tool_tip': return '标注类型(以英文分号\';\'隔开)';
 			case 'dialogs.new_dataset.basic': return '基础信息';
 			case 'dialogs.new_dataset.dataset_name': return '数据集名称*';
 			case 'dialogs.new_dataset.dataset_type': return '数据集类型';
@@ -522,6 +525,9 @@ extension on TranslationsZhCn {
 			case 'dialogs.new_dataset.rank': return '评级';
 			case 'dialogs.new_dataset.description': return '简介';
 			case 'dialogs.new_dataset.description_hint': return '数据集简介';
+			case 'dialogs.new_dataset.name_hint': return '名称 (非空)';
+			case 'dialogs.new_dataset.tool_tip': return '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
+			case 'dialogs.new_dataset.dataset_path_hint': return '路径 (非空)';
 			case 'dialogs.new_model.name': return '名称*';
 			case 'dialogs.new_model.model_type': return '模型类型';
 			case 'dialogs.new_model.model_name': return '模型名称';

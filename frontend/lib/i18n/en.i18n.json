@@ -54,17 +54,7 @@
             "save_msg": "This dataset is saved at $message",
             "unknown_msg": "Unknown"
         },
-        "new_annotation_class": "Input new class name",
-        "new_annotation_dialog": {
-            "title": "Create new",
-            "original": "Original annotation folder*",
-            "tool_tip": "Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.",
-            "path": "Annotation Path",
-            "path_tool_tip": "If empty, a new empty annotation set will be created by default.",
-            "task_type": "Task Type",
-            "classes": "Classes",
-            "classes_tool_tip": "Annotation classes (separated by semicolons ‘;’)"
-        }
+        "new_annotation_class": "Input new class name"
     },
     "sidebar": {
         "dataset": "Dataset",
@@ -110,6 +100,16 @@
             "description": "Description",
             "description_hint": "Dataset Description"
         },
+        "new_annotation_dialog": {
+            "title": "Create new",
+            "original": "Original annotation folder*",
+            "tool_tip": "Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.",
+            "path": "Annotation Path",
+            "path_tool_tip": "If empty, a new empty annotation set will be created by default.",
+            "task_type": "Task Type",
+            "classes": "Classes",
+            "classes_tool_tip": "Annotation classes (separated by semicolons ‘;’)"
+        },
         "new_dataset": {
             "basic": "Basic Info",
             "dataset_name": "Dataset Name*",
@@ -119,7 +119,10 @@
             "additional": "Additional Information",
             "rank": "Ranking",
             "description": "Description",
-            "description_hint": "Dataset Description"
+            "description_hint": "Dataset Description",
+            "name_hint": "Dataset Name (required)",
+            "tool_tip": "Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.",
+            "dataset_path_hint": "Dataset Path (required)"
         },
         "new_model": {
             "name": "Name*",

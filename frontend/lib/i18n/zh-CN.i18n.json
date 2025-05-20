@@ -54,17 +54,7 @@
             "save_msg": "此数据集保存于 $message",
             "unknown_msg": "未知"
         },
-        "new_annotation_class": "输入新的类别名称",
-        "new_annotation_dialog": {
-            "title": "创建新的标注集",
-            "original": "标注集来源*",
-            "tool_tip": "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
-            "path": "路径",
-            "path_tool_tip": "如果为空，则默认创建一个新的空标注集",
-            "task_type": "标注任务类型",
-            "classes": "类别",
-            "classes_tool_tip": "标注类型(以英文分号';'隔开)"
-        }
+        "new_annotation_class": "输入新的类别名称"
     },
     "route": {
         "back_to_main": "返回首页",
@@ -110,6 +100,16 @@
             "description": "简介",
             "description_hint": "数据集简介"
         },
+        "new_annotation_dialog": {
+            "title": "创建新的标注集",
+            "original": "标注集来源*",
+            "tool_tip": "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
+            "path": "路径",
+            "path_tool_tip": "如果为空，则默认创建一个新的空标注集",
+            "task_type": "标注任务类型",
+            "classes": "类别",
+            "classes_tool_tip": "标注类型(以英文分号';'隔开)"
+        },
         "new_dataset": {
             "basic": "基础信息",
             "dataset_name": "数据集名称*",
@@ -119,7 +119,10 @@
             "additional": "额外信息",
             "rank": "评级",
             "description": "简介",
-            "description_hint": "数据集简介"
+            "description_hint": "数据集简介",
+            "name_hint": "名称 (非空)",
+            "tool_tip": "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
+            "dataset_path_hint": "路径 (非空)"
         },
         "new_model": {
             "name": "名称*",

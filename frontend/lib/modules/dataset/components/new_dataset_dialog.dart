@@ -121,7 +121,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                           focusedBorder: OutlineInputBorder(
                             borderSide: BorderSide(color: Colors.blueAccent),
                           ),
-                          hintText: "Dataset Name (required)",
+                          hintText: t.dialogs.new_dataset.name_hint,
                         ),
                       ),
                     ),
@@ -225,7 +225,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                     ),
                     Tooltip(
                       waitDuration: Duration(milliseconds: 500),
-                      message: "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
+                      message: t.dialogs.new_dataset.tool_tip,
                       child: Icon(Icons.warning_amber_outlined, size: 18),
                     ),
                     Spacer(),
@@ -550,7 +550,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                         Navigator.of(context).pop(dataset);
                       },
                       child: Text(
-                        "Submit",
+                        t.submit,
                         style: Styles.defaultButtonTextStyle,
                       ),
                     ),

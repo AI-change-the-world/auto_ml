@@ -57,21 +57,18 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
         child: Column(
           spacing: 10,
           children: [
-            Text(
-              t.dataset_screen.new_annotation_dialog.title,
-              style: titleStyle,
-            ),
+            Text(t.dialogs.new_annotation_dialog.title, style: titleStyle),
             SizedBox(
               child: Row(
                 spacing: 5,
                 children: [
                   Text(
-                    t.dataset_screen.new_annotation_dialog.original,
+                    t.dialogs.new_annotation_dialog.original,
                     style: labelStyle,
                   ),
                   Tooltip(
                     waitDuration: Duration(milliseconds: 500),
-                    message: t.dataset_screen.new_annotation_dialog.tool_tip,
+                    message: t.dialogs.new_annotation_dialog.tool_tip,
                     child: Icon(Icons.warning_amber_outlined, size: 18),
                   ),
                   Spacer(),
@@ -107,14 +104,10 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
               child: Row(
                 spacing: 5,
                 children: [
-                  Text(
-                    t.dataset_screen.new_annotation_dialog.path,
-                    style: labelStyle,
-                  ),
+                  Text(t.dialogs.new_annotation_dialog.path, style: labelStyle),
                   Tooltip(
                     waitDuration: Duration(milliseconds: 500),
-                    message:
-                        t.dataset_screen.new_annotation_dialog.path_tool_tip,
+                    message: t.dialogs.new_annotation_dialog.path_tool_tip,
                     child: Icon(Icons.info, size: 18),
                   ),
                   Spacer(),
@@ -142,7 +135,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                         focusedBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.blueAccent),
                         ),
-                        hintText: t.dataset_screen.new_annotation_dialog.path,
+                        hintText: t.dialogs.new_annotation_dialog.path,
                       ),
                     ),
                   ),
@@ -259,7 +252,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                   Expanded(
                     flex: 1,
                     child: Text(
-                      t.dataset_screen.new_annotation_dialog.task_type,
+                      t.dialogs.new_annotation_dialog.task_type,
                       style: labelStyle,
                     ),
                   ),
@@ -360,7 +353,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                   Expanded(
                     flex: 1,
                     child: Text(
-                      t.dataset_screen.new_annotation_dialog.classes,
+                      t.dialogs.new_annotation_dialog.classes,
                       style: labelStyle,
                     ),
                   ),
@@ -383,10 +376,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                           borderSide: BorderSide(color: Colors.blueAccent),
                         ),
                         hintText:
-                            t
-                                .dataset_screen
-                                .new_annotation_dialog
-                                .classes_tool_tip,
+                            t.dialogs.new_annotation_dialog.classes_tool_tip,
                       ),
                     ),
                   ),
