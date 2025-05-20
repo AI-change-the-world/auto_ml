@@ -37,7 +37,9 @@ class TranslationsZhCn implements Translations {
 
 	// Translations
 	@override late final _TranslationsLabelScreenZhCn label_screen = _TranslationsLabelScreenZhCn._(_root);
+	@override String get save => '保存';
 	@override String get refresh => '刷新';
+	@override String get submit => '提交';
 	@override late final _TranslationsTableZhCn table = _TranslationsTableZhCn._(_root);
 	@override late final _TranslationsDatasetScreenZhCn dataset_screen = _TranslationsDatasetScreenZhCn._(_root);
 	@override late final _TranslationsRouteZhCn route = _TranslationsRouteZhCn._(_root);
@@ -85,6 +87,11 @@ class _TranslationsDatasetScreenZhCn implements TranslationsDatasetScreenEn {
 	@override String get confirm => '确认';
 	@override late final _TranslationsDatasetScreenFilesZhCn files = _TranslationsDatasetScreenFilesZhCn._(_root);
 	@override late final _TranslationsDatasetScreenTableZhCn table = _TranslationsDatasetScreenTableZhCn._(_root);
+	@override late final _TranslationsDatasetScreenAddAnnotationZhCn add_annotation = _TranslationsDatasetScreenAddAnnotationZhCn._(_root);
+	@override late final _TranslationsDatasetScreenAddDatasetZhCn add_dataset = _TranslationsDatasetScreenAddDatasetZhCn._(_root);
+	@override late final _TranslationsDatasetScreenCardZhCn card = _TranslationsDatasetScreenCardZhCn._(_root);
+	@override String get new_annotation_class => '输入新的类别名称';
+	@override late final _TranslationsDatasetScreenNewAnnotationDialogZhCn new_annotation_dialog = _TranslationsDatasetScreenNewAnnotationDialogZhCn._(_root);
 }
 
 // Path: route
@@ -247,6 +254,56 @@ class _TranslationsDatasetScreenTableZhCn implements TranslationsDatasetScreenTa
 	@override String get classes => '查看类别';
 }
 
+// Path: dataset_screen.add_annotation
+class _TranslationsDatasetScreenAddAnnotationZhCn implements TranslationsDatasetScreenAddAnnotationEn {
+	_TranslationsDatasetScreenAddAnnotationZhCn._(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get add_file => '添加文件';
+	@override String res_message({required Object message}) => '上传结束。 ${message}';
+}
+
+// Path: dataset_screen.add_dataset
+class _TranslationsDatasetScreenAddDatasetZhCn implements TranslationsDatasetScreenAddDatasetEn {
+	_TranslationsDatasetScreenAddDatasetZhCn._(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get add_file => '添加文件';
+	@override String res_message({required Object message}) => '上传结束。 ${message}';
+}
+
+// Path: dataset_screen.card
+class _TranslationsDatasetScreenCardZhCn implements TranslationsDatasetScreenCardEn {
+	_TranslationsDatasetScreenCardZhCn._(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String save_msg({required Object message}) => '此数据集保存于 ${message}';
+	@override String get unknown_msg => '未知';
+}
+
+// Path: dataset_screen.new_annotation_dialog
+class _TranslationsDatasetScreenNewAnnotationDialogZhCn implements TranslationsDatasetScreenNewAnnotationDialogEn {
+	_TranslationsDatasetScreenNewAnnotationDialogZhCn._(this._root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '创建新的标注集';
+	@override String get original => '标注集来源*';
+	@override String get tool_tip => '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
+	@override String get path => '路径';
+	@override String get path_tool_tip => '如果为空，则默认创建一个新的空标注集';
+	@override String get task_type => '标注任务类型';
+	@override String get classes => '类别';
+	@override String get classes_tool_tip => '标注类型(以英文分号\';\'隔开)';
+}
+
 // Path: annotation_screen.list_widget
 class _TranslationsAnnotationScreenListWidgetZhCn implements TranslationsAnnotationScreenListWidgetEn {
 	_TranslationsAnnotationScreenListWidgetZhCn._(this._root);
@@ -384,7 +441,9 @@ extension on TranslationsZhCn {
 		switch (path) {
 			case 'label_screen.not_selected': return '数据集或标注未选择';
 			case 'label_screen.select': return '选择...';
+			case 'save': return '保存';
 			case 'refresh': return '刷新';
+			case 'submit': return '提交';
 			case 'table.createat': return '创建时间';
 			case 'table.updateat': return '更新时间';
 			case 'table.operation': return '操作';
@@ -410,6 +469,21 @@ extension on TranslationsZhCn {
 			case 'dataset_screen.table.prompt_unset': return '**Prompt未设置**';
 			case 'dataset_screen.table.prompt': return '查看Prompt';
 			case 'dataset_screen.table.classes': return '查看类别';
+			case 'dataset_screen.add_annotation.add_file': return '添加文件';
+			case 'dataset_screen.add_annotation.res_message': return ({required Object message}) => '上传结束。 ${message}';
+			case 'dataset_screen.add_dataset.add_file': return '添加文件';
+			case 'dataset_screen.add_dataset.res_message': return ({required Object message}) => '上传结束。 ${message}';
+			case 'dataset_screen.card.save_msg': return ({required Object message}) => '此数据集保存于 ${message}';
+			case 'dataset_screen.card.unknown_msg': return '未知';
+			case 'dataset_screen.new_annotation_class': return '输入新的类别名称';
+			case 'dataset_screen.new_annotation_dialog.title': return '创建新的标注集';
+			case 'dataset_screen.new_annotation_dialog.original': return '标注集来源*';
+			case 'dataset_screen.new_annotation_dialog.tool_tip': return '2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上';
+			case 'dataset_screen.new_annotation_dialog.path': return '路径';
+			case 'dataset_screen.new_annotation_dialog.path_tool_tip': return '如果为空，则默认创建一个新的空标注集';
+			case 'dataset_screen.new_annotation_dialog.task_type': return '标注任务类型';
+			case 'dataset_screen.new_annotation_dialog.classes': return '类别';
+			case 'dataset_screen.new_annotation_dialog.classes_tool_tip': return '标注类型(以英文分号\';\'隔开)';
 			case 'route.back_to_main': return '返回首页';
 			case 'route.nothing': return '这里空无一物';
 			case 'sidebar.dataset': return '数据集';

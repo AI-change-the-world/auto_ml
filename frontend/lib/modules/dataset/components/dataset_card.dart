@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/modify_dataset_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
@@ -190,7 +191,7 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
               child: Text(
                 widget.dataset.name.isNotEmpty
                     ? widget.dataset.name
-                    : "Unknown",
+                    : t.dataset_screen.card.unknown_msg,
                 style: TextStyle(fontSize: 20, color: Colors.white),
                 maxLines: 1,
                 softWrap: true,
@@ -210,7 +211,9 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                 child: Text(
                   widget.dataset.description.isNotEmpty
                       ? widget.dataset.description
-                      : "This dataset is saved at ${widget.dataset.datasetPath}",
+                      : t.dataset_screen.card.save_msg(
+                        message: widget.dataset.datasetPath,
+                      ),
                   style: TextStyle(fontSize: 12, color: Colors.white70),
                   maxLines: 4,
                   softWrap: true,

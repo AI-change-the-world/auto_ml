@@ -1,5 +1,6 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -108,13 +109,14 @@ class _AppendAnnotationFilesDialogState
                             if (v.data != null) {
                               ToastUtils.info(
                                 null,
-                                title: "Upload finish. ${v.data["message"]}",
+                                title: t.dataset_screen.add_annotation
+                                    .res_message(message: v.data["message"]),
                               );
                             }
                           });
                     },
                     child: Text(
-                      "Add Files",
+                      t.dataset_screen.add_annotation.add_file,
                       style: Styles.defaultButtonTextStyle,
                     ),
                   ),

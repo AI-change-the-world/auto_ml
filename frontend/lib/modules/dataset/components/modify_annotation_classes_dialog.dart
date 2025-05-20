@@ -1,4 +1,5 @@
 import 'package:auto_ml/common/dialog_wrapper.dart';
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 
@@ -91,7 +92,7 @@ class _ModifyAnnotationClassesDialogState
                     onPressed: () {
                       Navigator.of(context).pop(annotationClasses.join(';'));
                     },
-                    child: Text('Save'),
+                    child: Text(t.save),
                   ),
                 ],
               ),
@@ -162,7 +163,7 @@ class _AddTagButtonState extends State<AddTagButton> {
                             focusedBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: Colors.blueAccent),
                             ),
-                            hintText: "Input new class name",
+                            hintText: t.dataset_screen.new_annotation_class,
                           ),
                         ),
                       ),

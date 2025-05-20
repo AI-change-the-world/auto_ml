@@ -3,7 +3,9 @@
         "not_selected": "数据集或标注未选择",
         "select": "选择..."
     },
+    "save": "保存",
     "refresh": "刷新",
+    "submit": "提交",
     "table": {
         "createat": "创建时间",
         "updateat": "更新时间",
@@ -39,6 +41,29 @@
             "prompt_unset": "**Prompt未设置**",
             "prompt": "查看Prompt",
             "classes": "查看类别"
+        },
+        "add_annotation": {
+            "add_file": "添加文件",
+            "res_message": "上传结束。 $message"
+        },
+        "add_dataset": {
+            "add_file": "添加文件",
+            "res_message": "上传结束。 $message"
+        },
+        "card": {
+            "save_msg": "此数据集保存于 $message",
+            "unknown_msg": "未知"
+        },
+        "new_annotation_class": "输入新的类别名称",
+        "new_annotation_dialog": {
+            "title": "创建新的标注集",
+            "original": "标注集来源*",
+            "tool_tip": "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
+            "path": "路径",
+            "path_tool_tip": "如果为空，则默认创建一个新的空标注集",
+            "task_type": "标注任务类型",
+            "classes": "类别",
+            "classes_tool_tip": "标注类型(以英文分号';'隔开)"
         }
     },
     "route": {

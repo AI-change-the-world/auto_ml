@@ -41,6 +41,8 @@ class Translations implements BaseTranslations<AppLocale, Translations> {
 	// Translations
 	late final TranslationsLabelScreenEn label_screen = TranslationsLabelScreenEn._(_root);
 	String get refresh => 'Refresh';
+	String get save => 'Save';
+	String get submit => 'Submit';
 	late final TranslationsTableEn table = TranslationsTableEn._(_root);
 	late final TranslationsDatasetScreenEn dataset_screen = TranslationsDatasetScreenEn._(_root);
 	late final TranslationsSidebarEn sidebar = TranslationsSidebarEn._(_root);
@@ -88,6 +90,11 @@ class TranslationsDatasetScreenEn {
 	String get confirm => 'Confirm';
 	late final TranslationsDatasetScreenFilesEn files = TranslationsDatasetScreenFilesEn._(_root);
 	late final TranslationsDatasetScreenTableEn table = TranslationsDatasetScreenTableEn._(_root);
+	late final TranslationsDatasetScreenAddAnnotationEn add_annotation = TranslationsDatasetScreenAddAnnotationEn._(_root);
+	late final TranslationsDatasetScreenAddDatasetEn add_dataset = TranslationsDatasetScreenAddDatasetEn._(_root);
+	late final TranslationsDatasetScreenCardEn card = TranslationsDatasetScreenCardEn._(_root);
+	String get new_annotation_class => 'Input new class name';
+	late final TranslationsDatasetScreenNewAnnotationDialogEn new_annotation_dialog = TranslationsDatasetScreenNewAnnotationDialogEn._(_root);
 }
 
 // Path: sidebar
@@ -250,6 +257,56 @@ class TranslationsDatasetScreenTableEn {
 	String get classes => 'Classes';
 }
 
+// Path: dataset_screen.add_annotation
+class TranslationsDatasetScreenAddAnnotationEn {
+	TranslationsDatasetScreenAddAnnotationEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get add_file => 'Add Files';
+	String res_message({required Object message}) => 'Upload finish. ${message}';
+}
+
+// Path: dataset_screen.add_dataset
+class TranslationsDatasetScreenAddDatasetEn {
+	TranslationsDatasetScreenAddDatasetEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get add_file => 'Add Files';
+	String res_message({required Object message}) => 'Upload finish. ${message}';
+}
+
+// Path: dataset_screen.card
+class TranslationsDatasetScreenCardEn {
+	TranslationsDatasetScreenCardEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String save_msg({required Object message}) => 'This dataset is saved at ${message}';
+	String get unknown_msg => 'Unknown';
+}
+
+// Path: dataset_screen.new_annotation_dialog
+class TranslationsDatasetScreenNewAnnotationDialogEn {
+	TranslationsDatasetScreenNewAnnotationDialogEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get title => 'Create new';
+	String get original => 'Original annotation folder*';
+	String get tool_tip => 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
+	String get path => 'Annotation Path';
+	String get path_tool_tip => 'If empty, a new empty annotation set will be created by default.';
+	String get task_type => 'Task Type';
+	String get classes => 'Classes';
+	String get classes_tool_tip => 'Annotation classes (separated by semicolons ‘;’)';
+}
+
 // Path: annotation_screen.list_widget
 class TranslationsAnnotationScreenListWidgetEn {
 	TranslationsAnnotationScreenListWidgetEn._(this._root);
@@ -388,6 +445,8 @@ extension on Translations {
 			case 'label_screen.not_selected': return 'Dataset or label is not selected';
 			case 'label_screen.select': return 'Select';
 			case 'refresh': return 'Refresh';
+			case 'save': return 'Save';
+			case 'submit': return 'Submit';
 			case 'table.createat': return 'Created At';
 			case 'table.updateat': return 'Updated At';
 			case 'table.operation': return 'Operation';
@@ -413,6 +472,21 @@ extension on Translations {
 			case 'dataset_screen.table.prompt_unset': return '**Prompt unset**';
 			case 'dataset_screen.table.prompt': return 'Prompt';
 			case 'dataset_screen.table.classes': return 'Classes';
+			case 'dataset_screen.add_annotation.add_file': return 'Add Files';
+			case 'dataset_screen.add_annotation.res_message': return ({required Object message}) => 'Upload finish. ${message}';
+			case 'dataset_screen.add_dataset.add_file': return 'Add Files';
+			case 'dataset_screen.add_dataset.res_message': return ({required Object message}) => 'Upload finish. ${message}';
+			case 'dataset_screen.card.save_msg': return ({required Object message}) => 'This dataset is saved at ${message}';
+			case 'dataset_screen.card.unknown_msg': return 'Unknown';
+			case 'dataset_screen.new_annotation_class': return 'Input new class name';
+			case 'dataset_screen.new_annotation_dialog.title': return 'Create new';
+			case 'dataset_screen.new_annotation_dialog.original': return 'Original annotation folder*';
+			case 'dataset_screen.new_annotation_dialog.tool_tip': return 'Starting from version 2025.05.03, all non-object storage data will be synchronized to object storage.';
+			case 'dataset_screen.new_annotation_dialog.path': return 'Annotation Path';
+			case 'dataset_screen.new_annotation_dialog.path_tool_tip': return 'If empty, a new empty annotation set will be created by default.';
+			case 'dataset_screen.new_annotation_dialog.task_type': return 'Task Type';
+			case 'dataset_screen.new_annotation_dialog.classes': return 'Classes';
+			case 'dataset_screen.new_annotation_dialog.classes_tool_tip': return 'Annotation classes (separated by semicolons ‘;’)';
 			case 'sidebar.dataset': return 'Dataset';
 			case 'sidebar.label': return 'Label';
 			case 'sidebar.annotation': return 'Annotation';

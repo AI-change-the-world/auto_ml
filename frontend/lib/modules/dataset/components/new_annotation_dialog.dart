@@ -1,3 +1,4 @@
+import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/selection_widget.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -56,15 +57,21 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
         child: Column(
           spacing: 10,
           children: [
-            Text("Select annotation folder or create new", style: titleStyle),
+            Text(
+              t.dataset_screen.new_annotation_dialog.title,
+              style: titleStyle,
+            ),
             SizedBox(
               child: Row(
                 spacing: 5,
                 children: [
-                  Text("Original annotation folder*", style: labelStyle),
+                  Text(
+                    t.dataset_screen.new_annotation_dialog.original,
+                    style: labelStyle,
+                  ),
                   Tooltip(
                     waitDuration: Duration(milliseconds: 500),
-                    message: "2025.05.03版本开始，所有非对象存储的数据将全部同步到对象存储上",
+                    message: t.dataset_screen.new_annotation_dialog.tool_tip,
                     child: Icon(Icons.warning_amber_outlined, size: 18),
                   ),
                   Spacer(),
@@ -100,10 +107,14 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
               child: Row(
                 spacing: 5,
                 children: [
-                  Text("Annotation path", style: labelStyle),
+                  Text(
+                    t.dataset_screen.new_annotation_dialog.path,
+                    style: labelStyle,
+                  ),
                   Tooltip(
                     waitDuration: Duration(milliseconds: 500),
-                    message: "如果为空，则默认创建一个新的空标注集",
+                    message:
+                        t.dataset_screen.new_annotation_dialog.path_tool_tip,
                     child: Icon(Icons.info, size: 18),
                   ),
                   Spacer(),
@@ -131,7 +142,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                         focusedBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.blueAccent),
                         ),
-                        hintText: "Annotation Path",
+                        hintText: t.dataset_screen.new_annotation_dialog.path,
                       ),
                     ),
                   ),
@@ -245,7 +256,13 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
               child: Row(
                 spacing: 10,
                 children: [
-                  Expanded(flex: 1, child: Text("标注任务类型", style: labelStyle)),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      t.dataset_screen.new_annotation_dialog.task_type,
+                      style: labelStyle,
+                    ),
+                  ),
                   Expanded(
                     flex: 1,
                     child: CustomDropDownButton<DatasetTask>(
@@ -340,7 +357,13 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
               child: Row(
                 spacing: 10,
                 children: [
-                  Expanded(flex: 1, child: Text("标注类型", style: labelStyle)),
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      t.dataset_screen.new_annotation_dialog.classes,
+                      style: labelStyle,
+                    ),
+                  ),
                   Expanded(
                     flex: 2,
                     child: TextField(
@@ -359,7 +382,11 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
                         focusedBorder: OutlineInputBorder(
                           borderSide: BorderSide(color: Colors.blueAccent),
                         ),
-                        hintText: "标注类型(以英文分号';'隔开)",
+                        hintText:
+                            t
+                                .dataset_screen
+                                .new_annotation_dialog
+                                .classes_tool_tip,
                       ),
                     ),
                   ),
@@ -392,7 +419,7 @@ class _NewAnnotationDialogState extends State<NewAnnotationDialog> {
 
                       Navigator.of(context).pop(annotation);
                     },
-                    child: Text("Submit", style: Styles.defaultButtonTextStyle),
+                    child: Text(t.submit, style: Styles.defaultButtonTextStyle),
                   ),
                 ],
               ),

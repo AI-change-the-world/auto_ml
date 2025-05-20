@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_stars/flutter_rating_stars.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// TODO : I18N
 class ModifyDatasetDialog extends ConsumerStatefulWidget {
   const ModifyDatasetDialog({super.key, required this.dataset});
   final Dataset dataset;
@@ -357,7 +358,7 @@ class _ModifyDatasetDialogState extends ConsumerState<ModifyDatasetDialog> {
                             focusedBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: Colors.blueAccent),
                             ),
-                            hintText: "Dataset Path (required)",
+                            hintText: "Dataset Path",
                           ),
                         ),
                       ),
