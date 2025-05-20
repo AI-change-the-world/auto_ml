@@ -10,6 +10,7 @@
         "operation": "操作"
     },
     "dataset_screen": {
+        "dataset_no_selected": "请先选择数据集",
         "confirm": "确认",
         "files": {
             "file_details": {
@@ -29,7 +30,15 @@
                 "path": "标注集路径",
                 "type": "标注类型"
             },
-            "no_preview": "无预览文件"
+            "no_preview": "无预览文件",
+            "upload_annotation": "上传标注文件",
+            "support_error": "暂时支持分类和目标检测",
+            "train_support_error": "暂时支持分类和目标检测的自动标注",
+            "auto_annotate": "自动标注",
+            "train": "训练",
+            "prompt_unset": "**Prompt未设置**",
+            "prompt": "查看Prompt",
+            "classes": "查看类别"
         }
     },
     "route": {
@@ -125,7 +134,16 @@
         "Loss": "损失",
         "status": "状态"
     },
-    "errors": {
-        "name_cannot_be_empty": "名称不可为空"
+    "global": {
+        "errors": {
+            "name_cannot_be_empty": "名称不可为空",
+            "basic_error": "异常",
+            "create_error": "创建失败",
+            "modify_error": "修改失败"
+        },
+        "success": {
+            "create_success": "创建成功",
+            "modify_success": "修改成功"
+        }
     }
 }

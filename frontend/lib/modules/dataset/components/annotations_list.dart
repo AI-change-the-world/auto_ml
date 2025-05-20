@@ -45,7 +45,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
         if (current == null) {
           return Center(
             child: Text(
-              "No dataset selected",
+              t.dataset_screen.dataset_no_selected,
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           );
@@ -174,8 +174,8 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                     );
                   },
                   child: Tooltip(
-                    message: "Upload annotation files",
-                    child: Icon(Icons.edit, size: Styles.datatableIconSize),
+                    message: t.dataset_screen.table.upload_annotation,
+                    child: Icon(Icons.upload, size: Styles.datatableIconSize),
                   ),
                 ),
                 InkWell(
@@ -183,7 +183,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                     if (annotation.annotationType != 1) {
                       ToastUtils.info(
                         null,
-                        title: "Only support detection annotation right now",
+                        title: t.dataset_screen.table.support_error,
                       );
                       return;
                     }
@@ -201,11 +201,14 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                         .then((v) {
                           final BaseResponse<dynamic> bs =
                               BaseResponse<dynamic>.fromJson(v.data, (d) {});
-                          ToastUtils.info(null, title: bs.message ?? "Error");
+                          ToastUtils.info(
+                            null,
+                            title: bs.message ?? t.global.errors.basic_error,
+                          );
                         });
                   },
                   child: Tooltip(
-                    message: "Auto Annotate",
+                    message: t.dataset_screen.table.auto_annotate,
                     child: Icon(
                       Icons.square_outlined,
                       size: Styles.datatableIconSize,
@@ -218,8 +221,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                         annotation.annotationType != 1) {
                       ToastUtils.info(
                         context,
-                        title:
-                            "Only classification and detection trainning supported right now",
+                        title: t.dataset_screen.table.train_support_error,
                       );
                       return;
                     }
@@ -250,16 +252,22 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                             .post(Api.newTrainTask, data: request.toJson())
                             .then((v) {
                               if (v.statusCode == 200) {
-                                ToastUtils.success(null, title: "创建成功");
+                                ToastUtils.success(
+                                  null,
+                                  title: t.global.errors.create_error,
+                                );
                               } else {
-                                ToastUtils.error(null, title: "创建失败");
+                                ToastUtils.error(
+                                  null,
+                                  title: t.global.success.create_success,
+                                );
                               }
                             });
                       }
                     });
                   },
                   child: Tooltip(
-                    message: "Train",
+                    message: t.dataset_screen.table.train,
                     child: Icon(
                       Icons.work_outline_outlined,
                       size: Styles.datatableIconSize,
@@ -292,12 +300,18 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                               .post(Api.annotationClassesUpdate, data: map)
                               .then((v) {
                                 if (v.statusCode == 200) {
-                                  ToastUtils.success(null, title: "修改成功");
+                                  ToastUtils.success(
+                                    null,
+                                    title: t.global.success.modify_success,
+                                  );
                                   ref
                                       .read(annotationListProvider.notifier)
                                       .updateData();
                                 } else {
-                                  ToastUtils.error(null, title: "修改失败");
+                                  ToastUtils.error(
+                                    null,
+                                    title: t.global.errors.modify_error,
+                                  );
                                 }
                               });
                         }
@@ -316,7 +330,9 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                               child: Container(
                                 padding: EdgeInsets.all(10),
                                 child: MarkdownWidget(
-                                  data: annotation.prompt ?? "**Prompt unset**",
+                                  data:
+                                      annotation.prompt ??
+                                      t.dataset_screen.table.prompt_unset,
                                 ),
                               ),
                             ),
@@ -327,7 +343,9 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   },
                   child: Tooltip(
                     message:
-                        annotation.annotationType == 3 ? "Prompt" : "classes",
+                        annotation.annotationType == 3
+                            ? t.dataset_screen.table.prompt
+                            : t.dataset_screen.table.classes,
                     child: Icon(
                       annotation.annotationType == 3
                           ? Icons.text_format

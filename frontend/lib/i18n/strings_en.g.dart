@@ -51,7 +51,7 @@ class Translations implements BaseTranslations<AppLocale, Translations> {
 	late final TranslationsAgentScreenEn agent_screen = TranslationsAgentScreenEn._(_root);
 	late final TranslationsTaskScreenEn task_screen = TranslationsTaskScreenEn._(_root);
 	late final TranslationsDeployScreenEn deploy_screen = TranslationsDeployScreenEn._(_root);
-	late final TranslationsErrorsEn errors = TranslationsErrorsEn._(_root);
+	late final TranslationsGlobalEn global = TranslationsGlobalEn._(_root);
 }
 
 // Path: label_screen
@@ -84,6 +84,7 @@ class TranslationsDatasetScreenEn {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
+	String get dataset_no_selected => 'No dataset selected';
 	String get confirm => 'Confirm';
 	late final TranslationsDatasetScreenFilesEn files = TranslationsDatasetScreenFilesEn._(_root);
 	late final TranslationsDatasetScreenTableEn table = TranslationsDatasetScreenTableEn._(_root);
@@ -202,14 +203,15 @@ class TranslationsDeployScreenEn {
 	String get status => 'Status';
 }
 
-// Path: errors
-class TranslationsErrorsEn {
-	TranslationsErrorsEn._(this._root);
+// Path: global
+class TranslationsGlobalEn {
+	TranslationsGlobalEn._(this._root);
 
 	final Translations _root; // ignore: unused_field
 
 	// Translations
-	String get name_cannot_be_empty => 'Name cannot be empty';
+	late final TranslationsGlobalErrorsEn errors = TranslationsGlobalErrorsEn._(_root);
+	late final TranslationsGlobalSuccessEn success = TranslationsGlobalSuccessEn._(_root);
 }
 
 // Path: dataset_screen.files
@@ -238,6 +240,14 @@ class TranslationsDatasetScreenTableEn {
 	String get preview => 'Preview';
 	late final TranslationsDatasetScreenTableAnnotationEn annotation = TranslationsDatasetScreenTableAnnotationEn._(_root);
 	String get no_preview => 'No preview image found';
+	String get upload_annotation => 'Upload annotation files';
+	String get support_error => 'Only support detection and annotation right now';
+	String get train_support_error => 'Only classification and detection trainning supported right now';
+	String get auto_annotate => 'Auto Annotate';
+	String get train => 'Train';
+	String get prompt_unset => '**Prompt unset**';
+	String get prompt => 'Prompt';
+	String get classes => 'Classes';
 }
 
 // Path: annotation_screen.list_widget
@@ -324,6 +334,30 @@ class TranslationsDialogsNewModelEn {
 	String get description => 'Description';
 }
 
+// Path: global.errors
+class TranslationsGlobalErrorsEn {
+	TranslationsGlobalErrorsEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get name_cannot_be_empty => 'Name cannot be empty';
+	String get basic_error => 'Error';
+	String get create_error => 'Create Error';
+	String get modify_error => 'Modify Error';
+}
+
+// Path: global.success
+class TranslationsGlobalSuccessEn {
+	TranslationsGlobalSuccessEn._(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	String get create_success => 'Create Success';
+	String get modify_success => 'Modify Success';
+}
+
 // Path: dataset_screen.files.file_details
 class TranslationsDatasetScreenFilesFileDetailsEn {
 	TranslationsDatasetScreenFilesFileDetailsEn._(this._root);
@@ -357,6 +391,7 @@ extension on Translations {
 			case 'table.createat': return 'Created At';
 			case 'table.updateat': return 'Updated At';
 			case 'table.operation': return 'Operation';
+			case 'dataset_screen.dataset_no_selected': return 'No dataset selected';
 			case 'dataset_screen.confirm': return 'Confirm';
 			case 'dataset_screen.files.file_details.empty': return 'No dataset selected';
 			case 'dataset_screen.table.id': return 'Dataset Id';
@@ -370,6 +405,14 @@ extension on Translations {
 			case 'dataset_screen.table.annotation.path': return 'Annotation Path';
 			case 'dataset_screen.table.annotation.type': return 'Type';
 			case 'dataset_screen.table.no_preview': return 'No preview image found';
+			case 'dataset_screen.table.upload_annotation': return 'Upload annotation files';
+			case 'dataset_screen.table.support_error': return 'Only support detection and annotation right now';
+			case 'dataset_screen.table.train_support_error': return 'Only classification and detection trainning supported right now';
+			case 'dataset_screen.table.auto_annotate': return 'Auto Annotate';
+			case 'dataset_screen.table.train': return 'Train';
+			case 'dataset_screen.table.prompt_unset': return '**Prompt unset**';
+			case 'dataset_screen.table.prompt': return 'Prompt';
+			case 'dataset_screen.table.classes': return 'Classes';
 			case 'sidebar.dataset': return 'Dataset';
 			case 'sidebar.label': return 'Label';
 			case 'sidebar.annotation': return 'Annotation';
@@ -435,7 +478,12 @@ extension on Translations {
 			case 'deploy_screen.Epoch': return 'Epoch';
 			case 'deploy_screen.Loss': return 'Loss';
 			case 'deploy_screen.status': return 'Status';
-			case 'errors.name_cannot_be_empty': return 'Name cannot be empty';
+			case 'global.errors.name_cannot_be_empty': return 'Name cannot be empty';
+			case 'global.errors.basic_error': return 'Error';
+			case 'global.errors.create_error': return 'Create Error';
+			case 'global.errors.modify_error': return 'Modify Error';
+			case 'global.success.create_success': return 'Create Success';
+			case 'global.success.modify_success': return 'Modify Success';
 			default: return null;
 		}
 	}

@@ -532,7 +532,7 @@ class _NewDatasetDialogState extends ConsumerState<NewDatasetDialog> {
                         if (_nameController.text.isEmpty) {
                           ToastUtils.error(
                             context,
-                            title: t.errors.name_cannot_be_empty,
+                            title: t.global.errors.name_cannot_be_empty,
                           );
                           return;
                         }

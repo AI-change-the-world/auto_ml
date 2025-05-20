@@ -10,6 +10,7 @@
         "operation": "Operation"
     },
     "dataset_screen": {
+        "dataset_no_selected": "No dataset selected",
         "confirm": "Confirm",
         "files": {
             "file_details": {
@@ -29,7 +30,15 @@
                 "path": "Annotation Path",
                 "type": "Type"
             },
-            "no_preview": "No preview image found"
+            "no_preview": "No preview image found",
+            "upload_annotation": "Upload annotation files",
+            "support_error": "Only support detection and annotation right now",
+            "train_support_error": "Only classification and detection trainning supported right now",
+            "auto_annotate": "Auto Annotate",
+            "train": "Train",
+            "prompt_unset": "**Prompt unset**",
+            "prompt": "Prompt",
+            "classes": "Classes"
         }
     },
     "sidebar": {
@@ -125,7 +134,16 @@
         "Loss": "Loss",
         "status": "Status"
     },
-    "errors": {
-        "name_cannot_be_empty": "Name cannot be empty"
+    "global": {
+        "errors": {
+            "name_cannot_be_empty": "Name cannot be empty",
+            "basic_error": "Error",
+            "create_error": "Create Error",
+            "modify_error": "Modify Error"
+        },
+        "success": {
+            "create_success": "Create Success",
+            "modify_success": "Modify Success"
+        }
     }
 }
