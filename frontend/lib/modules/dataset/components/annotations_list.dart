@@ -254,12 +254,12 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                               if (v.statusCode == 200) {
                                 ToastUtils.success(
                                   null,
-                                  title: t.global.errors.create_error,
+                                  title: t.global.success.create_success,
                                 );
                               } else {
                                 ToastUtils.error(
                                   null,
-                                  title: t.global.success.create_success,
+                                  title: t.global.errors.create_error,
                                 );
                               }
                             });
