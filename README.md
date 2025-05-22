@@ -21,6 +21,9 @@
 * [x] **[Frontend]** Image scaling inconsistent with browser resize (non-critical rendering issue)
 * [ ] **[Frontend]** Dont show classes list if annotation class is an empty string (Priority: P3)
 * [ ] **[Frontend]** State error after switch to other datasets (Priority: P2)
+* [ ] **[Frontend]** Cannot delete annotation after auto-label(Priority: P1)
+* [ ] **[Frontend]** Cls annotation state not change after trigger button(Priority: P2)
+* [ ] **[AI,backend]** Sometimes, cannot parse LLM results(Priority: P2)
 
 ### TODO list
 * [ ] **[frontend]** Implement i18n localization support (Priority: P4)
