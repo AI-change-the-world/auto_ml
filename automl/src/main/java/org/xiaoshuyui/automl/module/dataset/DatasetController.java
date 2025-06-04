@@ -1,7 +1,13 @@
 package org.xiaoshuyui.automl.module.dataset;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.xiaoshuyui.automl.common.Result;
@@ -71,6 +77,18 @@ public class DatasetController {
     }
 
     return Result.error("get content failed");
+  }
+
+  @GetMapping("/export/{id}")
+  public ResponseEntity<byte[]> exportDataset(@PathVariable Long id) throws Exception {
+    ByteArrayOutputStream zip = datasetService.exportS3Zip(id); // 上面的函数
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+    String contentDisposition = "attachment; filename=\"dataset_" + id + ".zip\"";
+    headers.set(HttpHeaders.CONTENT_DISPOSITION, contentDisposition);
+
+    return new ResponseEntity<>(zip.toByteArray(), headers, HttpStatus.SC_OK);
   }
 
   @GetMapping("/{id}/file/list")

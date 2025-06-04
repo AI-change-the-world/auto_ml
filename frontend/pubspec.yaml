@@ -15,10 +15,7 @@ dependencies:
   dio: ^5.8.0+1
   dropdown_button2: ^2.3.9
   file_selector: ^1.0.3
-  flow_compose:
-    git:
-      url: https://github.com/guchengxi1994/flow_compose
-      ref: 3a8946f0ef8d777a5a690813435dfd3a7f252d15
+  flow_compose: ^0.0.2+1
   flutter:
     sdk: flutter
   flutter_localizations: 

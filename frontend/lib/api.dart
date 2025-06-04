@@ -26,6 +26,8 @@ class Api {
 
   static final String appendDatasetFiles = "/dataset/{id}/append/files";
 
+  static final String datasetExport = "/dataset/export/{id}";
+
   // static final String datasetContent = "/dataset/content";
 
   /// [annotation]
@@ -44,6 +46,8 @@ class Api {
   static final String appendAnnotationFiles = "/annotation/{id}/append/files";
 
   static final String annotationUpdatePrompt = "/annotation/update/prompt";
+
+  static final String annotationExport = "/annotation/export/{id}";
 
   /// [tools] label image
   static final String getToolModels = "/tool-model/list";

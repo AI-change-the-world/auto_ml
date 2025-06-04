@@ -8,7 +8,6 @@ class BasicNode extends INode {
     required super.offset,
     super.width = 100,
     super.height = 50,
-    super.children,
     super.nodeName = "开始",
     super.description = "启动节点，用于流程的开始",
     super.builderName = "StartNode",
@@ -54,7 +53,6 @@ class BasicNode extends INode {
       label: label ?? this.label,
       uuid: uuid ?? this.uuid,
       offset: offset ?? this.offset,
-      children: children ?? this.children,
     );
   }
 }

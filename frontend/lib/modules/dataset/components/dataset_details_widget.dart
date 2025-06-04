@@ -1,3 +1,5 @@
+import 'package:auto_ml/api.dart';
+import 'package:auto_ml/common/download/download.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/models/api/new_annotation_request.dart';
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
@@ -5,6 +7,8 @@ import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
 import 'package:auto_ml/modules/dataset/components/new_annotation_dialog.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
@@ -134,6 +138,33 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                     );
                   }),
                   Spacer(),
+                  if (currentPageIndex == 0)
+                    Material(
+                      borderRadius: BorderRadius.circular(20),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () async {
+                            String url =
+                                "${DioClient().instance.options.baseUrl}${Api.datasetExport.replaceAll("{id}", current!.id.toString())}";
+                            logger.i("Download URL: $url");
+                            download(url, filename: "${current.name}.zip");
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.greenAccent,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: EdgeInsets.all(1),
+                            child: Icon(
+                              Icons.download,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   Material(
                     borderRadius: BorderRadius.circular(20),
                     child: MouseRegion(

@@ -2,9 +2,14 @@ package org.xiaoshuyui.automl.module.annotation.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
+
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +32,8 @@ public class AnnotationService {
     this.annotationMapper = annotationMapper;
   }
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   public Annotation getById(Long id) {
     return annotationMapper.selectById(id);
@@ -99,12 +105,37 @@ public class AnnotationService {
     return annotation.getId();
   }
 
+  public ByteArrayOutputStream exportS3Zip(Long annotationId) throws Exception {
+    Annotation annotation = annotationMapper.selectById(annotationId);
+    if (annotation == null) {
+      throw new IllegalArgumentException("Annotation not found with id: " + annotationId);
+    }
+
+    List<String> fileList = s3FileDelegate.listFiles(annotation.getAnnotationSavePath(),
+        properties.getDatasetsBucketName());
+    if (fileList.isEmpty()) {
+      throw new IllegalArgumentException("No files found in the annotation.");
+    }
+    ByteArrayOutputStream zipOut = new ByteArrayOutputStream();
+    try (ZipOutputStream zos = new ZipOutputStream(zipOut)) {
+      for (String filePath : fileList) {
+        InputStream is = s3FileDelegate.getFileStream(filePath, properties.getDatasetsBucketName()); // 获取文件流
+        String prefix = filePath.substring(0, filePath.lastIndexOf("/"));
+        ZipEntry entry = new ZipEntry(filePath.replaceFirst(prefix, ""));
+        zos.putNextEntry(entry);
+        is.transferTo(zos); // 写入压缩包
+        zos.closeEntry();
+      }
+    }
+
+    return zipOut;
+  }
+
   private void scanFolderParallel(Annotation annotation) {
-    Thread thread =
-        new Thread(
-            () -> {
-              scanAndUploadToLocalS3FolderSync(annotation);
-            });
+    Thread thread = new Thread(
+        () -> {
+          scanAndUploadToLocalS3FolderSync(annotation);
+        });
     thread.start();
   }
 
@@ -120,9 +151,8 @@ public class AnnotationService {
     }
     if (annotation.getStorageType() == 0) {
       try {
-        List<String> l =
-            GetFileListUtil.getFileList(
-                annotation.getAnnotationPath(), annotation.getStorageType());
+        List<String> l = GetFileListUtil.getFileList(
+            annotation.getAnnotationPath(), annotation.getStorageType());
 
         if (!l.isEmpty()) {
 

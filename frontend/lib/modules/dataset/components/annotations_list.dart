@@ -1,6 +1,7 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
+import 'package:auto_ml/common/download/download.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/components/append_annotation_files_dialog.dart';
 import 'package:auto_ml/modules/dataset/components/modify_annotation_classes_dialog.dart';
@@ -11,6 +12,7 @@ import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:auto_ml/modules/task/components/new_train_task_dialog.dart';
 import 'package:auto_ml/modules/task/models/new_training_task_request.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/material.dart';
@@ -114,7 +116,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
     ),
     DataColumn2(
       label: Text(t.table.operation, style: defaultTextStyle2),
-      fixedWidth: 120,
+      fixedWidth: 160,
     ),
   ];
 
@@ -176,6 +178,22 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                   child: Tooltip(
                     message: t.dataset_screen.table.upload_annotation,
                     child: Icon(Icons.upload, size: Styles.datatableIconSize),
+                  ),
+                ),
+                InkWell(
+                  onTap: () async {
+                    String url =
+                        "${DioClient().instance.options.baseUrl}${Api.annotationExport.replaceAll("{id}", annotation.id.toString())}";
+                    logger.i("Download URL: $url");
+                    download(
+                      url,
+                      filename:
+                          "dataset-${annotation.datasetId}-annotation-${annotation.id}.zip",
+                    );
+                  },
+                  child: Tooltip(
+                    message: "download annotations",
+                    child: Icon(Icons.download, size: Styles.datatableIconSize),
                   ),
                 ),
                 InkWell(

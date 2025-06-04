@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-AutomlApplication<automl>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "org.xiaoshuyui.automl.AutomlApplication",
+            "projectName": "automl",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
