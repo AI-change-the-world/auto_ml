@@ -5,12 +5,20 @@ import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AnnotationListWidget extends ConsumerWidget {
+class AnnotationListWidget extends ConsumerStatefulWidget {
   const AnnotationListWidget({super.key, required this.classes});
   final List<String> classes;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnnotationListWidget> createState() =>
+      _AnnotationListWidgetState();
+}
+
+class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
+  String lastLabel = "";
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(annotationNotifierProvider);
 
     return Container(
@@ -35,6 +43,17 @@ class AnnotationListWidget extends ConsumerWidget {
                     ? Center(child: Text(t.annotation_screen.list_widget.empty))
                     : ListView.builder(
                       itemBuilder: (context, index) {
+                        String label = state.annotations[index].getLabel(
+                          widget.classes,
+                        );
+                        if ((label == "unknown" || label.isEmpty) &&
+                            lastLabel.isNotEmpty) {
+                          label = lastLabel;
+                          state.annotations[index].id = widget.classes.indexOf(
+                            lastLabel,
+                          );
+                        }
+
                         return Container(
                           decoration: BoxDecoration(
                             color:
@@ -55,11 +74,10 @@ class AnnotationListWidget extends ConsumerWidget {
                                           state.annotations[index].uuid,
                                         );
                                   },
-                                  label: state.annotations[index].getLabel(
-                                    classes,
-                                  ),
+                                  label: label,
                                   onSubmit: (value) {
-                                    if (classes.contains(value)) {
+                                    lastLabel = value;
+                                    if (widget.classes.contains(value)) {
                                       // state.annotations[index].id = classes
                                       //     .indexOf(value);
                                       ref
@@ -68,7 +86,7 @@ class AnnotationListWidget extends ConsumerWidget {
                                           )
                                           .changeAnnotationClassId(
                                             state.annotations[index].uuid,
-                                            classes.indexOf(value),
+                                            widget.classes.indexOf(value),
                                           );
                                     } else {
                                       ref
@@ -77,14 +95,14 @@ class AnnotationListWidget extends ConsumerWidget {
                                                 .notifier,
                                           )
                                           .addClassType(value);
-                                      classes.add(value);
+                                      widget.classes.add(value);
                                       ref
                                           .read(
                                             annotationNotifierProvider.notifier,
                                           )
                                           .changeAnnotationClassId(
                                             state.annotations[index].uuid,
-                                            classes.indexOf(value),
+                                            widget.classes.indexOf(value),
                                           );
                                     }
                                   },
@@ -165,6 +183,8 @@ class __EditableLabelState extends State<_EditableLabel> {
   late final TextEditingController controller =
       TextEditingController()..text = widget.label;
 
+  FocusNode focusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -179,6 +199,7 @@ class __EditableLabelState extends State<_EditableLabel> {
   @override
   void dispose() {
     controller.dispose();
+    focusNode.dispose();
     super.dispose();
   }
 
@@ -192,12 +213,14 @@ class __EditableLabelState extends State<_EditableLabel> {
         setState(() {
           isEditing = true;
         });
+        focusNode.requestFocus();
       },
       child: SizedBox(
         height: 20,
         child:
             isEditing
                 ? TextField(
+                  focusNode: focusNode,
                   style: TextStyle(fontSize: 12),
                   decoration: InputDecoration(
                     contentPadding: EdgeInsets.only(

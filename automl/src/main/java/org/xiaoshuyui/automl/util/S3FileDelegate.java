@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.opendal.AsyncOperator;
+import org.apache.opendal.Metadata.EntryMode;
 import org.springframework.stereotype.Component;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
 
@@ -22,7 +23,8 @@ import org.xiaoshuyui.automl.config.S3ConfigProperties;
 @Slf4j
 public class S3FileDelegate implements FileDelegate {
 
-  @Resource private S3ConfigProperties properties;
+  @Resource
+  private S3ConfigProperties properties;
 
   private final Map<String, AsyncOperator> operatorCache = new ConcurrentHashMap<>();
 
@@ -48,9 +50,8 @@ public class S3FileDelegate implements FileDelegate {
   }
 
   private void initOperator(String bucket) {
-    Map<String, String> conf =
-        createConf(
-            properties.getAccessKey(), properties.getSecretKey(), bucket, properties.getEndpoint());
+    Map<String, String> conf = createConf(
+        properties.getAccessKey(), properties.getSecretKey(), bucket, properties.getEndpoint());
     operatorCache.put(bucket, AsyncOperator.of("s3", conf));
   }
 
@@ -64,12 +65,11 @@ public class S3FileDelegate implements FileDelegate {
     return operatorCache.computeIfAbsent(
         bucketName,
         b -> {
-          Map<String, String> conf =
-              createConf(
-                  properties.getAccessKey(),
-                  properties.getSecretKey(),
-                  b,
-                  properties.getEndpoint());
+          Map<String, String> conf = createConf(
+              properties.getAccessKey(),
+              properties.getSecretKey(),
+              b,
+              properties.getEndpoint());
           return AsyncOperator.of("s3", conf);
         });
   }
@@ -140,7 +140,9 @@ public class S3FileDelegate implements FileDelegate {
   }
 
   public List<String> listFiles(String path, String bucket) throws Exception {
-    return getOperator(bucket).list(path).join().stream().map(item -> item.path).toList();
+
+    return getOperator(bucket).list(path).join().stream().filter(item -> item.getMetadata().mode == EntryMode.FILE)
+        .map(item -> item.path).toList();
   }
 
   public void createDir(String path, String bucket) {

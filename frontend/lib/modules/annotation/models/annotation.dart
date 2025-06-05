@@ -27,11 +27,11 @@ class Annotation {
   }
 
   String getLabel(List<String> classes) {
-    try {
-      return classes[id];
-    } catch (e) {
+    if (id < 0 || id >= classes.length) {
       return "unknown";
     }
+
+    return classes[id];
   }
 
   @override

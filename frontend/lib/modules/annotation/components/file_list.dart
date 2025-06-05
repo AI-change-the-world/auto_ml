@@ -2,6 +2,7 @@ import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/confirm_dialog.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ class FileList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    logger.d("FileList: ${data.length} items");
     final current = ref.watch(
       currentDatasetAnnotationNotifierProvider.select((v) => v.currentFilePath),
     );
@@ -100,7 +102,10 @@ class FileList extends ConsumerWidget {
                         .read(currentDatasetAnnotationNotifierProvider.notifier)
                         .prevData();
                   },
-                  child: Text(t.annotation_screen.list.prev),
+                  child: Text(
+                    t.annotation_screen.list.prev,
+                    style: Styles.defaultButtonTextStyle,
+                  ),
                 ),
                 TextButton(
                   onPressed: () {
@@ -158,15 +163,15 @@ class FileList extends ConsumerWidget {
                 return;
               }
             });
+          } else {
+            ref
+                .read(currentDatasetAnnotationNotifierProvider.notifier)
+                .changeCurrentData(data[index]);
+
+            ref
+                .read(annotationNotifierProvider.notifier)
+                .changeModifiedStatus(false);
           }
-
-          ref
-              .read(currentDatasetAnnotationNotifierProvider.notifier)
-              .changeCurrentData(data[index]);
-
-          ref
-              .read(annotationNotifierProvider.notifier)
-              .changeModifiedStatus(false);
         },
         child: child,
       ),

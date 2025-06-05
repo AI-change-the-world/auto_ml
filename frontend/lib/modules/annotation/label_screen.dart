@@ -7,6 +7,7 @@ import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/components/file_list.dart';
 import 'package:auto_ml/modules/annotation/components/icons.dart';
 import 'package:auto_ml/modules/annotation/components/image_board.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +31,9 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
   @override
   Widget build(BuildContext context) {
     final current = ref.watch(currentDatasetAnnotationNotifierProvider);
+    logger.d(
+      "Current dataset: ${current.dataset?.id}, Current annotation: ${current.annotation?.id} , files: ${current.data.length}",
+    );
 
     if (current.annotation == null ||
         current.dataset == null ||

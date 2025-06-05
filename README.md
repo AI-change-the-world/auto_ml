@@ -37,3 +37,6 @@
 * [ ] **[frontend，backend]** Add annotation append support for existing datasets (Priority: P4)
 * [ ] **[backend]** Implement image resizing (>1024×1024) to improve MLLM detection accuracy (Priority: P1)
 * [ ] **[backend]** Add bounding box post-processing to remove >95% overlapping regions (Priority: P2)
+
+### HELP WANTED
+* [ ] **[frontend]** disable dual finger return to the previous page in Flutter Web (Priority: P2)

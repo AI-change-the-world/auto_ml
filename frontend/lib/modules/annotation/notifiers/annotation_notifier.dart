@@ -33,7 +33,6 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     return AnnotationState();
   }
 
-  @Deprecated("use `easyChangeMode`")
   changeMode(LabelMode mode) {
     if (mode != state.mode) {
       state = state.copyWith(mode: mode);
