@@ -63,6 +63,7 @@ flutter:
     - assets/test.txt
     - assets/icon.png
     - assets/transparent_logo.png
+    - assets/bg.jpeg
 
   fonts:
     - family: ph

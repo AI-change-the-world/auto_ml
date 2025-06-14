@@ -33,6 +33,8 @@ class Dataset {
   String username;
   String password;
   int scanStatus;
+  String? sampleFilePath;
+  int fileCount;
 
   Dataset({
     this.id = -1,
@@ -48,6 +50,8 @@ class Dataset {
     this.username = "",
     this.password = "",
     this.scanStatus = 0,
+    this.sampleFilePath,
+    this.fileCount = 0,
   });
 
   static Dataset fromDataset(r.Dataset d) {
@@ -65,6 +69,8 @@ class Dataset {
       username: d.username ?? "",
       password: d.password ?? "",
       scanStatus: d.scanStatus,
+      sampleFilePath: d.sampleFilePath,
+      fileCount: d.fileCount,
     );
   }
 

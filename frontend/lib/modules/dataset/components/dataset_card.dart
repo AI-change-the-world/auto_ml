@@ -1,4 +1,4 @@
-import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/dataset/components/left_right_background_container.dart';
 import 'package:auto_ml/modules/dataset/components/modify_dataset_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
@@ -165,71 +165,77 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
   Color iconColor = Colors.white;
 
   Widget _child(_CardState s) {
-    return Container(
-      width: 200,
-      height: 150,
-      decoration: BoxDecoration(
-        color: widget.dataset.type.color,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            spreadRadius: 2,
-            offset: Offset(-s.yRotation * 20, s.xRotation * 20),
+    return LeftRightBackgroundContainer(
+      width: 400,
+      height: 300,
+      rightBackgroundImage:
+          widget.dataset.type == DatasetType.image
+              ? widget.dataset.sampleFilePath
+              : null,
+      children: [
+        Positioned(
+          top: 20,
+          left: 20,
+          child: Text(
+            widget.dataset.name,
+            maxLines: 1,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            style: Styles.defaultButtonTextStyle.copyWith(fontSize: 20),
           ),
-        ],
-      ),
-
-      child: Stack(
-        children: [
-          AnimatedAlign(
-            duration: Duration(milliseconds: 300),
-            alignment: s.showIcon ? Alignment.topLeft : Alignment.center,
-            child: Padding(
-              padding: EdgeInsets.all(10),
-              child: Text(
-                widget.dataset.name.isNotEmpty
-                    ? widget.dataset.name
-                    : t.dataset_screen.card.unknown_msg,
-                style: TextStyle(fontSize: 20, color: Colors.white),
-                maxLines: 1,
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
+        ),
+        Positioned(
+          top: 60,
+          left: 20,
+          child: SizedBox(
+            width: 400 - 40,
+            child: Text(
+              widget.dataset.description,
+              style: Styles.defaultButtonTextStyle.copyWith(fontSize: 14),
+              maxLines: 3,
+              softWrap: true,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
+        ),
 
-          Positioned(
-            left: 10,
-            top: 40,
-            child: AnimatedOpacity(
-              opacity: s.showIcon ? 1 : 0,
-              duration: Duration(milliseconds: 300),
-              child: SizedBox(
-                width: 180,
-                child: Text(
-                  widget.dataset.description.isNotEmpty
-                      ? widget.dataset.description
-                      : t.dataset_screen.card.save_msg(
-                        message: widget.dataset.datasetPath,
+        Positioned(
+          left: 20,
+          bottom: 20,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              width: 80,
+              height: 30,
+              decoration: BoxDecoration(
+                color: const Color.fromARGB(255, 245, 243, 246),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Center(
+                child: Text.rich(
+                  TextSpan(
+                    text: widget.dataset.fileCount.toString(),
+                    style: Styles.defaultButtonTextStyle.copyWith(
+                      fontSize: 14,
+                      color: Colors.green,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '   files',
+                        style: Styles.defaultButtonTextStyle.copyWith(
+                          fontSize: 12,
+                          color: Colors.black,
+                        ),
                       ),
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
-                  maxLines: 4,
-                  softWrap: true,
-                  overflow: TextOverflow.ellipsis,
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          if (s.showIcon)
-            Positioned(
-              bottom: 10,
-              right: 10,
-              child: widget.dataset.type.icon(color: iconColor, size: iconSize),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

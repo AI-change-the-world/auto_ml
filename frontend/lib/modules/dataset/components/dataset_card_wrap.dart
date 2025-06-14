@@ -17,8 +17,8 @@ class DatasetCardWrap extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(left: 10, right: 10),
       child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
+        spacing: 20,
+        runSpacing: 20,
         children: datasets.map((e) => DatasetCard(dataset: e)).toList(),
       ),
     );

@@ -27,7 +27,7 @@ void main() async {
               theme: ThemeData(
                 fontFamily: "ph",
                 colorScheme: ColorScheme.fromSeed(
-                  seedColor: const Color.fromARGB(255, 115, 161, 230),
+                  seedColor: const Color.fromARGB(255, 128, 180, 217),
                   brightness: Brightness.light,
                 ),
               ),

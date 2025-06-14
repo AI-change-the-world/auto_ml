@@ -57,7 +57,10 @@ class SidebarItemWidget extends StatelessWidget {
             margin: const EdgeInsets.symmetric(vertical: 2),
             decoration: BoxDecoration(
               // borderRadius: BorderRadius.circular(4),
-              color: isSelected ? Colors.white : Colors.transparent,
+              color:
+                  isSelected
+                      ? Colors.white.withValues(alpha: 0.75)
+                      : Colors.transparent,
             ),
             width: Styles.sidebarWidthExpanded,
             height: 40,
@@ -127,12 +130,12 @@ class SimpleLayout extends StatelessWidget {
                   borderRadius: BorderRadius.circular(30),
                   // color: Theme.of(context).primaryColorLight,
                   gradient: LinearGradient(
-                    stops: [0.6, 1.0],
+                    stops: [0.4, 1.0],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Theme.of(context).primaryColorLight,
                       Theme.of(context).primaryColor,
+                      Theme.of(context).primaryColorLight,
                     ],
                   ),
                 ),
@@ -145,7 +148,7 @@ class SimpleLayout extends StatelessWidget {
                           width: Styles.sidebarWidthExpanded,
                           child: Center(
                             child: Image.asset(
-                              "transparent_logo.png",
+                              "assets/transparent_logo.png",
                               width: Styles.sidebarItemWidthExpanded,
                               // height: 100,
                               fit: BoxFit.fitWidth,
@@ -168,52 +171,79 @@ class SimpleLayout extends StatelessWidget {
                         ),
                       ],
                     ),
+
                     SidebarItemWidget(isDivider: true),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("dataset"),
-                      isSelected: selectedIndex == 0,
-                      onTap: () => onIndexChanged(0),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("dataset"),
+                              isSelected: selectedIndex == 0,
+                              onTap: () => onIndexChanged(0),
+                            ),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("annotation"),
+                              isSelected: selectedIndex == 1,
+                              onTap: () => onIndexChanged(1),
+                            ),
+                            SidebarItemWidget(isDivider: true),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("tool_model"),
+                              isSelected: selectedIndex == 2,
+                              onTap: () => onIndexChanged(2),
+                            ),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("agent"),
+                              isSelected: selectedIndex == 3,
+                              onTap: () => onIndexChanged(3),
+                            ),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("task"),
+                              isSelected: selectedIndex == 4,
+                              onTap: () => onIndexChanged(4),
+                            ),
+                            SidebarItemWidget(isDivider: true),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("predict"),
+                              isSelected: selectedIndex == 5,
+                              onTap: () => onIndexChanged(5),
+                            ),
+                            SidebarItemWidget(isDivider: true),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("deploy"),
+                              isSelected: selectedIndex == 6,
+                              onTap: () => onIndexChanged(6),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("annotation"),
-                      isSelected: selectedIndex == 1,
-                      onTap: () => onIndexChanged(1),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      width: Styles.sidebarItemWidthExpanded,
+                      height: 40,
+                      child: Row(
+                        spacing: 10,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.supervised_user_circle),
+                          Text("User info"),
+                        ],
+                      ),
                     ),
-                    SidebarItemWidget(isDivider: true),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("tool_model"),
-                      isSelected: selectedIndex == 2,
-                      onTap: () => onIndexChanged(2),
-                    ),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("agent"),
-                      isSelected: selectedIndex == 3,
-                      onTap: () => onIndexChanged(3),
-                    ),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("task"),
-                      isSelected: selectedIndex == 4,
-                      onTap: () => onIndexChanged(4),
-                    ),
-                    SidebarItemWidget(isDivider: true),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("predict"),
-                      isSelected: selectedIndex == 5,
-                      onTap: () => onIndexChanged(5),
-                    ),
-                    SidebarItemWidget(isDivider: true),
-                    SidebarItemWidget(
-                      isDivider: false,
-                      item: items.getByName("deploy"),
-                      isSelected: selectedIndex == 6,
-                      onTap: () => onIndexChanged(6),
-                    ),
+                    SizedBox(height: 10),
                   ],
                 ),
               ),

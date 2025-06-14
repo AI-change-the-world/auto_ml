@@ -120,7 +120,22 @@ public class DatasetService {
   public List<Dataset> getDataset() {
     QueryWrapper queryWrapper = new QueryWrapper();
     queryWrapper.eq("is_deleted", 0);
-    return datasetMapper.selectList(queryWrapper);
+    List<Dataset> val = datasetMapper.selectList(queryWrapper);
+    for (Dataset dataset : val) {
+      if (dataset.getType() == 0) {
+        String p = null;
+        try {
+          p = s3FileDelegate.getFile(
+              dataset.getSampleFilePath(), properties.getDatasetsBucketName());
+        } catch (Exception e) {
+          log.error("get sample file error: {}", e.getMessage());
+          continue;
+        }
+        dataset.setSampleFilePath(p);
+      }
+    }
+
+    return val;
   }
 
   public void deleteById(Long id) {
