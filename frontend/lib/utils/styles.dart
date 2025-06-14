@@ -3,6 +3,16 @@ import 'package:flutter/material.dart';
 class Styles {
   Styles._();
 
+  static const double sidebarWidth = 60;
+  static const double sidebarWidthExpanded = 160;
+
+  static const double sidebarItemHeight = 40;
+  static const double sidebarItemWidth = 40;
+  static const double sidebarItemWidthExpanded = 120;
+
+  static const Color sidebarItemInactiveColor = Colors.white;
+  static const Color sidebarItemActiveColor = Colors.blueAccent;
+
   static double datatableIconSize = 20;
   static double menuBarIconSize = 15;
 

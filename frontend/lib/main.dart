@@ -3,6 +3,7 @@ import 'package:auto_ml/i18n/i18n_notifier.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/app/route.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/utils/globals.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
@@ -14,6 +15,7 @@ void main() async {
   MediaKit.ensureInitialized();
   DioClient().init(baseUrl: 'http://localhost:8080/automl');
   Api.setBaseUrl('http://localhost:8080/automl');
+  await Globals.init();
 
   runApp(
     ToastificationWrapper(
@@ -25,7 +27,7 @@ void main() async {
               theme: ThemeData(
                 fontFamily: "ph",
                 colorScheme: ColorScheme.fromSeed(
-                  seedColor: const Color.fromARGB(255, 61, 124, 219),
+                  seedColor: const Color.fromARGB(255, 115, 161, 230),
                   brightness: Brightness.light,
                 ),
               ),
