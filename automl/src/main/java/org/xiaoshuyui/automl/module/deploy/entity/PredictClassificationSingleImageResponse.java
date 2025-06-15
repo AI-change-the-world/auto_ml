@@ -12,8 +12,8 @@ import lombok.Data;
 
 @Data
 public class PredictClassificationSingleImageResponse {
-    private String image_id;
-    private String name;
-    private int class_id;
-    private double confidence;
+  private String image_id;
+  private String name;
+  private int class_id;
+  private double confidence;
 }

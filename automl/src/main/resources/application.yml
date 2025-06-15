@@ -36,8 +36,22 @@ spring:
 #     org.springframework.web: DEBUG
 #     org.springframework.http.converter: TRACE
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+
+
 
 mybatis-plus:
+  mapper-locations:
+  - classpath*:mapper/**/*.xml
   global-config:
     db-config:
       logic-delete-value: 1

@@ -22,6 +22,7 @@ Dataset _$DatasetFromJson(Map<String, dynamic> json) => Dataset(
       fileCount: (json['fileCount'] as num).toInt(),
       sampleFilePath: json['sampleFilePath'] as String?,
       localS3StoragePath: json['localS3StoragePath'] as String?,
+      annotationCount: (json['annotationCount'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$DatasetToJson(Dataset instance) => <String, dynamic>{
@@ -40,6 +41,7 @@ Map<String, dynamic> _$DatasetToJson(Dataset instance) => <String, dynamic>{
       'fileCount': instance.fileCount,
       'sampleFilePath': instance.sampleFilePath,
       'localS3StoragePath': instance.localS3StoragePath,
+      'annotationCount': instance.annotationCount,
     };
 
 GetAllDatasetResponse _$GetAllDatasetResponseFromJson(

@@ -56,4 +56,7 @@ public class Annotation {
 
   @TableField(value = "prompt")
   String prompt;
+
+  @TableField(value = "details")
+  String details;
 }

@@ -19,6 +19,7 @@ class Dataset {
   final int fileCount;
   final String? sampleFilePath;
   final String? localS3StoragePath;
+  final int annotationCount;
 
   Dataset({
     required this.id,
@@ -36,6 +37,7 @@ class Dataset {
     required this.fileCount,
     required this.sampleFilePath,
     required this.localS3StoragePath,
+    this.annotationCount = 0,
   });
 
   factory Dataset.fromJson(Map<String, dynamic> json) =>

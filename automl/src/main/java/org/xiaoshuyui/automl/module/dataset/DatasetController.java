@@ -3,7 +3,6 @@ package org.xiaoshuyui.automl.module.dataset;
 import java.io.ByteArrayOutputStream;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-
 import org.apache.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -57,7 +56,7 @@ public class DatasetController {
 
   @GetMapping("/details/{id}")
   public Result getDetails(@PathVariable Long id) {
-    return Result.OK_data(datasetService.get(id));
+    return Result.OK_data(datasetService.getDetails(id));
   }
 
   @PostMapping("/file/preview")

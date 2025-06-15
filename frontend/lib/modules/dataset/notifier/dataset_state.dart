@@ -17,6 +17,9 @@ DatasetType getType(int type) {
   }
 }
 
+/// TODO FIXME
+///
+/// 将这个model和response里面的合并为一个
 class Dataset {
   int id;
   String name;
@@ -35,6 +38,7 @@ class Dataset {
   int scanStatus;
   String? sampleFilePath;
   int fileCount;
+  int annotationCount;
 
   Dataset({
     this.id = -1,
@@ -52,6 +56,7 @@ class Dataset {
     this.scanStatus = 0,
     this.sampleFilePath,
     this.fileCount = 0,
+    this.annotationCount = 0,
   });
 
   static Dataset fromDataset(r.Dataset d) {
@@ -71,6 +76,7 @@ class Dataset {
       scanStatus: d.scanStatus,
       sampleFilePath: d.sampleFilePath,
       fileCount: d.fileCount,
+      annotationCount: d.annotationCount,
     );
   }
 

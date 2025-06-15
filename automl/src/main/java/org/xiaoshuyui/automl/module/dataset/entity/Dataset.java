@@ -67,4 +67,7 @@ public class Dataset {
   // 本地对象存储路径
   @TableField("local_s3_storage_path")
   String localS3StoragePath;
+
+  @TableField(exist = false)
+  Long annotationCount;
 }

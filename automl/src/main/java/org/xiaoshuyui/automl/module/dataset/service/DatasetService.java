@@ -2,22 +2,22 @@ package org.xiaoshuyui.automl.module.dataset.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import jakarta.annotation.Resource;
-
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
+import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.dataset.entity.Dataset;
 import org.xiaoshuyui.automl.module.dataset.entity.request.ModifyDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.request.NewDatasetRequest;
 import org.xiaoshuyui.automl.module.dataset.entity.response.DatasetDetailsResponse;
 import org.xiaoshuyui.automl.module.dataset.mapper.DatasetMapper;
+import org.xiaoshuyui.automl.module.task.service.TaskService;
 import org.xiaoshuyui.automl.util.GetFileListUtil;
 import org.xiaoshuyui.automl.util.S3FileDelegate;
 
@@ -25,12 +25,21 @@ import org.xiaoshuyui.automl.util.S3FileDelegate;
 @Service
 public class DatasetService {
 
+  private final AnnotationService annotationService;
+
   private final DatasetMapper datasetMapper;
   private final S3FileDelegate s3FileDelegate;
+  private final TaskService taskService;
 
-  public DatasetService(DatasetMapper datasetMapper, S3FileDelegate s3FileDelegate) {
+  public DatasetService(
+      DatasetMapper datasetMapper,
+      S3FileDelegate s3FileDelegate,
+      AnnotationService annotationService,
+      TaskService taskService) {
     this.datasetMapper = datasetMapper;
     this.s3FileDelegate = s3FileDelegate;
+    this.annotationService = annotationService;
+    this.taskService = taskService;
   }
 
   @Resource
@@ -73,8 +82,8 @@ public class DatasetService {
       throw new IllegalArgumentException("Dataset not found with id: " + datasetId);
     }
 
-    List<String> fileList = s3FileDelegate.listFiles(dataset.getLocalS3StoragePath(),
-        properties.getDatasetsBucketName());
+    List<String> fileList = s3FileDelegate.listFiles(
+        dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
     if (fileList.isEmpty()) {
       throw new IllegalArgumentException("No files found in the dataset.");
     }
@@ -133,6 +142,7 @@ public class DatasetService {
         }
         dataset.setSampleFilePath(p);
       }
+      dataset.setAnnotationCount(annotationService.getAnnotationCountByDatasetId(dataset.getId()));
     }
 
     return val;
@@ -148,14 +158,17 @@ public class DatasetService {
     return datasetMapper.selectOne(new QueryWrapper<Dataset>().eq("dataset_id", id));
   }
 
+  // 2025-06-15 重写了功能
   public DatasetDetailsResponse getDetails(Long id) {
     Dataset dataset = get(id);
     DatasetDetailsResponse response = new DatasetDetailsResponse();
-    if (dataset.getScanStatus() == 1) {
-      response.setSamplePath(dataset.getSampleFilePath());
-    }
-    response.setStatus(dataset.getScanStatus());
-    response.setCount(dataset.getFileCount());
+    List<String> files = s3FileDelegate.getFilesIn(
+        6, dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
+    Long taskCount = taskService.getTaskCount(id);
+
+    response.setUsedCount(taskCount);
+    response.setSamples(files);
+
     return response;
   }
 

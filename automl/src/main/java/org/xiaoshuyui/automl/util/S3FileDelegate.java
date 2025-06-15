@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.opendal.AsyncOperator;
+import org.apache.opendal.Entry;
 import org.apache.opendal.Metadata.EntryMode;
 import org.springframework.stereotype.Component;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
@@ -27,6 +28,8 @@ public class S3FileDelegate implements FileDelegate {
   private S3ConfigProperties properties;
 
   private final Map<String, AsyncOperator> operatorCache = new ConcurrentHashMap<>();
+
+  private static final PresignedUrlCache presignedUrlCache = new PresignedUrlCache();
 
   private Map<String, String> createConf(
       String accessKey, String secretKey, String bucket, String endpoint) {
@@ -47,6 +50,29 @@ public class S3FileDelegate implements FileDelegate {
     initOperator(properties.getBucketName());
     initOperator(properties.getDatasetsBucketName());
     initOperator(properties.getModelsBucketName());
+  }
+
+  public List<String> getFilesIn(int number, String path, String bucketName) {
+    List<Entry> all = getOperator(bucketName).list(path).join(); // 无法避免全拉
+    List<String> result = new ArrayList<>();
+
+    for (Entry entry : all) {
+      if (entry.getMetadata().mode == EntryMode.FILE) {
+        try {
+          String presigned = cachedGetFile(entry.path, bucketName);
+          result.add(presigned);
+
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+
+        if (result.size() >= number) {
+          break;
+        }
+      }
+    }
+
+    return result;
   }
 
   private void initOperator(String bucket) {
@@ -83,6 +109,20 @@ public class S3FileDelegate implements FileDelegate {
   @Override
   public String getFile(String path) throws Exception {
     return getFile(path, null);
+  }
+
+  public String cachedGetFile(String path, String bucket) {
+
+    return presignedUrlCache.getPresignedUrl(
+        path,
+        bucket,
+        cacheEntry -> {
+          try {
+            return getFile(cacheEntry.getKey(), cacheEntry.getBucket());
+          } catch (Exception e) {
+            return null;
+          }
+        });
   }
 
   @Override
@@ -141,8 +181,10 @@ public class S3FileDelegate implements FileDelegate {
 
   public List<String> listFiles(String path, String bucket) throws Exception {
 
-    return getOperator(bucket).list(path).join().stream().filter(item -> item.getMetadata().mode == EntryMode.FILE)
-        .map(item -> item.path).toList();
+    return getOperator(bucket).list(path).join().stream()
+        .filter(item -> item.getMetadata().mode == EntryMode.FILE)
+        .map(item -> item.path)
+        .toList();
   }
 
   public void createDir(String path, String bucket) {

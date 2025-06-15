@@ -1,28 +1,27 @@
 class DatasetFileState {
-  final String? sampleFile;
-  final int count;
-  final int status;
-  String? currentContent;
+  final List<String> samples;
+  final int usedCount;
 
-  DatasetFileState({
-    this.sampleFile,
-    this.count = 0,
-    this.status = 0,
-    this.currentContent,
-  });
+  DatasetFileState({this.samples = const [], this.usedCount = 0});
 
-  DatasetFileState copyWith({
-    String? sampleFile,
-    int? count,
-    int? index,
-    int? status,
-    String? currentContent,
-  }) {
+  DatasetFileState copyWith({List<String>? samples, int? usedCount}) {
     return DatasetFileState(
-      sampleFile: sampleFile ?? this.sampleFile,
-      count: count ?? this.count,
-      status: status ?? this.status,
-      currentContent: currentContent ?? this.currentContent,
+      samples: samples ?? this.samples,
+      usedCount: usedCount ?? this.usedCount,
     );
+  }
+
+  factory DatasetFileState.fromJson(Map<String, dynamic> json) {
+    return DatasetFileState(
+      samples:
+          (json['samples'] as List<dynamic>)
+              .map((dynamic item) => item as String)
+              .toList(),
+      usedCount: json['usedCount'] as int,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'samples': samples, 'usedCount': usedCount};
   }
 }

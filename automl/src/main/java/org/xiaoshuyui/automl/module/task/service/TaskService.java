@@ -74,6 +74,12 @@ public class TaskService {
     return taskLogMapper.selectList(queryWrapper);
   }
 
+  public Long getTaskCount(Long datasetId) {
+    QueryWrapper queryWrapper = new QueryWrapper();
+    queryWrapper.eq("dataset_id", datasetId);
+    return taskMapper.selectCount(queryWrapper);
+  }
+
   private static Gson gson =
       new GsonBuilder()
           .serializeNulls() // 👈 关键：保留 null 字段

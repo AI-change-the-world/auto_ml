@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/download/download.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
@@ -5,8 +7,10 @@ import 'package:auto_ml/modules/annotation/models/api/new_annotation_request.dar
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
 import 'package:auto_ml/modules/dataset/components/new_annotation_dialog.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/dataset/notifier/annotation_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
+import 'package:auto_ml/modules/dataset/notifier/dataset_state.dart';
 import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -14,6 +18,133 @@ import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class _DatasetDetailCard extends StatelessWidget {
+  const _DatasetDetailCard({required this.dataset});
+  final Dataset dataset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      borderRadius: BorderRadius.circular(20),
+      elevation: 8,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        width: double.infinity,
+        height: 300,
+        child: Column(
+          children: [
+            Container(
+              height: 240,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(20),
+                  right: Radius.circular(20),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+                child: Stack(
+                  children: [
+                    SizedBox.expand(
+                      child: Image(
+                        fit: BoxFit.fill,
+                        image:
+                            dataset.sampleFilePath == null
+                                ? AssetImage('assets/bg.jpeg')
+                                : NetworkImage(dataset.sampleFilePath!)
+                                    as ImageProvider,
+                      ),
+                    ),
+                    BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                      child: Container(
+                        width: double.infinity,
+                        height: 300,
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      bottom: 100,
+                      child: Text(
+                        dataset.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 27,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      bottom: 60,
+                      child: Text(
+                        dataset.description,
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            SizedBox(
+              height: 60,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(width: 20),
+                  Icon(Icons.person_2_outlined, size: 18),
+                  SizedBox(width: 5),
+                  Text("user info"),
+                  SizedBox(width: 20),
+                  Icon(Icons.calendar_month_outlined, size: 18),
+                  SizedBox(width: 5),
+                  Text("创建于 ${dataset.createdAt.split(".").first}"),
+                  SizedBox(width: 20),
+                  Icon(Icons.update, size: 18),
+                  SizedBox(width: 5),
+                  Text("更新于 ${dataset.updatedAt.split(".").first}"),
+                  SizedBox(width: 20),
+                  Container(
+                    padding: EdgeInsets.only(
+                      left: 4,
+                      right: 4,
+                      top: 1,
+                      bottom: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: dataset.type.color),
+                      color: dataset.type.color.withValues(alpha: 0.1),
+                    ),
+                    child: Text(
+                      dataset.type.name,
+                      style: Styles.defaultButtonTextStyle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class DatasetDetailsWidget extends ConsumerStatefulWidget {
   const DatasetDetailsWidget({super.key});
@@ -52,6 +183,10 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
   Widget build(BuildContext context) {
     final current = ref.read(datasetNotifierProvider).value?.current;
 
+    if (current == null) {
+      return const Center(child: Text('No dataset selected'));
+    }
+
     return Material(
       borderRadius: BorderRadius.only(
         topLeft: Radius.circular(10),
@@ -71,11 +206,8 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
         ),
         child: Column(
           children: [
-            Text(
-              "${t.dataset_screen.table.id}: ${current?.id}     ${t.dataset_screen.table.name}: ${current?.name}",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 5),
+            _DatasetDetailCard(dataset: current),
+            SizedBox(height: 20),
             SizedBox(
               height: 35,
               child: Row(
@@ -146,7 +278,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                         child: GestureDetector(
                           onTap: () async {
                             String url =
-                                "${DioClient().instance.options.baseUrl}${Api.datasetExport.replaceAll("{id}", current!.id.toString())}";
+                                "${DioClient().instance.options.baseUrl}${Api.datasetExport.replaceAll("{id}", current.id.toString())}";
                             logger.i("Download URL: $url");
                             download(url, filename: "${current.name}.zip");
                           },
@@ -184,7 +316,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                               if (v != null && v is Map<String, dynamic>) {
                                 NewAnnotationRequest request =
                                     NewAnnotationRequest(
-                                      datasetId: current!.id,
+                                      datasetId: current.id,
                                       storageType: v['storageType'],
                                       savePath: v['labelPath'],
                                       username: v['username'],

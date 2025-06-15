@@ -1,9 +1,7 @@
 import 'package:auto_ml/i18n/strings.g.dart';
-import 'package:auto_ml/modules/dataset/components/append_dataset_files_dialog.dart';
+import 'package:auto_ml/modules/dataset/components/simple_tile.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_list_notifier.dart';
-import 'package:auto_ml/modules/dataset/notifier/dataset_file_state.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
-import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,160 +32,112 @@ class DatasetFileDetails extends ConsumerWidget {
     final state = ref.watch(datasetFileListNotifierProvider);
 
     return state.when(
-      data: (DatasetFileState data) {
-        return Container(
-          padding: EdgeInsets.all(10),
+      data: (data) {
+        return SingleChildScrollView(
+          padding: EdgeInsetsGeometry.all(10),
           child: Column(
-            spacing: 10,
+            spacing: 20,
             children: [
-              Row(
-                spacing: 10,
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: "${t.dataset_screen.table.count}: ",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              TextSpan(
-                                text: "${data.count}",
-                                style: TextStyle(fontSize: 12),
-                              ),
-                            ],
-                          ),
+              SizedBox(
+                height: 80,
+                child: Row(
+                  spacing: 20,
+                  children: [
+                    SimpleTile(
+                      text: "File Count",
+                      icon: Container(
+                        width: 50, // 任意你想要的直径
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 196, 213, 242),
+                          shape: BoxShape.circle, // 关键：设置为圆形
                         ),
-                        SizedBox(width: 10),
-                        Material(
-                          borderRadius: BorderRadius.circular(20),
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () async {
-                                showGeneralDialog(
-                                  context: context,
-                                  barrierColor: Styles.barriarColor,
-                                  barrierDismissible: true,
-                                  barrierLabel: "AppendDatasetFilesDialog",
-                                  pageBuilder: (c, _, __) {
-                                    return Center(
-                                      child: AppendDatasetFilesDialog(
-                                        datasetType: dataset.type.index,
-                                        datasetId: dataset.id,
-                                      ),
-                                    );
-                                  },
-                                ).then((v) {
-                                  ref
-                                      .read(
-                                        datasetFileListNotifierProvider
-                                            .notifier,
-                                      )
-                                      .refresh(dataset);
-                                });
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                padding: EdgeInsets.all(1),
-                                child: Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: "${t.dataset_screen.table.status}: ",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          TextSpan(
-                            text: getStatus(data.status),
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ],
+                        child: Icon(Icons.library_books, color: Colors.blue),
                       ),
+                      subText: "${dataset.fileCount}",
                     ),
-                  ),
-                ],
+                    SimpleTile(
+                      text: "Annotations count",
+                      icon: Container(
+                        width: 50, // 任意你想要的直径
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 196, 242, 225),
+                          shape: BoxShape.circle, // 关键：设置为圆形
+                        ),
+                        child: Icon(Icons.label_outline, color: Colors.green),
+                      ),
+                      subText: "${dataset.annotationCount}",
+                    ),
+                    SimpleTile(
+                      text: "Used count",
+                      icon: Container(
+                        width: 50, // 任意你想要的直径
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 236, 242, 196),
+                          shape: BoxShape.circle, // 关键：设置为圆形
+                        ),
+                        child: Icon(Icons.toll_outlined, color: Colors.yellow),
+                      ),
+                      subText: "${data.usedCount}",
+                    ),
+                  ],
+                ),
               ),
-              Divider(),
-              if (data.sampleFile != null)
-                Text.rich(
-                  TextSpan(
+              Material(
+                borderRadius: BorderRadius.circular(20),
+                elevation: 4,
+                child: Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  width: double.infinity,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextSpan(
-                        text: "${t.dataset_screen.table.preview}: ",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                      SizedBox(
+                        height: 40,
+                        child: Text(
+                          "Data preview",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                      TextSpan(
-                        text: data.sampleFile,
-                        style: TextStyle(fontSize: 12),
+                      Wrap(
+                        spacing: 10, // 横向间距
+                        runSpacing: 10, // 纵向间距
+                        alignment: WrapAlignment.spaceEvenly,
+                        children:
+                            data.samples.map((e) {
+                              return SizedBox(
+                                width:
+                                    (MediaQuery.of(context).size.width * 0.8 -
+                                        100) /
+                                    3, // 每行3个，减去间距
+                                height: 200,
+                                child: Image.network(e, fit: BoxFit.cover),
+                              );
+                            }).toList(),
                       ),
                     ],
                   ),
-                ),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: _ListFile(state: data),
                 ),
               ),
             ],
           ),
         );
       },
-      error: (Object error, StackTrace stackTrace) {
-        return Center(child: Text(error.toString()));
-      },
       loading: () {
         return Center(child: CircularProgressIndicator());
       },
-    );
-  }
-}
-
-class _ListFile extends ConsumerWidget {
-  const _ListFile({required this.state});
-  final DatasetFileState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SizedBox(
-      child:
-          state.currentContent != null && state.currentContent!.isNotEmpty
-              ? Image.network(state.currentContent!)
-              : Center(
-                child: Text(
-                  t.dataset_screen.table.no_preview,
-                  style: Styles.defaultButtonTextStyle,
-                ),
-              ),
+      error: (error, stackTrace) {
+        return Center(child: Text(error.toString()));
+      },
     );
   }
 }

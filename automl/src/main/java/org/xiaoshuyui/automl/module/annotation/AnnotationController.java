@@ -4,12 +4,13 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
-
 import org.apache.http.HttpStatus;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.xiaoshuyui.automl.common.Result;
 import org.xiaoshuyui.automl.module.annotation.entity.AnnotationFileResponse;
@@ -118,6 +119,12 @@ public class AnnotationController {
   public Result newAnnotation(@RequestBody NewAnnotationRequest entity) {
     annotationService.newAnnotation(entity);
 
+    return Result.OK();
+  }
+
+  @GetMapping("/generate/details/{id}")
+  public Result generateDetails(@PathVariable Long id) {
+    annotationService.generateDetails(id);
     return Result.OK();
   }
 
