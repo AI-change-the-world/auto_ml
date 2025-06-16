@@ -51,7 +51,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                       ),
                       columnSpacing: 10,
                       headingRowDecoration: BoxDecoration(
-                        color: Colors.grey.shade200,
+                        color: Theme.of(context).primaryColorLight,
                       ),
                       columns: columns,
                       rows:

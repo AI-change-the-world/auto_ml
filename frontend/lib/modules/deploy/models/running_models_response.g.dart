@@ -7,15 +7,14 @@ part of 'running_models_response.dart';
 // **************************************************************************
 
 RunningModelsResponse _$RunningModelsResponseFromJson(
-        Map<String, dynamic> json) =>
-    RunningModelsResponse(
-      runningModels: (json['running_models'] as List<dynamic>)
+  Map<String, dynamic> json,
+) => RunningModelsResponse(
+  runningModels:
+      (json['running_models'] as List<dynamic>)
           .map((e) => (e as num).toInt())
           .toList(),
-    );
+);
 
 Map<String, dynamic> _$RunningModelsResponseToJson(
-        RunningModelsResponse instance) =>
-    <String, dynamic>{
-      'running_models': instance.runningModels,
-    };
+  RunningModelsResponse instance,
+) => <String, dynamic>{'running_models': instance.runningModels};

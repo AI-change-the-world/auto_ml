@@ -179,6 +179,13 @@ class SimpleLayout extends StatelessWidget {
                           children: [
                             SidebarItemWidget(
                               isDivider: false,
+                              item: items.getByName("home"),
+                              isSelected: selectedIndex == 7,
+                              onTap: () => onIndexChanged(7),
+                            ),
+                            SidebarItemWidget(isDivider: true),
+                            SidebarItemWidget(
+                              isDivider: false,
                               item: items.getByName("dataset"),
                               isSelected: selectedIndex == 0,
                               onTap: () => onIndexChanged(0),
@@ -282,6 +289,8 @@ extension SidebarListExtension on List<SidebarItem> {
         return firstWhere((item) => item.index == 5);
       case "deploy":
         return firstWhere((item) => item.index == 6);
+      case "home":
+        return firstWhere((item) => item.index == 7);
       default:
         return null;
     }
@@ -290,6 +299,16 @@ extension SidebarListExtension on List<SidebarItem> {
 
 final List<SidebarItem> items = [
   SidebarItem(
+    icon: const Icon(Icons.home, color: Styles.sidebarItemActiveColor),
+    iconInactive: const Icon(
+      Icons.home,
+      color: Styles.sidebarItemInactiveColor,
+    ),
+    index: 7,
+    title: "Home",
+    route: "/",
+  ),
+  SidebarItem(
     icon: const Icon(Icons.dataset, color: Styles.sidebarItemActiveColor),
     iconInactive: const Icon(
       Icons.dataset,
@@ -297,7 +316,7 @@ final List<SidebarItem> items = [
     ),
     index: 0,
     title: t.sidebar.dataset,
-    route: "/",
+    route: "/dataset",
   ),
   SidebarItem(
     icon: const Icon(

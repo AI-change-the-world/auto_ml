@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="org.xiaoshuyui.automl.module.task.mapper.TaskMapper">
+  <!-- getTaskPerDay -->
+  <select id="getTaskPerDay" resultType="org.xiaoshuyui.automl.module.home.entity.HomeIndex$TaskPerDay">
+     SELECT
+    DATE(created_at) AS `date`,
+    COUNT(*) AS task_count,
+    SUM(TIMESTAMPDIFF(SECOND, created_at, updated_at)) AS task_duration
+  FROM
+    task
+  WHERE
+    created_at >= CURDATE() - INTERVAL
+    <choose>
+      <when test="days != null">
+          #{days}
+        </when>
+      <otherwise>
+          7
+        </otherwise>
+    </choose> DAY
+    AND is_deleted = 0
+  GROUP BY
+    DATE(created_at)
+  ORDER BY
+    `date` ASC
+  </select>
+</mapper>

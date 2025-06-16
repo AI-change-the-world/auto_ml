@@ -271,4 +271,10 @@ public class AnnotationService {
     queryWrapper.eq("dataset_id", datasetId);
     return annotationMapper.selectCount(queryWrapper);
   }
+
+  public Long getAnnotationCount() {
+    QueryWrapper queryWrapper = new QueryWrapper();
+    queryWrapper.eq("is_deleted", 0);
+    return annotationMapper.selectCount(queryWrapper);
+  }
 }

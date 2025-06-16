@@ -76,6 +76,7 @@ class Styles {
   static ButtonStyle getDefaultButtonStyle({
     double width = 100,
     double height = 20,
+    double radius = 4,
   }) {
     return ButtonStyle(
       fixedSize: WidgetStateProperty.all(Size(width, height)),
@@ -87,7 +88,7 @@ class Styles {
         const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
       ),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.0)),
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
       ),
     );
   }

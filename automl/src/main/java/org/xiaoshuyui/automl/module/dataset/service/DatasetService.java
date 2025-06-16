@@ -42,8 +42,7 @@ public class DatasetService {
     this.taskService = taskService;
   }
 
-  @Resource
-  private S3ConfigProperties properties;
+  @Resource private S3ConfigProperties properties;
 
   public long newDataset(NewDatasetRequest request) {
     Dataset dataset = new Dataset();
@@ -82,15 +81,17 @@ public class DatasetService {
       throw new IllegalArgumentException("Dataset not found with id: " + datasetId);
     }
 
-    List<String> fileList = s3FileDelegate.listFiles(
-        dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
+    List<String> fileList =
+        s3FileDelegate.listFiles(
+            dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
     if (fileList.isEmpty()) {
       throw new IllegalArgumentException("No files found in the dataset.");
     }
     ByteArrayOutputStream zipOut = new ByteArrayOutputStream();
     try (ZipOutputStream zos = new ZipOutputStream(zipOut)) {
       for (String filePath : fileList) {
-        InputStream is = s3FileDelegate.getFileStream(filePath, properties.getDatasetsBucketName()); // 获取文件流
+        InputStream is =
+            s3FileDelegate.getFileStream(filePath, properties.getDatasetsBucketName()); // 获取文件流
         String prefix = filePath.substring(0, filePath.lastIndexOf("/"));
         ZipEntry entry = new ZipEntry(filePath.replaceFirst(prefix, ""));
         zos.putNextEntry(entry);
@@ -134,8 +135,9 @@ public class DatasetService {
       if (dataset.getType() == 0) {
         String p = null;
         try {
-          p = s3FileDelegate.getFile(
-              dataset.getSampleFilePath(), properties.getDatasetsBucketName());
+          p =
+              s3FileDelegate.getFile(
+                  dataset.getSampleFilePath(), properties.getDatasetsBucketName());
         } catch (Exception e) {
           log.error("get sample file error: {}", e.getMessage());
           continue;
@@ -162,8 +164,9 @@ public class DatasetService {
   public DatasetDetailsResponse getDetails(Long id) {
     Dataset dataset = get(id);
     DatasetDetailsResponse response = new DatasetDetailsResponse();
-    List<String> files = s3FileDelegate.getFilesIn(
-        6, dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
+    List<String> files =
+        s3FileDelegate.getFilesIn(
+            6, dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName());
     Long taskCount = taskService.getTaskCount(id);
 
     response.setUsedCount(taskCount);
@@ -215,7 +218,8 @@ public class DatasetService {
           storage.setFileCount((long) l.size());
           storage.setLocalS3StoragePath(basePath);
           log.info("files: {}", l);
-          List<String> targets = s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
+          List<String> targets =
+              s3FileDelegate.putFileList(l, properties.getDatasetsBucketName(), basePath);
           storage.setSampleFilePath(targets.get(0));
         }
         storage.setScanStatus(1);
@@ -229,10 +233,11 @@ public class DatasetService {
   }
 
   private void scanFolderParallel(Dataset dataset) {
-    Thread thread = new Thread(
-        () -> {
-          scanAndUploadToLocalS3FolderSync(dataset);
-        });
+    Thread thread =
+        new Thread(
+            () -> {
+              scanAndUploadToLocalS3FolderSync(dataset);
+            });
     thread.start();
   }
 
@@ -242,9 +247,10 @@ public class DatasetService {
       return;
     }
     try {
-      int fileCount = s3FileDelegate
-          .listFiles(dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName())
-          .size();
+      int fileCount =
+          s3FileDelegate
+              .listFiles(dataset.getLocalS3StoragePath(), properties.getDatasetsBucketName())
+              .size();
       dataset.setFileCount((long) fileCount);
       datasetMapper.updateById(dataset);
     } catch (Exception e) {
@@ -270,15 +276,13 @@ public class DatasetService {
   }
 
   public static String removeFilenameIfHasExtension(String path) {
-    if (path == null || path.isEmpty())
-      return path;
+    if (path == null || path.isEmpty()) return path;
 
     // 去掉结尾的 `/`，避免误判目录
     String cleanPath = path.endsWith("/") ? path.substring(0, path.length() - 1) : path;
 
     int lastSlash = cleanPath.lastIndexOf('/');
-    if (lastSlash == -1)
-      return path;
+    if (lastSlash == -1) return path;
 
     String lastSegment = cleanPath.substring(lastSlash + 1);
 
@@ -288,5 +292,11 @@ public class DatasetService {
     }
 
     return path;
+  }
+
+  public Long getDatasetCount() {
+    QueryWrapper<Dataset> wrapper = new QueryWrapper();
+    wrapper.eq("is_deleted", 0);
+    return datasetMapper.selectCount(wrapper);
   }
 }

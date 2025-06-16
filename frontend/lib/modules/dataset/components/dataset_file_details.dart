@@ -1,5 +1,5 @@
 import 'package:auto_ml/i18n/strings.g.dart';
-import 'package:auto_ml/modules/dataset/components/simple_tile.dart';
+import 'package:auto_ml/modules/simple_tile.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_file_list_notifier.dart';
 import 'package:auto_ml/modules/dataset/notifier/dataset_notifier.dart';
 import 'package:flutter/material.dart';

@@ -17,12 +17,12 @@ DatasetFileResponse _$DatasetFileResponseFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$DatasetFileResponseToJson(
-        DatasetFileResponse instance) =>
-    <String, dynamic>{
-      'datasetId': instance.datasetId,
-      'count': instance.count,
-      'files': instance.files,
-      'datasetType': instance.datasetType,
-      'storageType': instance.storageType,
-      'datasetBaseUrl': instance.datasetBaseUrl,
-    };
+  DatasetFileResponse instance,
+) => <String, dynamic>{
+  'datasetId': instance.datasetId,
+  'count': instance.count,
+  'files': instance.files,
+  'datasetType': instance.datasetType,
+  'storageType': instance.storageType,
+  'datasetBaseUrl': instance.datasetBaseUrl,
+};

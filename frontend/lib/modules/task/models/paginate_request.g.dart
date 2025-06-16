@@ -13,7 +13,4 @@ PaginateRequest _$PaginateRequestFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$PaginateRequestToJson(PaginateRequest instance) =>
-    <String, dynamic>{
-      'pageId': instance.pageId,
-      'pageSize': instance.pageSize,
-    };
+    <String, dynamic>{'pageId': instance.pageId, 'pageSize': instance.pageSize};

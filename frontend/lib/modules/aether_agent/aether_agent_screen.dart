@@ -58,7 +58,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                         empty: Center(child: Text("No available models")),
                         columnSpacing: 10,
                         headingRowDecoration: BoxDecoration(
-                          color: Colors.grey.shade200,
+                          color: Theme.of(context).primaryColorLight,
                         ),
                         columns: columns,
                         rows: getRows(data.agents),

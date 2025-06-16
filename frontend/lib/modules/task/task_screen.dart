@@ -66,6 +66,9 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                     children: [
                       Expanded(
                         child: DataTable2(
+                          headingRowDecoration: BoxDecoration(
+                            color: Theme.of(context).primaryColorLight,
+                          ),
                           columns: columns,
                           rows:
                               data.tasks.map((e) {

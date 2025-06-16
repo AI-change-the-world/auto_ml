@@ -7,12 +7,8 @@ part of 'file_preview_response.dart';
 // **************************************************************************
 
 FilePreviewResponse _$FilePreviewResponseFromJson(Map<String, dynamic> json) =>
-    FilePreviewResponse(
-      content: json['content'] as String?,
-    );
+    FilePreviewResponse(content: json['content'] as String?);
 
 Map<String, dynamic> _$FilePreviewResponseToJson(
-        FilePreviewResponse instance) =>
-    <String, dynamic>{
-      'content': instance.content,
-    };
+  FilePreviewResponse instance,
+) => <String, dynamic>{'content': instance.content};

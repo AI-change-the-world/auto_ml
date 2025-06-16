@@ -13,7 +13,4 @@ ProcessRequest _$ProcessRequestFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$ProcessRequestToJson(ProcessRequest instance) =>
-    <String, dynamic>{
-      'fileId': instance.fileId,
-      'methodId': instance.methodId,
-    };
+    <String, dynamic>{'fileId': instance.fileId, 'methodId': instance.methodId};

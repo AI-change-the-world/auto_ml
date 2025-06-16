@@ -7,15 +7,15 @@ part of 'update_annotation_request.dart';
 // **************************************************************************
 
 UpdateAnnotationRequest _$UpdateAnnotationRequestFromJson(
-        Map<String, dynamic> json) =>
-    UpdateAnnotationRequest(
-      content: json['content'] as String,
-      annotationPath: json['annotationPath'] as String,
-    );
+  Map<String, dynamic> json,
+) => UpdateAnnotationRequest(
+  content: json['content'] as String,
+  annotationPath: json['annotationPath'] as String,
+);
 
 Map<String, dynamic> _$UpdateAnnotationRequestToJson(
-        UpdateAnnotationRequest instance) =>
-    <String, dynamic>{
-      'content': instance.content,
-      'annotationPath': instance.annotationPath,
-    };
+  UpdateAnnotationRequest instance,
+) => <String, dynamic>{
+  'content': instance.content,
+  'annotationPath': instance.annotationPath,
+};

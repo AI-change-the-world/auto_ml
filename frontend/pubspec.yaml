@@ -9,6 +9,7 @@ environment:
 
 dependencies:
   basic_dropdown_button: ^1.1.1+1
+  community_charts_flutter: ^1.0.4
   community_charts_flutter2: ^1.0.7
   cupertino_icons: ^1.0.8
   data_table_2: ^2.6.0
@@ -18,6 +19,7 @@ dependencies:
   flow_compose: ^0.0.2+1
   flutter:
     sdk: flutter
+  flutter_layout_grid: ^2.0.8
   flutter_localizations: 
     sdk: flutter
   flutter_rating_stars: ^1.1.0
@@ -64,6 +66,10 @@ flutter:
     - assets/icon.png
     - assets/transparent_logo.png
     - assets/bg.jpeg
+    - assets/icons/folder.jpg
+    - assets/icons/pencil.jpg
+    - assets/icons/table.jpg
+    - assets/icons/warning.jpg
 
   fonts:
     - family: ph

@@ -6,10 +6,14 @@ class SimpleTile extends StatelessWidget {
     required this.text,
     required this.icon,
     required this.subText,
+    this.width = 180,
+    this.height = 80,
   });
   final String text;
   final Widget icon;
   final String subText;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -22,8 +26,8 @@ class SimpleTile extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
         ),
-        width: 180,
-        height: 80,
+        width: width,
+        height: height,
         child: Row(
           spacing: 10,
           children: [

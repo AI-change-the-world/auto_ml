@@ -4,6 +4,7 @@ import 'package:auto_ml/modules/app/_simple_layout.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/annotation/label_screen.dart';
 import 'package:auto_ml/modules/deploy/deploy_screen.dart';
+import 'package:auto_ml/modules/home/home_screen.dart';
 import 'package:auto_ml/modules/task/task_screen.dart';
 import 'package:auto_ml/modules/tool_models/model_screen.dart';
 import 'package:auto_ml/modules/predict/predict_screen.dart';
@@ -46,7 +47,13 @@ final GoRouter router = GoRouter(
       routes: [
         GoRoute(
           path: '/',
-          name: 'datasets',
+          name: 'home',
+          pageBuilder:
+              (context, state) => noTransitionPage(child: HomeScreen()),
+        ),
+        GoRoute(
+          path: '/dataset',
+          name: 'dataset',
           pageBuilder:
               (context, state) => noTransitionPage(child: DatasetScreen()),
         ),

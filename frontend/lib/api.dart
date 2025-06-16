@@ -105,4 +105,7 @@ class Api {
   static final String annotationDataset = "/aether/workflow/auto-label/dataset";
 
   static final String agentWorkflowContent = "/aether/pipeline/content/{id}";
+
+  /// [home] index
+  static final String homeIndex = "/home/index";
 }

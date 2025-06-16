@@ -6,9 +6,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -21,6 +26,7 @@ import org.xiaoshuyui.automl.common.PageResult;
 import org.xiaoshuyui.automl.config.S3ConfigProperties;
 import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
+import org.xiaoshuyui.automl.module.home.entity.HomeIndex.TaskPerDay;
 import org.xiaoshuyui.automl.module.task.entity.NewTrainingTaskRequest;
 import org.xiaoshuyui.automl.module.task.entity.Task;
 import org.xiaoshuyui.automl.module.task.entity.TaskLog;
@@ -80,10 +86,9 @@ public class TaskService {
     return taskMapper.selectCount(queryWrapper);
   }
 
-  private static Gson gson =
-      new GsonBuilder()
-          .serializeNulls() // 👈 关键：保留 null 字段
-          .create();
+  private static Gson gson = new GsonBuilder()
+      .serializeNulls() // 👈 关键：保留 null 字段
+      .create();
 
   static OkHttpClient client = new OkHttpClient();
 
@@ -95,18 +100,17 @@ public class TaskService {
 
     taskMapper.insert(task);
 
-    var t =
-        new Thread() {
-          @Override
-          public void run() {
-            PythonEvalDatasetRequest request = new PythonEvalDatasetRequest();
-            request.setDataset_id(datasetId);
-            request.setAnnotation_id(annotationId);
-            request.setTask_id(task.getTaskId());
+    var t = new Thread() {
+      @Override
+      public void run() {
+        PythonEvalDatasetRequest request = new PythonEvalDatasetRequest();
+        request.setDataset_id(datasetId);
+        request.setAnnotation_id(annotationId);
+        request.setTask_id(task.getTaskId());
 
-            /// TODO 访问python
-          }
-        };
+        /// TODO 访问python
+      }
+    };
     t.start();
   }
 
@@ -128,79 +132,114 @@ public class TaskService {
 
     taskMapper.insert(task);
 
-    var t =
-        new Thread() {
-          @Override
-          public void run() {
+    var t = new Thread() {
+      @Override
+      public void run() {
 
-            if (annotation.getAnnotationType() == 0) {
-              // collection classification
-              TaskLog taskLog = new TaskLog();
-              taskLog.setTaskId(task.getTaskId());
-              taskLog.setLogContent("[pre-train] collect all files");
-              taskLogMapper.insert(taskLog);
-              try {
-                List<String> files =
-                    s3FileDelegate.listFiles(
-                        annotation.getAnnotationSavePath(),
-                        s3ConfigProperties.getDatasetsBucketName());
+        if (annotation.getAnnotationType() == 0) {
+          // collection classification
+          TaskLog taskLog = new TaskLog();
+          taskLog.setTaskId(task.getTaskId());
+          taskLog.setLogContent("[pre-train] collect all files");
+          taskLogMapper.insert(taskLog);
+          try {
+            List<String> files = s3FileDelegate.listFiles(
+                annotation.getAnnotationSavePath(),
+                s3ConfigProperties.getDatasetsBucketName());
 
-                Map<String, String> classMap = new HashMap<>();
-                for (String file : files) {
-                  String content =
-                      s3FileDelegate.getFileContent(
-                          file, s3ConfigProperties.getDatasetsBucketName());
-                  List<String> lines = content.lines().toList();
-                  if (lines.size() != 2) {
-                    continue;
-                  }
-                  String lineFileName = lines.get(0).substring(lines.get(0).lastIndexOf("/") + 1);
-                  classMap.put(lineFileName, lines.get(1));
-                }
-                String json = gson.toJson(classMap);
-                s3FileDelegate.putFile(
-                    annotation.getAnnotationSavePath() + "/" + "classes.json",
-                    json,
-                    s3ConfigProperties.getDatasetsBucketName());
-                taskLog.setLogContent("[pre-train] collect files success");
-                taskLogMapper.insert(taskLog);
-
-              } catch (Exception e) {
-                taskLog.setLogContent("[post-train] collect files error");
-                taskLogMapper.insert(taskLog);
-                task.setStatus(3);
-                taskMapper.updateById(task);
-                e.printStackTrace();
-                return;
+            Map<String, String> classMap = new HashMap<>();
+            for (String file : files) {
+              String content = s3FileDelegate.getFileContent(
+                  file, s3ConfigProperties.getDatasetsBucketName());
+              List<String> lines = content.lines().toList();
+              if (lines.size() != 2) {
+                continue;
               }
+              String lineFileName = lines.get(0).substring(lines.get(0).lastIndexOf("/") + 1);
+              classMap.put(lineFileName, lines.get(1));
             }
+            String json = gson.toJson(classMap);
+            s3FileDelegate.putFile(
+                annotation.getAnnotationSavePath() + "/" + "classes.json",
+                json,
+                s3ConfigProperties.getDatasetsBucketName());
+            taskLog.setLogContent("[pre-train] collect files success");
+            taskLogMapper.insert(taskLog);
 
-            MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-
-            String json = "{\"task_id\": " + task.getTaskId() + "}";
-            RequestBody body = RequestBody.create(json, JSON);
-
-            // 构造请求
-            Request request =
-                new Request.Builder()
-                    .url(aiPlatformUrl + trainYolo) // 替换成实际 URL
-                    .post(body)
-                    .build();
-
-            // 执行请求
-            try (Response response = client.newCall(request).execute()) {
-              if (response.isSuccessful()) {
-                log.info("Response: " + response.body().string());
-              } else {
-                log.error("Request failed: " + response.code());
-              }
-            } catch (IOException e) {
-              e.printStackTrace();
-              log.error("auto label error: {}", e.getMessage());
-            }
+          } catch (Exception e) {
+            taskLog.setLogContent("[post-train] collect files error");
+            taskLogMapper.insert(taskLog);
+            task.setStatus(3);
+            taskMapper.updateById(task);
+            e.printStackTrace();
+            return;
           }
-        };
+        }
+
+        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+
+        String json = "{\"task_id\": " + task.getTaskId() + "}";
+        RequestBody body = RequestBody.create(json, JSON);
+
+        // 构造请求
+        Request request = new Request.Builder()
+            .url(aiPlatformUrl + trainYolo) // 替换成实际 URL
+            .post(body)
+            .build();
+
+        // 执行请求
+        try (Response response = client.newCall(request).execute()) {
+          if (response.isSuccessful()) {
+            log.info("Response: " + response.body().string());
+          } else {
+            log.error("Request failed: " + response.code());
+          }
+        } catch (IOException e) {
+          e.printStackTrace();
+          log.error("auto label error: {}", e.getMessage());
+        }
+      }
+    };
 
     t.start();
+  }
+
+  public Long getTaskCount() {
+    QueryWrapper queryWrapper = new QueryWrapper();
+    queryWrapper.eq("is_deleted", 0);
+    return taskMapper.selectCount(queryWrapper);
+  }
+
+  public Long getTaskErrorCount() {
+    QueryWrapper queryWrapper = new QueryWrapper();
+    queryWrapper.eq("is_deleted", 0);
+    queryWrapper.eq("status", 5);
+    return taskMapper.selectCount(queryWrapper);
+  }
+
+  public List<TaskPerDay> getTaskPerDay(Integer days) {
+    if (days == null || days <= 0) {
+      days = 7;
+    }
+
+    // Step 1: 查询已有数据
+    List<TaskPerDay> rawData = taskMapper.getTaskPerDay(days);
+
+    // Step 2: 构建一个 Map：date -> TaskPerDay
+    Map<String, TaskPerDay> dataMap = rawData.stream()
+        .collect(Collectors.toMap(TaskPerDay::getDate, Function.identity()));
+
+    // Step 3: 补全缺失日期
+    List<TaskPerDay> fullList = new ArrayList<>();
+    LocalDate today = LocalDate.now();
+    for (int i = days - 1; i >= 0; i--) {
+      LocalDate date = today.minusDays(i);
+      String dateStr = date.toString(); // yyyy-MM-dd
+
+      TaskPerDay tp = dataMap.getOrDefault(dateStr, new TaskPerDay(dateStr, 0L, 0L));
+      fullList.add(tp);
+    }
+
+    return fullList;
   }
 }
