@@ -177,14 +177,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
-  community_charts_common2:
-    dependency: transitive
-    description:
-      name: community_charts_common2
-      sha256: "7a6bb82637395fbc0f48ad9121cf7861830033b5390f81a783e1e452c4d6b609"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.7"
   community_charts_flutter:
     dependency: "direct main"
     description:
@@ -193,14 +185,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
-  community_charts_flutter2:
-    dependency: "direct main"
-    description:
-      name: community_charts_flutter2
-      sha256: "46de88a0fa5c2873a7442e89a5cd51fbde9c25e3f66f42192c1a3a3cc02f829f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.7"
   convert:
     dependency: transitive
     description:

@@ -4,7 +4,7 @@ import 'package:auto_ml/modules/task/models/task_log_response.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/widgets.dart';
-import 'package:community_charts_flutter2/community_charts_flutter2.dart'
+import 'package:community_charts_flutter/community_charts_flutter.dart'
     as charts;
 
 class TaskLogMerged {

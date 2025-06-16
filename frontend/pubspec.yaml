@@ -2,7 +2,7 @@ name: auto_ml
 description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 0.0.1-2025.06.15
+version: 0.0.1-2025.06.16
 
 environment:
   sdk: ^3.7.2
@@ -10,7 +10,6 @@ environment:
 dependencies:
   basic_dropdown_button: ^1.1.1+1
   community_charts_flutter: ^1.0.4
-  community_charts_flutter2: ^1.0.7
   cupertino_icons: ^1.0.8
   data_table_2: ^2.6.0
   dio: ^5.8.0+1
@@ -66,10 +65,10 @@ flutter:
     - assets/icon.png
     - assets/transparent_logo.png
     - assets/bg.jpeg
-    - assets/icons/folder.jpg
-    - assets/icons/pencil.jpg
-    - assets/icons/table.jpg
-    - assets/icons/warning.jpg
+    - assets/icons/folder.png
+    - assets/icons/pencil.png
+    - assets/icons/table.png
+    - assets/icons/warning.png
 
   fonts:
     - family: ph

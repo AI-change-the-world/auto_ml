@@ -11,6 +11,8 @@ class VerticalTile extends StatelessWidget {
     this.height = 300,
     this.width = 100,
     this.onTap,
+    this.fromColor = Colors.white,
+    this.toColor = Colors.white,
   }) : assert((button != null && onTap != null) || button == null);
   final double height;
   final double width;
@@ -19,6 +21,8 @@ class VerticalTile extends StatelessWidget {
   final String subText;
   final String? button;
   final VoidCallback? onTap;
+  final Color fromColor;
+  final Color toColor;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +32,13 @@ class VerticalTile extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          // color: Colors.white,
+          gradient: LinearGradient(
+            stops: [0, 0.4, 0.6, 1],
+            colors: [fromColor, toColor, toColor, fromColor],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
         width: width,
