@@ -83,7 +83,7 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
           Expanded(
             flex: 2,
             child: Container(
-              padding: EdgeInsets.all(10),
+              padding: EdgeInsets.only(left: 10, right: 10),
               child: Container(
                 height: double.infinity,
                 decoration: BoxDecoration(color: Colors.white),

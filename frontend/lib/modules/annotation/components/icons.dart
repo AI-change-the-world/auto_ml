@@ -146,7 +146,7 @@ class LayoutIcons extends ConsumerWidget {
                 },
               );
             },
-            child: Icon(Icons.info, color: Colors.blue),
+            child: Icon(Icons.info, color: Colors.black, size: 18),
           ),
         ),
         Expanded(
@@ -193,7 +193,12 @@ class LayoutIcons extends ConsumerWidget {
           ),
         ),
         if (modified) FadedText(),
-        _DropDownButton(),
+        if (ref
+                .read(currentDatasetAnnotationNotifierProvider)
+                .annotation
+                ?.annotationType ==
+            1)
+          _DropDownButton(),
         SizedBox(
           height: 15,
           child: VerticalDivider(width: 2, color: Colors.grey),

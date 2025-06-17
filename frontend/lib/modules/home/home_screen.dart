@@ -68,8 +68,8 @@ class HomeScreen extends ConsumerWidget {
         ''',
             children: [
               VerticalTile(
-                fromColor: const Color.fromARGB(255, 89, 241, 234),
-                toColor: const Color.fromARGB(255, 198, 240, 238),
+                fromColor: Color.fromARGB(230, 99, 205, 218),
+                toColor: Color.fromARGB(230, 143, 223, 207),
                 width: double.infinity,
                 height: double.infinity,
                 subText: "Dataset Count",
@@ -81,8 +81,8 @@ class HomeScreen extends ConsumerWidget {
                 },
               ).inGridArea("header1"),
               VerticalTile(
-                fromColor: const Color.fromARGB(255, 89, 200, 241),
-                toColor: const Color.fromARGB(255, 182, 222, 237),
+                fromColor: Color.fromARGB(230, 129, 155, 221),
+                toColor: Color.fromARGB(230, 185, 194, 241),
                 width: double.infinity,
                 height: double.infinity,
                 subText: "Annotation Count",
@@ -90,8 +90,8 @@ class HomeScreen extends ConsumerWidget {
                 text: "${data?.annotationCount ?? 0}",
               ).inGridArea("header2"),
               VerticalTile(
-                fromColor: const Color.fromARGB(255, 200, 89, 241),
-                toColor: const Color.fromARGB(255, 227, 194, 239),
+                fromColor: Color.fromARGB(230, 165, 132, 227),
+                toColor: Color.fromARGB(230, 208, 166, 247),
                 width: double.infinity,
                 height: double.infinity,
                 subText: "Task Count",
@@ -99,8 +99,8 @@ class HomeScreen extends ConsumerWidget {
                 text: "${data?.taskCount ?? 0}",
               ).inGridArea("header3"),
               VerticalTile(
-                fromColor: const Color.fromARGB(255, 216, 241, 89),
-                toColor: const Color.fromARGB(255, 227, 236, 185),
+                fromColor: Color.fromARGB(230, 255, 168, 142),
+                toColor: Color.fromARGB(230, 255, 117, 117),
                 width: double.infinity,
                 height: double.infinity,
                 subText: "Task Error Count",
@@ -173,5 +173,6 @@ List<charts.TickSpec<String>> _generateTicks(
     ticks.add(charts.TickSpec(dateFormat.format(current)));
     current = current.add(Duration(days: intervalDays));
   }
+  ticks.add(charts.TickSpec(dateFormat.format(DateTime.now())));
   return ticks;
 }

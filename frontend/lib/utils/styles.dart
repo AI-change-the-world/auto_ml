@@ -77,10 +77,13 @@ class Styles {
     double width = 100,
     double height = 20,
     double radius = 4,
+    Color? backgroundColor,
   }) {
     return ButtonStyle(
       fixedSize: WidgetStateProperty.all(Size(width, height)),
-      backgroundColor: WidgetStatePropertyAll(Colors.grey[100]),
+      backgroundColor: WidgetStatePropertyAll(
+        backgroundColor ?? Colors.grey[100],
+      ),
       padding: WidgetStatePropertyAll(
         const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),

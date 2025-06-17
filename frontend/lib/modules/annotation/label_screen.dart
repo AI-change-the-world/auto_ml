@@ -69,7 +69,16 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
     }
 
     if (current.annotation!.annotationType == 3) {
-      return MllmAnnotationWidget(data: current.data);
+      return Padding(
+        padding: EdgeInsetsGeometry.all(10),
+        child: Column(
+          spacing: 10,
+          children: [
+            SizedBox(height: 20, child: _cachedDropDownButton),
+            Expanded(child: MllmAnnotationWidget(data: current.data)),
+          ],
+        ),
+      );
     } else if (current.annotation!.annotationType == 1) {
       return Container(
         padding: EdgeInsets.only(top: 10, bottom: 10),
@@ -88,16 +97,94 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
           children: [
             SizedBox(height: 20, child: _cachedDropDownButton),
             Expanded(
+              child: Padding(
+                padding: EdgeInsetsGeometry.only(left: 10, right: 10),
+                child: Row(
+                  spacing: 10,
+                  children: [
+                    FileList(data: current.data),
+                    Expanded(child: ImageBoard()),
+                    AnnotationListWidget(
+                      classes:
+                          ref
+                              .read(currentDatasetAnnotationNotifierProvider)
+                              .classes,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 40,
               child: Row(
-                spacing: 10,
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: 30,
                 children: [
-                  FileList(data: current.data),
-                  Expanded(child: ImageBoard()),
-                  AnnotationListWidget(
-                    classes:
-                        ref
-                            .read(currentDatasetAnnotationNotifierProvider)
-                            .classes,
+                  ElevatedButton(
+                    style: Styles.getDefaultButtonStyle(
+                      width: 150,
+                      height: 40,
+                      radius: 20,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).primaryColor.withAlpha(200),
+                    ),
+                    onPressed: () {
+                      ref
+                          .read(
+                            currentDatasetAnnotationNotifierProvider.notifier,
+                          )
+                          .prevData();
+                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 10,
+                      children: [
+                        Icon(Icons.arrow_back, size: 16, color: Colors.white),
+                        Text(
+                          t.annotation_screen.list.prev,
+                          style: Styles.defaultButtonTextStyle.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    style: Styles.getDefaultButtonStyle(
+                      width: 150,
+                      height: 40,
+                      radius: 20,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).primaryColor.withAlpha(200),
+                    ),
+                    onPressed: () {
+                      ref
+                          .read(
+                            currentDatasetAnnotationNotifierProvider.notifier,
+                          )
+                          .nextData();
+                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 10,
+                      children: [
+                        Text(
+                          t.annotation_screen.list.next,
+                          style: Styles.defaultButtonTextStyle.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -106,7 +193,17 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
         ),
       );
     } else if (current.annotation!.annotationType == 0) {
-      return ClsAnnotationWidget(data: current.data);
+      // return ClsAnnotationWidget(data: current.data);
+      return Padding(
+        padding: EdgeInsetsGeometry.all(10),
+        child: Column(
+          spacing: 10,
+          children: [
+            SizedBox(height: 20, child: _cachedDropDownButton),
+            Expanded(child: ClsAnnotationWidget(data: current.data)),
+          ],
+        ),
+      );
     }
     return Center(
       child: Text("Unsupport type", style: Styles.defaultButtonTextStyle),

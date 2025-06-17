@@ -18,41 +18,77 @@ class FileList extends ConsumerWidget {
       currentDatasetAnnotationNotifierProvider.select((v) => v.currentFilePath),
     );
 
-    return Container(
-      margin: EdgeInsets.only(top: 10, bottom: 10),
-      width: 200,
-      height: double.infinity,
-      padding: EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: Colors.grey[100],
-      ),
-      child: Column(
-        spacing: 10,
-        children: [
-          Text(
-            t.annotation_screen.list.file_list,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          Expanded(
-            child:
-                data.isEmpty
-                    ? Center(child: Text(t.annotation_screen.list.empty))
-                    : ListView.builder(
-                      itemBuilder: (context, index) {
-                        if (data[index].$1 == current) {
+    return Material(
+      borderRadius: BorderRadius.circular(10),
+      color: Colors.grey[100],
+      elevation: 4,
+      child: Container(
+        margin: EdgeInsets.only(top: 10, bottom: 10),
+        width: 200,
+        height: double.infinity,
+        padding: EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          // color: Colors.grey[100],
+          color: Colors.grey[100],
+        ),
+        child: Column(
+          spacing: 10,
+          children: [
+            Text(
+              t.annotation_screen.list.file_list,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            Expanded(
+              child:
+                  data.isEmpty
+                      ? Center(
+                        child: Text(
+                          t.annotation_screen.list.empty,
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      )
+                      : ListView.builder(
+                        itemBuilder: (context, index) {
+                          if (data[index].$1 == current) {
+                            return _wrapper(
+                              Container(
+                                padding: EdgeInsets.only(left: 10),
+                                decoration: BoxDecoration(
+                                  color: Colors.lightBlueAccent,
+                                ),
+                                child: Tooltip(
+                                  waitDuration: Duration(milliseconds: 500),
+                                  message: data[index].$1,
+                                  child: Text(
+                                    data[index].$1.split("/").last,
+                                    // style: TextStyle(color: Colors.white),
+                                    maxLines: 1,
+                                    softWrap: true,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              ref,
+                              index,
+                              context,
+                            );
+                          }
                           return _wrapper(
                             Container(
-                              padding: EdgeInsets.only(left: 10),
                               decoration: BoxDecoration(
-                                color: Colors.lightBlueAccent,
+                                color: Colors.transparent,
                               ),
+                              padding: EdgeInsets.only(left: 10),
                               child: Tooltip(
                                 waitDuration: Duration(milliseconds: 500),
                                 message: data[index].$1,
                                 child: Text(
                                   data[index].$1.split("/").last,
-                                  style: TextStyle(color: Colors.white),
+                                  // style: TextStyle(color: Colors.white),
                                   maxLines: 1,
                                   softWrap: true,
                                   overflow: TextOverflow.ellipsis,
@@ -63,65 +99,52 @@ class FileList extends ConsumerWidget {
                             index,
                             context,
                           );
-                        }
-                        return _wrapper(
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                            ),
-                            padding: EdgeInsets.only(left: 10),
-                            child: Tooltip(
-                              waitDuration: Duration(milliseconds: 500),
-                              message: data[index].$1,
-                              child: Text(
-                                data[index].$1.split("/").last,
-                                style: TextStyle(color: Colors.black),
-                                maxLines: 1,
-                                softWrap: true,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                          ref,
-                          index,
-                          context,
-                        );
-                      },
-                      itemCount: data.length,
-                    ),
-          ),
-          SizedBox(
-            height: 30,
-            child: Row(
-              spacing: 10,
-              children: [
-                Spacer(),
-                TextButton(
-                  onPressed: () {
-                    ref
-                        .read(currentDatasetAnnotationNotifierProvider.notifier)
-                        .prevData();
-                  },
-                  child: Text(
-                    t.annotation_screen.list.prev,
-                    style: Styles.defaultButtonTextStyle,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    ref
-                        .read(currentDatasetAnnotationNotifierProvider.notifier)
-                        .nextData();
-                  },
-                  child: Text(
-                    t.annotation_screen.list.next,
-                    style: Styles.defaultButtonTextStyle,
-                  ),
-                ),
-              ],
+                        },
+                        itemCount: data.length,
+                      ),
             ),
-          ),
-        ],
+            if (ref
+                    .read(currentDatasetAnnotationNotifierProvider)
+                    .annotation
+                    ?.annotationType !=
+                1)
+              SizedBox(
+                height: 30,
+                child: Row(
+                  spacing: 10,
+                  children: [
+                    Spacer(),
+                    TextButton(
+                      onPressed: () {
+                        ref
+                            .read(
+                              currentDatasetAnnotationNotifierProvider.notifier,
+                            )
+                            .prevData();
+                      },
+                      child: Text(
+                        t.annotation_screen.list.prev,
+                        style: Styles.defaultButtonTextStyle,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        ref
+                            .read(
+                              currentDatasetAnnotationNotifierProvider.notifier,
+                            )
+                            .nextData();
+                      },
+                      child: Text(
+                        t.annotation_screen.list.next,
+                        style: Styles.defaultButtonTextStyle,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

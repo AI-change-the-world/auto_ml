@@ -78,7 +78,7 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
         FileList(data: widget.data),
         Expanded(
           child: Container(
-            padding: EdgeInsets.all(10),
+            padding: EdgeInsets.only(left: 10, right: 10),
             child: Row(
               spacing: 10,
               children: [
