@@ -89,6 +89,71 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
       ToastUtils.error(null, title: "Create annotation error");
     }
   }
+
+  Future getDetails(int id, {bool force = false}) async {
+    state = await AsyncValue.guard(() async {
+      return state.value!.copyWith(loading: true, selected: id);
+    });
+    if (force) {
+      String s = await _forceUpdateDetail(id);
+      return state.value!.copyWith(loading: false, chartData: s);
+    } else {
+      state = await AsyncValue.guard(() async {
+        var response = await dio.get(
+          Api.annotationDetails.replaceFirst("{id}", id.toString()),
+        );
+        BaseResponse<String> baseResponse = BaseResponse.fromJson(
+          response.data,
+          (json) => json.toString(),
+        );
+
+        if (baseResponse.code == 200) {
+          if (baseResponse.data != null && baseResponse.data! != "null") {
+            logger.d(baseResponse.data);
+            return state.value!.copyWith(
+              loading: false,
+              chartData: baseResponse.data!,
+            );
+          } else {
+            String s = await _forceUpdateDetail(id);
+            return state.value!.copyWith(loading: false, chartData: s);
+          }
+        } else {
+          logger.e(baseResponse.message);
+          ToastUtils.error(null, title: baseResponse.message ?? "Error");
+          return state.value!.copyWith(loading: false);
+        }
+      });
+    }
+
+    state = await AsyncValue.guard(() async {
+      return state.value!.copyWith(loading: false);
+    });
+  }
+
+  Future<String> _forceUpdateDetail(int id) async {
+    // ignore: avoid_init_to_null
+    BaseResponse<String>? baseResponse = null;
+    dio.get(Api.annotationGenerate.replaceFirst("{id}", id.toString()));
+    await Future.doWhile(() async {
+      await Future.delayed(Duration(seconds: 5));
+      var response = await dio.get(
+        Api.annotationDetails.replaceFirst("{id}", id.toString()),
+      );
+      baseResponse = BaseResponse.fromJson(
+        response.data,
+        (json) => json.toString(),
+      );
+      logger.d(baseResponse?.data);
+      if (baseResponse?.data != null && baseResponse?.data! != "null") {
+        return false;
+      }
+      return true;
+    });
+
+    logger.i(baseResponse?.data);
+    return baseResponse?.data ?? "";
+  }
 }
 
 final annotationListProvider =

@@ -10,7 +10,7 @@
     </parent>
     <groupId>org.xiaoshuyui</groupId>
     <artifactId>automl</artifactId>
-    <version>0.0.1-2025.06.16-SNAPSHOT</version>
+    <version>0.0.1-2025.06.20-SNAPSHOT</version>
     <name>automl</name>
     <description>AutoML project</description>
     <properties>

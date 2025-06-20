@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
@@ -15,6 +17,8 @@ import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
+import 'package:community_charts_flutter/community_charts_flutter.dart'
+    as charts;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:data_table_2/data_table_2.dart';
@@ -55,7 +59,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
 
         return Padding(
           padding: EdgeInsets.all(10),
-          child: Column(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 10,
@@ -70,9 +74,16 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                     color: Theme.of(context).primaryColorLight,
                   ),
                   columns: columns,
-                  rows: getRows(data.annotations),
+                  rows: getRows(data.annotations, data.selected, data.loading),
                 ),
               ),
+              if (data.selected != -1 && data.chartData != "")
+                AnimatedContainer(
+                  padding: EdgeInsets.all(5),
+                  duration: Duration(milliseconds: 300),
+                  width: data.selected != -1 ? 300 : 0,
+                  child: getChart(data.chartData),
+                ),
             ],
           ),
         );
@@ -116,13 +127,18 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
     ),
     DataColumn2(
       label: Text(t.table.operation, style: defaultTextStyle2),
-      fixedWidth: 160,
+      fixedWidth: 180,
     ),
   ];
 
-  List<DataRow> getRows(List<Annotation> annotations) {
+  List<DataRow> getRows(
+    List<Annotation> annotations,
+    int selected,
+    bool isLoading,
+  ) {
     return annotations.map((annotation) {
       return DataRow(
+        selected: selected == annotation.id,
         cells: [
           DataCell(Text(annotation.id.toString(), style: defaultTextStyle)),
           DataCell(
@@ -159,6 +175,39 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
             Row(
               spacing: 10,
               children: [
+                InkWell(
+                  onTap:
+                      isLoading
+                          ? null
+                          : () {
+                            if (annotation.annotationType == 1) {
+                              ref
+                                  .read(annotationListProvider.notifier)
+                                  .getDetails(annotation.id);
+                            } else {
+                              ToastUtils.info(
+                                context,
+                                title:
+                                    "Only support detection annotation currently",
+                              );
+                            }
+                          },
+                  child: Tooltip(
+                    message: "Details",
+                    child:
+                        isLoading && selected == annotation.id
+                            ? Container(
+                              padding: EdgeInsets.all(4),
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(),
+                            )
+                            : Icon(
+                              Icons.details,
+                              size: Styles.datatableIconSize,
+                            ),
+                  ),
+                ),
                 InkWell(
                   onTap: () {
                     showGeneralDialog(
@@ -382,4 +431,41 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
 
   TextStyle defaultTextStyle = TextStyle(fontSize: 12);
   late TextStyle defaultTextStyle2 = Styles.defaultButtonTextStyle;
+}
+
+class LabelCount {
+  final String label;
+  final int count;
+
+  LabelCount(this.label, this.count);
+}
+
+Widget getChart(String strData) {
+  final data = jsonDecode(strData);
+  final List<LabelCount> labelCounts =
+      (data['labelCountMap'] as List)
+          .map((e) => LabelCount(e['name'], e['count']))
+          .toList();
+
+  if (labelCounts.isEmpty) {
+    return Center(child: Text('No data available'));
+  }
+
+  final chartData = [
+    charts.Series<LabelCount, String>(
+      id: 'Annotations',
+      domainFn: (LabelCount lc, _) => lc.label,
+      measureFn: (LabelCount lc, _) => lc.count,
+      labelAccessorFn: (LabelCount lc, _) => '${lc.label} (${lc.count})',
+      data: labelCounts,
+    ),
+  ];
+
+  return charts.PieChart<String>(
+    chartData,
+    animate: true,
+    defaultRenderer: charts.ArcRendererConfig<String>(
+      arcRendererDecorators: [charts.ArcLabelDecorator()],
+    ),
+  );
 }

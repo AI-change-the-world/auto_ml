@@ -49,6 +49,10 @@ class Api {
 
   static final String annotationExport = "/annotation/export/{id}";
 
+  static final String annotationDetails = "/annotation/class/details/{id}";
+
+  static final String annotationGenerate = "/annotation/generate/details/{id}";
+
   /// [tools] label image
   static final String getToolModels = "/tool-model/list";
 

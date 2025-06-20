@@ -16,6 +16,34 @@
 * ffmpeg (video processing)
 * docker (mysql, rnacos, minio)
 
+### features
+
+* home
+
+![home](./readme/home.png)
+
+* dataset
+
+| 1      | 2 | 3     |
+| :---        |    :----:   |          ---: |
+| ![1](./readme/dataset1.jpg)      |  ![2](./readme/dataset2.png)       |![3](./readme/dataset3.png)   |
+
+* annotation
+
+![annotation](./readme/annotation.png)
+
+* agent
+
+![agent](./readme/agent.png)
+
+* task
+
+![task](./readme/task.png)
+
+* deploy
+
+![deploy](./readme/deploy.png)
+
 
 ### BUG list
 * [x] **[Frontend]** Image scaling inconsistent with browser resize (non-critical rendering issue)
