@@ -58,8 +58,9 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
         );
 
         return AnnotationState(annotations: res.data?.annotations ?? []);
-      } catch (e) {
+      } catch (e, s) {
         logger.e(e);
+        logger.e(s);
         ToastUtils.error(
           null,
           title: "Failed to get annotations",

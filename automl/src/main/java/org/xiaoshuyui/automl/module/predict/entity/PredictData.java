@@ -4,13 +4,16 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.time.LocalDateTime;
+
+import org.xiaoshuyui.automl.module.BaseEntity;
+
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
-@TableName("predict_data")
-public class PredictData {
+@EqualsAndHashCode(callSuper = false)
+@TableName(value = "predict_data", autoResultMap = true)
+public class PredictData extends BaseEntity {
   @TableId(value = "predict_data_id", type = IdType.AUTO)
   Long id;
 
@@ -28,16 +31,4 @@ public class PredictData {
   @TableField("file_name")
   String fileName;
 
-  /** 创建时间 */
-  @TableField(value = "created_at")
-  private LocalDateTime createdAt;
-
-  /** 更新时间 */
-  @TableField(value = "updated_at")
-  private LocalDateTime updatedAt;
-
-  /** 是否已删除（逻辑删除） */
-  @TableField("is_deleted")
-  @JsonIgnore
-  private Integer isDeleted;
 }

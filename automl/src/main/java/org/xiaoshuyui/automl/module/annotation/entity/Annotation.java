@@ -4,12 +4,17 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import org.xiaoshuyui.automl.module.BaseEntity;
+
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
-@TableName("annotation")
-public class Annotation {
+@EqualsAndHashCode(callSuper = false)
+@TableName(value = "annotation", autoResultMap = true)
+public class Annotation extends BaseEntity {
   @TableId(value = "annotation_id", type = IdType.AUTO)
   Long id;
 
@@ -19,15 +24,6 @@ public class Annotation {
   // 0:分类 1:检测 2:分割 3:其它
   @TableField(value = "annotation_type")
   Integer annotationType;
-
-  @TableField(value = "updated_at")
-  LocalDateTime updatedAt;
-
-  @TableField(value = "is_deleted")
-  Integer isDeleted;
-
-  @TableField(value = "created_at")
-  LocalDateTime createdAt;
 
   @TableField(value = "class_items")
   String classItems;
@@ -44,14 +40,17 @@ public class Annotation {
 
   /// TODO later
   @TableField(value = "username", exist = false)
+  @JsonIgnore
   private String username;
 
   @TableField(value = "password", exist = false)
+  @JsonIgnore
   private String password;
 
   @Deprecated
   // 0: scanning, 1: scan success, 2: scan failed
   @TableField(value = "scan_status", exist = false)
+  @JsonIgnore
   private Integer scanStatus;
 
   @TableField(value = "prompt")

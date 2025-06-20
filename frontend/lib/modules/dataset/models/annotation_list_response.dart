@@ -21,7 +21,6 @@ class Annotation {
   // final int annotatedFileCount;
   final int annotationType;
   final DateTime updatedAt;
-  final int isDeleted;
   final DateTime createdAt;
   final String? classItems;
   final String? annotationPath;
@@ -34,7 +33,6 @@ class Annotation {
     // required this.annotatedFileCount,
     required this.annotationType,
     required this.updatedAt,
-    required this.isDeleted,
     required this.createdAt,
     this.classItems,
     this.annotationPath,
@@ -53,7 +51,6 @@ class Annotation {
       datasetId: 1,
       annotationType: 1,
       updatedAt: DateTime.now(),
-      isDeleted: 0,
       createdAt: DateTime.now(),
       classItems: "class1,class2,class3",
       annotationPath: "annotationPath",

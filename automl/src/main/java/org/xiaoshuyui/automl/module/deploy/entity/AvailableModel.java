@@ -4,13 +4,16 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.time.LocalDateTime;
-import lombok.Data;
 
-@TableName("available_models")
+import org.xiaoshuyui.automl.module.BaseEntity;
+
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+@TableName(value = "available_models", autoResultMap = true)
 @Data
-public class AvailableModel {
+@EqualsAndHashCode(callSuper = false)
+public class AvailableModel extends BaseEntity {
   @TableId(value = "available_model_id", type = IdType.AUTO)
   Long id;
 
@@ -31,16 +34,6 @@ public class AvailableModel {
 
   @TableField("annotation_id")
   Long annotationId;
-
-  @TableField("created_at")
-  LocalDateTime createdAt;
-
-  @TableField("updated_at")
-  LocalDateTime updatedAt;
-
-  @JsonIgnore
-  @TableField("is_deleted")
-  Integer isDeleted;
 
   @TableField("model_type")
   String modelType;

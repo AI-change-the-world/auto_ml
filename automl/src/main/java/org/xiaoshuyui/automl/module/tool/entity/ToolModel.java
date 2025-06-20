@@ -5,12 +5,16 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.time.LocalDateTime;
+
+import org.xiaoshuyui.automl.module.BaseEntity;
+
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
-@TableName("tool_model")
-public class ToolModel {
+@EqualsAndHashCode(callSuper = false)
+@TableName(value = "tool_model", autoResultMap = true)
+public class ToolModel extends BaseEntity {
   @TableId(value = "tool_model_id", type = IdType.AUTO)
   Long id;
 
@@ -27,16 +31,6 @@ public class ToolModel {
   // 0 embedded 1 remote
   @TableField("is_embedded")
   Integer isEmbedded;
-
-  @TableField("created_at")
-  private LocalDateTime createdAt;
-
-  @TableField("updated_at")
-  private LocalDateTime updatedAt;
-
-  @JsonIgnore
-  @TableField("is_deleted")
-  private Integer isDeleted;
 
   @JsonIgnore
   @TableField("base_url")

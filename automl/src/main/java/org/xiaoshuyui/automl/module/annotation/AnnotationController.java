@@ -128,6 +128,16 @@ public class AnnotationController {
     return Result.OK();
   }
 
+  @GetMapping("/class/details/{id}")
+  public Result getAnnotationClassDetails(@PathVariable Long id) {
+    var annotation = annotationService.getById(id);
+    if (annotation == null) {
+      return Result.error("annotation not found");
+    }
+
+    return Result.OK_data(annotation.getDetails());
+  }
+
   @PostMapping("/file/update")
   public Result updateAnnotationFile(@RequestBody UpdateAnnotationRequest entity) {
 

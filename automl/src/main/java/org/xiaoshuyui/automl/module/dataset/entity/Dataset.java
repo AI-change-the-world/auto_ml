@@ -4,13 +4,16 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.time.LocalDateTime;
+
+import org.xiaoshuyui.automl.module.BaseEntity;
+
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
-@TableName("dataset")
-public class Dataset {
+@EqualsAndHashCode(callSuper = false)
+@TableName(value = "dataset", autoResultMap = true)
+public class Dataset extends BaseEntity {
 
   @TableId(value = "dataset_id", type = IdType.AUTO)
   private Long id;
@@ -20,16 +23,6 @@ public class Dataset {
 
   @TableField("description")
   private String description;
-
-  @TableField("created_at")
-  private LocalDateTime createdAt;
-
-  @TableField("updated_at")
-  private LocalDateTime updatedAt;
-
-  @JsonIgnore
-  @TableField("is_deleted")
-  private Integer isDeleted;
 
   // 0: image, 1: text, 2: video, 3: audio, 4: other
   @TableField("dataset_type")

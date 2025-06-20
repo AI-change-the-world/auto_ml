@@ -19,4 +19,5 @@ public class MybatisPlusConfig {
         new PaginationInnerInterceptor(DbType.MYSQL)); // 你可以替换为 ORACLE / POSTGRE 等
     return interceptor;
   }
+
 }

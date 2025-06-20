@@ -31,15 +31,4 @@ public class FileAnnotationMerger {
     return (dotIndex != -1) ? filename.substring(0, dotIndex) : filename;
   }
 
-  // 示例用法
-  public static void main(String[] args) {
-    List<String> files = Arrays.asList("a/b/test.jpg", "a/b/foo.png", "bar.jpeg");
-    List<String> annotations = Arrays.asList("test.txt", "bar.json");
-
-    List<SimpleEntry<String, String>> result = mergeFilesAndAnnotations(files, annotations);
-
-    for (SimpleEntry<String, String> pair : result) {
-      System.out.println("File: " + pair.getKey() + ", Annotation: " + pair.getValue());
-    }
-  }
 }
