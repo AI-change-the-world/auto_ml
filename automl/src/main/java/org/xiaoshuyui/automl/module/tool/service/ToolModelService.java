@@ -18,6 +18,7 @@ import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.LabelData;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;
+import org.xiaoshuyui.automl.module.tool.entity.NewModelRequest;
 import org.xiaoshuyui.automl.module.tool.entity.PredictRequest;
 import org.xiaoshuyui.automl.module.tool.entity.ToolModel;
 import org.xiaoshuyui.automl.module.tool.mapper.ToolModelMapper;
@@ -59,17 +60,15 @@ public class ToolModelService {
     return toolModelMapper.selectOne(queryWrapper);
   }
 
-  private static final OkHttpClient client =
-      new OkHttpClient.Builder()
-          .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
-          .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
-          .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
-          .build();
+  private static final OkHttpClient client = new OkHttpClient.Builder()
+      .connectTimeout(300, TimeUnit.SECONDS) // 连接超时时间
+      .readTimeout(1800, TimeUnit.SECONDS) // 读取超时时间
+      .writeTimeout(300, TimeUnit.SECONDS) // 写入超时时间
+      .build();
 
-  private static Gson gson =
-      new GsonBuilder()
-          .serializeNulls() // 👈 关键：保留 null 字段
-          .create();
+  private static Gson gson = new GsonBuilder()
+      .serializeNulls() // 👈 关键：保留 null 字段
+      .create();
 
   public LabelData getLabel(ModelUseRequest request) {
 
@@ -82,12 +81,12 @@ public class ToolModelService {
       predictRequest.setPrompt(request.getPrompt());
 
       // 创建 RequestBody
-      RequestBody body =
-          RequestBody.create(gson.toJson(predictRequest), MediaType.parse("application/json"));
+      RequestBody body = RequestBody.create(gson.toJson(predictRequest), MediaType.parse("application/json"));
       Request req = new Request.Builder().url(baseUrl + getLabelApi).post(body).build();
 
       Response response = client.newCall(req).execute();
-      Type type = new TypeToken<PythonApiResponse<LabelData>>() {}.getType();
+      Type type = new TypeToken<PythonApiResponse<LabelData>>() {
+      }.getType();
       PythonApiResponse<LabelData> labelData = gson.fromJson(response.body().string(), type);
       return labelData.data;
 
@@ -101,14 +100,13 @@ public class ToolModelService {
   // find similar
   public PredictSingleImageResponse findSimilar(FindSimilarObjectRequest request) {
     try {
-      RequestBody body =
-          RequestBody.create(gson.toJson(request), MediaType.parse("application/json"));
+      RequestBody body = RequestBody.create(gson.toJson(request), MediaType.parse("application/json"));
       Request req = new Request.Builder().url(baseUrl + findSimilarApi).post(body).build();
       Response response = client.newCall(req).execute();
-      Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {}.getType();
+      Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {
+      }.getType();
 
-      PythonApiResponse<PredictSingleImageResponse> pythonApiResponse =
-          gson.fromJson(response.body().string(), type);
+      PythonApiResponse<PredictSingleImageResponse> pythonApiResponse = gson.fromJson(response.body().string(), type);
 
       return pythonApiResponse.data;
     } catch (Exception e) {
@@ -128,20 +126,19 @@ public class ToolModelService {
   public PredictSingleImageResponse getMultipleClasses(
       Long annotationId, String imgPath, Long toolModelId) {
     try {
-      String json =
-          String.format(
-              "{\"annotation_id\":\"%d\",\"image_data\":\"%s\",\"tool_model_id\":%d}",
-              annotationId, imgPath, toolModelId);
+      String json = String.format(
+          "{\"annotation_id\":\"%d\",\"image_data\":\"%s\",\"tool_model_id\":%d}",
+          annotationId, imgPath, toolModelId);
 
       log.info("Request: {}", json);
 
       RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
       Request req = new Request.Builder().url(baseUrl + getMultiClassApi).post(body).build();
       Response response = client.newCall(req).execute();
-      Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {}.getType();
+      Type type = new TypeToken<PythonApiResponse<PredictSingleImageResponse>>() {
+      }.getType();
 
-      PythonApiResponse<PredictSingleImageResponse> pythonApiResponse =
-          gson.fromJson(response.body().string(), type);
+      PythonApiResponse<PredictSingleImageResponse> pythonApiResponse = gson.fromJson(response.body().string(), type);
 
       return pythonApiResponse.data;
     } catch (Exception e) {
@@ -149,5 +146,23 @@ public class ToolModelService {
       log.error("find similar error: {}", e.getMessage());
       return null;
     }
+  }
+
+  public void addNewModel(NewModelRequest request) throws Exception {
+    QueryWrapper<ToolModel> queryWrapper = new QueryWrapper<>();
+    queryWrapper.eq("tool_model_name", request.getName());
+    var e = toolModelMapper.selectOne(queryWrapper);
+    if (e != null) {
+      throw new RuntimeException("model name already exists");
+    }
+
+    ToolModel toolModel = new ToolModel();
+    toolModel.setName(request.getName());
+    toolModel.setDescription(request.getDescription());
+    toolModel.setModelName(request.getModelName());
+    toolModel.setBaseUrl(request.getBaseUrl());
+    toolModel.setApiKey(request.getApiKey());
+    toolModel.setType(request.getType());
+    toolModelMapper.insert(toolModel);
   }
 }

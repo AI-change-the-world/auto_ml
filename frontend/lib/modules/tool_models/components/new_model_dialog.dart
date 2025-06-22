@@ -1,6 +1,7 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/tool_models/components/try_widget.dart';
+import 'package:auto_ml/modules/tool_models/models/new_tool_model_request.dart';
 import 'package:auto_ml/modules/tool_models/notifier/model_dialog_notifier.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
@@ -9,8 +10,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class NewModelDialog extends ConsumerStatefulWidget {
-  const NewModelDialog({super.key, required this.initialType});
+  const NewModelDialog({
+    super.key,
+    required this.initialType,
+    this.modelName = "",
+    this.s3Path = "",
+    this.enabledMap = const {},
+    this.description = "",
+  });
   final ModelType initialType;
+  final String s3Path;
+  final String modelName;
+  final String description;
+  final Map<String, bool> enabledMap;
 
   @override
   ConsumerState<NewModelDialog> createState() => _NewModelDialogState();
@@ -33,10 +45,12 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
   late ModelType type = widget.initialType;
 
   final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _modelNameController = TextEditingController();
+  late final _descriptionController =
+      TextEditingController()..text = widget.description;
+  late final _modelNameController =
+      TextEditingController()..text = widget.modelName;
   final _apiKeyController = TextEditingController();
-  final _baseUrlController = TextEditingController();
+  late final _baseUrlController = TextEditingController()..text = widget.s3Path;
 
   @override
   void dispose() {
@@ -61,7 +75,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
           color: Colors.white,
         ),
         width: state ? 600 : 400,
-        height: 430,
+        height: type == ModelType.vision ? 370 : 430,
         child: Column(
           spacing: 10,
           children: [
@@ -165,15 +179,55 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                                 buttonIconColor: Colors.black,
                                 buttonTextStyle: TextStyle(color: Colors.black),
                                 menuItems:
-                                    ModelType.values
-                                        .map(
-                                          (e) => CustomDropDownButtonItem(
-                                            value: e,
-                                            text: e.name,
+                                    widget.enabledMap['dropdown'] ?? true
+                                        ? ModelType.values
+                                            .map(
+                                              (e) => CustomDropDownButtonItem(
+                                                value: e,
+                                                text: e.name,
+                                                onPressed: () {
+                                                  if (e != type) {
+                                                    setState(() {
+                                                      type = e;
+                                                    });
+                                                  }
+                                                },
+                                                buttonStyle: ButtonStyle(
+                                                  fixedSize:
+                                                      WidgetStateProperty.all(
+                                                        Size(100, 20),
+                                                      ),
+                                                  backgroundColor:
+                                                      WidgetStatePropertyAll(
+                                                        Colors.grey[300],
+                                                      ),
+                                                  textStyle:
+                                                      WidgetStatePropertyAll(
+                                                        const TextStyle(
+                                                          color: Colors.black,
+                                                        ),
+                                                      ),
+                                                  shape: WidgetStatePropertyAll(
+                                                    RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.zero,
+                                                    ),
+                                                  ),
+                                                ),
+                                                textStyle: TextStyle(
+                                                  color: Colors.black,
+                                                ),
+                                              ),
+                                            )
+                                            .toList()
+                                        : [
+                                          CustomDropDownButtonItem(
+                                            value: ModelType.vision,
+                                            text: ModelType.vision.name,
                                             onPressed: () {
-                                              if (e != type) {
+                                              if (ModelType.vision != type) {
                                                 setState(() {
-                                                  type = e;
+                                                  type = ModelType.vision;
                                                 });
                                               }
                                             },
@@ -202,8 +256,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                                               color: Colors.black,
                                             ),
                                           ),
-                                        )
-                                        .toList(),
+                                        ],
                                 menuBorderRadius: BorderRadius.circular(8),
                                 selectedValue: type,
                               ),
@@ -215,7 +268,23 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                       SizedBox(
                         child: Row(
                           children: [
-                            Text("Base Url", style: labelStyle),
+                            Text(
+                              type == ModelType.vision
+                                  ? "Save path"
+                                  : "Base Url",
+                              style: labelStyle,
+                            ),
+                            SizedBox(width: 10),
+                            if (type == ModelType.vision)
+                              Tooltip(
+                                message:
+                                    "The path to save the model, usually a s3 file path",
+                                child: Icon(
+                                  Icons.info,
+                                  size: 16,
+                                  color: Colors.black,
+                                ),
+                              ),
                             Spacer(),
                           ],
                         ),
@@ -224,6 +293,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                         height: 30,
                         child: TextField(
                           controller: _baseUrlController,
+                          enabled: widget.enabledMap["baseUrl"] ?? true,
                           style: textStyle,
                           decoration: InputDecoration(
                             hintStyle: hintStyle,
@@ -236,38 +306,45 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                             focusedBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: Colors.blueAccent),
                             ),
-                            hintText: "Base url",
+                            hintText:
+                                type == ModelType.vision
+                                    ? "Save path"
+                                    : "Base url",
                           ),
                         ),
                       ),
-                      SizedBox(
-                        child: Row(
-                          children: [
-                            Text("Api Key", style: labelStyle),
-                            Spacer(),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        height: 30,
-                        child: TextField(
-                          controller: _apiKeyController,
-                          style: textStyle,
-                          decoration: InputDecoration(
-                            hintStyle: hintStyle,
-                            contentPadding: EdgeInsets.only(
-                              top: 10,
-                              left: 10,
-                              right: 10,
-                            ),
-                            border: OutlineInputBorder(),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(color: Colors.blueAccent),
-                            ),
-                            hintText: "Api key",
+                      if (type != ModelType.vision)
+                        SizedBox(
+                          child: Row(
+                            children: [
+                              Text("Api Key", style: labelStyle),
+                              Spacer(),
+                            ],
                           ),
                         ),
-                      ),
+                      if (type != ModelType.vision)
+                        SizedBox(
+                          height: 30,
+                          child: TextField(
+                            controller: _apiKeyController,
+                            style: textStyle,
+                            decoration: InputDecoration(
+                              hintStyle: hintStyle,
+                              contentPadding: EdgeInsets.only(
+                                top: 10,
+                                left: 10,
+                                right: 10,
+                              ),
+                              border: OutlineInputBorder(),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                  color: Colors.blueAccent,
+                                ),
+                              ),
+                              hintText: "Api key",
+                            ),
+                          ),
+                        ),
                       SizedBox(
                         child: Row(
                           children: [
@@ -282,6 +359,7 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                       SizedBox(
                         height: 30,
                         child: TextField(
+                          enabled: widget.enabledMap["modelName"] ?? true,
                           controller: _modelNameController,
                           style: textStyle,
                           decoration: InputDecoration(
@@ -367,7 +445,27 @@ class _NewModelDialogState extends ConsumerState<NewModelDialog> {
                   ElevatedButton(
                     style: Styles.getDefaultButtonStyle(),
                     onPressed: () {
+                      if (_nameController.text.isEmpty) {
+                        return;
+                      }
+
                       // Navigator.of(context).pop(dataset);
+                      if (type == ModelType.vision) {
+                        NewToolModelRequest request = NewToolModelRequest(
+                          name: _nameController.text,
+                          description: _descriptionController.text,
+                          type: "vision",
+                          baseUrl: _baseUrlController.text,
+                          modelName: _modelNameController.text,
+                        );
+                        ref
+                            .read(modelDialogNotifierProvider.notifier)
+                            .newModel(request)
+                            .then((_) {
+                              // ignore: use_build_context_synchronously
+                              Navigator.of(context).pop();
+                            });
+                      }
                     },
                     child: Text("Submit", style: Styles.defaultButtonTextStyle),
                   ),

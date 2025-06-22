@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:auto_ml/api.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
+import 'package:auto_ml/modules/tool_models/models/new_tool_model_request.dart';
+import 'package:auto_ml/utils/dio_instance.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:flutter/services.dart';
@@ -79,6 +82,19 @@ class ModelDialogNotifier extends AutoDisposeNotifier<bool> {
     } catch (e) {
       logger.e(e);
       ToastUtils.error(null, title: "error chat with AI");
+    }
+  }
+
+  Future newModel(NewToolModelRequest request) async {
+    try {
+      final _ = await DioClient().instance.post(
+        Api.newToolModel,
+        data: request.toJson(),
+      );
+      ToastUtils.success(null, title: "success");
+    } catch (e) {
+      logger.e(e);
+      ToastUtils.error(null, title: "error create model");
     }
   }
 }

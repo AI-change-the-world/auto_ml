@@ -43,4 +43,5 @@ public class ToolModel extends BaseEntity {
   @JsonIgnore
   @TableField("model_name")
   String modelName;
+
 }

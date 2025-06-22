@@ -131,13 +131,13 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
       label: Text(t.agent_screen.module, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.S,
     ),
-    DataColumn2(
-      label: Text(
-        t.agent_screen.recommend,
-        style: Styles.defaultButtonTextStyle,
-      ),
-      size: ColumnSize.S,
-    ),
+    // DataColumn2(
+    //   label: Text(
+    //     t.agent_screen.recommend,
+    //     style: Styles.defaultButtonTextStyle,
+    //   ),
+    //   size: ColumnSize.S,
+    // ),
     DataColumn2(
       label: Text(t.table.createat, style: Styles.defaultButtonTextStyle),
       size: ColumnSize.M,
@@ -179,23 +179,23 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
           DataCell(
             Text(agent.module, style: Styles.defaultButtonTextStyleNormal),
           ),
-          DataCell(
-            Row(
-              spacing: 5,
-              children: [
-                Icon(
-                  agent.isRecommended == 1 ? Icons.check : Icons.error,
-                  size: Styles.datatableIconSize,
-                  color: agent.isRecommended == 1 ? Colors.green : Colors.amber,
-                ),
-                Text(
-                  agent.isRecommended == 1 ? "Recommended" : "Not recommended",
-                  style: Styles.defaultButtonTextStyleNormal,
-                ),
-              ],
-            ),
-          ),
 
+          // DataCell(
+          //   Row(
+          //     spacing: 5,
+          //     children: [
+          //       Icon(
+          //         agent.isRecommended == 1 ? Icons.check : Icons.error,
+          //         size: Styles.datatableIconSize,
+          //         color: agent.isRecommended == 1 ? Colors.green : Colors.amber,
+          //       ),
+          //       Text(
+          //         agent.isRecommended == 1 ? "Recommended" : "Not recommended",
+          //         style: Styles.defaultButtonTextStyleNormal,
+          //       ),
+          //     ],
+          //   ),
+          // ),
           DataCell(
             Text(
               agent.createdAt.toString().split(".").first.replaceAll("T", " "),

@@ -56,6 +56,8 @@ class Api {
   /// [tools] label image
   static final String getToolModels = "/tool-model/list";
 
+  static final String newToolModel = "/tool-model/new";
+
   static final String autoLabel = "/tool-model/model/auto-label";
 
   static final String autoLabelMultiple =

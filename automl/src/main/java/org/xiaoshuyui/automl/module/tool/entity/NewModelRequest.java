@@ -8,4 +8,6 @@ public class NewModelRequest {
   String apiKey;
   String modelName;
   String name;
+  String description;
+  String type;
 }

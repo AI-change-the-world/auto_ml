@@ -9,6 +9,7 @@ import org.xiaoshuyui.automl.module.tool.entity.EvalDatasetRequest;
 import org.xiaoshuyui.automl.module.tool.entity.FindSimilarObjectRequest;
 import org.xiaoshuyui.automl.module.tool.entity.ModelUseRequest;
 import org.xiaoshuyui.automl.module.tool.entity.MultipleClassAnnotateRequest;
+import org.xiaoshuyui.automl.module.tool.entity.NewModelRequest;
 import org.xiaoshuyui.automl.module.tool.service.ToolModelService;
 
 @RestController
@@ -46,8 +47,7 @@ public class ToolModelController {
   @PostMapping("/model/auto-label/multiple")
   public Result autoLabelMultiObj(@RequestBody MultipleClassAnnotateRequest request) {
     // TODO : tool model id
-    val data =
-        toolModelService.getMultipleClasses(request.getAnnotationId(), request.getImgPath(), 1L);
+    val data = toolModelService.getMultipleClasses(request.getAnnotationId(), request.getImgPath(), 1L);
     if (data == null) {
       return Result.error("Server error");
     }
@@ -68,4 +68,12 @@ public class ToolModelController {
     taskService.newDatasetEvalationTask(entity.getDatasetId(), entity.getAnnotationId());
     return Result.OK();
   }
+
+  @PostMapping("/new")
+  public Result newModel(@RequestBody NewModelRequest entity) throws Exception {
+    toolModelService.addNewModel(entity);
+
+    return Result.OK();
+  }
+
 }

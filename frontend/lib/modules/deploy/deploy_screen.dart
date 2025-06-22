@@ -1,7 +1,9 @@
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/modules/deploy/components/predict_single_image_dialog.dart';
 import 'package:auto_ml/modules/deploy/models/available_models_response.dart';
 import 'package:auto_ml/modules/deploy/notifier/deploy_notifier.dart';
+import 'package:auto_ml/modules/tool_models/components/new_model_dialog.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
@@ -282,6 +284,40 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
                       Icons.batch_prediction,
                       size: Styles.datatableIconSize,
                       color: model.isOn ? Colors.black : Colors.grey,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    showGeneralDialog(
+                      context: context,
+                      barrierDismissible: true,
+                      barrierLabel: "new-model-dialog",
+                      barrierColor: Styles.barriarColor,
+                      pageBuilder: (c, _, __) {
+                        return Center(
+                          child: NewModelDialog(
+                            initialType: ModelType.vision,
+                            s3Path: model.savePath,
+                            modelName: model.baseModelName,
+                            description:
+                                "this model is trained with dataset ${model.datasetId} and annotation ${model.annotationId}",
+                            enabledMap: {
+                              "baseUrl": false,
+                              "modelName": false,
+                              "dropdown": false,
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  child: Tooltip(
+                    message: "Save as a tool",
+                    child: Icon(
+                      Icons.model_training_sharp,
+                      size: Styles.datatableIconSize,
+                      color: Colors.black,
                     ),
                   ),
                 ),
