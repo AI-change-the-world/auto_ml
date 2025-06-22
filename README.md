@@ -16,7 +16,11 @@
 * ffmpeg (video processing)
 * docker (mysql, rnacos, minio)
 
-### features
+### changelog
+
+- [CHANGELOG.md](./CHANGELOG.md)
+
+### screenshots
 
 * home
 
