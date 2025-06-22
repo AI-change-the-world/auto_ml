@@ -1,0 +1,7 @@
+local-s3-config:
+  access_key: ak-
+  secret_key: sk-
+  bucket_name: predict-data-bucket
+  endpoint: http://127.0.0.1:9000
+  datasets_bucket_name: datasets
+  models_bucket_name: models
