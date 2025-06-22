@@ -11,7 +11,10 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.xiaoshuyui.automl.common.PythonApiResponse;
+import org.xiaoshuyui.automl.module.aether.entity.Agent;
+import org.xiaoshuyui.automl.module.aether.service.AgentService;
 import org.xiaoshuyui.automl.module.annotation.entity.Annotation;
 import org.xiaoshuyui.automl.module.annotation.service.AnnotationService;
 import org.xiaoshuyui.automl.module.deploy.entity.PredictSingleImageResponse;
@@ -41,10 +44,13 @@ public class ToolModelService {
 
   private final ToolModelMapper toolModelMapper;
   private final AnnotationService annotationService;
+  private final AgentService agentService;
 
-  public ToolModelService(ToolModelMapper toolModelMapper, AnnotationService annotationService) {
+  public ToolModelService(ToolModelMapper toolModelMapper, AnnotationService annotationService,
+      AgentService agentService) {
     this.toolModelMapper = toolModelMapper;
     this.annotationService = annotationService;
+    this.agentService = agentService;
   }
 
   public List<ToolModel> getAll() {
@@ -148,6 +154,25 @@ public class ToolModelService {
     }
   }
 
+  private static String pipelineTemplate = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <pipeline outputKey="1_result" name="label-image" sync="true">
+          <step id="1" name="label-image">
+              <action class="org.xiaoshuyui.automl.module.aether.workflow.action.LabelImageAction"/>
+              <aether>
+                  <task>label</task>
+                  <modelId>{{model_id}}</modelId>
+                  <inputType>image</inputType>
+                  <inputKey>imgPath</inputKey>
+                  <extra>
+                      <entry key="annotation_id" type="num">${annotation_id}</entry>
+                  </extra>
+              </aether>
+          </step>
+      </pipeline>
+                  """;
+
+  @Transactional
   public void addNewModel(NewModelRequest request) throws Exception {
     QueryWrapper<ToolModel> queryWrapper = new QueryWrapper<>();
     queryWrapper.eq("tool_model_name", request.getName());
@@ -164,5 +189,15 @@ public class ToolModelService {
     toolModel.setApiKey(request.getApiKey());
     toolModel.setType(request.getType());
     toolModelMapper.insert(toolModel);
+
+    String pipeline = pipelineTemplate.replace("{{model_id}}", toolModel.getId().toString()).trim();
+
+    Agent agent = new Agent();
+    agent.setName(request.getName() + " 智能体");
+    agent.setDescription("创建model之后自动生成的Agent， 基座模型是" + request.getModelName());
+    agent.setPipelineContent(pipeline);
+    agent.setIsEmbedded(0);
+    agent.setIsRecommended(0);
+    agentService.newAgent(agent);
   }
 }

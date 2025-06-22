@@ -456,8 +456,13 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
           "agentId": 5,
         });
       } else {
-        ToastUtils.error(null, title: "Invalid agent id");
-        return;
+        // TODO: 获取所有agent的作用，当前只支持auto label
+        ToastUtils.info(null, title: "Only support auto label");
+        data.addAll({
+          "annotationId": annotationId,
+          "imgPath": filePath,
+          "agentId": id,
+        });
       }
 
       try {

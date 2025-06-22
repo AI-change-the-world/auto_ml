@@ -87,10 +87,11 @@ class ModelDialogNotifier extends AutoDisposeNotifier<bool> {
 
   Future newModel(NewToolModelRequest request) async {
     try {
-      final _ = await DioClient().instance.post(
+      final res = await DioClient().instance.post(
         Api.newToolModel,
         data: request.toJson(),
       );
+      logger.i(res);
       ToastUtils.success(null, title: "success");
     } catch (e) {
       logger.e(e);

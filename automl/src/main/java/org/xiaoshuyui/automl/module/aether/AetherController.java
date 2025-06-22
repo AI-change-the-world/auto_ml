@@ -133,20 +133,19 @@ public class AetherController {
     context.put("agentId", agentId);
     context.put("imgPath", dataset.getLocalS3StoragePath());
 
-    Thread thread =
-        new Thread(
-            () -> {
-              List<WorkflowStep> steps =
-                  pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
-              WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
-              workflowEngine.run(1);
-              taskLogService.save(taskEntity.getTaskId(), "[post task] done");
-            });
+    Thread thread = new Thread(
+        () -> {
+          List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+          WorkflowEngine workflowEngine = new WorkflowEngine(steps, context);
+          workflowEngine.run(1);
+          taskLogService.save(taskEntity.getTaskId(), "[post task] done");
+        });
     thread.start();
 
     return Result.OK_msg("Task Created");
   }
 
+  // TODO: 获取所有agent的作用，当前默认只支持auto label
   @PostMapping("/workflow/auto-label")
   public Object aetherAutoLabelWorkflow(@RequestBody Map<String, Object> request) {
     log.info("request:  " + request);
@@ -189,7 +188,8 @@ public class AetherController {
             return describeImage(
                 (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
           default:
-            return Result.error("agent not found");
+            return aetherAutoLabelWorkflowImpl(
+                (Integer) request.get("annotationId"), (String) request.get("imgPath"), agentId);
         }
       } catch (Exception e) {
         log.error("aetherAutoLabelWorkflow error", e);
@@ -238,8 +238,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -276,8 +275,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -323,8 +321,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -363,8 +360,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);
@@ -410,8 +406,7 @@ public class AetherController {
     }
 
     Pipeline pipeline = PipelineParser.loadFromXml(agent.getPipelineContent());
-    List<WorkflowStep> steps =
-        pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
+    List<WorkflowStep> steps = pipeline.getSteps().stream().map((v) -> WorkflowStep.fromConfig(v)).toList();
     WorkflowContext context = new WorkflowContext();
     context.put("annotation_id", annotationId);
     context.put("imgPath", imgPath);

@@ -271,12 +271,13 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                             title: "Get workflow content is empty",
                           );
                         }
-                      } catch (e) {
+                      } catch (e, s) {
                         ToastUtils.error(
                           null,
                           title: "Get workflow content error",
                         );
                         logger.e(e);
+                        logger.e(s);
                       }
                     }
                   },

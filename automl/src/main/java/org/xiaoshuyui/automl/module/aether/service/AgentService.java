@@ -34,4 +34,8 @@ public class AgentService {
   public List simpleAgentsList() {
     return agentMapper.simpleAgentsList();
   }
+
+  public void newAgent(Agent agent) {
+    agentMapper.insert(agent);
+  }
 }
