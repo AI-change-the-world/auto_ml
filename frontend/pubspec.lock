@@ -380,11 +380,12 @@ packages:
   flow_compose:
     dependency: "direct main"
     description:
-      name: flow_compose
-      sha256: "67381fb3cf115c504b839a14fa7e8062a663c77c788cf36dba26661947b85558"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.2+1"
+      path: "."
+      ref: "3ee9d6175b35cb130aa26801e8dba033891bfc96"
+      resolved-ref: "3ee9d6175b35cb130aa26801e8dba033891bfc96"
+      url: "https://github.com/guchengxi1994/flow_compose"
+    source: git
+    version: "0.0.3"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -1210,6 +1211,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
+  toggle_switch:
+    dependency: "direct main"
+    description:
+      name: toggle_switch
+      sha256: dca04512d7c23ed320d6c5ede1211a404f177d54d353bf785b07d15546a86ce5
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.3.0"
   tuple:
     dependency: transitive
     description:
