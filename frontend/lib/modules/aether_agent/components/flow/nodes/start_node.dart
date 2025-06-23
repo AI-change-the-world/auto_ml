@@ -174,6 +174,13 @@ class __StartNodeConfigWidgetState extends State<_StartNodeConfigWidget> {
       TextEditingController()..text = thisData['inputName'] ?? "";
 
   @override
+  void initState() {
+    super.initState();
+    thisData['outputKey'] = "Input_out_1";
+    widget.onChanged(thisData);
+  }
+
+  @override
   void dispose() {
     _textEditingController.dispose();
     super.dispose();
@@ -380,7 +387,16 @@ class __StartNodeConfigWidgetState extends State<_StartNodeConfigWidget> {
             children: [
               Expanded(
                 flex: 1,
-                child: Text("Is List", style: Styles.defaultButtonTextStyle),
+                child: Row(
+                  children: [
+                    Text("Is List", style: Styles.defaultButtonTextStyle),
+                    SizedBox(width: 10),
+                    Tooltip(
+                      message: "现阶段列表工作流支持的不好，推荐使用单个数据多次调用工作流的方式",
+                      child: Icon(Icons.info, size: 20),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 flex: 1,
@@ -456,6 +472,25 @@ class __StartNodeConfigWidgetState extends State<_StartNodeConfigWidget> {
                     ),
                     hintText: "If empty, will use default name",
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        SizedBox(
+          height: 30,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Text("Output key", style: Styles.defaultButtonTextStyle),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  "Input_out_1",
+                  style: Styles.defaultButtonTextStyleGrey,
                 ),
               ),
             ],

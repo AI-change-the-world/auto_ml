@@ -37,11 +37,11 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
     }
   }
 
-  changeCurrent(Dataset? dataset) {
+  void changeCurrent(Dataset? dataset) {
     state = AsyncData(state.value!.copyWith(current: dataset));
   }
 
-  addDataset(Dataset dataset) async {
+  Future<void> addDataset(Dataset dataset) async {
     state = AsyncLoading();
 
     NewDatasetRequest request = NewDatasetRequest(
@@ -85,7 +85,7 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
     }
   }
 
-  updateDataset(Dataset dataset) async {
+  Future<void> updateDataset(Dataset dataset) async {
     state = AsyncValue.loading();
 
     state = await AsyncValue.guard(() async {
@@ -98,7 +98,7 @@ class DatasetNotifier extends AutoDisposeAsyncNotifier<DatasetState> {
     });
   }
 
-  deleteDataset(int id) async {
+  Future<void> deleteDataset(int id) async {
     state = AsyncLoading();
     try {
       final r = await dio.get(

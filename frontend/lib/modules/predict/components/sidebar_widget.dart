@@ -31,7 +31,7 @@ class _SidebarWidgetState extends ConsumerState<SidebarWidget> {
   late String totalData = "";
 
   @Deprecated("")
-  loadImage(Rect rect) {
+  void loadImage(Rect rect) {
     Future.microtask(() async {
       image = await ref
           .read(imagePreviewProvider(widget.fileId).notifier)

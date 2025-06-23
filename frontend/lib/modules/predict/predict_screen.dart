@@ -78,7 +78,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                                             barrierDismissible: true,
                                             barrierLabel: "DataPreviewDialog",
                                             barrierColor: Styles.barriarColor,
-                                            pageBuilder: (c, _, __) {
+                                            pageBuilder: (c, _, _) {
                                               return Center(
                                                 child: DataPreviewDialog(
                                                   fileId: e.id,
@@ -105,7 +105,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                                             barrierColor: Styles.barriarColor,
                                             barrierDismissible: true,
                                             barrierLabel: "ImagePreviewDialog",
-                                            pageBuilder: (c, _, __) {
+                                            pageBuilder: (c, _, _) {
                                               return Center(
                                                 child: ImagePreviewDialog(
                                                   fileId: e.id,

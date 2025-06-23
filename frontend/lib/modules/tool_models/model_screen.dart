@@ -142,7 +142,7 @@ class _Inner extends ConsumerWidget {
                         barrierDismissible: true,
                         barrierLabel: "NewModelDialog",
                         context: context,
-                        pageBuilder: (c, _, __) {
+                        pageBuilder: (c, _, _) {
                           return Center(
                             child: NewModelDialog(
                               initialType: ModelType.values[pageState],

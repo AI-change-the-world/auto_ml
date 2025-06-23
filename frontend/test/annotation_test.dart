@@ -60,7 +60,7 @@ class _ImageAnnotationScreenState extends State<ImageAnnotationScreen> {
   bool enable = false;
   FocusNode focusNode = FocusNode();
 
-  getImagePosition(DragStartDetails details) {
+  Offset getImagePosition(DragStartDetails details) {
     // 使用 Matrix4 的逆变换，把当前屏幕坐标转成图像坐标
     final matrix = _transformationController.value;
     final inverseMatrix = Matrix4.inverted(matrix);

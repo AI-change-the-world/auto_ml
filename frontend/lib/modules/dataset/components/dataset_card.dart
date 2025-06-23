@@ -129,7 +129,7 @@ class _DatasetCardState extends ConsumerState<DatasetCard> {
                     barrierLabel: 'ModifyDatasetDialog',
                     // ignore: use_build_context_synchronously
                     context: context,
-                    pageBuilder: (c, _, __) {
+                    pageBuilder: (c, _, _) {
                       return Center(
                         child: ModifyDatasetDialog(dataset: widget.dataset),
                       );

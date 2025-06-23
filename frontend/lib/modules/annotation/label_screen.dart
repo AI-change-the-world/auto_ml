@@ -53,7 +53,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
                   barrierDismissible: true,
                   barrierLabel: "not selected",
                   context: context,
-                  pageBuilder: (c, _, __) {
+                  pageBuilder: (c, _, _) {
                     return Center(child: SelectDatasetAnnotationsDialog());
                   },
                 );

@@ -46,7 +46,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                       barrierLabel: 'CreateNewFlowDialog',
                       // ignore: use_build_context_synchronously
                       context: context,
-                      pageBuilder: (c, _, __) {
+                      pageBuilder: (c, _, _) {
                         return Center(child: CreateNewFlowDialog());
                       },
                     );
@@ -238,7 +238,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                         barrierDismissible: true,
                         barrierLabel: "PipelinePreviewDialog",
                         context: context,
-                        pageBuilder: (c, _, __) {
+                        pageBuilder: (c, _, _) {
                           return Center(
                             child: PipelinePreviewDialog(
                               content: agent.pipelineContent!,
@@ -275,7 +275,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                             barrierLabel: 'PipelineWorkflowDialog',
                             // ignore: use_build_context_synchronously
                             context: context,
-                            pageBuilder: (c, _, __) {
+                            pageBuilder: (c, _, _) {
                               return Center(
                                 child: PipelineWorkflowDialog(
                                   content: baseResponse.data!,

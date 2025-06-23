@@ -84,7 +84,7 @@ class DeployNotifier extends AutoDisposeAsyncNotifier<DeployState> {
     }
   }
 
-  refreshStartStopStatus(int modelId) async {
+  Future<void> refreshStartStopStatus(int modelId) async {
     state = AsyncLoading();
     state = await AsyncValue.guard(() async {
       return state.value!.copyWith(
@@ -99,7 +99,7 @@ class DeployNotifier extends AutoDisposeAsyncNotifier<DeployState> {
     });
   }
 
-  startModel(int id) async {
+  Future<void> startModel(int id) async {
     try {
       final rbs = await dioInstance.get(
         Api.startModel.replaceAll("{id}", id.toString()),
@@ -117,7 +117,7 @@ class DeployNotifier extends AutoDisposeAsyncNotifier<DeployState> {
     }
   }
 
-  stopModel(int id) async {
+  Future<void> stopModel(int id) async {
     try {
       final rbs = await dioInstance.get(
         Api.stopModel.replaceAll("{id}", id.toString()),

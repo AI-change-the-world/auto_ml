@@ -12,7 +12,7 @@ class ModelPageNotifier extends AutoDisposeNotifier<int> {
     return 0;
   }
 
-  changePage(int index) {
+  void changePage(int index) {
     if (state == index) {
       return;
     }

@@ -267,7 +267,7 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
                               barrierDismissible: true,
                               barrierLabel: "PredictSingleImageDialog",
                               barrierColor: Styles.barriarColor,
-                              pageBuilder: (c, _, __) {
+                              pageBuilder: (c, _, _) {
                                 return Center(
                                   child: PredictSingleImageDialog(
                                     modelId: model.id,
@@ -294,7 +294,7 @@ class _DeployScreenState extends ConsumerState<DeployScreen> {
                       barrierDismissible: true,
                       barrierLabel: "new-model-dialog",
                       barrierColor: Styles.barriarColor,
-                      pageBuilder: (c, _, __) {
+                      pageBuilder: (c, _, _) {
                         return Center(
                           child: NewModelDialog(
                             initialType: ModelType.vision,
