@@ -23,6 +23,7 @@ void main() async {
         child: Consumer(
           builder: (c, ref, _) {
             return MaterialApp.router(
+              title: t.appname,
               locale: Locale(ref.watch(i18nProvider)),
               theme: ThemeData(
                 fontFamily: "ph",

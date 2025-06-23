@@ -39,6 +39,7 @@ class Translations implements BaseTranslations<AppLocale, Translations> {
 	Translations $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => Translations(meta: meta ?? this.$meta);
 
 	// Translations
+	String get appname => 'AutoML';
 	late final TranslationsLabelScreenEn label_screen = TranslationsLabelScreenEn._(_root);
 	String get refresh => 'Refresh';
 	String get save => 'Save';
@@ -445,6 +446,7 @@ class TranslationsDatasetScreenTableAnnotationEn {
 extension on Translations {
 	dynamic _flatMapFunction(String path) {
 		switch (path) {
+			case 'appname': return 'AutoML';
 			case 'label_screen.not_selected': return 'Dataset or label is not selected';
 			case 'label_screen.select': return 'Select';
 			case 'refresh': return 'Refresh';

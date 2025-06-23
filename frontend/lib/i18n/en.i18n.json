@@ -1,4 +1,5 @@
 {
+    "appname": "AutoML",
     "label_screen": {
         "not_selected": "Dataset or label is not selected",
         "select": "Select"
