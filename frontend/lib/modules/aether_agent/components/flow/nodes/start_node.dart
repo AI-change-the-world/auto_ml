@@ -1,5 +1,6 @@
 import 'package:auto_ml/modules/aether_agent/components/flow/models/enums.dart';
-import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/nodes/basic_config_widget.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/nodes/node_dialog_widget.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
@@ -19,41 +20,12 @@ class StartNode extends INode {
     super.builderName = "StartNode",
   }) {
     builder = (context) {
-      return GestureDetector(
-        onDoubleTap: () async {
-          await showGeneralDialog(
-            barrierColor: Colors.transparent,
-            transitionDuration: const Duration(milliseconds: 300),
-            barrierDismissible: true,
-            barrierLabel: "start node dialog",
-            context: context,
-            pageBuilder: (
-              BuildContext context,
-              Animation<double> animation,
-              Animation<double> secondaryAnimation,
-            ) {
-              return Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: EdgeInsetsGeometry.only(
-                    right: MediaQuery.of(context).size.width * 0.1 + 20,
-                  ),
-                  child: dialogWidget(context),
-                ),
-              );
-            },
-          );
-          logger.i(data);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: Colors.white,
-          ),
-          child: Center(
-            child: Text(nodeName, style: Styles.defaultButtonTextStyleNormal),
-          ),
-        ),
+      return buildNodeDialogWidget(
+        context: context,
+        nodeName: nodeName,
+        dialogWidgetBuilder: dialogWidget,
+        barrierLabel: "start node dialog",
+        logAfterDialog: data,
       );
     };
   }
@@ -127,6 +99,7 @@ extension StartNodeExtension on StartNode {
             Expanded(
               child: _StartNodeConfigWidget(
                 data: data,
+                uuid: uuid,
                 onChanged: (d) {
                   data = d;
                 },
@@ -140,10 +113,12 @@ extension StartNodeExtension on StartNode {
 }
 
 // ignore: must_be_immutable
-class _StartNodeConfigWidget extends StatefulWidget {
-  _StartNodeConfigWidget({required this.data, required this.onChanged});
-  Map<String, dynamic>? data;
-  final void Function(Map<String, dynamic> newData) onChanged;
+class _StartNodeConfigWidget extends BaseNodeConfigWidget {
+  const _StartNodeConfigWidget({
+    required super.data,
+    required super.onChanged,
+    required super.uuid,
+  });
 
   @override
   State<_StartNodeConfigWidget> createState() => __StartNodeConfigWidgetState();
@@ -489,7 +464,7 @@ class __StartNodeConfigWidgetState extends State<_StartNodeConfigWidget> {
               Expanded(
                 flex: 1,
                 child: Text(
-                  "Input_out_1",
+                  "Input_out_${widget.uuid.split("-").first}",
                   style: Styles.defaultButtonTextStyleGrey,
                 ),
               ),

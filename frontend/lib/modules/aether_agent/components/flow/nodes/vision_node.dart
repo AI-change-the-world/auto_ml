@@ -1,4 +1,5 @@
-import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/nodes/basic_config_widget.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/nodes/node_dialog_widget.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flow_compose/flow_compose.dart';
 import 'package:flutter/material.dart';
@@ -15,42 +16,13 @@ class VisionNode extends INode {
     super.builderName = "VisionNode",
   }) {
     builder = (context) {
-      return GestureDetector(
-        onDoubleTap: () async {
-          logger.i(prevData);
-          await showGeneralDialog(
-            barrierColor: Colors.transparent,
-            transitionDuration: const Duration(milliseconds: 300),
-            barrierDismissible: true,
-            barrierLabel: "vision node dialog",
-            context: context,
-            pageBuilder: (
-              BuildContext context,
-              Animation<double> animation,
-              Animation<double> secondaryAnimation,
-            ) {
-              return Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: EdgeInsetsGeometry.only(
-                    right: MediaQuery.of(context).size.width * 0.1 + 20,
-                  ),
-                  child: dialogWidget(context),
-                ),
-              );
-            },
-          );
-          logger.i(data);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: Colors.white,
-          ),
-          child: Center(
-            child: Text(nodeName, style: Styles.defaultButtonTextStyleNormal),
-          ),
-        ),
+      return buildNodeDialogWidget(
+        context: context,
+        nodeName: nodeName,
+        dialogWidgetBuilder: dialogWidget,
+        barrierLabel: "vision node dialog",
+        logBeforeDialog: prevData,
+        logAfterDialog: data,
       );
     };
   }
@@ -121,10 +93,57 @@ extension StartNodeExtension on VisionNode {
             ),
             Text(description, style: Styles.defaultButtonTextStyleGrey),
             SizedBox(height: 1),
-            Expanded(child: Container()),
+            Expanded(
+              child: _VisionNodeConfigWidet(
+                data: data,
+                onChanged: (data) {
+                  this.data = data;
+                },
+                uuid: uuid,
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _VisionNodeConfigWidet extends BaseNodeConfigWidget {
+  const _VisionNodeConfigWidet({
+    required super.data,
+    required super.onChanged,
+    required super.uuid,
+  });
+
+  @override
+  State<_VisionNodeConfigWidet> createState() => __VisionNodeConfigWidetState();
+}
+
+class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 30,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Text("Output key", style: Styles.defaultButtonTextStyle),
+              ),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  "Vision_out_${widget.uuid.split("-").first}",
+                  style: Styles.defaultButtonTextStyleGrey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

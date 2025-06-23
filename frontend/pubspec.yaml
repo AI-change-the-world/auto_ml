@@ -18,7 +18,7 @@ dependencies:
   flow_compose: 
     git:
       url: https://github.com/guchengxi1994/flow_compose
-      ref: 3ee9d6175b35cb130aa26801e8dba033891bfc96
+      ref: 9a6ed3be3a54a639ea26e4bd35689f23c45380ee
   flutter:
     sdk: flutter
   flutter_layout_grid: ^2.0.8

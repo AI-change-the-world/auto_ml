@@ -12,13 +12,16 @@ class CreateNewFlowDialog extends StatefulWidget {
 }
 
 class _CreateNewFlowDialogState extends State<CreateNewFlowDialog> {
-  late final BoardController boardController;
+  BoardController? boardController;
 
   @override
-  void initState() {
-    super.initState();
-    boardController = BoardController(
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    boardController ??= BoardController(
       confirmBeforeDelete: true,
+      style: BoardStyle(
+        sidebarMaxHeight: MediaQuery.of(context).size.height * 0.8 * 0.8,
+      ),
       initialState: BoardState(editable: true, data: [], edges: {}),
       nodes: [
         StartNode(label: '开始', uuid: 'start', offset: Offset.zero),
@@ -32,7 +35,7 @@ class _CreateNewFlowDialogState extends State<CreateNewFlowDialog> {
     return dialogWrapper(
       width: MediaQuery.of(context).size.width * 0.8,
       height: MediaQuery.of(context).size.height * 0.8,
-      child: InfiniteDrawingBoard(controller: boardController),
+      child: InfiniteDrawingBoard(controller: boardController!),
     );
   }
 }
