@@ -1,3 +1,4 @@
+import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/modules/aether_agent/components/flow/models/enums.dart';
 import 'package:auto_ml/modules/aether_agent/components/flow/nodes/basic_config_widget.dart';
 import 'package:auto_ml/modules/aether_agent/components/flow/nodes/node_dialog_widget.dart';
@@ -311,22 +312,62 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
 
                 Expanded(
                   flex: 1,
-                  child: TextField(
-                    maxLines: 4,
-                    style: TextStyle(fontSize: 12, color: Colors.black),
-                    decoration: InputDecoration(
-                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
-                      contentPadding: EdgeInsets.only(
-                        top: 10,
-                        left: 10,
-                        right: 10,
+                  // child: TextField(
+                  //   maxLines: 4,
+                  //   style: TextStyle(fontSize: 12, color: Colors.black),
+                  //   decoration: InputDecoration(
+                  //     hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                  //     contentPadding: EdgeInsets.only(
+                  //       top: 10,
+                  //       left: 10,
+                  //       right: 10,
+                  //     ),
+                  //     border: OutlineInputBorder(),
+                  //     focusedBorder: OutlineInputBorder(
+                  //       borderSide: BorderSide(color: Colors.blueAccent),
+                  //     ),
+                  //     hintText: "Input prompt",
+                  //   ),
+                  // ),
+                  child: Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      TextField(
+                        controller: _promptController,
+                        maxLines: 4,
+                        style: TextStyle(fontSize: 12, color: Colors.black),
+                        decoration: InputDecoration(
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                          contentPadding: EdgeInsets.fromLTRB(12, 12, 36, 12),
+                          border: OutlineInputBorder(),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.blueAccent),
+                          ),
+                          hintText: "Input prompt",
+                        ),
                       ),
-                      border: OutlineInputBorder(),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.blueAccent),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: _showExpandedEditor,
+                            child: Container(
+                              padding: EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.open_in_full, size: 18),
+                            ),
+                          ),
+                        ),
                       ),
-                      hintText: "Input prompt",
-                    ),
+                    ],
                   ),
                 ),
               ],
@@ -452,7 +493,117 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
             ],
           ),
         ),
+
+        SizedBox(
+          height: 30,
+          child: Row(
+            children: [
+              Expanded(flex: 1, child: SizedBox()),
+              Expanded(
+                flex: 1,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4), // 设置圆角半径
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ), // 调整按钮大小
+                  ),
+                  onPressed: () {},
+                  child: Text(
+                    "Debug this step",
+                    style: Styles.defaultButtonTextStyle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
+  }
+
+  void _showExpandedEditor() async {
+    final result = await showGeneralDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "input prompt",
+      pageBuilder: (context, _, _) {
+        TextEditingController dialogController = TextEditingController(
+          text: _promptController.text,
+        );
+        return Center(
+          child: dialogWrapper(
+            width: 600,
+            height: 400,
+            child: Column(
+              spacing: 10,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Prompt", style: Styles.defaultButtonTextStyle),
+                Expanded(
+                  child: TextField(
+                    controller: dialogController,
+                    maxLines: 15,
+                    decoration: InputDecoration(border: OutlineInputBorder()),
+                  ),
+                ),
+                SizedBox(
+                  height: 30,
+                  child: Row(
+                    spacing: 20,
+                    children: [
+                      Spacer(),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4), // 设置圆角半径
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ), // 调整按钮大小
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          "Cancel",
+                          style: Styles.defaultButtonTextStyle,
+                        ),
+                      ),
+
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4), // 设置圆角半径
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ), // 调整按钮大小
+                        ),
+                        onPressed:
+                            () => Navigator.pop(context, dialogController.text),
+                        child: Text(
+                          "Confirm",
+                          style: Styles.defaultButtonTextStyle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _promptController.text = result;
+      });
+    }
   }
 }

@@ -20,7 +20,7 @@ class _CreateNewFlowDialogState extends State<CreateNewFlowDialog> {
     boardController ??= BoardController(
       confirmBeforeDelete: true,
       style: BoardStyle(
-        sidebarMaxHeight: MediaQuery.of(context).size.height * 0.8 * 0.8,
+        sidebarMaxHeight: MediaQuery.of(context).size.height * 0.8 * 0.875,
       ),
       initialState: BoardState(editable: true, data: [], edges: {}),
       nodes: [
