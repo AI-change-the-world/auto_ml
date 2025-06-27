@@ -1,33 +1,22 @@
 import 'package:auto_ml/common/dialog_wrapper.dart';
-import 'package:auto_ml/modules/aether_agent/components/flow/nodes/start_node.dart';
-import 'package:auto_ml/modules/aether_agent/components/flow/nodes/vision_node.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/notifiers/notifier.dart';
 import 'package:flow_compose/flow_compose.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CreateNewFlowDialog extends StatefulWidget {
+class CreateNewFlowDialog extends ConsumerStatefulWidget {
   const CreateNewFlowDialog({super.key});
 
   @override
-  State<CreateNewFlowDialog> createState() => _CreateNewFlowDialogState();
+  ConsumerState<CreateNewFlowDialog> createState() =>
+      _CreateNewFlowDialogState();
 }
 
-class _CreateNewFlowDialogState extends State<CreateNewFlowDialog> {
-  BoardController? boardController;
-
+class _CreateNewFlowDialogState extends ConsumerState<CreateNewFlowDialog> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    boardController ??= BoardController(
-      confirmBeforeDelete: true,
-      style: BoardStyle(
-        sidebarMaxHeight: MediaQuery.of(context).size.height * 0.8 * 0.875,
-      ),
-      initialState: BoardState(editable: true, data: [], edges: {}),
-      nodes: [
-        StartNode(label: '开始', uuid: 'start', offset: Offset.zero),
-        VisionNode(label: "视觉", uuid: 'vision', offset: Offset.zero),
-      ],
-    );
+    ref.read(createFlowNotifier.notifier).initController(context);
   }
 
   @override
@@ -35,7 +24,9 @@ class _CreateNewFlowDialogState extends State<CreateNewFlowDialog> {
     return dialogWrapper(
       width: MediaQuery.of(context).size.width * 0.8,
       height: MediaQuery.of(context).size.height * 0.8,
-      child: InfiniteDrawingBoard(controller: boardController!),
+      child: InfiniteDrawingBoard(
+        controller: ref.read(createFlowNotifier.notifier).boardController!,
+      ),
     );
   }
 }

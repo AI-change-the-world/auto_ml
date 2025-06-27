@@ -380,12 +380,11 @@ packages:
   flow_compose:
     dependency: "direct main"
     description:
-      path: "."
-      ref: "9a6ed3be3a54a639ea26e4bd35689f23c45380ee"
-      resolved-ref: "9a6ed3be3a54a639ea26e4bd35689f23c45380ee"
-      url: "https://github.com/guchengxi1994/flow_compose"
-    source: git
-    version: "0.0.3+1"
+      name: flow_compose
+      sha256: "865aeecace01f57dcb7b3d9532fba6c1552dcd516eb1ee8eb1611201e4dac82a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.4"
   flutter:
     dependency: "direct main"
     description: flutter

@@ -1,6 +1,7 @@
 import 'package:flow_compose/flow_compose.dart';
 import 'package:flutter/material.dart';
 
+@Deprecated("弃用")
 class BasicNode extends INode {
   BasicNode({
     required super.label,
@@ -34,25 +35,6 @@ class BasicNode extends INode {
       builderName: builderName,
       label: label,
       uuid: uuid,
-    );
-  }
-
-  @override
-  INode copyWith({
-    double? width,
-    double? height,
-    String? label,
-    String? uuid,
-    Offset? offset,
-    List<INode>? children,
-    Map<String, dynamic>? data,
-  }) {
-    return BasicNode(
-      width: width ?? this.width,
-      height: height ?? this.height,
-      label: label ?? this.label,
-      uuid: uuid ?? this.uuid,
-      offset: offset ?? this.offset,
     );
   }
 }

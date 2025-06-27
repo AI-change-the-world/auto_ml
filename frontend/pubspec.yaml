@@ -15,10 +15,7 @@ dependencies:
   dio: ^5.8.0+1
   dropdown_button2: ^2.3.9
   file_selector: ^1.0.3
-  flow_compose: 
-    git:
-      url: https://github.com/guchengxi1994/flow_compose
-      ref: 9a6ed3be3a54a639ea26e4bd35689f23c45380ee
+  flow_compose: ^0.0.4
   flutter:
     sdk: flutter
   flutter_layout_grid: ^2.0.8
@@ -59,6 +56,8 @@ dev_dependencies:
 
 dependency_overrides:
   flutter_math_fork: 0.7.4
+  # flow_compose:
+  #   path: D:/flow_compose/
 
 flutter:
   uses-material-design: true

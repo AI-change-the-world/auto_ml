@@ -53,25 +53,6 @@ class StartNode extends INode {
       uuid: uuid,
     );
   }
-
-  @override
-  INode copyWith({
-    double? width,
-    double? height,
-    String? label,
-    String? uuid,
-    Offset? offset,
-    List<INode>? children,
-    Map<String, dynamic>? data,
-  }) {
-    return StartNode(
-      width: width ?? this.width,
-      height: height ?? this.height,
-      label: label ?? this.label,
-      uuid: uuid ?? this.uuid,
-      offset: offset ?? this.offset,
-    );
-  }
 }
 
 extension StartNodeExtension on StartNode {

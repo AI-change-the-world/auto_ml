@@ -57,25 +57,6 @@ class VisionNode extends INode {
       uuid: uuid,
     );
   }
-
-  @override
-  INode copyWith({
-    double? width,
-    double? height,
-    String? label,
-    String? uuid,
-    Offset? offset,
-    List<INode>? children,
-    Map<String, dynamic>? data,
-  }) {
-    return VisionNode(
-      width: width ?? this.width,
-      height: height ?? this.height,
-      label: label ?? this.label,
-      uuid: uuid ?? this.uuid,
-      offset: offset ?? this.offset,
-    );
-  }
 }
 
 extension StartNodeExtension on VisionNode {
@@ -139,7 +120,7 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
   // ignore: avoid_init_to_null
   late ToolModel? _toolModel = null;
 
-  late TextEditingController _promptController = TextEditingController();
+  late final TextEditingController _promptController = TextEditingController();
 
   @override
   void dispose() {
@@ -152,6 +133,25 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
     return Column(
       spacing: 10,
       children: [
+        SizedBox(
+          height: 30,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 1,
+                child: Text("Input key", style: Styles.defaultButtonTextStyle),
+              ),
+              // Expanded(
+              //   flex: 1,
+              //   child: Text(
+              //     "Vision_out_${widget.uuid.split("-").first}",
+              //     style: Styles.defaultButtonTextStyleGrey,
+              //   ),
+              // ),
+            ],
+          ),
+        ),
+
         SizedBox(
           height: 30,
           child: Row(
