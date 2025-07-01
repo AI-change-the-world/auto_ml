@@ -1,6 +1,5 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/utils/globals.dart';
-import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -289,7 +288,6 @@ class SimpleLayout extends StatelessWidget {
 
 extension SidebarListExtension on List<SidebarItem> {
   SidebarItem? getByName(String name) {
-    logger.d("getByName: $name");
     switch (name) {
       case "dataset":
         return firstWhere((item) => item.index == 0);
