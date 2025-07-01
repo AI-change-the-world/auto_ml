@@ -1,6 +1,6 @@
 name: auto_ml
 description: "A new Flutter project."
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 version: 0.0.1-2025.06.20
 
@@ -15,11 +15,14 @@ dependencies:
   dio: ^5.8.0+1
   dropdown_button2: ^2.3.9
   file_selector: ^1.0.3
-  flow_compose: ^0.0.4
+  flow_compose:
+    git:
+      url: https://github.com/guchengxi1994/flow_compose
+      ref: refactor
   flutter:
     sdk: flutter
   flutter_layout_grid: ^2.0.8
-  flutter_localizations: 
+  flutter_localizations:
     sdk: flutter
   flutter_rating_stars: ^1.1.0
   flutter_riverpod: ^2.6.1

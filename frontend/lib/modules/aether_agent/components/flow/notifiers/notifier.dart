@@ -5,7 +5,7 @@ import 'package:flow_compose/flow_compose.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CreateFlowNotifier extends AutoDisposeNotifier {
+class CreateFlowNotifier extends Notifier {
   // ignore: avoid_init_to_null
   BoardController? boardController = null;
 
@@ -16,13 +16,24 @@ class CreateFlowNotifier extends AutoDisposeNotifier {
     boardController ??= BoardController(
       confirmBeforeDelete: true,
       style: BoardStyle(
-        sidebarMaxHeight: MediaQuery.of(context).size.height * 0.8 * 0.875,
+        sidebarMaxHeight: MediaQuery.of(context).size.height * 0.8 * .95,
       ),
       initialState: BoardState(editable: true, data: [], edges: {}),
-      nodes: [
-        StartNode(label: '开始', uuid: 'start', offset: Offset.zero),
-        VisionNode(label: "视觉", uuid: 'vision', offset: Offset.zero),
-      ],
+    );
+    boardController!.nodeRenderRegistry["StartNode"] = (context, node) {
+      return StartNodeWidget(node: node);
+    };
+    boardController!.setConfig(
+      "StartNode",
+      ExtraNodeConfig(width: 100, height: 40),
+    );
+
+    boardController!.nodeRenderRegistry["VisionNode"] = (context, node) {
+      return VisionNodeWidget(node: node);
+    };
+    boardController!.setConfig(
+      "VisionNode",
+      ExtraNodeConfig(width: 120, height: 60),
     );
 
     boardController!.stream.listen((v) {
@@ -31,7 +42,6 @@ class CreateFlowNotifier extends AutoDisposeNotifier {
   }
 }
 
-final createFlowNotifier =
-    AutoDisposeNotifierProvider<CreateFlowNotifier, void>(
-      () => CreateFlowNotifier(),
-    );
+final createFlowNotifier = NotifierProvider<CreateFlowNotifier, void>(
+  () => CreateFlowNotifier(),
+);

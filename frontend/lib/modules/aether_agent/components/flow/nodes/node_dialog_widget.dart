@@ -1,11 +1,10 @@
 import 'package:auto_ml/utils/logger.dart';
-import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 
 Widget buildNodeDialogWidget({
   required BuildContext context,
-  required String nodeName,
   required Widget Function(BuildContext) dialogWidgetBuilder,
+  required Widget child,
   String barrierLabel = "node dialog",
   dynamic logBeforeDialog,
   dynamic logAfterDialog,
@@ -43,14 +42,6 @@ Widget buildNodeDialogWidget({
         logger.i(logAfterDialog);
       }
     },
-    child: Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: Colors.white,
-      ),
-      child: Center(
-        child: Text(nodeName, style: Styles.defaultButtonTextStyleNormal),
-      ),
-    ),
+    child: child,
   );
 }

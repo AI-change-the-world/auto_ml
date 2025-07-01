@@ -23,9 +23,29 @@ class _CreateNewFlowDialogState extends ConsumerState<CreateNewFlowDialog> {
   Widget build(BuildContext context) {
     return dialogWrapper(
       width: MediaQuery.of(context).size.width * 0.8,
-      height: MediaQuery.of(context).size.height * 0.8,
-      child: InfiniteDrawingBoard(
-        controller: ref.read(createFlowNotifier.notifier).boardController!,
+      height: MediaQuery.of(context).size.height * 0.9,
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+            ),
+            height: 30,
+            child: Row(
+              children: [TextButton(onPressed: () {}, child: Text("Save"))],
+            ),
+          ),
+          Expanded(
+            child: InfiniteDrawingBoard(
+              controller:
+                  ref.read(createFlowNotifier.notifier).boardController!,
+            ),
+          ),
+        ],
       ),
     );
   }

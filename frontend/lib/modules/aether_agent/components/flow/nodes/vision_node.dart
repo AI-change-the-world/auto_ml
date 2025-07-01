@@ -2,8 +2,10 @@ import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/modules/aether_agent/components/flow/models/enums.dart';
 import 'package:auto_ml/modules/aether_agent/components/flow/nodes/basic_config_widget.dart';
 import 'package:auto_ml/modules/aether_agent/components/flow/nodes/node_dialog_widget.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/notifiers/notifier.dart';
 import 'package:auto_ml/modules/tool_models/models/tool_model_response.dart';
 import 'package:auto_ml/modules/tool_models/notifier/model_notifier.dart';
+import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
@@ -11,88 +13,63 @@ import 'package:flow_compose/flow_compose.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class VisionNode extends INode {
-  VisionNode({
-    required super.label,
-    required super.uuid,
-    required super.offset,
-    super.width = 125,
-    super.height = 60,
-    super.nodeName = "视觉模型节点",
-    super.description = "设置视觉节点的相关参数，输入必须是图片、视频数据（或者图片、视频的列表数据）",
-    super.builderName = "VisionNode",
-  }) {
-    builder = (context) {
-      return buildNodeDialogWidget(
-        context: context,
-        nodeName: nodeName,
-        dialogWidgetBuilder: dialogWidget,
-        barrierLabel: "vision node dialog",
-        logBeforeDialog: prevData,
-        logAfterDialog: data,
-      );
-    };
-  }
+class VisionNodeWidget extends StatelessWidget {
+  const VisionNodeWidget({super.key, required this.node});
+  final NodeModel node;
 
-  factory VisionNode.fromJson(Map<String, dynamic> json) {
-    String uuid = json["uuid"] ?? "";
-    String label = json["label"] ?? "";
-    Offset offset = Offset(json["offset"]["dx"], json["offset"]["dy"]);
-    double width = json["width"] ?? 300;
-    double height = json["height"] ?? 400;
-    String nodeName = json["nodeName"] ?? "base";
-    String description =
-        json["description"] ?? "Base node, just for testing purposes";
-    String builderName = json["builderName"] ?? "base";
-    // Map<String, dynamic>? data = json["data"];
-
-    return VisionNode(
-      offset: offset,
-      width: width,
-      height: height,
-      nodeName: nodeName,
-      description: description,
-      builderName: builderName,
-      label: label,
-      uuid: uuid,
-    );
-  }
-}
-
-extension StartNodeExtension on VisionNode {
-  Widget dialogWidget(BuildContext context) {
-    return Material(
-      elevation: 10,
-      borderRadius: BorderRadius.circular(20),
+  @override
+  Widget build(BuildContext context) {
+    return buildNodeDialogWidget(
       child: Container(
-        padding: EdgeInsets.all(20),
-        width: 300,
-        height: MediaQuery.of(context).size.height * 0.7,
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
         ),
-        child: Column(
-          spacing: 10,
-          children: [
-            Text(
-              nodeName,
-              style: Styles.defaultButtonTextStyle.copyWith(fontSize: 20),
-            ),
-            Text(description, style: Styles.defaultButtonTextStyleGrey),
-            SizedBox(height: 1),
-            Expanded(
-              child: _VisionNodeConfigWidet(
-                data: data,
-                onChanged: (data) {
-                  this.data = data;
-                },
-                uuid: uuid,
-              ),
-            ),
-          ],
-        ),
+        width: node.width,
+        height: node.height,
+        child: Center(child: Text(node.label)),
       ),
+      context: context,
+      dialogWidgetBuilder: (c) {
+        // return _VisionNodeConfigWidet(data: node);
+        return Material(
+          elevation: 10,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: EdgeInsets.all(20),
+            width: 300,
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              spacing: 10,
+              children: [
+                Text(
+                  node.label,
+                  style: Styles.defaultButtonTextStyle.copyWith(fontSize: 20),
+                ),
+                if (node.description != null)
+                  Text(
+                    node.description!,
+                    style: Styles.defaultButtonTextStyleGrey,
+                  ),
+                SizedBox(height: 1),
+                Expanded(
+                  child: _VisionNodeConfigWidet(
+                    data: node,
+                    onDataChanged: (newData) {
+                      node.data = newData;
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -100,21 +77,20 @@ extension StartNodeExtension on VisionNode {
 class _VisionNodeConfigWidet extends BaseNodeConfigWidget {
   const _VisionNodeConfigWidet({
     required super.data,
-    required super.onChanged,
-    required super.uuid,
+    required super.onDataChanged,
   });
 
   @override
-  State<_VisionNodeConfigWidet> createState() => __VisionNodeConfigWidetState();
+  ConsumerState<_VisionNodeConfigWidet> createState() =>
+      __VisionNodeConfigWidetState();
 }
 
-class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
-  late Map<String, dynamic> thisData =
-      widget.data ??
-      {"outputDataType": OutputDataType.text.name, "selectModel": null};
+class __VisionNodeConfigWidetState
+    extends ConsumerState<_VisionNodeConfigWidet> {
+  late Map<String, dynamic> thisData = Map.of(widget.data.data);
 
   late OutputDataType _outputDataType = getOutputDataTypeFromString(
-    thisData["outputDataType"],
+    thisData["outputDataType"] ?? "",
   );
 
   // ignore: avoid_init_to_null
@@ -130,6 +106,19 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
 
   @override
   Widget build(BuildContext context) {
+    // final nodeInfo =
+    //     ref.read(createFlowNotifier.notifier).boardController!.state.value.data;
+    // logger.d("widget uuid  ${widget.uuid}");
+    // for (final i in nodeInfo) {
+    //   logger.d("${i.uuid}  ${i.type}  nodeInfo: ${i.prevData}");
+    // }
+
+    final nodeInfo = ref
+        .read(createFlowNotifier.notifier)
+        .boardController!
+        .getNodeData(widget.data.uuid);
+
+    logger.d("nodeInfo: ${nodeInfo?.prevData}");
     return Column(
       spacing: 10,
       children: [
@@ -244,7 +233,7 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
                                             thisData['outputDataType'] =
                                                 _outputDataType.name;
                                           });
-                                          widget.onChanged(thisData);
+                                          widget.onDataChanged(thisData);
                                         }
                                       },
                                       buttonStyle: ButtonStyle(
@@ -438,7 +427,7 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
                                     _outputDataType = e;
                                     thisData['outputDataType'] = e.name;
                                   });
-                                  widget.onChanged(thisData);
+                                  widget.onDataChanged(thisData);
                                 }
                               },
                               buttonStyle: ButtonStyle(
@@ -486,7 +475,7 @@ class __VisionNodeConfigWidetState extends State<_VisionNodeConfigWidet> {
               Expanded(
                 flex: 1,
                 child: Text(
-                  "Vision_out_${widget.uuid.split("-").first}",
+                  "Vision_out_${widget.data.uuid.split("-").first}",
                   style: Styles.defaultButtonTextStyleGrey,
                 ),
               ),
