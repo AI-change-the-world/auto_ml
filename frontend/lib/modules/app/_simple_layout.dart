@@ -199,6 +199,20 @@ class SimpleLayout extends StatelessWidget {
                             SidebarItemWidget(isDivider: true),
                             SidebarItemWidget(
                               isDivider: false,
+                              item: items.getByName("augment"),
+                              isSelected: selectedIndex == 8,
+                              onTap: () => onIndexChanged(8),
+                            ),
+                            SidebarItemWidget(
+                              isDivider: false,
+                              item: items.getByName("quality"),
+                              isSelected: selectedIndex == 9,
+                              onTap: () => onIndexChanged(9),
+                            ),
+
+                            SidebarItemWidget(isDivider: true),
+                            SidebarItemWidget(
+                              isDivider: false,
                               item: items.getByName("tool_model"),
                               isSelected: selectedIndex == 2,
                               onTap: () => onIndexChanged(2),
@@ -291,6 +305,10 @@ extension SidebarListExtension on List<SidebarItem> {
         return firstWhere((item) => item.index == 6);
       case "home":
         return firstWhere((item) => item.index == 7);
+      case "augment":
+        return firstWhere((item) => item.index == 8);
+      case "quality":
+        return firstWhere((item) => item.index == 9);
       default:
         return null;
     }
@@ -380,6 +398,29 @@ final List<SidebarItem> items = [
     index: 5,
     title: t.sidebar.deploy,
     route: "/deploy",
+  ),
+  SidebarItem(
+    icon: const Icon(
+      Icons.generating_tokens,
+      color: Styles.sidebarItemActiveColor,
+    ),
+    iconInactive: const Icon(
+      Icons.generating_tokens,
+      color: Styles.sidebarItemInactiveColor,
+    ),
+    index: 8,
+    title: "Augment",
+    route: "/augment",
+  ),
+  SidebarItem(
+    icon: const Icon(Icons.high_quality, color: Styles.sidebarItemActiveColor),
+    iconInactive: const Icon(
+      Icons.high_quality,
+      color: Styles.sidebarItemInactiveColor,
+    ),
+    index: 9,
+    title: "Quality",
+    route: "/quality",
   ),
 ]..sort((a, b) => a.index.compareTo(b.index));
 
