@@ -33,13 +33,13 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     return AnnotationState();
   }
 
-  changeMode(LabelMode mode) {
+  void changeMode(LabelMode mode) {
     if (mode != state.mode) {
       state = state.copyWith(mode: mode);
     }
   }
 
-  easyChangeMode() {
+  void easyChangeMode() {
     state = state.copyWith(
       mode: state.mode == LabelMode.edit ? LabelMode.add : LabelMode.edit,
     );
@@ -50,7 +50,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     }
   }
 
-  changeCurrentAnnotation(String uuid) {
+  void changeCurrentAnnotation(String uuid) {
     state = state.copyWith(
       selectedAnnotationUuid: uuid,
       annotations:
@@ -64,7 +64,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  changeAnnotationVisibility(String uuid) {
+  void changeAnnotationVisibility(String uuid) {
     state = state.copyWith(
       annotations:
           state.annotations.map((e) {
@@ -77,7 +77,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  changeCurrentSelectedAnnotationVisibility() {
+  void changeCurrentSelectedAnnotationVisibility() {
     state = state.copyWith(
       annotations:
           state.annotations.map((e) {
@@ -90,7 +90,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  deleteCurrentSelectedAnnotation() {
+  void deleteCurrentSelectedAnnotation() {
     state = state.copyWith(
       modified: true,
       selectedAnnotationUuid: null,
@@ -99,7 +99,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  changeAnnotationClassId(String uuid, int classId) {
+  void changeAnnotationClassId(String uuid, int classId) {
     state = state.copyWith(
       modified: true,
       annotations:
@@ -113,7 +113,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  removeAnnotationById(String uuid) {
+  void removeAnnotationById(String uuid) {
     state = state.copyWith(
       modified: true,
       annotations: List.of(state.annotations)
@@ -121,7 +121,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  setAnnotations(String content) async {
+  Future<void> setAnnotations(String content) async {
     var imageState = ref.read(imageNotifierProvider);
 
     List<Annotation> annotations = parseYoloAnnotations(
@@ -138,7 +138,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  setAnnotationsWithClasses(String content) async {
+  Future<void> setAnnotationsWithClasses(String content) async {
     var imageState = ref.read(imageNotifierProvider);
     final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
 
@@ -157,7 +157,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  setAnnotationsInDetections(SingleImageResponse response) {
+  void setAnnotationsInDetections(SingleImageResponse response) {
     StringBuffer sb = StringBuffer();
     final imgSize = ref.read(imageNotifierProvider).size;
     for (final i in response.results) {
@@ -169,7 +169,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     addAnnotation(sb.toString());
   }
 
-  addAnnotationInDetections(SingleImageResponse response) {
+  void addAnnotationInDetections(SingleImageResponse response) {
     StringBuffer sb = StringBuffer();
     final imgSize = ref.read(imageNotifierProvider).size;
     for (final i in response.results) {
@@ -180,7 +180,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     addAnnotation(sb.toString());
   }
 
-  updateAnnotation(
+  void updateAnnotation(
     Annotation annotation, {
     DragUpdateDetails? dragDetails,
     List<SizeChanged> sizeChanged = const [],
@@ -235,7 +235,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  addAnnotation(String content) {
+  void addAnnotation(String content) {
     var imageState = ref.read(imageNotifierProvider);
     final classes = ref.read(currentDatasetAnnotationNotifierProvider).classes;
     logger.d('Adding annotation: $content');
@@ -309,7 +309,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     });
   }
 
-  addFakeAnnotation(Annotation annotation) {
+  void addFakeAnnotation(Annotation annotation) {
     annotation.isOnAdding = true;
     if (state.annotations.isNotEmpty && state.annotations.last.isOnAdding) {
       state = state.copyWith(
@@ -320,7 +320,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     }
   }
 
-  fakeAnnotationFinalize() {
+  void fakeAnnotationFinalize() {
     state = state.copyWith(
       modified: true,
       annotations:
@@ -328,7 +328,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     );
   }
 
-  changeModifiedStatus(bool modified) {
+  void changeModifiedStatus(bool modified) {
     if (state.modified == modified) {
       return;
     }

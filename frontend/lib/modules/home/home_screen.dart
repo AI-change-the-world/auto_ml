@@ -31,7 +31,7 @@ class HomeScreen extends ConsumerWidget {
         ) {
           return [
             charts.Series<TaskPerDay, String>(
-              // colorFn: (_, __) => charts.MaterialPalette.blue.shadeDefault,
+              // colorFn: (_, _) => charts.MaterialPalette.blue.shadeDefault,
               id: '每日任务数',
               domainFn: (TaskPerDay task, _) => task.date,
               measureFn: (TaskPerDay task, _) => task.taskCount,
@@ -41,7 +41,7 @@ class HomeScreen extends ConsumerWidget {
                       task.taskCount == 0 ? '' : '${task.taskCount}',
             ),
             charts.Series<TaskPerDay, String>(
-              // colorFn: (_, __) => charts.MaterialPalette.green.shadeDefault,
+              // colorFn: (_, _) => charts.MaterialPalette.green.shadeDefault,
               id: '每日任务占用时间（秒）',
               domainFn: (TaskPerDay task, _) => task.date,
               measureFn: (TaskPerDay task, _) => task.taskDuration,

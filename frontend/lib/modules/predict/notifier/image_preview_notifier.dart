@@ -75,19 +75,19 @@ class ImagePreviewNotifier
     return Image.memory(croppedBytes);
   }
 
-  setDone() {
+  void setDone() {
     state = state.copyWith(loading: false);
   }
 
-  changeCurrentRect(Rect rect) {
+  void changeCurrentRect(Rect rect) {
     state = state.copyWith(selected: rect);
   }
 
-  showSidebar() {
+  void showSidebar() {
     state = state.copyWith(isSidebarOpen: true, selected: null);
   }
 
-  hideSidebar() {
+  void hideSidebar() {
     state = state.copyWith(isSidebarOpen: false, selected: null);
   }
 
@@ -134,7 +134,7 @@ class ImagePreviewNotifier
     );
   }
 
-  updateImageUrl(String imageKey, String url) {
+  void updateImageUrl(String imageKey, String url) {
     state = state.copyWith(
       images:
           state.images.map((e) {

@@ -57,7 +57,7 @@ class SelectDatasetAnnotationNotifier
     }
   }
 
-  onDatasetSelectionChanged(int datasetId) async {
+  Future<void> onDatasetSelectionChanged(int datasetId) async {
     // state = AsyncLoading();
     if (state.value!.anntations.keys.contains(datasetId)) {
       state = AsyncValue.data(

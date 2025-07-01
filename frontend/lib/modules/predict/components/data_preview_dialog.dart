@@ -25,7 +25,7 @@ class DataPreviewDialog extends StatefulWidget {
 }
 
 class _DataPreviewDialogState extends State<DataPreviewDialog> {
-  var future;
+  late Future<String> future;
   final dio = DioClient().instance;
 
   // Create a [Player] to control playback.

@@ -309,7 +309,7 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                               barrierDismissible: true,
                               barrierLabel: "NewAnnotationDialog",
                               context: context,
-                              pageBuilder: (c, _, __) {
+                              pageBuilder: (c, _, _) {
                                 return Center(child: NewAnnotationDialog());
                               },
                             ).then((v) {

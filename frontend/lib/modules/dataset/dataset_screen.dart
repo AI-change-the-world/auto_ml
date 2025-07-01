@@ -152,7 +152,7 @@ class _Inner extends ConsumerWidget {
                           barrierDismissible: true,
                           barrierLabel: "NewDatasetDialog",
                           context: context,
-                          pageBuilder: (c, _, __) {
+                          pageBuilder: (c, _, _) {
                             return Center(
                               child: NewDatasetDialog(
                                 initialType: DatasetType.values[pageState],
@@ -235,7 +235,7 @@ class __DeleteZoneState extends ConsumerState<_DeleteZone> {
           barrierDismissible: true,
           barrierLabel: '_ConfirmDialog',
           context: context,
-          pageBuilder: (c, _, __) {
+          pageBuilder: (c, _, _) {
             return Center(
               child: _ConfirmDialog(
                 content: "Are you sure you want to delete this dataset?",
@@ -256,7 +256,7 @@ class __DeleteZoneState extends ConsumerState<_DeleteZone> {
           onHovering = false;
         });
       },
-      builder: (c, _, __) {
+      builder: (c, _, _) {
         return Material(
           elevation: 10,
           borderRadius: BorderRadius.circular(10),

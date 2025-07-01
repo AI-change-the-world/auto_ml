@@ -141,7 +141,7 @@ class LayoutIcons extends ConsumerWidget {
                 barrierColor: Styles.barriarColor,
                 barrierDismissible: true,
                 barrierLabel: "ShortCutDialog",
-                pageBuilder: (c, _, __) {
+                pageBuilder: (c, _, _) {
                   return Center(child: ShortCutDialog());
                 },
               );

@@ -18,7 +18,7 @@ class _SelectionWidgetState extends State<SelectionWidget> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<String>(
       valueListenable: notifier,
-      builder: (c, s, __) {
+      builder: (c, s, _) {
         return Material(
           color: Colors.white,
           elevation: 2,

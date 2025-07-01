@@ -215,7 +215,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                       barrierColor: Styles.barriarColor,
                       barrierDismissible: true,
                       barrierLabel: "AppendAnntationFilesDialog",
-                      pageBuilder: (c, _, __) {
+                      pageBuilder: (c, _, _) {
                         return Center(
                           child: AppendAnntationFilesDialog(
                             annotationId: annotation.id,
@@ -298,7 +298,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                       barrierColor: Styles.barriarColor,
                       barrierDismissible: true,
                       barrierLabel: "NewTrainTaskDialog",
-                      pageBuilder: (c, _, __) {
+                      pageBuilder: (c, _, _) {
                         return Center(
                           child: NewTrainTaskDialog(
                             typeId: annotation.annotationType,
@@ -349,7 +349,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                         barrierDismissible: true,
                         barrierLabel: "ModifyAnnotationClassesDialog",
                         context: context,
-                        pageBuilder: (c, _, __) {
+                        pageBuilder: (c, _, _) {
                           return Center(
                             child: ModifyAnnotationClassesDialog(
                               annotationString: annotation.classItems ?? "",
@@ -389,7 +389,7 @@ class _AnnotationsListState extends ConsumerState<AnnotationsList> {
                         barrierDismissible: true,
                         barrierLabel: "ModifyAnnotationClassesDialog",
                         context: context,
-                        pageBuilder: (c, _, __) {
+                        pageBuilder: (c, _, _) {
                           return Center(
                             child: dialogWrapper(
                               width: 400,

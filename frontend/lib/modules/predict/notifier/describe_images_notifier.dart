@@ -43,13 +43,13 @@ class DescribeImagesNotifier extends AutoDisposeNotifier<DescribeImagesState> {
     return DescribeImagesState();
   }
 
-  chat(List<String> files) async {
+  Future<void> chat(List<String> files) async {
     clear();
     Map<String, dynamic> data = {"frames": files};
     sse(Api.baseUrl + Api.describeImageList, data, ss);
   }
 
-  chatSingleFile(List<String> files, String prompt) async {
+  Future<void> chatSingleFile(List<String> files, String prompt) async {
     clear();
     Map<String, dynamic> data = {"frames": files, "prompt": prompt};
     sse(
@@ -87,7 +87,7 @@ class DescribeImagesNotifier extends AutoDisposeNotifier<DescribeImagesState> {
     );
   }
 
-  clear() {
+  void clear() {
     _totalData = "";
     state = DescribeImagesState();
   }

@@ -31,7 +31,7 @@ class DatasetFileListNotifier
     init(dataset);
   }
 
-  init(Dataset dataset) async {
+  Future<void> init(Dataset dataset) async {
     try {
       final response = await dio.get(
         Api.details.replaceAll("{id}", dataset.id.toString()),

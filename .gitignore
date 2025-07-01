@@ -2,3 +2,4 @@
 *.pth
 *.log
 /logs
+release_note.md

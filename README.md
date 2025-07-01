@@ -2,75 +2,82 @@
   <img src="./readme/icon_with_text.png" width="300" height="300">
 </div>
 
-### framework
+<p align="center">📘 其他语言版本</p>
+<p align="center">
+  <a href="README_en.md">English</a> | <a href="README.md">简体中文</a>
+</p>
+
+## 项目框架
 
 ![image](./readme/image.png)
 
-**Notice:** This project is in the early stages of development. Please do not use it in a production environment.
+**注意：** 本项目处于早期开发阶段，暂不建议用于生产环境。
 
-### requirements
+## 环境依赖
 
-* python3.10+ (AI tools)
-* java (backend)
-* flutter (frontend)
-* ffmpeg (video processing)
-* docker (mysql, rnacos, minio)
+- Python 3.10+（AI 工具）
+- Java（后端）
+- Flutter（前端）
+- FFmpeg（视频处理）
+- Docker（用于运行 MySQL、Nacos、MinIO 等服务）
 
-### changelog
+## 更新日志
 
 - [CHANGELOG.md](./CHANGELOG.md)
 
-### screenshots
+## 截图预览
 
-* home
+### 首页
 
 ![home](./readme/home.png)
 
-* dataset
+### 数据集
 
-| 1      | 2 | 3     |
-| :---        |    :----:   |          ---: |
-| ![1](./readme/dataset1.jpg)      |  ![2](./readme/dataset2.png)       |![3](./readme/dataset3.png)   |
+| 示例1 | 示例2 | 示例3 |
+| :--- | :---: | ---: |
+| ![1](./readme/dataset1.jpg) | ![2](./readme/dataset2.png) | ![3](./readme/dataset3.png) |
 
-* annotation
+### 标注界面
 
 ![annotation](./readme/annotation.png)
 
-* agent
+### 智能体
 
 ![agent](./readme/agent.png)
 
-* task
+### 任务管理
 
 ![task](./readme/task.png)
 
-* deploy
+### 部署界面
 
 ![deploy](./readme/deploy.png)
 
+## BUG 列表
 
-### BUG list
-* [x] **[Frontend]** Image scaling inconsistent with browser resize (non-critical rendering issue)
-* [ ] **[Frontend]** Dont show classes list if annotation class is an empty string (Priority: P3)
-* [x] **[Frontend]** State error after switch to other datasets (Priority: P2)
-* [ ] **[Frontend]** Cannot delete annotation after auto-label(Priority: P1)
-* [ ] **[Frontend]** Unsaved status shown but dont show warning when switch images after auto-label(Priority: P3)
-* [ ] **[Frontend]** Cls annotation state not change after trigger button(Priority: P2)
-* [ ] **[AI,backend]** Sometimes, cannot parse LLM results(Priority: P2)
+- [x] **[前端]** 浏览器缩放时图像缩放不一致（非关键渲染问题）
+- [ ] **[前端]** 标注类为空字符串时不应展示类列表（优先级：P3）
+- [x] **[前端]** 切换数据集后状态错误（优先级：P2）
+- [ ] **[前端]** 自动标注后无法删除标注（优先级：P1）
+- [ ] **[前端]** 自动标注后切换图像时未保存状态无提示（优先级：P3）
+- [ ] **[前端]** 点击按钮后分类标注状态未更新（优先级：P2）
+- [ ] **[AI/后端]** 有时无法正确解析大模型返回结果（优先级：P2）
 
+## TODO 列表
 
-### TODO list
-* [ ] **[frontend]** Implement i18n localization support (Priority: P4)
-* [ ] **[frontend，backend]**  Add support for saving additional data source types to local S3 (Priority: P1)
-    * [ ] Enable ZIP file upload functionality
-* [ ] **[frontend，backend]** Improve annotation persistence mechanism (Priority: P1)
-    * [x] Display unsaved changes confirmation dialog (Priority: P4)
-    * [x] Implement manual save button functionality (Priority: P3)
-    * [ ] Add automatic save feature (triggered by timer/edits) (Priority: P1)
-* [x] **[frontend，backend]** Implement dataset append functionality for new data (Priority: P2)
-* [ ] **[frontend，backend]** Add annotation append support for existing datasets (Priority: P4)
-* [ ] **[backend]** Implement image resizing (>1024×1024) to improve MLLM detection accuracy (Priority: P1)
-* [ ] **[backend]** Add bounding box post-processing to remove >95% overlapping regions (Priority: P2)
+- [ ] **[前端]** 实现国际化（i18n）多语言支持（优先级：P4）
+- [ ] **[前端 & 后端]** 支持将多种数据源类型保存到本地 S3（优先级：P1）
+  - [ ] 实现 ZIP 文件上传功能
+- [ ] **[前端 & 后端]** 改进标注保存机制（优先级：P1）
+  - [x] 弹出未保存确认提示框（优先级：P4）
+  - [x] 实现手动保存按钮功能（优先级：P3）
+  - [ ] 添加自动保存机制（定时或编辑触发，优先级：P1）
+- [x] **[前端 & 后端]** 支持向数据集中追加新数据（优先级：P2）
+- [ ] **[前端 & 后端]** 支持为已有数据集追加标注信息（优先级：P4）
+- [ ] **[后端]** 实现大于 1024×1024 的图像缩放以提高 MLLM 检测准确率（优先级：P1）
+- [ ] **[后端]** 增加标注框后处理，去除 >95% 重叠区域（优先级：P2）
 
-### HELP WANTED
-* [ ] **[frontend]** disable dual finger return to the previous page in Flutter Web (Priority: P2)
+## 协助（HELP WANTED）
+
+- [ ] **[前端]** 禁用 Flutter Web 的双指返回上一页操作（优先级：P2）
+

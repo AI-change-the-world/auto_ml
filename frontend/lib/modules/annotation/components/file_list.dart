@@ -166,7 +166,7 @@ class FileList extends ConsumerWidget {
               barrierDismissible: true,
               barrierLabel: 'ConfirmDialog',
               context: context,
-              pageBuilder: (c, _, __) {
+              pageBuilder: (c, _, _) {
                 return Center(
                   child: ConfirmDialog(
                     height: 80,

@@ -36,7 +36,7 @@ class TaskLogMerged {
               child: charts.LineChart([
                 charts.Series<Map, double>(
                   id: 'losses',
-                  colorFn: (_, __) => charts.MaterialPalette.blue.shadeDefault,
+                  colorFn: (_, _) => charts.MaterialPalette.blue.shadeDefault,
                   domainFn: (Map d, _) => d['epoch'] ?? 0,
                   measureFn: (Map d, _) => d['loss'] ?? 0,
                   data: data,

@@ -1,6 +1,8 @@
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/aether_agent/aether_agent_screen.dart';
 import 'package:auto_ml/modules/app/_simple_layout.dart';
+import 'package:auto_ml/modules/data_augment/data_augment_screen.dart';
+import 'package:auto_ml/modules/data_quality/data_quality_screen.dart';
 import 'package:auto_ml/modules/dataset/dataset_screen.dart';
 import 'package:auto_ml/modules/annotation/label_screen.dart';
 import 'package:auto_ml/modules/deploy/deploy_screen.dart';
@@ -110,6 +112,20 @@ final GoRouter router = GoRouter(
           // builder: (context, state) => Container(),
           pageBuilder:
               (context, state) => noTransitionPage(child: AetherAgentScreen()),
+        ),
+        GoRoute(
+          path: '/augment',
+          name: 'Data Augmentation',
+          // builder: (context, state) => Container(),
+          pageBuilder:
+              (context, state) => noTransitionPage(child: DataAugmentScreen()),
+        ),
+        GoRoute(
+          path: '/quality',
+          name: 'Data Quality',
+          // builder: (context, state) => Container(),
+          pageBuilder:
+              (context, state) => noTransitionPage(child: DataQualityScreen()),
         ),
       ],
     ),

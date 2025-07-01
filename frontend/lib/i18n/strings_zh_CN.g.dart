@@ -36,6 +36,7 @@ class TranslationsZhCn implements Translations {
 	TranslationsZhCn $copyWith({TranslationMetadata<AppLocale, Translations>? meta}) => TranslationsZhCn(meta: meta ?? this.$meta);
 
 	// Translations
+	@override String get appname => '元枢智算';
 	@override late final _TranslationsLabelScreenZhCn label_screen = _TranslationsLabelScreenZhCn._(_root);
 	@override String get save => '保存';
 	@override String get refresh => '刷新';
@@ -442,6 +443,7 @@ class _TranslationsDatasetScreenTableAnnotationZhCn implements TranslationsDatas
 extension on TranslationsZhCn {
 	dynamic _flatMapFunction(String path) {
 		switch (path) {
+			case 'appname': return '元枢智算';
 			case 'label_screen.not_selected': return '数据集或标注未选择';
 			case 'label_screen.select': return '选择...';
 			case 'save': return '保存';

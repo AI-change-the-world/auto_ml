@@ -64,7 +64,10 @@ class CurrentDatasetAnnotationNotifier
     return CurrentDatasetAnnotationState();
   }
 
-  changeDatasetAndAnnotation(Dataset? dataset, Annotation? annotation) async {
+  Future<void> changeDatasetAndAnnotation(
+    Dataset? dataset,
+    Annotation? annotation,
+  ) async {
     if ((dataset == null && annotation == null) ||
         (dataset?.id == 0 && annotation?.id == 0)) {
       state = state.copyWith(
@@ -114,7 +117,7 @@ class CurrentDatasetAnnotationNotifier
     }
   }
 
-  prevData() {
+  void prevData() {
     if (state.currentData == null) return;
     int currentIndex = state.data.indexOf(state.currentData!);
     if (currentIndex == 0) return;
@@ -122,7 +125,7 @@ class CurrentDatasetAnnotationNotifier
     changeCurrentData(prevData);
   }
 
-  nextData() {
+  void nextData() {
     if (state.currentData == null) return;
     int currentIndex = state.data.indexOf(state.currentData!);
     if (currentIndex == state.data.length - 1) return;
@@ -130,7 +133,7 @@ class CurrentDatasetAnnotationNotifier
     changeCurrentData(nextData);
   }
 
-  changeCurrentData((String, String) data) async {
+  Future changeCurrentData((String, String) data) async {
     if (state.annotation == null) {
       return;
     }
@@ -144,7 +147,9 @@ class CurrentDatasetAnnotationNotifier
     }
   }
 
-  _changeCurrentDataForObjectDetection((String, String) data) async {
+  Future<void> _changeCurrentDataForObjectDetection(
+    (String, String) data,
+  ) async {
     logger.d("dataset and annotation $data");
 
     try {
@@ -204,24 +209,26 @@ class CurrentDatasetAnnotationNotifier
     }
   }
 
-  _changeCurrentDataForImageUnderstanding((String, String) data) async {
+  Future<void> _changeCurrentDataForImageUnderstanding(
+    (String, String) data,
+  ) async {
     logger.d("dataset and annotation $data");
     state = state.copyWith(currentData: data, currentFilePath: data.$1);
   }
 
-  _changeCurrentDataForCls((String, String) data) async {
+  Future<void> _changeCurrentDataForCls((String, String) data) async {
     logger.d("dataset and annotation $data");
     state = state.copyWith(currentData: data, currentFilePath: data.$1);
   }
 
-  addClassType(String className) {
+  void addClassType(String className) {
     if (state.classes.contains(className)) {
       return;
     }
     state = state.copyWith(classes: [...state.classes, className]);
   }
 
-  updateDataAfterAnnotationUpdate() {
+  void updateDataAfterAnnotationUpdate() {
     var filename = state.currentData?.$1;
     if (filename == null) {
       return;

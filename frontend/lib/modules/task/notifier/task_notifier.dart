@@ -47,11 +47,11 @@ class TaskDrawer {
   TaskDrawer._();
   static GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
-  static showDrawer() {
+  static void showDrawer() {
     TaskDrawer.scaffoldKey.currentState?.openEndDrawer();
   }
 
-  static hideDrawer() {
+  static void hideDrawer() {
     TaskDrawer.scaffoldKey.currentState?.closeEndDrawer();
   }
 }
@@ -89,7 +89,7 @@ class TaskNotifier extends AutoDisposeAsyncNotifier<TaskState> {
     }
   }
 
-  nextPage(int totalPage) async {
+  Future<void> nextPage(int totalPage) async {
     if (state.value!.pageId == totalPage) {
       return;
     }
@@ -126,7 +126,7 @@ class TaskNotifier extends AutoDisposeAsyncNotifier<TaskState> {
     });
   }
 
-  prevPage() async {
+  Future<void> prevPage() async {
     if (state.value!.pageId == 1) {
       return;
     }

@@ -16,11 +16,11 @@ class GlobalDrawer {
   GlobalDrawer._();
   static GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
-  static showDrawer() {
+  static void showDrawer() {
     GlobalDrawer.scaffoldKey.currentState?.openEndDrawer();
   }
 
-  static hideDrawer() {
+  static void hideDrawer() {
     GlobalDrawer.scaffoldKey.currentState?.closeEndDrawer();
   }
 }
@@ -71,7 +71,7 @@ class AnnotationNotifier extends AutoDisposeAsyncNotifier<AnnotationState> {
     });
   }
 
-  newAnnotation(NewAnnotationRequest request) async {
+  Future<void> newAnnotation(NewAnnotationRequest request) async {
     try {
       final response = await dio.post(
         Api.annotationNew,

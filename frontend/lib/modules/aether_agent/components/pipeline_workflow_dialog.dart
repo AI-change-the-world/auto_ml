@@ -19,14 +19,13 @@ class _PipelineWorkflowDialogState extends State<PipelineWorkflowDialog> {
     super.initState();
     boardController = BoardController(
       initialState: BoardState(editable: false, data: [], edges: {}),
-      nodes: [],
     );
 
     Map<String, dynamic> data = jsonDecode(widget.content);
-    List<INode> nodes = [];
+    List<NodeModel> nodes = [];
     List<Edge> edges = [];
     for (var node in data["nodes"]) {
-      nodes.add(INode.fromJson(node));
+      nodes.add(NodeModel.fromJson(node));
     }
     for (var edge in data["edges"]) {
       edges.add(Edge.fromJson(edge));

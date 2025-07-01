@@ -21,7 +21,7 @@ class ModelDialogNotifier extends AutoDisposeNotifier<bool> {
     return false;
   }
 
-  changeState() {
+  void changeState() {
     state = !state;
   }
 
@@ -30,7 +30,7 @@ class ModelDialogNotifier extends AutoDisposeNotifier<bool> {
 
   late final Stream<String> tryModelStream = tryModelController.stream;
 
-  tryModel(
+  Future<void> tryModel(
     String modelName,
     String baseUrl,
     ModelType type, {

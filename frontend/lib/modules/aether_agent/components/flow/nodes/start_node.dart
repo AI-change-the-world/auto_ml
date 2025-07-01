@@ -1,0 +1,457 @@
+import 'package:auto_ml/modules/aether_agent/components/flow/models/enums.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/nodes/basic_config_widget.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/nodes/node_dialog_widget.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/notifiers/notifier.dart';
+import 'package:auto_ml/utils/logger.dart';
+import 'package:auto_ml/utils/styles.dart';
+import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
+import 'package:basic_dropdown_button/custom_dropdown_button.dart';
+import 'package:flow_compose/flow_compose.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:toggle_switch/toggle_switch.dart';
+
+// ignore: must_be_immutable
+class StartNodeWidget extends StatelessWidget {
+  StartNodeWidget({super.key, required this.node});
+  NodeModel node;
+
+  @override
+  Widget build(BuildContext context) {
+    return buildNodeDialogWidget(
+      context: context,
+      dialogWidgetBuilder: (c) {
+        return Material(
+          elevation: 10,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: EdgeInsets.all(20),
+            width: 300,
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              spacing: 10,
+              children: [
+                Text(
+                  node.label,
+                  style: Styles.defaultButtonTextStyle.copyWith(fontSize: 20),
+                ),
+                if (node.description != null)
+                  Text(
+                    node.description!,
+                    style: Styles.defaultButtonTextStyleGrey,
+                  ),
+                SizedBox(height: 1),
+                Expanded(
+                  child: _StartNodeConfigWidget(
+                    data: node,
+                    onDataChanged: (newData) {
+                      node.data = newData;
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          color: Colors.white,
+        ),
+        width: node.width,
+        height: node.height,
+        child: Center(child: Text(node.label)),
+      ),
+    );
+  }
+}
+
+class _StartNodeConfigWidget extends BaseNodeConfigWidget {
+  const _StartNodeConfigWidget({
+    required super.data,
+    required super.onDataChanged,
+  });
+
+  @override
+  ConsumerState<_StartNodeConfigWidget> createState() =>
+      __StartNodeConfigWidgetState();
+}
+
+class __StartNodeConfigWidgetState
+    extends ConsumerState<_StartNodeConfigWidget> {
+  late Map<String, dynamic> thisData = Map.of(widget.data.data);
+  late InputDataType _inputDataType =
+      thisData['inputDataType'] == null
+          ? InputDataType.text
+          : getDataTypeFromString(thisData['inputDataType'] as String);
+
+  late InputSourceType _inputSourceType =
+      thisData['inputSourceType'] == null
+          ? InputSourceType.s3
+          : getSourceTypeFromString(thisData['inputSourceType'] as String);
+
+  late bool isList =
+      thisData['isList'] == null ? false : thisData['isList'] as bool;
+
+  late final TextEditingController _textEditingController =
+      TextEditingController()..text = thisData['inputName'] ?? "";
+
+  @override
+  void initState() {
+    super.initState();
+    thisData['outputKey'] = "Input_out_1";
+    widget.onDataChanged(thisData);
+  }
+
+  @override
+  void dispose() {
+    _textEditingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nodeInfo = ref
+        .read(createFlowNotifier.notifier)
+        .boardController!
+        .getNodeData(widget.data.uuid);
+
+    logger.d("nodeInfo: ${nodeInfo?.data}");
+
+    return SizedBox(
+      width: 300,
+      height: MediaQuery.of(context).size.height * 0.8,
+      child: Column(
+        spacing: 10,
+        children: [
+          SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    "Data Type",
+                    style: Styles.defaultButtonTextStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: CustomDropDownButton<InputDataType>(
+                    buttonIcon:
+                        ({required showedMenu}) => SizedBox(
+                          height: 30,
+                          // width: 30,
+                          child: Center(
+                            child: Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                    buttonIconFirst: false,
+                    buttonStyle: ButtonStyle(
+                      fixedSize: WidgetStateProperty.all(Size(100, 20)),
+                      backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+                      padding: WidgetStatePropertyAll(
+                        const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      textStyle: WidgetStatePropertyAll(
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4.0),
+                        ),
+                      ),
+                    ),
+                    buttonText: _inputDataType.name,
+                    position: DropDownButtonPosition.bottomCenter,
+                    buttonIconColor: Colors.black,
+                    buttonTextStyle: Styles.defaultButtonTextStyle,
+                    menuItems:
+                        InputDataType.values
+                            .map(
+                              (e) => CustomDropDownButtonItem(
+                                value: e,
+                                text: e.name,
+                                onPressed: () {
+                                  if (e != _inputDataType) {
+                                    setState(() {
+                                      _inputDataType = e;
+                                      thisData['inputDataType'] = e.name;
+                                    });
+                                    widget.onDataChanged(thisData);
+                                  }
+                                },
+                                buttonStyle: ButtonStyle(
+                                  fixedSize: WidgetStateProperty.all(
+                                    Size(100, 20),
+                                  ),
+                                  backgroundColor: WidgetStatePropertyAll(
+                                    Colors.grey[300],
+                                  ),
+                                  textStyle: WidgetStatePropertyAll(
+                                    const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  shape: WidgetStatePropertyAll(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.zero,
+                                    ),
+                                  ),
+                                ),
+                                textStyle: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    menuBorderRadius: BorderRadius.circular(8),
+                    selectedValue: _inputDataType,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    "Data Source",
+                    style: Styles.defaultButtonTextStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: CustomDropDownButton<InputSourceType>(
+                    buttonIcon:
+                        ({required showedMenu}) => SizedBox(
+                          height: 30,
+                          // width: 30,
+                          child: Center(
+                            child: Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                    buttonIconFirst: false,
+                    buttonStyle: ButtonStyle(
+                      fixedSize: WidgetStateProperty.all(Size(100, 20)),
+                      backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+                      padding: WidgetStatePropertyAll(
+                        const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                      ),
+                      textStyle: WidgetStatePropertyAll(
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4.0),
+                        ),
+                      ),
+                    ),
+                    buttonText: _inputSourceType.name,
+                    position: DropDownButtonPosition.bottomCenter,
+                    buttonIconColor: Colors.black,
+                    buttonTextStyle: Styles.defaultButtonTextStyle,
+                    menuItems:
+                        InputSourceType.values
+                            .map(
+                              (e) => CustomDropDownButtonItem(
+                                value: e,
+                                text: e.name,
+                                onPressed: () {
+                                  if (e != _inputSourceType) {
+                                    setState(() {
+                                      _inputSourceType = e;
+                                      thisData['inputSourceType'] = e.name;
+                                    });
+                                    widget.onDataChanged(thisData);
+                                  }
+                                },
+                                buttonStyle: ButtonStyle(
+                                  fixedSize: WidgetStateProperty.all(
+                                    Size(100, 20),
+                                  ),
+                                  backgroundColor: WidgetStatePropertyAll(
+                                    Colors.grey[300],
+                                  ),
+                                  textStyle: WidgetStatePropertyAll(
+                                    const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  shape: WidgetStatePropertyAll(
+                                    RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.zero,
+                                    ),
+                                  ),
+                                ),
+                                textStyle: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    menuBorderRadius: BorderRadius.circular(8),
+                    selectedValue: _inputSourceType,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Row(
+                    children: [
+                      Text("Is List", style: Styles.defaultButtonTextStyle),
+                      SizedBox(width: 10),
+                      Tooltip(
+                        message: "现阶段列表工作流支持的不好，推荐使用单个数据多次调用工作流的方式",
+                        child: Icon(Icons.info, size: 20),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: ToggleSwitch(
+                    minWidth: 65.0,
+                    initialLabelIndex: isList ? 0 : 1,
+                    cornerRadius: 20.0,
+                    activeBgColors: [
+                      [Colors.cyan],
+                      [Colors.redAccent],
+                    ],
+                    activeFgColor: Colors.white,
+                    inactiveBgColor: Colors.grey,
+                    inactiveFgColor: Colors.white,
+                    totalSwitches: 2,
+                    labels: ['YES', 'NO'],
+                    icons: [null, null],
+                    customWidgets: [
+                      Text(
+                        "Yes",
+                        style: Styles.defaultButtonTextStyle.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        "No",
+                        style: Styles.defaultButtonTextStyle.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                    fontSize: 12,
+                    onToggle: (index) {
+                      setState(() {
+                        isList = index == 0;
+                        thisData['isList'] = isList;
+                      });
+                      widget.onDataChanged(thisData);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    "Input name",
+                    style: Styles.defaultButtonTextStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: TextField(
+                    onChanged: (value) {
+                      thisData['inputName'] = value;
+                      widget.onDataChanged(thisData);
+                    },
+                    controller: _textEditingController,
+                    style: TextStyle(fontSize: 12, color: Colors.black),
+                    decoration: InputDecoration(
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
+                      contentPadding: EdgeInsets.only(
+                        top: 10,
+                        left: 10,
+                        right: 10,
+                      ),
+                      border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.blueAccent),
+                      ),
+                      hintText: "If empty, will use default name",
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          SizedBox(
+            height: 30,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    "Output key",
+                    style: Styles.defaultButtonTextStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    "Input_out_${widget.data.uuid.split("-").first}",
+                    style: Styles.defaultButtonTextStyleGrey,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

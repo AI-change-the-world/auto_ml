@@ -1,6 +1,7 @@
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/aether_agent/components/flow/create_new_flow_dialog.dart';
 import 'package:auto_ml/modules/aether_agent/components/pipeline_preview_dialog.dart';
 import 'package:auto_ml/modules/aether_agent/components/pipeline_workflow_dialog.dart';
 import 'package:auto_ml/modules/aether_agent/models/agent_response.dart';
@@ -33,8 +34,25 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
           SizedBox(
             height: 30,
             child: Row(
+              spacing: 10,
               children: [
                 Spacer(),
+                ElevatedButton(
+                  style: Styles.getDefaultButtonStyle(),
+                  onPressed: () {
+                    showGeneralDialog(
+                      barrierColor: Styles.barriarColor,
+                      barrierDismissible: true,
+                      barrierLabel: 'CreateNewFlowDialog',
+                      // ignore: use_build_context_synchronously
+                      context: context,
+                      pageBuilder: (c, _, _) {
+                        return Center(child: CreateNewFlowDialog());
+                      },
+                    );
+                  },
+                  child: Text("Create", style: Styles.defaultButtonTextStyle),
+                ),
                 ElevatedButton(
                   style: Styles.getDefaultButtonStyle(),
                   onPressed: () {},
@@ -55,7 +73,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                   children: [
                     Expanded(
                       child: DataTable2(
-                        empty: Center(child: Text("No available models")),
+                        empty: Center(child: Text("No available agents")),
                         columnSpacing: 10,
                         headingRowDecoration: BoxDecoration(
                           color: Theme.of(context).primaryColorLight,
@@ -220,7 +238,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                         barrierDismissible: true,
                         barrierLabel: "PipelinePreviewDialog",
                         context: context,
-                        pageBuilder: (c, _, __) {
+                        pageBuilder: (c, _, _) {
                           return Center(
                             child: PipelinePreviewDialog(
                               content: agent.pipelineContent!,
@@ -257,7 +275,7 @@ class _AetherAgentScreenState extends ConsumerState<AetherAgentScreen> {
                             barrierLabel: 'PipelineWorkflowDialog',
                             // ignore: use_build_context_synchronously
                             context: context,
-                            pageBuilder: (c, _, __) {
+                            pageBuilder: (c, _, _) {
                               return Center(
                                 child: PipelineWorkflowDialog(
                                   content: baseResponse.data!,
