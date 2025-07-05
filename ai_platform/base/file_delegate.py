@@ -15,6 +15,7 @@ class S3Properties(BaseModel):
     endpoint: str
     datasets_bucket_name: str
     models_bucket_name: str
+    augment_bucket_name: str
 
 
 def load_all_s3_configs(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> S3Properties:
@@ -27,6 +28,7 @@ def load_all_s3_configs(data_id="LOCAL_S3_CONFIG", group="AUTO_ML") -> S3Propert
         endpoint=cfg.get("endpoint"),
         datasets_bucket_name=cfg.get("datasets_bucket_name"),
         models_bucket_name=cfg.get("models_bucket_name"),
+        augment_bucket_name=cfg.get("augment_bucket_name"),
     )
 
 

@@ -16,6 +16,7 @@ public class S3ConfigProperties {
   private String endpoint;
   private String datasetsBucketName;
   private String modelsBucketName;
+  private String augmentBucketName;
 
   @Override
   public String toString() {
@@ -36,6 +37,9 @@ public class S3ConfigProperties {
         + "\n"
         + "modelsBucketName: "
         + modelsBucketName
+        + "\n"
+        + "augmentBucketName: "
+        + augmentBucketName
         + "\n";
   }
 }
