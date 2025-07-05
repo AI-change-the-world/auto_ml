@@ -1,1 +1,32 @@
 *.json
+# 忽略所有图片文件（常见格式）
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
+*.tiff
+*.svg
+
+# 但保留以 ref 开头的图片（添加否定规则）
+!ref*.jpg
+!ref*.jpeg
+!ref*.png
+!ref*.gif
+!ref*.bmp
+!ref*.webp
+!ref*.tiff
+!ref*.svg
+
+
+*.pt
+
+!mask*.jpg
+!mask*.jpeg
+!mask*.png
+!mask*.gif
+!mask*.bmp
+!mask*.webp
+!mask*.tiff
+!mask*.svg
