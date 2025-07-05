@@ -71,7 +71,6 @@ class GetFileRequest(BaseModel):
 
 
 class FileDelegate:
-
     def __init__(self, bucket_type: str = None) -> None:
         properties = load_all_s3_configs()
         if bucket_type is None:

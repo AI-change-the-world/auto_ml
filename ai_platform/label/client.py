@@ -108,7 +108,6 @@ class ProvidedModelClient:
 
             self.model = YOLO(model_name)
         elif model_type == ProvidedModelEnum.gd:
-
             self.model = load_model(
                 "./gd/groundingdino/config/GroundingDINO_SwinT_OGC.py",
                 "groundingdino_swint_ogc.pth",

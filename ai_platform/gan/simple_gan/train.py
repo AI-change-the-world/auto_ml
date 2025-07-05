@@ -1,24 +1,24 @@
-# --------- Config ---------
 import os
+
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-from tqdm import tqdm
-from model import Generator, Discriminator
 from dataset import DefectDataset
+from model import Discriminator, Generator
+from torch.utils.data import DataLoader
 from torchvision.utils import save_image
+from tqdm import tqdm
 
-
+# --------- Config ---------
 z_dim = 2048  # 生成器输入的噪声向量维度
 image_size = 256
 image_channels = 3
-batch_size = 32
-epochs = 2000
+batch_size = 16
+epochs = 1000  # recommended: 1000 or less
 lr = 2e-4
 save_interval = 100
 model_dump_interval = 500
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_root = "../good"
+data_root = "../defect"
 output_dir = "../output"
 os.makedirs(output_dir, exist_ok=True)
 

@@ -1,10 +1,11 @@
 import glob
-from tqdm import tqdm
+
 import cv2
+from tqdm import tqdm
 
-imgs = glob.glob("./test/*/*.png")
+imgs = glob.glob("../good/*.png")
 
-save_dir = "./dataset/"
+save_dir = "../good_small/"
 
 count = 0
 for img in tqdm(imgs):

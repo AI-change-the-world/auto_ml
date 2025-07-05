@@ -1,9 +1,10 @@
-from tencentcloud.common import credential
-from tencentcloud.hunyuan.v20230901 import hunyuan_client, models
-from tencentcloud.common.profile.client_profile import ClientProfile
-from tencentcloud.common.profile.http_profile import HttpProfile
 import base64
 import os
+
+from tencentcloud.common import credential
+from tencentcloud.common.profile.client_profile import ClientProfile
+from tencentcloud.common.profile.http_profile import HttpProfile
+from tencentcloud.hunyuan.v20230901 import hunyuan_client, models
 
 # 1. 设置认证信息
 cred = credential.Credential(os.environ["TES_ID"], os.environ["TES_KEY"])

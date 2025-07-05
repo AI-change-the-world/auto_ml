@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
-import hashlib, hmac, json, os, sys, time
+import hashlib
+import hmac
+import json
+import os
+import sys
+import time
 from datetime import datetime
 
 # 密钥参数

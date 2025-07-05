@@ -1,6 +1,6 @@
 import torch
-from torchvision.utils import save_image
 from model import Generator
+from torchvision.utils import save_image
 
 z_dim = 2048
 

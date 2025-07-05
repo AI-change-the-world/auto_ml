@@ -301,9 +301,13 @@ class YoloDatasetAnalyzer:
 
         create_log(self.session, tlc)
 
-        image_map, label_map, common, image_only, label_only = (
-            self._collect_file_pairs()
-        )
+        (
+            image_map,
+            label_map,
+            common,
+            image_only,
+            label_only,
+        ) = self._collect_file_pairs()
 
         matched_stats = []
         image_only_stats = []

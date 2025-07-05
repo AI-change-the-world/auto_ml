@@ -1,11 +1,12 @@
 import base64
+import os
 from http import HTTPStatus
-from urllib.parse import urlparse, unquote
 from pathlib import PurePosixPath
+from urllib.parse import unquote, urlparse
+
+import cv2
 import requests
 from dashscope import ImageSynthesis
-import os
-import cv2
 
 model = "stable-diffusion-3.5-large-turbo"
 prompt = "帮我去除右下角的水印"

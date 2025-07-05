@@ -115,7 +115,7 @@ def label_img(
 
 def agent_label_img(
     img_name: str, classes: List[str], tool_model: ToolModel
-) -> Optional[PredictResults] :
+) -> Optional[PredictResults]:
     """
     对图像进行标注
     :param img_data: 图像路径 or base64 编码的图像数据
@@ -140,13 +140,13 @@ def agent_label_img(
 
     if b is None:
         raise ValueError(f"Failed to read image: {img_name}")
-    
+
     if tool_model.type == "vision":
         model_path = tool_model.base_url
         model_name = model_path.split("/")[-1]
         # download model
         if not os.path.exists(model_name):
-        # download model from s3
+            # download model from s3
             op = get_operator(s3_properties.models_bucket_name)
             with open(model_path, "wb") as f:
                 f.write(op.read(model_name))
@@ -186,7 +186,9 @@ def agent_label_img(
             messages=[
                 {
                     "role": "system",
-                    "content": [{"type": "text", "text": "You are a helpful assistant."}],
+                    "content": [
+                        {"type": "text", "text": "You are a helpful assistant."}
+                    ],
                 },
                 {
                     "role": "user",
@@ -203,6 +205,8 @@ def agent_label_img(
         res = completion.choices[0].message.content
         logger.info(res)
         l = parse_response(res, classes)
-        return PredictResults(image_id=img_name, results=l, image_height=h, image_width=w)
+        return PredictResults(
+            image_id=img_name, results=l, image_height=h, image_width=w
+        )
     else:
         return None

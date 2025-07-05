@@ -29,7 +29,6 @@ def get_annotated_files(session_id: str) -> List[str]:
 
 
 class VideoProcess(BaseProcess):
-
     def __init__(self, video_path: str, session_id: str):
         super().__init__()
         self.video_path = video_path

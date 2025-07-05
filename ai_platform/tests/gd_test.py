@@ -1,5 +1,6 @@
 import cv2
-from groundingdino.util.inference import annotate, load_image, load_model, predict
+from groundingdino.util.inference import (annotate, load_image, load_model,
+                                          predict)
 
 model = load_model(
     "./gd/groundingdino/config/GroundingDINO_SwinT_OGC.py",
