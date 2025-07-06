@@ -1,15 +1,24 @@
 import io
 import time
 import uuid
+from http import HTTPStatus
+from typing import Optional
 
 import torch
-from fastapi import APIRouter
+from dashscope import ImageSynthesis
+from fastapi import APIRouter, Depends
+from openai import OpenAI
 from PIL import Image
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 
 from augment.simple_gan.model import Generator as Model
+from base import create_response
 from base.file_delegate import get_operator, s3_properties
+from base.nacos_config import get_db
+from db.tool_model.tool_model_crud import get_tool_model
+from label.client import get_model
 
 model_path = "generator.pth"
 
@@ -24,6 +33,25 @@ class GANRequest(BaseModel):
 class CvAugmentRequest(BaseModel):
     count: int
     b64: str
+
+
+class SdAugmentRequest(BaseModel):
+    count: int
+    prompt: str
+
+
+class PromptOptimizeRequest(BaseModel):
+    model_id: int
+    prompt: str
+    ref: Optional[str] = None
+
+
+class PromptOptimizeResponse(BaseModel):
+    prompt: str
+
+
+class SdAugmentResponse(BaseModel):
+    img_url: str
 
 
 router = APIRouter(
@@ -78,7 +106,9 @@ async def cv_generate_stream(req: CvAugmentRequest):
         img = img_b64_to_arr(req.b64)
 
         for aug_img in random_aug_stream(
-            img, augNumber=req.count, augMethods=["noise", "rotation", "trans", "flip", "zoom"]
+            img,
+            augNumber=req.count,
+            augMethods=["noise", "rotation", "trans", "flip", "zoom"],
         ):
             print(f"img data: {aug_img is None}")
             if aug_img is not None:
@@ -93,5 +123,74 @@ async def cv_generate_stream(req: CvAugmentRequest):
 
     return EventSourceResponse(
         image_generator(),
+        media_type="text/event-stream",
+    )
+
+
+meta_prompt = """
+你是专业的视觉提示词工程师，擅长为Stable Diffusion、MidJourney等图像生成模型设计高质量提示词。
+
+请根据我提供的简短中文描述，扩展成一条详细、丰富、英文的Stable Diffusion图像生成Prompt，用于生成高清、高质量图片。
+
+要求如下：
+	•	必须用英文输出
+	•	补充丰富的画面细节（环境、光影、色彩、氛围）
+	•	指定艺术风格（如：真实风格、动漫风、油画风、科幻风、未来感、复古风、3D渲染等，若描述未提及请合理补充）
+	•	添加质量关键词（如：highly detailed、ultra realistic、8K、masterpiece、cinematic lighting、high quality）
+	•	整体风格自然流畅，适合直接用于Stable Diffusion
+
+示例：
+
+输入：一只湖边的猫
+输出：A cute cat sitting by the calm lakeside during golden hour, warm sunset glow reflecting on rippling water, lush green trees in the background, ultra detailed fur, cinematic lighting, photorealistic style, 8K resolution, masterpiece, high quality
+
+请根据以上规则，扩展以下中文描述：
+
+{{prompt}}
+"""
+
+
+@router.post("/sd/prompt/optimize")
+def optimize_prompt(req: PromptOptimizeRequest, db: Session = Depends(get_db)):
+    """
+    优化prompt
+    """
+    tool_model = get_tool_model(db, req.model_id)
+    model: OpenAI = get_model(tool_model)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": meta_prompt.replace("{{prompt}}", req.prompt),
+        },
+    ]
+    # response = model.chat(, model_name=tool_model.model_name)
+    completion = model.chat.completions.create(
+        model=tool_model.model_name,
+        max_tokens=1024,
+        messages=messages,
+        temperature=0.7,
+    )
+    res = completion.choices[0].message.content
+    return create_response(
+        status=200, message="OK", data=PromptOptimizeResponse(prompt=res)
+    )
+
+
+async def __block_call(model: str, prompt: str, ak: str, ref: Optional[str] = None):
+    rsp = ImageSynthesis.call(model=model, prompt=prompt, api_key=ak)
+    if rsp.status_code == HTTPStatus.OK:
+        # save file to current directory
+        for result in rsp.output.results:
+            yield result.url
+    else:
+        yield None
+
+
+@router.post("/sd/generate")
+async def generate_image(req: SdAugmentRequest, db: Session = Depends(get_db)):
+    tool_model = get_tool_model(db, 1)
+    return EventSourceResponse(
+        __block_call(model="flux-schnell", prompt=req.prompt, ak=tool_model.api_key),
         media_type="text/event-stream",
     )

@@ -1,6 +1,7 @@
 import 'package:auto_ml/modules/data_augment/components/card.dart';
 import 'package:auto_ml/modules/data_augment/components/cv_dialog.dart';
 import 'package:auto_ml/modules/data_augment/components/gan_dialog.dart';
+import 'package:auto_ml/modules/data_augment/components/sd_dialog.dart';
 import 'package:flutter/material.dart';
 
 class DataAugmentScreen extends StatefulWidget {
@@ -52,6 +53,16 @@ class _DataAugmentScreenState extends State<DataAugmentScreen> {
               },
             ),
             Hover3DCard(
+              onTap: () {
+                showGeneralDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierLabel: "AugmentationDialog",
+                  pageBuilder: (c, _, _) {
+                    return Center(child: SdDialog());
+                  },
+                );
+              },
               title: "Augmentation Pipeline",
               description: "Customize your augmentation pipeline.",
               imageUrl: "assets/sd.jpeg",

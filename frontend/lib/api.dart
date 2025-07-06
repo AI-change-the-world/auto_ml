@@ -121,4 +121,9 @@ class Api {
   static final String cv = "http://localhost:8000/augment/cv/generate/stream";
 
   static final String getAugData = "/augmentAndQuality/get/image";
+
+  static final String optimize =
+      "http://localhost:8000/augment/sd/prompt/optimize";
+
+  static final String sd = "http://localhost:8000/augment/sd/generate";
 }
