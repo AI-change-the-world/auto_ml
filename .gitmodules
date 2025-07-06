@@ -1,3 +1,6 @@
 [submodule "ai_platform/gd"]
 	path = ai_platform/gd
 	url = https://github.com/IDEA-Research/GroundingDINO
+[submodule "ai_platform/mltools"]
+	path = ai_platform/mltools
+	url = https://github.com/guchengxi1994/mltools
