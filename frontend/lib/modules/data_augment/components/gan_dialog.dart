@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:auto_ml/api.dart';
-import 'package:auto_ml/common/base_response.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/common/sse/sse.dart';
-import 'package:auto_ml/utils/dio_instance.dart';
+import 'package:auto_ml/modules/data_augment/utils.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
 import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
@@ -45,18 +44,6 @@ class _GanDialogState extends State<GanDialog> {
         });
       }
     });
-  }
-
-  Future<String> getPresignUrl(String path) async {
-    final res = await DioClient().instance.post(
-      Api.getAugData,
-      data: {"path": path},
-    );
-    final BaseResponse<String> response = BaseResponse.fromJson(
-      res.data,
-      (json) => json as String,
-    );
-    return response.data.toString();
   }
 
   @override

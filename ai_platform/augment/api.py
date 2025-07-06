@@ -2,11 +2,12 @@ import io
 import time
 import uuid
 
-from sse_starlette import EventSourceResponse
 import torch
 from fastapi import APIRouter
 from PIL import Image
 from pydantic import BaseModel
+from sse_starlette import EventSourceResponse
+
 from augment.simple_gan.model import Generator as Model
 from base.file_delegate import get_operator, s3_properties
 
@@ -20,15 +21,20 @@ class GANRequest(BaseModel):
     count: int
 
 
+class CvAugmentRequest(BaseModel):
+    count: int
+    b64: str
+
+
 router = APIRouter(
     prefix="/augment",
-    tags=["GAN"],
+    tags=["Augment"],
 )
 
 
 # TODO merge to augment, just for demo
 @router.post("/gan/generate/stream")
-async def generate_stream(req: GANRequest):
+async def gan_generate_stream(req: GANRequest):
     """Stream-generated images from the GAN model"""
 
     async def image_generator():
@@ -39,20 +45,51 @@ async def generate_stream(req: GANRequest):
             generated_image = (generated_image * 0.5) + 0.5
             # print(f"shape. {generated_image.shape}" )
             for img_tensor in generated_image:
-                img_tensor = img_tensor.permute(1, 2, 0).clamp(0, 1).mul(255).byte().numpy()
+                img_tensor = (
+                    img_tensor.permute(1, 2, 0).clamp(0, 1).mul(255).byte().numpy()
+                )
                 pil_img = Image.fromarray(img_tensor)
                 buf = io.BytesIO()
                 pil_img.save(buf, format="PNG")
                 buf.seek(0)
-                img_name = str(uuid.uuid4())+".png"
+                img_name = str(uuid.uuid4()) + ".png"
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
                 yield f"path: {img_name}\n"
                 time.sleep(0.5)
-        
+
         # yield "[DONE]"
 
+    return EventSourceResponse(
+        image_generator(),
+        media_type="text/event-stream",
+    )
 
+
+# TODO merge to augment, just for demo
+@router.post("/cv/generate/stream")
+async def cv_generate_stream(req: CvAugmentRequest):
+    """Stream-generated images from the cv model"""
+    from mltools.augmentation.aug_no_label import random_aug_stream
+    from mltools.utils.json2mask.third_party import img_b64_to_arr
+
+    async def image_generator():
+        operator = get_operator(s3_properties.augment_bucket_name)
+        img = img_b64_to_arr(req.b64)
+
+        for aug_img in random_aug_stream(
+            img, augNumber=req.count, augMethods=["noise", "rotation", "trans", "flip", "zoom"]
+        ):
+            print(f"img data: {aug_img is None}")
+            if aug_img is not None:
+                pil_img = Image.fromarray(aug_img)
+                buf = io.BytesIO()
+                pil_img.save(buf, format="PNG")
+                buf.seek(0)
+                img_name = str(uuid.uuid4()) + ".png"
+                img_bytes = buf.getvalue()
+                operator.write(img_name, img_bytes)
+                yield f"path: {img_name}\n"
 
     return EventSourceResponse(
         image_generator(),

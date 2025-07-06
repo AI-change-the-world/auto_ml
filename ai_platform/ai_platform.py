@@ -7,8 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from Aether.api import router as aether_router
+from augment.api import router as augment_router
 from base.nacos_config import init_db_from_nacos
-from gan.api import router as gan_router
 from heartbeat.api import router as heartbeat_router
 from label.api import router as label_router
 from process.api import router as process_router
@@ -39,7 +39,7 @@ app.include_router(yolo_router)
 app.include_router(label_router)
 app.include_router(process_router)
 app.include_router(aether_router)
-app.include_router(gan_router)
+app.include_router(augment_router)
 
 app.add_middleware(
     CORSMiddleware,

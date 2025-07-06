@@ -118,5 +118,7 @@ class Api {
   /// [aug-and-qua] augment and quality
   static final String gan = "http://localhost:8000/augment/gan/generate/stream";
 
+  static final String cv = "http://localhost:8000/augment/cv/generate/stream";
+
   static final String getAugData = "/augmentAndQuality/get/image";
 }
