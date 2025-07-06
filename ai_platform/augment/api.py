@@ -7,7 +7,7 @@ import torch
 from fastapi import APIRouter
 from PIL import Image
 from pydantic import BaseModel
-from gan.simple_gan.model import Generator as Model
+from augment.simple_gan.model import Generator as Model
 from base.file_delegate import get_operator, s3_properties
 
 model_path = "generator.pth"
@@ -21,13 +21,13 @@ class GANRequest(BaseModel):
 
 
 router = APIRouter(
-    prefix="/gan",
+    prefix="/augment",
     tags=["GAN"],
 )
 
 
 # TODO merge to augment, just for demo
-@router.post("/generate/stream")
+@router.post("/gan/generate/stream")
 async def generate_stream(req: GANRequest):
     """Stream-generated images from the GAN model"""
 

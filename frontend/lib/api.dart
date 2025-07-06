@@ -116,7 +116,7 @@ class Api {
   static final String homeIndex = "/home/index";
 
   /// [aug-and-qua] augment and quality
-  static final String gan = "http://localhost:8000/gan/generate/stream";
+  static final String gan = "http://localhost:8000/augment/gan/generate/stream";
 
   static final String getAugData = "/augmentAndQuality/get/image";
 }
