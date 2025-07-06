@@ -13,3 +13,5 @@ sse_starlette==2.2.1
 supervision==0.25.1
 ultralytics==8.3.91
 uvicorn==0.34.2
+lpips
+pytorch-fid
