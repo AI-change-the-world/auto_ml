@@ -29,7 +29,7 @@ messages = [
             "你是一位专业图像分析师，擅长分析两张图像之间的视觉相似性、结构差异和语义一致性。"
             "请先描述两张图像的内容，然后判断它们是否属于同一场景或数据分布，接着指出细节差异，最后打分并总结。"
             "请输出结构化结果，便于程序提取评分与分析信息。"
-        )
+        ),
     },
     {
         "role": "user",
@@ -54,18 +54,24 @@ messages = [
                     "- 色彩差异：<描述>\n"
                     "- 结构差异：<描述>\n"
                     "- 其他观察：<描述>"
-                )
+                ),
             },
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/jpeg;base64,{real_img_b64}",
-                "detail": "high"
-            }},
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/jpeg;base64,{gen_img_b64}",
-                "detail": "high"
-            }},
-        ]
-    }
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{real_img_b64}",
+                    "detail": "high",
+                },
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{gen_img_b64}",
+                    "detail": "high",
+                },
+            },
+        ],
+    },
 ]
 
 
