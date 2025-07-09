@@ -3,3 +3,4 @@
 /output/
 /good/
 *.png
+!/resources/augment.png
