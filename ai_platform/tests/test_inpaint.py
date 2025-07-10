@@ -1,8 +1,9 @@
 import base64
-import cv2
-import numpy as np
 import json
 import os
+
+import cv2
+import numpy as np
 from openai import OpenAI
 
 # ========== 配置 ==========

@@ -1,6 +1,6 @@
 import lpips
-from torch import Tensor
 import torch
+from torch import Tensor
 
 loss_fn = lpips.LPIPS(net="squeeze").cuda()
 

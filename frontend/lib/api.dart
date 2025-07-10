@@ -126,4 +126,6 @@ class Api {
       "http://localhost:8000/augment/sd/prompt/optimize";
 
   static final String sd = "http://localhost:8000/augment/sd/generate";
+
+  static final String measure = "http://localhost:8000/augment/measure/stream";
 }

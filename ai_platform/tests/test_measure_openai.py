@@ -1,6 +1,7 @@
-from openai import OpenAI
 import base64
 import os
+
+from openai import OpenAI
 
 vl_model = OpenAI(
     api_key=os.environ.get("APIKEY"),

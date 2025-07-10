@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import io
 import time
 import uuid
@@ -52,6 +54,12 @@ class PromptOptimizeResponse(BaseModel):
 
 class SdAugmentResponse(BaseModel):
     img_url: str
+
+
+class MeasureRequest(BaseModel):
+    img1: str
+    img2: str
+    model_id: int
 
 
 router = APIRouter(
@@ -192,5 +200,29 @@ async def generate_image(req: SdAugmentRequest, db: Session = Depends(get_db)):
     tool_model = get_tool_model(db, 1)
     return EventSourceResponse(
         __block_call(model="flux-schnell", prompt=req.prompt, ak=tool_model.api_key),
+        media_type="text/event-stream",
+    )
+
+
+@router.post("/measure/stream")
+async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
+    from augment.measure import cnn_measure, openai_measure
+
+    tool_model = get_tool_model(db, req.model_id)
+
+    async def measure_generator():
+        loop = asyncio.get_event_loop()
+        # f = await loop.run_in_executor(
+        #     None, functools.partial(cnn_measure, req.img1, req.img2)
+        # )
+        # yield f"score: {f}\n"
+        await asyncio.sleep(0.5)
+        s = await loop.run_in_executor(
+            None, functools.partial(openai_measure, req.img1, req.img2, tool_model)
+        )
+        yield f"{s}\n"
+
+    return EventSourceResponse(
+        measure_generator(),
         media_type="text/event-stream",
     )
