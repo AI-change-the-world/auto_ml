@@ -9,8 +9,8 @@ from torchvision.utils import save_image
 
 def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    epochs = 100
-    batch_size = 2
+    epochs = 10000
+    batch_size = 32
     lr = 2e-4
 
     G_AB = Generator().to(device)
@@ -24,11 +24,11 @@ def train():
     opt_G = torch.optim.Adam(
         list(G_AB.parameters()) + list(G_BA.parameters()), lr=lr, betas=(0.5, 0.999)
     )
-    opt_D_A = torch.optim.Adam(D_A.parameters(), lr=lr, betas=(0.5, 0.999))
-    opt_D_B = torch.optim.Adam(D_B.parameters(), lr=lr, betas=(0.5, 0.999))
+    opt_D_A = torch.optim.Adam(D_A.parameters(), lr=lr / 2, betas=(0.5, 0.999))
+    opt_D_B = torch.optim.Adam(D_B.parameters(), lr=lr / 2, betas=(0.5, 0.999))
 
-    dataset_A = ImageFolderDataset("./data/good")
-    dataset_B = ImageFolderDataset("./data/defect")
+    dataset_A = ImageFolderDataset("./good_92")
+    dataset_B = ImageFolderDataset("./defect")
     loader_A = DataLoader(dataset_A, batch_size=batch_size, shuffle=True)
     loader_B = DataLoader(dataset_B, batch_size=batch_size, shuffle=True)
 
@@ -73,9 +73,11 @@ def train():
             f"[Epoch {epoch+1}] G: {loss_G.item():.4f} | D_A: {loss_D_A.item():.4f} | D_B: {loss_D_B.item():.4f}"
         )
 
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % 1000 == 0:
             save_image((fake_B * 0.5 + 0.5), f"./outputs/fakeB_epoch{epoch+1}.png")
             save_image((fake_A * 0.5 + 0.5), f"./outputs/fakeA_epoch{epoch+1}.png")
+
+    torch.save(G_AB.to("cpu").state_dict(), "./outputs/generator_A.pth")
 
 
 if __name__ == "__main__":

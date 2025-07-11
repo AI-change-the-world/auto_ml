@@ -7,59 +7,25 @@ from http import HTTPStatus
 from typing import Optional
 
 import torch
-from dashscope import ImageSynthesis
-from fastapi import APIRouter, Depends
-from openai import OpenAI
-from PIL import Image
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from sse_starlette import EventSourceResponse
-
-from augment.simple_gan.model import Generator as Model
 from base import create_response
 from base.file_delegate import get_operator, s3_properties
 from base.nacos_config import get_db
+from dashscope import ImageSynthesis
 from db.tool_model.tool_model_crud import get_tool_model
+from fastapi import APIRouter, Depends
 from label.client import get_model
+from openai import OpenAI
+from PIL import Image
+from sqlalchemy.orm import Session
+from sse_starlette import EventSourceResponse
+
+from augment.req_and_resp import *
+from augment.simple_gan.model import Generator as Model
 
 model_path = "generator.pth"
 
 model = Model(z_dim=2048, img_channels=3).to("cpu")
 model.load_state_dict(torch.load(model_path))
-
-
-class GANRequest(BaseModel):
-    count: int
-
-
-class CvAugmentRequest(BaseModel):
-    count: int
-    b64: str
-
-
-class SdAugmentRequest(BaseModel):
-    count: int
-    prompt: str
-
-
-class PromptOptimizeRequest(BaseModel):
-    model_id: int
-    prompt: str
-    ref: Optional[str] = None
-
-
-class PromptOptimizeResponse(BaseModel):
-    prompt: str
-
-
-class SdAugmentResponse(BaseModel):
-    img_url: str
-
-
-class MeasureRequest(BaseModel):
-    img1: str
-    img2: str
-    model_id: int
 
 
 router = APIRouter(
@@ -226,3 +192,13 @@ async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
         measure_generator(),
         media_type="text/event-stream",
     )
+
+
+@router.get("/graph/embedded/{model_id}")
+def get_graph(model_id: str):
+    pass
+
+
+@router.post("/train")
+async def train(req: GANTrainRequest, db: Session = Depends(get_db)):
+    pass

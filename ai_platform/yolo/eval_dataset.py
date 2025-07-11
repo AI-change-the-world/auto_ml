@@ -12,11 +12,11 @@ from tqdm import tqdm
 
 from base.file_delegate import get_operator, s3_properties
 from base.nacos_config import get_sync_db
+from base.tools import download_from_s3
 from db.annotation.annotation_crud import get_annotation
 from db.dataset.dataset_crud import get_dataset
 from db.task_log.task_log_crud import create_log
 from db.task_log.task_log_schema import TaskLogCreate
-from yolo.tools import download_from_s3
 
 
 class ObjectStatsSummary(BaseModel):
