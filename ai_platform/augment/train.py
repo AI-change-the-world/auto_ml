@@ -71,7 +71,6 @@ def __train_simple_gan(req: GANTrainRequest, session: Session):
     os.mkdir(f"./runs/{folder_name}")
 
     try:
-
         temp_dataset_path = f"./runs/{folder_name}/dataset"
         os.mkdir(temp_dataset_path)
         output_path = f"./runs/{folder_name}/output"
@@ -266,7 +265,6 @@ def __train_cycle_gan(req: GANTrainRequest, session: Session):
     os.mkdir(f"./runs/{folder_name}")
 
     try:
-
         temp_dataset_path = f"./runs/{folder_name}/dataset"
         os.mkdir(temp_dataset_path)
         temp_target_path = f"./runs/{folder_name}/target"

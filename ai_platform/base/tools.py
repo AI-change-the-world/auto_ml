@@ -12,6 +12,7 @@ def download_from_s3(op: opendal.Operator, s3_path: str, local_path: str):
         logger.error(f"Error downloading from S3: {e}")
         pass
 
+
 def upload_to_s3(op: opendal.Operator, local_path: str, s3_path: str):
     try:
         with open(local_path, "rb") as f:

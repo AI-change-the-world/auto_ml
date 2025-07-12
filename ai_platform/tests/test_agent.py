@@ -9,9 +9,7 @@ from qwen_agent.tools.base import BaseTool, register_tool
 # 注册自定义图像生成工具
 @register_tool("my_image_gen")
 class MyImageGen(BaseTool):
-    description = (
-        "AI 绘画（图像生成）服务，输入文本描述，返回基于文本信息绘制的图像 URL。"
-    )
+    description = "AI 绘画（图像生成）服务，输入文本描述，返回基于文本信息绘制的图像 URL。"
     parameters = [
         {
             "name": "prompt",
@@ -39,7 +37,9 @@ llm_cfg = {
 }
 
 # 系统指令（可以简化，聚焦图像生成）
-system_instruction = """你是一个图像生成助手，用户输入图像描述后，你调用 my_image_gen 工具生成图像，并返回图像的 URL。请用中文简洁回复。"""
+system_instruction = (
+    """你是一个图像生成助手，用户输入图像描述后，你调用 my_image_gen 工具生成图像，并返回图像的 URL。请用中文简洁回复。"""
+)
 
 # 创建智能体
 tools = ["my_image_gen"]
