@@ -6,14 +6,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from base.file_delegate import get_operator, s3_properties
-from base.logger import logger
-from base.nacos_config import get_sync_db
-from base.tools import download_from_s3, upload_to_s3
-from db.available_models.available_models_crud import create_available_model
-from db.dataset.dataset_crud import get_dataset
-from db.task_log.task_log_crud import create_log
-from db.task_log.task_log_schema import TaskLogCreate
 from PIL import Image
 from sqlalchemy.orm import Session
 from torch.utils.data import DataLoader, Dataset
@@ -23,6 +15,14 @@ from tqdm import tqdm
 import augment.simple_cycle_gan.model as cycle_gan
 import augment.simple_gan.model as gan
 from augment.req_and_resp import GANTrainRequest
+from base.file_delegate import get_operator, s3_properties
+from base.logger import logger
+from base.nacos_config import get_sync_db
+from base.tools import download_from_s3, upload_to_s3
+from db.available_models.available_models_crud import create_available_model
+from db.dataset.dataset_crud import get_dataset
+from db.task_log.task_log_crud import create_log
+from db.task_log.task_log_schema import TaskLogCreate
 
 
 class __Dataset(Dataset):
@@ -69,6 +69,7 @@ def __train_simple_gan(req: GANTrainRequest, session: Session):
     create_log(session, tlc)
 
     os.mkdir(f"./runs/{folder_name}")
+    lambda_l1 = 10
 
     try:
         temp_dataset_path = f"./runs/{folder_name}/dataset"
@@ -128,6 +129,7 @@ def __train_simple_gan(req: GANTrainRequest, session: Session):
         D = gan.Discriminator(image_channels).to(device)
 
         criterion = nn.BCEWithLogitsLoss()
+        l1_loss = nn.L1Loss()
         optimizer_G = torch.optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.999))
         optimizer_D = torch.optim.Adam(D.parameters(), lr=lr / 2, betas=(0.5, 0.999))
         scaler = torch.amp.GradScaler()
@@ -166,6 +168,8 @@ def __train_simple_gan(req: GANTrainRequest, session: Session):
                     fake_imgs = G(z)
                     d_fake = D(fake_imgs)
                     loss_G = criterion(d_fake, real_labels)
+                    recon_loss = l1_loss(fake_imgs, real_imgs)
+                    loss_G = loss_G + lambda_l1 * recon_loss
                 optimizer_G.zero_grad()
                 scaler.scale(loss_G).backward()
                 scaler.step(optimizer_G)

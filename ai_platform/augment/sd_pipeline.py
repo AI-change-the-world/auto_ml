@@ -1,11 +1,9 @@
 import random
+from typing import List, Optional
 
 import torch
-from diffusers import (
-    AutoPipelineForImage2Image,
-    AutoPipelineForInpainting,
-    AutoPipelineForText2Image,
-)
+from diffusers import (AutoPipelineForImage2Image, AutoPipelineForInpainting,
+                       AutoPipelineForText2Image)
 from PIL import Image, ImageDraw
 
 model_path = "/root/models/sd35"
@@ -20,7 +18,6 @@ class StableDiffusionUnified:
             torch_dtype=torch_dtype,
         ).to(device)
 
-        # 共享 base 构建 img2img 和 inpaint
         self._pipeline_img2img = AutoPipelineForImage2Image.from_pipe(self._base)
         self._pipeline_inpaint = AutoPipelineForInpainting.from_pipe(self._base)
         self.device = device
@@ -28,59 +25,85 @@ class StableDiffusionUnified:
     def text2img(
         self,
         prompt: str,
-        width=512,
-        height=512,
-        steps=30,
-        guidance_scale=7.5,
-        seed=None,
-    ) -> Image.Image:
-        generator = torch.manual_seed(seed) if seed else None
-        return self._base(
+        negative_prompt: Optional[str] = None,
+        width: int = 512,
+        height: int = 512,
+        steps: int = 30,
+        guidance_scale: float = 7.5,
+        seed: Optional[int] = None,
+        num_images_per_prompt: int = 1,
+        output_type: str = "pil",
+    ) -> List[Image.Image]:
+        generator = torch.manual_seed(seed) if seed is not None else None
+        result = self._base(
             prompt=prompt,
+            negative_prompt=negative_prompt,
             width=width,
             height=height,
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=generator,
-        ).images[0]
+            num_images_per_prompt=num_images_per_prompt,
+            output_type=output_type,
+        )
+        return result.images
 
     def img2img(
         self,
         prompt: str,
         image: Image.Image,
-        strength=0.5,
-        steps=30,
-        guidance_scale=7.5,
-        seed=None,
-    ) -> Image.Image:
-        generator = torch.manual_seed(seed) if seed else None
-        return self._pipeline_img2img(
+        strength: float = 0.5,
+        steps: int = 30,
+        guidance_scale: float = 7.5,
+        seed: Optional[int] = None,
+        negative_prompt: Optional[str] = None,
+        num_images_per_prompt: int = 1,
+        output_type: str = "pil",
+    ) -> List[Image.Image]:
+        generator = torch.manual_seed(seed) if seed is not None else None
+        result = self._pipeline_img2img(
             prompt=prompt,
             image=image,
             strength=strength,
+            negative_prompt=negative_prompt,
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=generator,
-        ).images[0]
+            num_images_per_prompt=num_images_per_prompt,
+            output_type=output_type,
+        )
+        return result.images
 
     def inpaint(
         self,
         prompt: str,
         image: Image.Image,
         mask: Image.Image,
-        steps=30,
-        guidance_scale=7.5,
-        seed=None,
-    ) -> Image.Image:
-        generator = torch.manual_seed(seed) if seed else None
-        return self._pipeline_inpaint(
+        steps: int = 30,
+        guidance_scale: float = 7.5,
+        seed: Optional[int] = None,
+        negative_prompt: Optional[str] = None,
+        num_images_per_prompt: int = 1,
+        output_type: str = "pil",
+    ) -> List[Image.Image]:
+        generator = torch.manual_seed(seed) if seed is not None else None
+
+        # 确保 mask 与 image 同尺寸
+        if mask.size != image.size:
+            mask = mask.resize(image.size)
+
+        result = self._pipeline_inpaint(
             prompt=prompt,
             image=image,
             mask_image=mask,
+            negative_prompt=negative_prompt,
             num_inference_steps=steps,
             guidance_scale=guidance_scale,
             generator=generator,
-        ).images[0]
+            num_images_per_prompt=num_images_per_prompt,
+            output_type=output_type,
+        )
+        return result.images
 
 
 def generate_prompt(region_defects):
@@ -127,98 +150,135 @@ def inpaint(
 
 
 if __name__ == "__main__":
-    import base64
-    import json
-    import os
-
-    from openai import OpenAI
-
-    vl_model = OpenAI(
-        api_key=os.environ.get("APIKEY"),
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    )
     sd = StableDiffusionUnified(model_path=model_path)
-    img_path = "./train/20240518110431.jpg"
 
-    def encode_image_to_base64(image_path):
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+    # === 读取参考图像 ===
+    ref_image_path = "ref.jpg"
+    ref_image = (
+        Image.open(ref_image_path).convert("RGB").resize((768, 512))
+    )  # 3:2 建筑图常用比例
 
-    img_base64 = encode_image_to_base64(img_path)
-
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": """
-请从图像中识别可能出现细微建筑缺陷的位置，例如墙面轻微裂缝、剥落、地面污渍等。
-
-要求：
-1. **缺陷应为小范围区域**（不应包含整面墙或整片地面）。
-2. **缺陷区域要贴近真实场景，尽量靠边角或边缘**。
-3. 每个缺陷输出格式为：{
-   "possible_defects": 缺陷类型,
-   "region": 所在区域（如墙、地面、柱子等）,
-   "bbox": 缺陷区域的边界框 [x0, y0, x1, y1]
-}
-
-只返回 2~4 个缺陷区域。
-
-请以如下 JSON 格式输出：
-[
-  {"region": "墙面", "bbox": [x0, y0, x1, y1], "possible_defects": ["裂缝", "掉漆", "霉斑"]},
-  {"region": "地面", "bbox": [x0, y0, x1, y1], "possible_defects": ["水渍", "污渍"]},
-  ...
-]
-                """,
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/png;base64,{img_base64}",
-                        "detail": "high",
-                    },
-                },
-            ],
-        },
-    ]
-
-    completion = vl_model.chat.completions.create(
-        model="qwen-vl-max-latest",
-        # model = "moonshot-v1-128k-vision-preview",
-        max_tokens=1024,
-        messages=messages,
-        temperature=0.7,
+    # === 构造高质量 prompt ===
+    prompt = (
+        "A realistic construction site with cranes, scaffolding, partially built concrete buildings, and workers in safety vests. "
+        "Dusty ground, industrial materials, cloudy sky. Photographed with a DSLR, wide-angle, photorealistic, daytime documentary style."
     )
 
-    result = (
-        completion.choices[0].message.content.replace("```json", "").replace("```", "")
-    )
-    region_info = []
-    try:
-        region_info = json.loads(result)
-    except:
-        print(f"JSON 解析失败====> {result}")
-    ori_image = Image.open(img_path)
-    refined_region_info = []
-    for region in region_info:
-        refined_bbox = refine_bbox(region["bbox"], ori_image.size, scale=0.2)
-        refined_region_info.append(
-            {
-                "region": region["region"],
-                "bbox": refined_bbox,
-                "possible_defects": region["possible_defects"],
-            }
-        )
-    mask = generate_mask(ori_image.size, [r["bbox"] for r in refined_region_info])
-    mask.save("output_mask.png")
-    prompt = generate_prompt(region_info)
-    print(f"[Prompt] {prompt}")
+    negative_prompt = "blurry, cartoon, painting, anime, fantasy, cgi, oversaturated, low quality, smooth, unrealistic, digital art"
 
-    inpainted = inpaint(ori_image, mask, sd, prompt=prompt)
-    inpainted.save("output_inpaint.png")
+    # === 使用 img2img 生成图像 ===
+    result_images = sd.img2img(
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        image=ref_image,
+        strength=0.45,  # 越低越像原图（0.3~0.6 建议）
+        steps=40,
+        guidance_scale=6.5,
+        seed=12345,
+        num_images_per_prompt=3,
+        output_type="pil",
+    )
+
+    # === 保存输出 ===
+    for i, img in enumerate(result_images):
+        img.save(f"generated_{i}.png")
+
+    print("✅ 图像生成完成，共生成", len(result_images), "张")
+
+
+# if __name__ == "__main__":
+#     import base64
+#     import json
+#     import os
+
+#     from openai import OpenAI
+
+#     vl_model = OpenAI(
+#         api_key=os.environ.get("APIKEY"),
+#         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+#     )
+#     sd = StableDiffusionUnified(model_path=model_path)
+#     img_path = "./train/20240518110431.jpg"
+
+#     def encode_image_to_base64(image_path):
+#         with open(image_path, "rb") as f:
+#             return base64.b64encode(f.read()).decode("utf-8")
+
+#     img_base64 = encode_image_to_base64(img_path)
+
+#     messages = [
+#         {
+#             "role": "user",
+#             "content": [
+#                 {
+#                     "type": "text",
+#                     "text": """
+# 请从图像中识别可能出现细微建筑缺陷的位置，例如墙面轻微裂缝、剥落、地面污渍等。
+
+# 要求：
+# 1. **缺陷应为小范围区域**（不应包含整面墙或整片地面）。
+# 2. **缺陷区域要贴近真实场景，尽量靠边角或边缘**。
+# 3. 每个缺陷输出格式为：{
+#    "possible_defects": 缺陷类型,
+#    "region": 所在区域（如墙、地面、柱子等）,
+#    "bbox": 缺陷区域的边界框 [x0, y0, x1, y1]
+# }
+
+# 只返回 2~4 个缺陷区域。
+
+# 请以如下 JSON 格式输出：
+# [
+#   {"region": "墙面", "bbox": [x0, y0, x1, y1], "possible_defects": ["裂缝", "掉漆", "霉斑"]},
+#   {"region": "地面", "bbox": [x0, y0, x1, y1], "possible_defects": ["水渍", "污渍"]},
+#   ...
+# ]
+#                 """,
+#                 },
+#                 {
+#                     "type": "image_url",
+#                     "image_url": {
+#                         "url": f"data:image/png;base64,{img_base64}",
+#                         "detail": "high",
+#                     },
+#                 },
+#             ],
+#         },
+#     ]
+
+#     completion = vl_model.chat.completions.create(
+#         model="qwen-vl-max-latest",
+#         # model = "moonshot-v1-128k-vision-preview",
+#         max_tokens=1024,
+#         messages=messages,
+#         temperature=0.7,
+#     )
+
+#     result = (
+#         completion.choices[0].message.content.replace("```json", "").replace("```", "")
+#     )
+#     region_info = []
+#     try:
+#         region_info = json.loads(result)
+#     except:
+#         print(f"JSON 解析失败====> {result}")
+#     ori_image = Image.open(img_path)
+#     refined_region_info = []
+#     for region in region_info:
+#         refined_bbox = refine_bbox(region["bbox"], ori_image.size, scale=0.2)
+#         refined_region_info.append(
+#             {
+#                 "region": region["region"],
+#                 "bbox": refined_bbox,
+#                 "possible_defects": region["possible_defects"],
+#             }
+#         )
+#     mask = generate_mask(ori_image.size, [r["bbox"] for r in refined_region_info])
+#     mask.save("output_mask.png")
+#     prompt = generate_prompt(region_info)
+#     print(f"[Prompt] {prompt}")
+
+#     inpainted = inpaint(ori_image, mask, sd, prompt=prompt)
+#     inpainted.save("output_inpaint.png")
 
 
 # if __name__ == "__main__":

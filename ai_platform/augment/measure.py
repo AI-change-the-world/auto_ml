@@ -1,5 +1,6 @@
 import lpips
 import torch
+
 from label.client import get_model
 from label.tools import base64_to_cv2_image
 

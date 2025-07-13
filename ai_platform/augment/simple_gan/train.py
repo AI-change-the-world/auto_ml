@@ -15,6 +15,7 @@ image_channels = 3
 batch_size = 16
 epochs = 1000  # recommended: 1000 or less
 lr = 2e-4
+lambda_l1 = 10
 save_interval = 100
 model_dump_interval = 500
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,6 +28,7 @@ G = Generator(z_dim, image_channels).to(device)
 D = Discriminator(image_channels).to(device)
 
 criterion = nn.BCEWithLogitsLoss()
+l1_loss = nn.L1Loss()
 optimizer_G = torch.optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.999))
 optimizer_D = torch.optim.Adam(D.parameters(), lr=lr / 2, betas=(0.5, 0.999))
 
@@ -61,6 +63,8 @@ for epoch in range(epochs):
             fake_imgs = G(z)
             d_fake = D(fake_imgs)
             loss_G = criterion(d_fake, real_labels)
+            recon_loss = l1_loss(fake_imgs, real_imgs)
+            loss_G = loss_G + lambda_l1 * recon_loss
         optimizer_G.zero_grad()
         scaler.scale(loss_G).backward()
         scaler.step(optimizer_G)

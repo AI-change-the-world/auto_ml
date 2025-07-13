@@ -7,13 +7,8 @@ from http import HTTPStatus
 from typing import Optional
 
 import torch
-from base import create_response
-from base.file_delegate import get_operator, s3_properties
-from base.nacos_config import get_db
 from dashscope import ImageSynthesis
-from db.tool_model.tool_model_crud import get_tool_model
 from fastapi import APIRouter, Depends
-from label.client import get_model
 from openai import OpenAI
 from PIL import Image
 from sqlalchemy.orm import Session
@@ -21,6 +16,11 @@ from sse_starlette import EventSourceResponse
 
 from augment.req_and_resp import *
 from augment.simple_gan.model import Generator as Model
+from base import create_response
+from base.file_delegate import get_operator, s3_properties
+from base.nacos_config import get_db
+from db.tool_model.tool_model_crud import get_tool_model
+from label.client import get_model
 
 model_path = "generator.pth"
 

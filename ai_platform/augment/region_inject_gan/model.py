@@ -1,6 +1,28 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.models as models
+import torchvision.transforms as transforms
+
+
+class VGGPerceptualLoss(nn.Module):
+    def __init__(self, resize=True):
+        super().__init__()
+        blocks = models.vgg16(pretrained=True).features[:16]  # Conv1~Conv3
+        self.blocks = nn.Sequential(*blocks).eval()
+        for p in self.blocks.parameters():
+            p.requires_grad = False
+        self.resize = resize
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).cuda()
+        self.std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).cuda()
+
+    def forward(self, input, target):
+        input = (input + 1) / 2  # [-1,1] => [0,1]
+        target = (target + 1) / 2
+        input = (input - self.mean) / self.std
+        target = (target - self.mean) / self.std
+        return nn.functional.l1_loss(self.blocks(input), self.blocks(target))
+
 
 # ------------------------
 # Self-Attention 模块
@@ -117,9 +139,9 @@ class InjectGenerator(nn.Module):
         self.fc = nn.Linear(z_dim, 8 * 8 * 512)
 
         self.block1 = nn.Sequential(
-            nn.BatchNorm2d(513),  # 512 + 1(mask)
+            nn.BatchNorm2d(516),  # 512(z) + 1(mask) + 3(bg)
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(513, 256, 3, 1, 1),
+            nn.Conv2d(516, 256, 3, 1, 1),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace=False),
         )
@@ -148,13 +170,18 @@ class InjectGenerator(nn.Module):
             nn.LeakyReLU(0.2, inplace=False),
             nn.Upsample(scale_factor=2),
             nn.Conv2d(32, img_channels, 3, 1, 1),
-            nn.Tanh()
+            nn.Tanh(),
         )
 
-    def forward(self, z, mask):
+    def forward(self, z, mask, bg_img=None):
         x = self.fc(z).view(-1, 512, 8, 8)
-        mask = F.interpolate(mask, size=(8, 8), mode='nearest')
-        x = torch.cat([x, mask], dim=1)
+        mask = F.interpolate(mask, size=(8, 8), mode="nearest")
+        # x = torch.cat([x, mask], dim=1)
+        if bg_img is not None:
+            bg_feat = F.interpolate(bg_img, size=(8, 8))
+            x = torch.cat([x, mask, bg_feat], dim=1)  # 输入更多上下文
+        else:
+            x = torch.cat([x, mask], dim=1)
         x = self.block1(x)
         x = self.res1(x)
         x = self.block2(x)
@@ -173,23 +200,26 @@ class Discriminator(nn.Module):
         self.net = nn.Sequential(
             nn.Conv2d(img_channels, 64, 4, stride=2, padding=1),  # 128x128
             nn.LeakyReLU(0.2, inplace=False),
+            nn.Dropout2d(0.25),
             nn.Conv2d(64, 128, 4, stride=2, padding=1),  # 64x64
             nn.BatchNorm2d(128),
             nn.LeakyReLU(0.2, inplace=False),
+            nn.Dropout2d(0.25),
             nn.Conv2d(128, 256, 4, stride=2, padding=1),  # 32x32
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace=False),
+            nn.Dropout2d(0.25),
             SelfAttention(256),
             nn.Conv2d(256, 512, 4, stride=2, padding=1),  # 16x16
             nn.BatchNorm2d(512),
             nn.LeakyReLU(0.2, inplace=False),
+            nn.Dropout2d(0.25),
             nn.Conv2d(512, 1, 4, stride=2, padding=1),  # 8x8
-            nn.Sigmoid()
         )
 
     def forward(self, x):
         return self.net(x)
-    
+
 
 class BgDiscriminator(nn.Module):
     def __init__(self, img_channels):
