@@ -4,6 +4,48 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+class SDInitializeRequest(BaseModel):
+    enable_img2img: Optional[bool] = False
+    enable_inpaint: Optional[bool] = False
+    model_path: Optional[str] = "/root/models/sd3m"
+
+
+class SdAugmentRequest(BaseModel):
+    """
+    A model representing the parameters required for initiating SD augmentation.
+
+    Attributes:
+        job_type (str): The type of job to be performed. It can be 'txt2img', 'img2img', or 'inpaint'.
+        lora_name (Optional[str]): The name of the LoRA (Local Rank-one Adaptation) module, if any.
+        prompt (str): The prompt text for generating images.
+        negative_prompt (Optional[str]): Negative prompt text to avoid certain features in the generated images.
+        width (int): The width of the generated images. Default is 1024.
+        height (int): The height of the generated images. Default is 1024.
+        steps (int): The number of steps in the generation process. Default is 30.
+        guidance_scale (float): The scale of guidance for the generation process. Default is 7.5.
+        seed (int): The random seed for the generation process. Default is 123.
+        count (int): The number of images to generate. Default is 5.
+        img (Optional[str]): Base64 encoded image data, required only for 'img2img' and 'inpaint' job types.
+        mask (Optional[str]): Base64 encoded mask image data, required only for 'inpaint' job type.
+        prompt_optimize (bool): Flag indicating whether to optimize the prompt. Default is False.
+    """
+
+    job_type: str  # [txt2img, img2img, inpaint]
+    lora_name: Optional[str] = None
+    prompt: str
+    negative_prompt: Optional[str] = None
+    width: int = 1024
+    height: int = 1024
+    steps: int = 30
+    guidance_scale: float = 7.5
+    seed: int = 123
+    count: int = 5
+    img: Optional[str] = None
+    mask: Optional[str] = None
+    # only for img to img augmentation
+    prompt_optimize: bool = False
+
+
 class GANTrainRequest(BaseModel):
     """
     A model representing the parameters required for initiating GAN training.
@@ -55,11 +97,7 @@ class GANRequest(BaseModel):
 class CvAugmentRequest(BaseModel):
     count: int
     b64: str
-
-
-class SdAugmentRequest(BaseModel):
-    count: int
-    prompt: str
+    types : list[str] = []
 
 
 class PromptOptimizeRequest(BaseModel):

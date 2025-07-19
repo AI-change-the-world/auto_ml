@@ -47,7 +47,10 @@ class InjectDataset(Dataset):
             ]
         )
         self.mask_transform = transforms.Compose(
-            [transforms.Resize((image_size, image_size)), transforms.ToTensor()]  # 不归一化
+            [
+                transforms.Resize((image_size, image_size)),
+                transforms.ToTensor(),
+            ]  # 不归一化
         )
 
     def __len__(self):
@@ -59,7 +62,7 @@ class InjectDataset(Dataset):
         mask = Image.open(self.mask_paths[idx]).convert("L")  # 单通道
 
         mask = self.mask_transform(mask)  # shape: [1, H, W]
-        mask = (mask > 0.5).float()       # 二值化，强制 0 或 1
+        mask = (mask > 0.5).float()  # 二值化，强制 0 或 1
 
         return {
             # "clean": self.transform(clean),

@@ -40,8 +40,8 @@ Future sse(
       }
     })
     ..onError.listen((err) {
-      logger.e("onError $err");
-      ss.sink.add("[DONE] onError $err");
+      logger.e("onError ${err.toString()}");
+      ss.sink.add("[Error] ${err.toString()}");
     })
     ..onLoadEnd.listen((fur) {
       /// TODO 处理所有收到的数据

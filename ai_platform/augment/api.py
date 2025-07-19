@@ -7,7 +7,6 @@ from http import HTTPStatus
 from typing import Optional
 
 import torch
-from dashscope import ImageSynthesis
 from fastapi import APIRouter, Depends
 from openai import OpenAI
 from PIL import Image
@@ -15,9 +14,12 @@ from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 
 from augment.req_and_resp import *
+from augment.sd_pipeline import StableDiffusionUnified, reserved_lora_modules
 from augment.simple_gan.model import Generator as Model
 from base import create_response
+from base.deprecated import deprecated
 from base.file_delegate import get_operator, s3_properties
+from base.logger import logger
 from base.nacos_config import get_db
 from db.tool_model.tool_model_crud import get_tool_model
 from label.client import get_model
@@ -74,6 +76,11 @@ async def cv_generate_stream(req: CvAugmentRequest):
     """Stream-generated images from the cv model"""
     from mltools.augmentation.aug_no_label import random_aug_stream
     from mltools.utils.json2mask.third_party import img_b64_to_arr
+    if req.types is None or len(req.types) == 0:
+        logger.info("[cv augmentation] no types provided, using default: [rotation]")
+        req.types = [
+            "rotation",
+        ]
 
     async def image_generator():
         operator = get_operator(s3_properties.augment_bucket_name)
@@ -82,9 +89,10 @@ async def cv_generate_stream(req: CvAugmentRequest):
         for aug_img in random_aug_stream(
             img,
             augNumber=req.count,
-            augMethods=["noise", "rotation", "trans", "flip", "zoom"],
+            augMethods= req.types,
         ):
-            print(f"img data: {aug_img is None}")
+            # print(f"img data: {aug_img is None}")
+            logger.info(f"[cv augmentation] img data is None? : {aug_img is None}")
             if aug_img is not None:
                 pil_img = Image.fromarray(aug_img)
                 buf = io.BytesIO()
@@ -151,24 +159,6 @@ def optimize_prompt(req: PromptOptimizeRequest, db: Session = Depends(get_db)):
     )
 
 
-async def __block_call(model: str, prompt: str, ak: str, ref: Optional[str] = None):
-    rsp = ImageSynthesis.call(model=model, prompt=prompt, api_key=ak)
-    if rsp.status_code == HTTPStatus.OK:
-        # save file to current directory
-        for result in rsp.output.results:
-            yield result.url
-    else:
-        yield None
-
-
-@router.post("/sd/generate")
-async def generate_image(req: SdAugmentRequest, db: Session = Depends(get_db)):
-    tool_model = get_tool_model(db, 1)
-    return EventSourceResponse(
-        __block_call(model="flux-schnell", prompt=req.prompt, ak=tool_model.api_key),
-        media_type="text/event-stream",
-    )
-
 
 @router.post("/measure/stream")
 async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
@@ -202,3 +192,67 @@ def get_graph(model_id: str):
 @router.post("/train")
 async def train(req: GANTrainRequest, db: Session = Depends(get_db)):
     pass
+
+
+SD_CLIENT: Optional[StableDiffusionUnified] = None
+
+
+@router.post("/sd/initialize")
+async def initialize_sd(req: SDInitializeRequest):
+    global SD_CLIENT
+    SD_CLIENT = StableDiffusionUnified(
+        req.model_path, req.enable_img2img, req.enable_inpaint
+    )
+    return {"status": "ok"}
+
+
+@router.post("/sd/generate")
+async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
+    global SD_CLIENT
+    if SD_CLIENT is None:
+        logger.error("SD_CLIENT is not initialized")
+        return {"status": "error", "message": "SD_CLIENT is not initialized"}
+    operator = get_operator(s3_properties.augment_bucket_name)
+    if req.job_type == "img2img":
+        if req.img is None:
+            return {"status": "error", "message": "img is required"}
+        return {"status": "ok"}
+
+    if req.job_type == "inpaint":
+        if req.img is None or req.mask is None:
+            return {"status": "error", "message": "img and mask are required"}
+        return {"status": "ok"}
+
+    if req.job_type == "txt2img":
+        if req.lora_name is not None:
+            if req.lora_name not in reserved_lora_modules:
+                return {"status": "error", "message": "lora_name is not supported"}
+            if req.lora_name in reserved_lora_modules:
+                req.prompt = reserved_lora_modules[req.lora_name]["prompt"]
+
+        async def __txt_to_img():
+            for i in range(req.count):
+                res = SD_CLIENT.text2img(
+                    prompt=req.prompt,
+                    negative_prompt=req.negative_prompt,
+                    width=req.width,
+                    height=req.height,
+                    steps=req.steps,
+                    guidance_scale=req.guidance_scale,
+                    seed=req.seed + i * 10,
+                    num_images_per_prompt=1,
+                )
+                if res is None or len(res) == 0:
+                    continue
+                pil_img = res[0]
+                buf = io.BytesIO()
+                pil_img.save(buf, format="PNG")
+                buf.seek(0)
+                img_name = str(uuid.uuid4()) + ".png"
+                img_bytes = buf.getvalue()
+                operator.write(img_name, img_bytes)
+                yield f"path: {img_name}\n"
+
+        return EventSourceResponse(__txt_to_img(), media_type="text/event-stream")
+
+    return {"status": "error", "message": "Invalid request"}

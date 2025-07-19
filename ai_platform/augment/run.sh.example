@@ -1,0 +1,23 @@
+export MODEL_NAME="/root/models/sd3m"
+export INSTANCE_DIR="/root/lora/feature_defect"
+export OUTPUT_DIR="/root/lora/lora_feather_m"
+
+accelerate launch train_dreambooth_lora_sd3.py \
+  --pretrained_model_name_or_path=$MODEL_NAME  \
+  --instance_data_dir=$INSTANCE_DIR \
+  --output_dir=$OUTPUT_DIR \
+  --rank=8 \
+  --instance_prompt="a macro shot of sks leather, showing small cracks, dents and scratches" \
+  --resolution=1024 \
+  --train_batch_size=4 \
+  --gradient_accumulation_steps=1 \
+  --checkpointing_steps=500 \
+  --learning_rate=1e-4 \
+  --lr_scheduler="constant" \
+  --lr_warmup_steps=0 \
+  --max_train_steps=2000 \
+  --validation_prompt="a macro photo of sks leather with a small dent and fine surface wrinkles" \
+  --validation_epochs=200 \
+  --mixed_precision="fp16" \
+  --train_text_encoder \
+  --seed="0"

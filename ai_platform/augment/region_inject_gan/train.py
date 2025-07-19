@@ -8,10 +8,13 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 from augment.region_inject_gan.dataset import CleanDataset, InjectDataset
-from augment.region_inject_gan.model import (BackgroundGenerator,
-                                             BgDiscriminator, Discriminator,
-                                             InjectGenerator,
-                                             VGGPerceptualLoss)
+from augment.region_inject_gan.model import (
+    BackgroundGenerator,
+    BgDiscriminator,
+    Discriminator,
+    InjectGenerator,
+    VGGPerceptualLoss,
+)
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -160,6 +163,7 @@ vgg_loss = VGGPerceptualLoss().to(device)
 
 try:
     from lpips import LPIPS
+
     lpips_loss = LPIPS(net="alex").to(device)
     use_lpips = True
 except:
@@ -176,10 +180,10 @@ os.makedirs("defect_samples", exist_ok=True)
 for epoch in range(epochs):
     G_def.train()
     for i, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch+1}/{epochs}")):
-        defect = batch["defect"].to(device)         # [B, 3, 256, 256]
-        mask = batch["mask"].to(device)             # [B, 1, 256, 256]
-        mask = (mask > 0.5).float()                 # 二值化
-        mask_rgb = mask.expand_as(defect)           # 扩展到 RGB
+        defect = batch["defect"].to(device)  # [B, 3, 256, 256]
+        mask = batch["mask"].to(device)  # [B, 1, 256, 256]
+        mask = (mask > 0.5).float()  # 二值化
+        mask_rgb = mask.expand_as(defect)  # 扩展到 RGB
 
         B = defect.size(0)
         z_bg = torch.randn(B, z_dim).to(device)
@@ -198,7 +202,9 @@ for epoch in range(epochs):
         soft_mask_rgb = soft_mask.expand_as(defect)
 
         # 多项 loss 组合
-        l1 = (torch.abs(fused_img - defect_target) * soft_mask_rgb).sum() / soft_mask_rgb.sum().clamp(min=1e-6)
+        l1 = (
+            torch.abs(fused_img - defect_target) * soft_mask_rgb
+        ).sum() / soft_mask_rgb.sum().clamp(min=1e-6)
         percep = vgg_loss(fused_img, defect_target)
         color = color_consistency_loss(fused_img, bg_img, soft_mask_rgb)
         total_loss = lambda_l1 * l1 + lambda_percep * percep + lambda_color * color
@@ -214,8 +220,10 @@ for epoch in range(epochs):
         optimizer.step()
 
         if i % 20 == 0:
-            print(f"[Epoch {epoch+1}/{epochs}] Step [{i}/{len(loader)}] "
-                  f"L1: {l1.item():.4f} Percep: {percep.item():.4f} Color: {color.item():.4f} LPIPS: {lpips.item():.4f}")
+            print(
+                f"[Epoch {epoch+1}/{epochs}] Step [{i}/{len(loader)}] "
+                f"L1: {l1.item():.4f} Percep: {percep.item():.4f} Color: {color.item():.4f} LPIPS: {lpips.item():.4f}"
+            )
 
     # 保存图像
     if (epoch + 1) % save_interval == 0:

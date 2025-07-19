@@ -74,7 +74,7 @@ server:
     context-path: /automl
 
 ai-platform:
-  url: ${AI_PLATFORM:http://127.0.0.1:8000}
+  url: ${AI_PLATFORM:http://127.0.0.1:18000}
   get-label: /label/image
   get-multi-class-label: /label/image/multi-class
   train-yolo: /yolo/train

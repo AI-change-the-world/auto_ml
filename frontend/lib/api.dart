@@ -116,16 +116,17 @@ class Api {
   static final String homeIndex = "/home/index";
 
   /// [aug-and-qua] augment and quality
-  static final String gan = "http://localhost:8000/augment/gan/generate/stream";
+  static final String gan =
+      "http://localhost:18000/augment/gan/generate/stream";
 
-  static final String cv = "http://localhost:8000/augment/cv/generate/stream";
+  static final String cv = "http://localhost:18000/augment/cv/generate/stream";
 
   static final String getAugData = "/augmentAndQuality/get/image";
 
   static final String optimize =
-      "http://localhost:8000/augment/sd/prompt/optimize";
+      "http://localhost:18000/augment/sd/prompt/optimize";
 
-  static final String sd = "http://localhost:8000/augment/sd/generate";
+  static final String sd = "http://localhost:18000/augment/sd/generate";
 
-  static final String measure = "http://localhost:8000/augment/measure/stream";
+  static final String measure = "http://localhost:18000/augment/measure/stream";
 }

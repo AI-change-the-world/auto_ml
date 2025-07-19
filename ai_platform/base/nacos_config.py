@@ -4,13 +4,17 @@ import nacos
 import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from base.logger import logger
 
 # ===== 1. 从 Nacos 加载配置 =====
 
 
 def load_nacos_config(data_id, group, server="127.0.0.1:8848", namespace="public"):
+    logger.info(f"[nacos] load nacos config: {data_id} {group} {server} {namespace}")
     client = nacos.NacosClient(server, namespace=namespace)
+    logger.info("[nacos] get nacos config")
     config_str = client.get_config(data_id, group)
+    logger.info("[nacos] load nacos config done")
     return yaml.safe_load(config_str)
 
 
