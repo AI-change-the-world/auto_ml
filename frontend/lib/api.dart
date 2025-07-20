@@ -129,4 +129,9 @@ class Api {
   static final String sd = "http://localhost:18000/augment/sd/generate";
 
   static final String measure = "http://localhost:18000/augment/measure/stream";
+
+  static final String sdIsOn = "http://localhost:18000/augment/on";
+
+  static final String sdInitial =
+      "http://localhost:18000/augment/sd/initialize";
 }

@@ -6,6 +6,7 @@ import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/modules/data_augment/common.dart';
 import 'package:auto_ml/modules/data_augment/components/deletable_image.dart';
+import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
 import 'package:auto_ml/modules/data_augment/utils.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -27,7 +28,7 @@ class CvDialog extends StatefulWidget {
 class _CvDialogState extends State<CvDialog> {
   int generateCount = 5;
   final StreamController<String> ss = StreamController.broadcast();
-  List<String> images = [];
+  List<CvResp> images = [];
 
   static const XTypeGroup typeGroup = XTypeGroup(
     label: 'images',
@@ -45,15 +46,23 @@ class _CvDialogState extends State<CvDialog> {
         ToastUtils.success(null, title: "Generated done");
         return;
       }
-      if (event.contains("[ERROR]")) {
+      if (event.contains("[Error]")) {
         ToastUtils.error(null, title: "Generated failed");
         return;
       }
       if (event.startsWith("path:") && event.contains("png")) {
-        String url = event.split(":")[1];
+        String s = event.replaceFirst("path:", "");
+        Map<String, dynamic> map = jsonDecode(s);
+        if (map["img_url"] == null) {
+          return;
+        }
+        CvResp cvResp = CvResp.fromJson(map);
+
+        String url = cvResp.imgUrl;
         Future.microtask(() async {
           final s = await getPresignUrl(url);
-          images.add(s);
+          cvResp.presignUrl = s;
+          images.add(cvResp);
           setState(() {});
         });
       }
@@ -376,7 +385,7 @@ class _CvDialogState extends State<CvDialog> {
                               images
                                   .map(
                                     (v) => DeletableImage(
-                                      url: v,
+                                      resp: v,
                                       onDelete: () {
                                         images.remove(v);
                                         setState(() {});

@@ -97,7 +97,12 @@ class GANRequest(BaseModel):
 class CvAugmentRequest(BaseModel):
     count: int
     b64: str
-    types : list[str] = []
+    types: list[str] = []
+
+
+class CvAugmentResponse(BaseModel):
+    img_url: str
+    point: float
 
 
 class PromptOptimizeRequest(BaseModel):

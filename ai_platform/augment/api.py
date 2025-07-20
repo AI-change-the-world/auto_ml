@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import functools
 import io
 import time
@@ -70,12 +71,13 @@ async def gan_generate_stream(req: GANRequest):
     )
 
 
-# TODO merge to augment, just for demo
 @router.post("/cv/generate/stream")
 async def cv_generate_stream(req: CvAugmentRequest):
     """Stream-generated images from the cv model"""
+    from augment.measure import cnn_measure
     from mltools.augmentation.aug_no_label import random_aug_stream
     from mltools.utils.json2mask.third_party import img_b64_to_arr
+
     if req.types is None or len(req.types) == 0:
         logger.info("[cv augmentation] no types provided, using default: [rotation]")
         req.types = [
@@ -89,10 +91,9 @@ async def cv_generate_stream(req: CvAugmentRequest):
         for aug_img in random_aug_stream(
             img,
             augNumber=req.count,
-            augMethods= req.types,
+            augMethods=req.types,
         ):
             # print(f"img data: {aug_img is None}")
-            logger.info(f"[cv augmentation] img data is None? : {aug_img is None}")
             if aug_img is not None:
                 pil_img = Image.fromarray(aug_img)
                 buf = io.BytesIO()
@@ -101,7 +102,15 @@ async def cv_generate_stream(req: CvAugmentRequest):
                 img_name = str(uuid.uuid4()) + ".png"
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
-                yield f"path: {img_name}\n"
+
+                out_base64 = base64.b64encode(img_bytes).decode("utf-8")
+                point = cnn_measure(req.b64, out_base64)
+
+                resp: CvAugmentResponse = CvAugmentResponse(
+                    img_url=img_name, point=point
+                )
+
+                yield f"path: {resp.model_dump_json()}\n"
 
     return EventSourceResponse(
         image_generator(),
@@ -159,7 +168,6 @@ def optimize_prompt(req: PromptOptimizeRequest, db: Session = Depends(get_db)):
     )
 
 
-
 @router.post("/measure/stream")
 async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
     from augment.measure import cnn_measure, openai_measure
@@ -200,10 +208,17 @@ SD_CLIENT: Optional[StableDiffusionUnified] = None
 @router.post("/sd/initialize")
 async def initialize_sd(req: SDInitializeRequest):
     global SD_CLIENT
-    SD_CLIENT = StableDiffusionUnified(
-        req.model_path, req.enable_img2img, req.enable_inpaint
-    )
-    return {"status": "ok"}
+    try:
+        enable_img2img = req.enable_img2img if req.enable_img2img is not None else False
+        enable_inpaint = req.enable_inpaint if req.enable_inpaint is not None else False
+        sd_path = req.model_path if req.model_path is not None else "/root/models/sd3m"
+        SD_CLIENT = StableDiffusionUnified(
+            sd_path, enable_img2img, enable_inpaint
+        )
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(e)
+        return {"status": "error"}
 
 
 @router.post("/sd/generate")
@@ -252,7 +267,14 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
                 yield f"path: {img_name}\n"
+                time.sleep(0.5)
 
         return EventSourceResponse(__txt_to_img(), media_type="text/event-stream")
 
     return {"status": "error", "message": "Invalid request"}
+
+
+@router.get("/on")
+async def is_client_on():
+    global SD_CLIENT
+    return {"status": "ok", "data": SD_CLIENT is not None}

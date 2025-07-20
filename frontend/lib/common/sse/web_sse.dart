@@ -51,8 +51,10 @@ Future sse(
       if (onDone != null) {
         onDone(request.responseText!);
       }
-
-      ss.sink.add("[DONE]");
+      if (request.status == 200 &&
+          !request.responseText.toString().contains('[DONE]')) {
+        ss.sink.add("[DONE]");
+      }
     })
     ..send(jsonEncode(data)); // 发送请求体
 }

@@ -65,6 +65,7 @@ def get_temp_operator(
         enable_virtual_host_style="false",
     )
 
+
 @deprecated("Use download_from_s3/upload_to_s3 instead")
 class GetFileRequest(BaseModel):
     file_type: int  # 0: image, 1: text, 2: video, 3: audio, 4: other

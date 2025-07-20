@@ -1,15 +1,16 @@
+import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 
 class DeletableImage extends StatefulWidget {
   const DeletableImage({
     super.key,
-    required this.url,
+    required this.resp,
     this.width = 256,
     this.height = 256,
     required this.onDelete,
   });
-  final String url;
+  final CvResp resp;
   final double width;
   final double height;
   final VoidCallback onDelete;
@@ -45,7 +46,7 @@ class _DeletableImageState extends State<DeletableImage> {
         child: Stack(
           children: [
             Image.network(
-              widget.url,
+              widget.resp.presignUrl ?? "",
               width: widget.width,
               height: widget.height,
             ),
@@ -64,6 +65,24 @@ class _DeletableImageState extends State<DeletableImage> {
                   ),
                 ),
               ),
+            Positioned(
+              right: 10,
+              bottom: 10,
+              child: Container(
+                padding: EdgeInsets.all(4),
+
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  widget.resp.score.toString(),
+                  style: Styles.defaultButtonTextStyle.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

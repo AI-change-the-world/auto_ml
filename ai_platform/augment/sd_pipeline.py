@@ -36,8 +36,8 @@ class StableDiffusionUnified:
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._base = StableDiffusion3Pipeline.from_pretrained(
-            model_path, torch_dtype=torch.float16, device_map="auto"  # 自动分配部分模块到 CPU
-        ).to(self.device)
+            model_path, torch_dtype=torch.float16, device_map="balanced"  # 自动分配部分模块到 CPU
+        )
         self._enable_img2img = enable_img2img
         self._enable_inpaint = enable_inpaint
         if enable_img2img:

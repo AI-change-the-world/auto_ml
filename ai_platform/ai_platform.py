@@ -49,6 +49,7 @@ app.add_middleware(
     allow_headers=["*"],  # 允许的请求头
 )
 
+
 @app.get("/")
 async def root():
     return {"message": "Hello ，welcome to AutoML-AI API"}

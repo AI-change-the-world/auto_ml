@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/common/sse/sse.dart';
+import 'package:auto_ml/modules/async_state_button.dart';
+import 'package:auto_ml/modules/data_augment/models/sd_augment_req.dart';
+import 'package:auto_ml/modules/data_augment/models/sd_initialize_req.dart';
+import 'package:auto_ml/modules/data_augment/notifiers/sd_client_on_notifier.dart';
+import 'package:auto_ml/modules/data_augment/utils.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -12,6 +18,7 @@ import 'package:basic_dropdown_button/custom_dropdown_button.dart';
 import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SdDialog extends StatefulWidget {
   const SdDialog({super.key});
@@ -34,19 +41,35 @@ class _SdDialogState extends State<SdDialog> {
   Uint8List? image = null;
 
   late final TextEditingController _promptController = TextEditingController();
+  final GlobalKey<FutureStatusButtonSimpleState> _buttonKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     ss.stream.listen((event) {
       logger.d("event. $event");
+      if (event.contains("error")) {
+        Map m = jsonDecode(event);
+        ToastUtils.error(null, title: m['message'] ?? "Unknow Error");
+        _buttonKey.currentState!.changeCurrentState(FutureButtonState.initial);
+        return;
+      }
 
       if (event.contains("[DONE]")) {
         ToastUtils.success(null, title: "Generated done");
+        _buttonKey.currentState!.changeCurrentState(FutureButtonState.initial);
       }
-      if (event.contains("https")) {
-        images.add(event.replaceAll("\n", "").trim());
-        setState(() {});
+      // if (event.contains("https")) {
+      //   images.add(event.replaceAll("\n", "").trim());
+      //   setState(() {});
+      // }
+      if (event.startsWith("path:") && event.contains("png")) {
+        String url = event.split(":")[1];
+        Future.microtask(() async {
+          final s = await getPresignUrl(url);
+          images.add(s);
+          setState(() {});
+        });
       }
     });
   }
@@ -58,7 +81,10 @@ class _SdDialogState extends State<SdDialog> {
     super.dispose();
   }
 
+  bool isModelOn = false;
+
   late final Dio _dio = Dio();
+  FutureButtonState _state = FutureButtonState.initial;
 
   @override
   Widget build(BuildContext context) {
@@ -86,10 +112,7 @@ class _SdDialogState extends State<SdDialog> {
                           children: [
                             Text(
                               'Input Prompt: ',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Styles.defaultButtonTextStyle,
                             ),
                             Spacer(),
                             Tooltip(
@@ -158,10 +181,7 @@ class _SdDialogState extends State<SdDialog> {
                           children: [
                             Text(
                               'Reference Image: ',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: Styles.defaultButtonTextStyle,
                             ),
                             Spacer(),
                           ],
@@ -191,18 +211,125 @@ class _SdDialogState extends State<SdDialog> {
                         ),
                       ),
 
-                      SizedBox(height: 20),
+                      SizedBox(
+                        height: 30,
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final isOn = ref.watch(sdClientIsOnProvider);
+                            return isOn.when(
+                              data: (d) {
+                                if (d) {
+                                  _state = FutureButtonState.success;
+                                }
+
+                                return Row(
+                                  children: [
+                                    Text(
+                                      "Model Status: ",
+                                      style: Styles.defaultButtonTextStyle,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    if (!d && !isModelOn)
+                                      Tooltip(
+                                        message:
+                                            "Model has not been initialized.",
+                                        child: Icon(
+                                          Icons.info_outline,
+                                          size: 20,
+                                          color: Colors.red,
+                                        ),
+                                      ),
+                                    if (d || isModelOn)
+                                      Tooltip(
+                                        message: "Model is on.",
+                                        child: Icon(
+                                          Icons.on_device_training,
+                                          size: 20,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+
+                                    Spacer(),
+
+                                    FutureStatusButton(
+                                      onPressedAsync: () async {
+                                        return await _dio.post(
+                                          Api.sdInitial,
+                                          data: SDInitializeRequest().toJson(),
+                                        );
+                                      },
+                                      initialState: _state,
+                                      onDone: (v) {
+                                        logger.d(v);
+                                        if (v.data['status'] == "ok") {
+                                          ToastUtils.success(
+                                            context,
+                                            title: "初始化成功",
+                                          );
+                                          setState(() {
+                                            _state = FutureButtonState.success;
+                                            isModelOn = true;
+                                          });
+                                        } else {
+                                          ToastUtils.error(
+                                            context,
+                                            title: "初始化失败",
+                                          );
+                                          setState(() {
+                                            _state = FutureButtonState.error;
+                                          });
+                                        }
+                                      },
+                                      initialChild: Text(
+                                        "Init",
+                                        style: Styles.defaultButtonTextStyle,
+                                      ),
+                                      errorChild: Text(
+                                        "Retry",
+                                        style: Styles.defaultButtonTextStyle,
+                                      ),
+                                      successChild: Text(
+                                        "Re-init",
+                                        style: Styles.defaultButtonTextStyle,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                              error:
+                                  (error, stackTrace) => Container(
+                                    height: 30,
+
+                                    padding: EdgeInsets.all(5),
+                                    child: Text(
+                                      "Fetching model status error",
+                                      style: Styles.defaultButtonTextStyleGrey,
+                                    ),
+                                  ),
+                              loading:
+                                  () => Container(
+                                    height: 30,
+
+                                    padding: EdgeInsets.all(5),
+                                    child: Text(
+                                      "Fetching model status...",
+                                      style: Styles.defaultButtonTextStyleGrey,
+                                    ),
+                                  ),
+                            );
+                          },
+                        ),
+                      ),
 
                       SizedBox(
                         height: 30,
                         child: Row(
                           children: [
-                            Spacer(),
-
                             Text(
                               "Generate Count: ",
                               style: Styles.defaultButtonTextStyle,
                             ),
+                            const SizedBox(width: 10),
                             SizedBox(
                               width: 80,
                               child: CustomDropDownButton<int>(
@@ -248,7 +375,7 @@ class _SdDialogState extends State<SdDialog> {
                                 buttonIconColor: Colors.black,
                                 buttonTextStyle: Styles.defaultButtonTextStyle,
                                 menuItems:
-                                    [1, 2, 3]
+                                    [1, 2, 3, 4, 5, 10]
                                         .map(
                                           (e) => CustomDropDownButtonItem(
                                             value: e,
@@ -293,35 +420,67 @@ class _SdDialogState extends State<SdDialog> {
                                 selectedValue: generateCount,
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    4,
-                                  ), // 设置圆角半径
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 3,
-                                ), // 调整按钮大小
-                              ),
-                              onPressed: () {
+
+                            Spacer(),
+
+                            FutureStatusButtonSimple(
+                              key: _buttonKey,
+                              onPressed: () async {
                                 if (_promptController.text.isEmpty) {
                                   return;
                                 }
+                                SDAugmentReq req = SDAugmentReq(
+                                  prompt: _promptController.text,
+                                  jobType: "txt2img",
+                                  count: generateCount,
+                                );
 
-                                Map<String, dynamic> data = {
-                                  "count": generateCount,
-                                  "prompt": _promptController.text,
-                                };
-                                sse(Api.sd, data, ss);
+                                sse(Api.sd, req.toJson(), ss);
+                                _buttonKey.currentState!.changeCurrentState(
+                                  FutureButtonState.loading,
+                                );
                               },
-                              child: Text(
+
+                              initialChild: Text(
                                 "Submit",
                                 style: Styles.defaultButtonTextStyle,
                               ),
                             ),
+
+                            // ElevatedButton(
+                            //   style: ElevatedButton.styleFrom(
+                            //     shape: RoundedRectangleBorder(
+                            //       borderRadius: BorderRadius.circular(
+                            //         4,
+                            //       ), // 设置圆角半径
+                            //     ),
+                            //     padding: EdgeInsets.symmetric(
+                            //       horizontal: 6,
+                            //       vertical: 3,
+                            //     ), // 调整按钮大小
+                            //   ),
+                            //   onPressed: () {
+                            //     if (_promptController.text.isEmpty) {
+                            //       return;
+                            //     }
+
+                            //     SDAugmentReq req = SDAugmentReq(
+                            //       prompt: _promptController.text,
+                            //       jobType: "txt2img",
+                            //       count: generateCount,
+                            //     );
+
+                            //     // Map<String, dynamic> data = {
+                            //     //   "count": generateCount,
+                            //     //   "prompt": _promptController.text,
+                            //     // };
+                            //     sse(Api.sd, req.toJson(), ss);
+                            //   },
+                            //   child: Text(
+                            //     "Submit",
+                            //     style: Styles.defaultButtonTextStyle,
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),

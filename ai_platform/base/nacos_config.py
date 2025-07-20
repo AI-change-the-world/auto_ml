@@ -4,6 +4,7 @@ import nacos
 import yaml
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from base.logger import logger
 
 # ===== 1. 从 Nacos 加载配置 =====
