@@ -5,6 +5,7 @@ import 'package:auto_ml/common/download/download.dart';
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/models/api/new_annotation_request.dart';
 import 'package:auto_ml/modules/dataset/components/annotations_list.dart';
+import 'package:auto_ml/modules/dataset/components/append_dataset_files_dialog.dart';
 import 'package:auto_ml/modules/dataset/components/dataset_file_details.dart';
 import 'package:auto_ml/modules/dataset/components/new_annotation_dialog.dart';
 import 'package:auto_ml/modules/dataset/constants.dart';
@@ -273,80 +274,144 @@ class _DatasetDetailsWidgetState extends ConsumerState<DatasetDetailsWidget> {
                   if (currentPageIndex == 0)
                     Material(
                       borderRadius: BorderRadius.circular(20),
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: () async {
-                            String url =
-                                "${DioClient().instance.options.baseUrl}${Api.datasetExport.replaceAll("{id}", current.id.toString())}";
-                            logger.i("Download URL: $url");
-                            download(url, filename: "${current.name}.zip");
-                          },
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.greenAccent,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: EdgeInsets.all(1),
-                            child: Icon(
-                              Icons.download,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  Material(
-                    borderRadius: BorderRadius.circular(20),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: () async {
-                          if (currentPageIndex == 1) {
-                            showGeneralDialog(
-                              barrierColor: Styles.barriarColor,
-                              barrierDismissible: true,
-                              barrierLabel: "NewAnnotationDialog",
-                              context: context,
-                              pageBuilder: (c, _, _) {
-                                return Center(child: NewAnnotationDialog());
-                              },
-                            ).then((v) {
-                              if (v != null && v is Map<String, dynamic>) {
-                                NewAnnotationRequest request =
-                                    NewAnnotationRequest(
+                      child: Tooltip(
+                        message: "Append files to dataset",
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () async {
+                              showGeneralDialog(
+                                context: context,
+                                barrierColor: Styles.barriarColor,
+                                barrierDismissible: true,
+                                barrierLabel: 'AppendDatasetFilesDialog',
+                                pageBuilder: (c, _, _) {
+                                  return Center(
+                                    child: AppendDatasetFilesDialog(
+                                      datasetType: current.type.index,
                                       datasetId: current.id,
-                                      storageType: v['storageType'],
-                                      savePath: v['labelPath'],
-                                      username: v['username'],
-                                      password: v['password'],
-                                      type: v['type'],
-                                      classes: v['classes'],
-                                    );
-
-                                ref
-                                    .read(annotationListProvider.notifier)
-                                    .newAnnotation(request);
-                              }
-                            });
-                          }
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: EdgeInsets.all(1),
-                          child: Icon(
-                            currentPageIndex == 0 ? Icons.refresh : Icons.add,
-                            color: Colors.white,
-                            size: 18,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.greenAccent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: EdgeInsets.all(1),
+                              child: Icon(
+                                Icons.upload,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                  //  Tooltip(
+                  //   message: "Append new files",
+                  //   child: InkWell(
+                  //     child: Icon(Icons.file_upload),
+                  //     onTap: () {
+                  //       showGeneralDialog(
+                  //         context: context,
+                  //         pageBuilder: (c, _, _) {
+                  //           return Center(
+                  //             child: AppendDatasetFilesDialog(
+                  //               datasetType: dataset.type.index,
+                  //               datasetId: dataset.id,
+                  //             ),
+                  //           );
+                  //         },
+                  //       );
+                  //     },
+                  //   ),
+                  // ),
+                  if (currentPageIndex == 0)
+                    Material(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Tooltip(
+                        message: "Download dataset",
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () async {
+                              String url =
+                                  "${DioClient().instance.options.baseUrl}${Api.datasetExport.replaceAll("{id}", current.id.toString())}";
+                              logger.i("Download URL: $url");
+                              download(url, filename: "${current.name}.zip");
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: EdgeInsets.all(1),
+                              child: Icon(
+                                Icons.download,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (currentPageIndex == 1)
+                    Material(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Tooltip(
+                        message: "Create new annotation",
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () async {
+                              showGeneralDialog(
+                                barrierColor: Styles.barriarColor,
+                                barrierDismissible: true,
+                                barrierLabel: "NewAnnotationDialog",
+                                context: context,
+                                pageBuilder: (c, _, _) {
+                                  return Center(child: NewAnnotationDialog());
+                                },
+                              ).then((v) {
+                                if (v != null && v is Map<String, dynamic>) {
+                                  NewAnnotationRequest request =
+                                      NewAnnotationRequest(
+                                        datasetId: current.id,
+                                        storageType: v['storageType'],
+                                        savePath: v['labelPath'],
+                                        username: v['username'],
+                                        password: v['password'],
+                                        type: v['type'],
+                                        classes: v['classes'],
+                                      );
+
+                                  ref
+                                      .read(annotationListProvider.notifier)
+                                      .newAnnotation(request);
+                                }
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: EdgeInsets.all(1),
+                              child: Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

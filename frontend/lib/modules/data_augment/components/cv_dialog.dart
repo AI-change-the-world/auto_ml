@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
+import 'package:auto_ml/modules/async_state_button.dart';
 import 'package:auto_ml/modules/data_augment/common.dart';
 import 'package:auto_ml/modules/data_augment/components/deletable_image.dart';
 import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
@@ -44,10 +45,12 @@ class _CvDialogState extends State<CvDialog> {
     ss.stream.listen((event) {
       if (event.contains("[DONE]")) {
         ToastUtils.success(null, title: "Generated done");
+        buttonKey.currentState?.changeCurrentState(FutureButtonState.initial);
         return;
       }
       if (event.contains("[Error]")) {
         ToastUtils.error(null, title: "Generated failed");
+        buttonKey.currentState?.changeCurrentState(FutureButtonState.initial);
         return;
       }
       if (event.startsWith("path:") && event.contains("png")) {
@@ -78,6 +81,7 @@ class _CvDialogState extends State<CvDialog> {
 
   List<String> multipleSelected = [];
   final ExpansibleController controller = ExpansibleController();
+  final GlobalKey<FutureStatusButtonSimpleState> buttonKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -314,17 +318,11 @@ class _CvDialogState extends State<CvDialog> {
                             ),
                             Spacer(),
                             // const SizedBox(width: 10),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    4,
-                                  ), // 设置圆角半径
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 3,
-                                ), // 调整按钮大小
+                            FutureStatusButtonSimple(
+                              key: buttonKey,
+                              initialChild: Text(
+                                "Submit",
+                                style: Styles.defaultButtonTextStyle,
                               ),
                               onPressed: () {
                                 if (image == null) {
@@ -352,12 +350,55 @@ class _CvDialogState extends State<CvDialog> {
                                   "types": multipleSelected,
                                 };
                                 sse(Api.cv, data, ss);
+                                buttonKey.currentState?.changeCurrentState(
+                                  FutureButtonState.loading,
+                                );
                               },
-                              child: Text(
-                                "Submit",
-                                style: Styles.defaultButtonTextStyle,
-                              ),
                             ),
+                            // ElevatedButton(
+                            //   style: ElevatedButton.styleFrom(
+                            //     shape: RoundedRectangleBorder(
+                            //       borderRadius: BorderRadius.circular(
+                            //         4,
+                            //       ), // 设置圆角半径
+                            //     ),
+                            //     padding: EdgeInsets.symmetric(
+                            //       horizontal: 6,
+                            //       vertical: 3,
+                            //     ), // 调整按钮大小
+                            //   ),
+                            //   onPressed: () {
+                            //     if (image == null) {
+                            //       ToastUtils.error(
+                            //         context,
+                            //         title: "No image selected",
+                            //       );
+                            //       return;
+                            //     }
+                            //     if (multipleSelected.isEmpty) {
+                            //       ToastUtils.error(
+                            //         context,
+                            //         title: "No augment types selected",
+                            //       );
+                            //       return;
+                            //     }
+
+                            //     setState(() {
+                            //       images.clear();
+                            //     });
+
+                            //     Map<String, dynamic> data = {
+                            //       "count": generateCount,
+                            //       "b64": base64.encode(image!),
+                            //       "types": multipleSelected,
+                            //     };
+                            //     sse(Api.cv, data, ss);
+                            //   },
+                            //   child: Text(
+                            //     "Submit",
+                            //     style: Styles.defaultButtonTextStyle,
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),

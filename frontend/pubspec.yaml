@@ -75,6 +75,8 @@ flutter:
     - assets/cv.jpeg
     - assets/gan.jpeg
     - assets/sd.jpeg
+    - assets/ts.png
+    - assets/v2i.png
     - assets/icons/folder.png
     - assets/icons/pencil.png
     - assets/icons/table.png

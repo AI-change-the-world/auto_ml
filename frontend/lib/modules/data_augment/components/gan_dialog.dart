@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/common/sse/sse.dart';
+import 'package:auto_ml/modules/async_state_button.dart';
 import 'package:auto_ml/modules/data_augment/utils.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:auto_ml/utils/toast_utils.dart';
@@ -34,6 +35,8 @@ class _GanDialogState extends State<GanDialog> {
     ss.stream.listen((event) {
       if (event.contains("[DONE]")) {
         ToastUtils.success(null, title: "Generated done");
+
+        buttonState.currentState?.changeCurrentState(FutureButtonState.initial);
       }
       if (event.startsWith("path:") && event.contains("png")) {
         String url = event.split(":")[1];
@@ -45,6 +48,9 @@ class _GanDialogState extends State<GanDialog> {
       }
     });
   }
+
+  final GlobalKey<FutureStatusButtonSimpleState> buttonState =
+      GlobalKey<FutureStatusButtonSimpleState>();
 
   @override
   Widget build(BuildContext context) {
@@ -155,15 +161,12 @@ class _GanDialogState extends State<GanDialog> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4), // 设置圆角半径
-                      ),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ), // 调整按钮大小
+
+                  FutureStatusButtonSimple(
+                    key: buttonState,
+                    initialChild: Text(
+                      "Submit",
+                      style: Styles.defaultButtonTextStyle,
                     ),
                     onPressed: () {
                       setState(() {
@@ -172,8 +175,11 @@ class _GanDialogState extends State<GanDialog> {
 
                       Map<String, int> data = {"count": generateCount};
                       sse(Api.gan, data, ss);
+
+                      buttonState.currentState?.changeCurrentState(
+                        FutureButtonState.loading,
+                      );
                     },
-                    child: Text("Submit", style: Styles.defaultButtonTextStyle),
                   ),
                 ],
               ),

@@ -106,6 +106,7 @@ class _SdDialogState extends State<SdDialog> {
                     spacing: 10,
 
                     children: [
+                      _buildLoraSelection(),
                       SizedBox(
                         height: 30,
                         child: Row(
@@ -446,41 +447,6 @@ class _SdDialogState extends State<SdDialog> {
                                 style: Styles.defaultButtonTextStyle,
                               ),
                             ),
-
-                            // ElevatedButton(
-                            //   style: ElevatedButton.styleFrom(
-                            //     shape: RoundedRectangleBorder(
-                            //       borderRadius: BorderRadius.circular(
-                            //         4,
-                            //       ), // 设置圆角半径
-                            //     ),
-                            //     padding: EdgeInsets.symmetric(
-                            //       horizontal: 6,
-                            //       vertical: 3,
-                            //     ), // 调整按钮大小
-                            //   ),
-                            //   onPressed: () {
-                            //     if (_promptController.text.isEmpty) {
-                            //       return;
-                            //     }
-
-                            //     SDAugmentReq req = SDAugmentReq(
-                            //       prompt: _promptController.text,
-                            //       jobType: "txt2img",
-                            //       count: generateCount,
-                            //     );
-
-                            //     // Map<String, dynamic> data = {
-                            //     //   "count": generateCount,
-                            //     //   "prompt": _promptController.text,
-                            //     // };
-                            //     sse(Api.sd, req.toJson(), ss);
-                            //   },
-                            //   child: Text(
-                            //     "Submit",
-                            //     style: Styles.defaultButtonTextStyle,
-                            //   ),
-                            // ),
                           ],
                         ),
                       ),
@@ -491,10 +457,11 @@ class _SdDialogState extends State<SdDialog> {
             ),
             Expanded(
               flex: 3,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.all(10),
-                child: SizedBox(
-                  width: double.infinity,
+              child: SizedBox(
+                width: double.infinity,
+                height: double.infinity,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(10),
                   child: Wrap(
                     runAlignment: WrapAlignment.start,
                     alignment: WrapAlignment.start,
@@ -512,6 +479,105 @@ class _SdDialogState extends State<SdDialog> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  List<String> loraSelections = ["None", "PCB", "Leather"];
+  late String selectedLora = loraSelections[0];
+
+  Widget _buildLoraSelection() {
+    return SizedBox(
+      height: 30,
+      child: Row(
+        children: [
+          Text("Lora selection:", style: Styles.defaultButtonTextStyle),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 120,
+            child: CustomDropDownButton<String>(
+              buttonIcon:
+                  ({required showedMenu}) => SizedBox(
+                    height: 30,
+                    // width: 30,
+                    child: Center(
+                      child: Icon(Icons.arrow_drop_down, color: Colors.black),
+                    ),
+                  ),
+              buttonIconFirst: false,
+              buttonStyle: ButtonStyle(
+                fixedSize: WidgetStateProperty.all(Size(100, 20)),
+                backgroundColor: WidgetStatePropertyAll(Colors.grey[300]),
+                padding: WidgetStatePropertyAll(
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                textStyle: WidgetStatePropertyAll(
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                ),
+              ),
+              buttonText: selectedLora.toString(),
+              position: DropDownButtonPosition.bottomCenter,
+              buttonIconColor: Colors.black,
+              buttonTextStyle: Styles.defaultButtonTextStyle,
+              menuItems:
+                  loraSelections
+                      .map(
+                        (e) => CustomDropDownButtonItem(
+                          value: e,
+                          text: e.toString(),
+                          onPressed: () {
+                            if (e != selectedLora) {
+                              setState(() {
+                                selectedLora = e;
+                              });
+                              if (e == "None") {
+                                _promptController.text = "";
+                              } else if (e == "PCB") {
+                                _promptController.text =
+                                    "a photo of sks pcb contain 8 defects";
+                              } else {
+                                _promptController.text =
+                                    "a macro photo of sks leather with a small dent and fine surface wrinkles";
+                              }
+                            }
+                          },
+                          buttonStyle: ButtonStyle(
+                            fixedSize: WidgetStateProperty.all(Size(100, 20)),
+                            backgroundColor: WidgetStatePropertyAll(
+                              Colors.grey[300],
+                            ),
+                            textStyle: WidgetStatePropertyAll(
+                              const TextStyle(
+                                color: Colors.black,
+                                fontSize: 12,
+                              ),
+                            ),
+                            shape: WidgetStatePropertyAll(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.zero,
+                              ),
+                            ),
+                          ),
+                          textStyle: TextStyle(
+                            color: Colors.black,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                      .toList(),
+              menuBorderRadius: BorderRadius.circular(8),
+              selectedValue: selectedLora,
+            ),
+          ),
+        ],
       ),
     );
   }

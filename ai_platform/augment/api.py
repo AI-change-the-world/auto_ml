@@ -2,9 +2,7 @@ import asyncio
 import base64
 import functools
 import io
-import time
 import uuid
-from http import HTTPStatus
 from typing import Optional
 
 import torch
@@ -61,7 +59,7 @@ async def gan_generate_stream(req: GANRequest):
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
                 yield f"path: {img_name}\n"
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
 
         # yield "[DONE]"
 
@@ -267,7 +265,7 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
                 yield f"path: {img_name}\n"
-                time.sleep(0.5)
+                await asyncio.sleep(0.5)
 
         return EventSourceResponse(__txt_to_img(), media_type="text/event-stream")
 

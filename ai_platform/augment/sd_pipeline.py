@@ -18,11 +18,12 @@ model_path = "/root/models/sd3m"
 reserved_lora_modules = {
     "pcb": {
         "path": "/root/lora/pcb/sd3_Pictures_20240920_0/pytorch_lora_weights.safetensors",
-        "prompt": "a macro photo of sks leather with a small dent and fine surface wrinkles",
+        "prompt": "a photo of sks pcb contain 8 defects",
     },
     "leather": {
         "path": "/root/lora/lora_feather_m/pytorch_lora_weights.safetensors",
-        "prompt": "a photo of sks pcb contain 8 defects",
+        "prompt": "a macro photo of sks leather with a small dent and fine surface wrinkles",
+        
     },
 }
 

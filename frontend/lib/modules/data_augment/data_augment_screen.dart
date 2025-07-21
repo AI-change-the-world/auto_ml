@@ -53,6 +53,18 @@ class _DataAugmentScreenState extends State<DataAugmentScreen> {
               },
             ),
             Hover3DCard(
+              title: "Time Series Augmentation",
+              description: "Data augmentation for time series.",
+              imageUrl: "assets/ts.png",
+              onTap: () {},
+            ),
+            Hover3DCard(
+              title: "Video to image extraction",
+              description: "Extract high-quality frames from videos.",
+              imageUrl: "assets/v2i.png",
+              onTap: () {},
+            ),
+            Hover3DCard(
               onTap: () {
                 showGeneralDialog(
                   context: context,
