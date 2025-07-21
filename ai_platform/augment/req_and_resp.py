@@ -38,12 +38,13 @@ class SdAugmentRequest(BaseModel):
     height: int = 1024
     steps: int = 30
     guidance_scale: float = 7.5
-    seed: int = 123
+    seed: int = 12345
     count: int = 5
     img: Optional[str] = None
     mask: Optional[str] = None
     # only for img to img augmentation
     prompt_optimize: bool = False
+    model_id: Optional[int] = None
 
 
 class GANTrainRequest(BaseModel):

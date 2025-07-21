@@ -256,7 +256,10 @@ class _SdDialogState extends State<SdDialog> {
                                       onPressedAsync: () async {
                                         return await _dio.post(
                                           Api.sdInitial,
-                                          data: SDInitializeRequest().toJson(),
+                                          data:
+                                              SDInitializeRequest(
+                                                enableImg2img: true,
+                                              ).toJson(),
                                         );
                                       },
                                       initialState: _state,
@@ -434,6 +437,10 @@ class _SdDialogState extends State<SdDialog> {
                                   prompt: _promptController.text,
                                   jobType: "txt2img",
                                   count: generateCount,
+                                  loraName:
+                                      selectedLora == "None"
+                                          ? null
+                                          : selectedLora.toLowerCase(),
                                 );
 
                                 sse(Api.sd, req.toJson(), ss);

@@ -51,7 +51,7 @@ class SDAugmentReq {
     this.height = 1024,
     this.steps = 30,
     this.guidanceScale = 7.5,
-    this.seed = 123,
+    this.seed = 12345,
     this.count = 1,
     this.img,
     this.mask,

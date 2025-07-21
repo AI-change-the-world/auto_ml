@@ -2,6 +2,8 @@ import asyncio
 import base64
 import functools
 import io
+import json
+import random
 import uuid
 from typing import Optional
 
@@ -33,6 +35,8 @@ router = APIRouter(
     prefix="/augment",
     tags=["Augment"],
 )
+
+__RESERVED_NEGATIVE_PROMPT__ = "cartoon, drawing, 3d, low quality, low resolution, blurry, unrealistic defect, overexposed, jagged edges, obvious collage, distorted geometry"
 
 
 # TODO merge to augment, just for demo
@@ -210,9 +214,7 @@ async def initialize_sd(req: SDInitializeRequest):
         enable_img2img = req.enable_img2img if req.enable_img2img is not None else False
         enable_inpaint = req.enable_inpaint if req.enable_inpaint is not None else False
         sd_path = req.model_path if req.model_path is not None else "/root/models/sd3m"
-        SD_CLIENT = StableDiffusionUnified(
-            sd_path, enable_img2img, enable_inpaint
-        )
+        SD_CLIENT = StableDiffusionUnified(sd_path, enable_img2img, enable_inpaint)
         return {"status": "ok"}
     except Exception as e:
         logger.error(e)
@@ -229,30 +231,77 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
     if req.job_type == "img2img":
         if req.img is None:
             return {"status": "error", "message": "img is required"}
-        return {"status": "ok"}
 
-    if req.job_type == "inpaint":
-        if req.img is None or req.mask is None:
-            return {"status": "error", "message": "img and mask are required"}
-        return {"status": "ok"}
+        base64_img = req.img
 
-    if req.job_type == "txt2img":
-        if req.lora_name is not None:
-            if req.lora_name not in reserved_lora_modules:
-                return {"status": "error", "message": "lora_name is not supported"}
-            if req.lora_name in reserved_lora_modules:
-                req.prompt = reserved_lora_modules[req.lora_name]["prompt"]
+        if req.prompt_optimize and req.model_id is not None:
+            tool_model = get_tool_model(db, req.model_id)
+            model: OpenAI = get_model(tool_model)
+            messages = [
+                {
+                    "role": "system",
+                    "content": "你是一个专业的图像分析与提示词生成助手，任务是根据用户提供的参考图像内容，分析其场景、风格、元素，然后自动生成用于 img2img 任务的 prompt 和 negative prompt。",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "你是一个专业的图像分析助手。请根据下方图像，分析其内容，并返回适用于 Stable Diffusion img2img 模式的 prompt 和 negative_prompt。"
+                                "\n\n"
+                                "请返回如下格式的 JSON：\n"
+                                "{\n"
+                                '  "prompt": "...",\n'
+                                '  "negative_prompt": "..."\n'
+                                "}\n\n"
+                                "要求：\n"
+                                "- prompt 为英文，描述图像内容的真实感构图、细节、风格修饰词。\n"
+                                "- negative_prompt 包括不希望出现的内容，例如模糊、卡通、低质量、低分辨率、动漫风格等。\n"
+                                "- 风格整体偏真实，不要夸张艺术处理。\n"
+                                "- 严格输出 JSON 格式，不能输出自然语言说明。\n"
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"{base64_img}"},
+                        },
+                    ],
+                },
+            ]
+            completion = model.chat.completions.create(
+                model=tool_model.model_name,
+                max_tokens=1024,
+                messages=messages,
+                temperature=0.7,
+            )
 
-        async def __txt_to_img():
+            try:
+                response = (
+                    completion.choices[0]
+                    .message.content.replace("```json", "")
+                    .replace("```", "")
+                    .strip()
+                )
+                prompt = json.loads(response)
+                req.prompt = prompt["prompt"]
+                req.negative_prompt = prompt["negative_prompt"]
+            except Exception:
+                logger.error("prompt optimize failed because of json parse error")
+
+        async def __img_to_img():
+            if req.negative_prompt is None:
+                req.negative_prompt = __RESERVED_NEGATIVE_PROMPT__
             for i in range(req.count):
-                res = SD_CLIENT.text2img(
+                res = SD_CLIENT.img2img(
                     prompt=req.prompt,
                     negative_prompt=req.negative_prompt,
                     width=req.width,
                     height=req.height,
                     steps=req.steps,
+                    strength=0.8,
                     guidance_scale=req.guidance_scale,
-                    seed=req.seed + i * 10,
+                    seed=random.randint(1, req.seed + i * 10),
                     num_images_per_prompt=1,
                 )
                 if res is None or len(res) == 0:
@@ -266,6 +315,51 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                 operator.write(img_name, img_bytes)
                 yield f"path: {img_name}\n"
                 await asyncio.sleep(0.5)
+
+        return EventSourceResponse(__img_to_img(), media_type="text/event-stream")
+
+    if req.job_type == "inpaint":
+        if req.img is None or req.mask is None:
+            # TODO unimplemented yet
+            return {"status": "error", "message": "img and mask are required"}
+        return {"status": "ok"}
+
+    if req.job_type == "txt2img":
+        if req.lora_name is not None:
+            if req.lora_name not in reserved_lora_modules:
+                return {"status": "error", "message": "lora_name is not supported"}
+            if req.lora_name in reserved_lora_modules:
+                SD_CLIENT.enable_lora(req.lora_name)
+                req.prompt = (
+                    req.prompt
+                    if len(req.prompt) == 0
+                    else reserved_lora_modules[req.lora_name]["prompt"]
+                )
+
+        async def __txt_to_img():
+            for i in range(req.count):
+                res = SD_CLIENT.text2img(
+                    prompt=req.prompt,
+                    negative_prompt=req.negative_prompt,
+                    width=req.width,
+                    height=req.height,
+                    steps=req.steps,
+                    guidance_scale=req.guidance_scale,
+                    seed=random.randint(1, req.seed + i * 10),
+                    num_images_per_prompt=1,
+                )
+                if res is None or len(res) == 0:
+                    continue
+                pil_img = res[0]
+                buf = io.BytesIO()
+                pil_img.save(buf, format="PNG")
+                buf.seek(0)
+                img_name = str(uuid.uuid4()) + ".png"
+                img_bytes = buf.getvalue()
+                operator.write(img_name, img_bytes)
+                yield f"path: {img_name}\n"
+                await asyncio.sleep(0.5)
+            SD_CLIENT.disable_lora()
 
         return EventSourceResponse(__txt_to_img(), media_type="text/event-stream")
 

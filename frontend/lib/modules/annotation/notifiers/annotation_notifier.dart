@@ -643,11 +643,28 @@ class AnnotationContainerNotifier
     state = state.copyWith(annotations: annotations);
   }
 
-  /// TODO
-  void setAnnotationsInDetections(SingleImageResponse response) {}
+  void setAnnotationsInDetections(SingleImageResponse response) {
+    StringBuffer sb = StringBuffer();
+    final imgSize = ref.read(imageNotifierProvider).size;
+    for (final i in response.results) {
+      // print(i.toYoloFormat(imgSize));
+      sb.write(i.toYoloFormat(imgSize));
+      sb.write("\n");
+    }
+    state = state.copyWith(annotations: []);
+    addAnnotation(sb.toString());
+  }
 
-  /// TODO
-  void addAnnotationInDetections(SingleImageResponse response) {}
+  void addAnnotationInDetections(SingleImageResponse response) {
+    StringBuffer sb = StringBuffer();
+    final imgSize = ref.read(imageNotifierProvider).size;
+    for (final i in response.results) {
+      // print(i.toYoloFormat(imgSize));
+      sb.write(i.toYoloFormat(imgSize));
+      sb.write("\n");
+    }
+    addAnnotation(sb.toString());
+  }
 
   void addAnnotation(String content) {
     var imageState = ref.read(imageNotifierProvider);
@@ -675,9 +692,6 @@ class AnnotationContainerNotifier
       );
     }
   }
-
-  /// TODO
-  Future findSimilarAnnotation(List<String> classes) async {}
 
   void addFakeAnnotation(Annotation annotation) {
     annotation.isOnAdding = true;

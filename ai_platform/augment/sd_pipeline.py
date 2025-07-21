@@ -36,7 +36,9 @@ class StableDiffusionUnified:
     ):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._base = StableDiffusion3Pipeline.from_pretrained(
-            model_path, torch_dtype=torch.float16, device_map="balanced"  # 自动分配部分模块到 CPU
+            model_path,
+            torch_dtype=torch.float16,
+            device_map="balanced",  # 自动分配部分模块到 CPU
         )
         self._enable_img2img = enable_img2img
         self._enable_inpaint = enable_inpaint
@@ -54,19 +56,33 @@ class StableDiffusionUnified:
         self._enabled_loras = []
 
     def enable_lora(self, lora_name: str):
-        if lora_name in reserved_lora_modules:
-            self._base.load_lora_weights(
-                reserved_lora_modules[lora_name]["path"], adapter_name=lora_name
-            )
-            self._enabled_loras.append(lora_name)
-            self._base.set_adapters(self._enabled_loras)
-            logger.info(f"enable lora: {lora_name}")
+        if lora_name not in reserved_lora_modules:
+            logger.warning(f"LoRA '{lora_name}' not found in reserved_lora_modules.")
+            return
 
-    def disable_lora(self, lora_name: str):
-        if lora_name in self._enabled_loras:
-            self._enabled_loras.remove(lora_name)
-            self._base.set_adapters(self._enabled_loras)
-            logger.info(f"disable lora: {lora_name}")
+        # 清除已有 LoRA adapter
+        try:
+            self._base.unload_lora_weights()
+            logger.info("Previous LoRA adapters unloaded.")
+        except Exception as e:
+            logger.warning(f"Failed to unload existing LoRA: {e}")
+
+        # 加载新的 LoRA
+        path = reserved_lora_modules[lora_name]["path"]
+        self._base.load_lora_weights(path)
+        self._enabled_loras = [lora_name]
+        logger.info(f"Enabled LoRA: {lora_name}")
+
+    def disable_lora(self):
+        if self._enabled_loras:
+            try:
+                self._base.unload_lora_weights()
+                logger.info(f"Disabled LoRA: {self._enabled_loras}")
+            except Exception as e:
+                logger.warning(f"Failed to unload LoRA: {e}")
+            self._enabled_loras = []
+        else:
+            logger.info("No LoRA to disable.")
 
     def text2img(
         self,
