@@ -5,7 +5,7 @@ import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/annotation_widget.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
+import 'package:auto_ml/modules/annotation/notifiers/enum.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/logger.dart';
@@ -144,52 +144,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                       .read(annotationNotifierProvider.notifier)
                       .changeCurrentAnnotation("");
                 },
-                // onPanStart: (details) {
-                //   if (mode != LabelMode.add) {
-                //     return;
-                //   }
-                //   previewRect = null;
-                //   startPoint = null;
 
-                //   // final imagePosition = getImagePosition(details);
-                //   final imagePosition = details.localPosition;
-                //   previewRect = Rect.zero;
-                //   startPoint = imagePosition;
-                //   logger.d("startPoint: $imagePosition");
-                //   ref
-                //       .read(annotationNotifierProvider.notifier)
-                //       .addFakeAnnotation(Annotation(imagePosition, 0, 0, -1));
-                // },
-                // onPanUpdate: (details) {
-                //   if (mode != LabelMode.add) {
-                //     return;
-                //   }
-                //   // final currentPoint = MatrixUtils.transformPoint(
-                //   //   Matrix4.inverted(_transformationController.value),
-                //   //   details.localPosition,
-                //   // );
-                //   previewRect = Rect.fromPoints(
-                //     startPoint!,
-                //     details.localPosition,
-                //   );
-                //   ref
-                //       .read(annotationNotifierProvider.notifier)
-                //       .addFakeAnnotation(
-                //         Annotation(
-                //           startPoint!,
-                //           previewRect!.width,
-                //           previewRect!.height,
-                //           -1,
-                //         ),
-                //       );
-                // },
-                // onPanEnd: (details) {
-                //   ref
-                //       .read(annotationNotifierProvider.notifier)
-                //       .fakeAnnotationFinalize();
-                //   startPoint = null;
-                //   previewRect = null;
-                // },
                 onPanStart:
                     mode == LabelMode.add
                         ? (details) {

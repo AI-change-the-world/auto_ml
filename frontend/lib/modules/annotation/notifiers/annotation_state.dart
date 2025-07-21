@@ -1,6 +1,5 @@
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
-
-enum LabelMode { edit, add }
+import 'package:auto_ml/modules/annotation/notifiers/enum.dart';
 
 class AnnotationState {
   final List<Annotation> annotations;
