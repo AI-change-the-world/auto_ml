@@ -1,6 +1,7 @@
 class Api {
   Api._();
 
+  // dev
   static String baseUrl = 'http://localhost:8080';
 
   static void setBaseUrl(String url) {

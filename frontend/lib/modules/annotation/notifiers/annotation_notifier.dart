@@ -180,6 +180,61 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     addAnnotation(sb.toString());
   }
 
+  // void updateAnnotation(
+  //   Annotation annotation, {
+  //   DragUpdateDetails? dragDetails,
+  //   List<SizeChanged> sizeChanged = const [],
+  // }) {
+  //   if (state.mode == LabelMode.add) {
+  //     return;
+  //   }
+
+  //   annotation = annotation.copyWith(
+  //     position: annotation.position + (dragDetails?.delta ?? Offset.zero),
+  //   );
+  //   if (sizeChanged.isNotEmpty) {
+  //     for (var changed in sizeChanged) {
+  //       if (changed.type == SizeChangedType.left) {
+  //         annotation.position = Offset(
+  //           annotation.position.dx + changed.value,
+  //           annotation.position.dy,
+  //         );
+  //         annotation.width = max(annotation.width - changed.value, 0);
+  //       }
+  //       if (changed.type == SizeChangedType.top) {
+  //         annotation.position = Offset(
+  //           annotation.position.dx,
+  //           annotation.position.dy + changed.value,
+  //         );
+  //         annotation.height = max(annotation.height - changed.value, 0);
+  //       }
+  //       if (changed.type == SizeChangedType.right) {
+  //         annotation.width = annotation.width + changed.value;
+  //       }
+  //       if (changed.type == SizeChangedType.bottom) {
+  //         annotation.height = annotation.height + changed.value;
+  //       }
+  //     }
+  //   }
+
+  //   state = state.copyWith(
+  //     modified: true,
+  //     annotations:
+  //         state.annotations
+  //             .map(
+  //               (e) =>
+  //                   e.uuid == annotation.uuid
+  //                       ? annotation.copyWith(
+  //                         position: annotation.position,
+  //                         width: annotation.width,
+  //                         height: annotation.height,
+  //                       )
+  //                       : e,
+  //             )
+  //             .toList(),
+  //   );
+  // }
+
   void updateAnnotation(
     Annotation annotation, {
     DragUpdateDetails? dragDetails,
@@ -189,50 +244,56 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       return;
     }
 
-    annotation = annotation.copyWith(
+    // 先计算出最终的 annotation 对象
+    var updatedAnnotation = annotation.copyWith(
       position: annotation.position + (dragDetails?.delta ?? Offset.zero),
     );
     if (sizeChanged.isNotEmpty) {
+      // ... 您的 sizeChanged 逻辑不变 ...
+      // 注意：这里的代码应该操作 updatedAnnotation，而不是 annotation
+      // (您的原始代码已经存在这个问题，下面的代码已修正)
+      var newPosition = updatedAnnotation.position;
+      var newWidth = updatedAnnotation.width;
+      var newHeight = updatedAnnotation.height;
+
       for (var changed in sizeChanged) {
         if (changed.type == SizeChangedType.left) {
-          annotation.position = Offset(
-            annotation.position.dx + changed.value,
-            annotation.position.dy,
-          );
-          annotation.width = max(annotation.width - changed.value, 0);
+          newPosition = Offset(newPosition.dx + changed.value, newPosition.dy);
+          newWidth = max(newWidth - changed.value, 0);
         }
         if (changed.type == SizeChangedType.top) {
-          annotation.position = Offset(
-            annotation.position.dx,
-            annotation.position.dy + changed.value,
-          );
-          annotation.height = max(annotation.height - changed.value, 0);
+          newPosition = Offset(newPosition.dx, newPosition.dy + changed.value);
+          newHeight = max(newHeight - changed.value, 0);
         }
         if (changed.type == SizeChangedType.right) {
-          annotation.width = annotation.width + changed.value;
+          newWidth += changed.value;
         }
         if (changed.type == SizeChangedType.bottom) {
-          annotation.height = annotation.height + changed.value;
+          newHeight += changed.value;
         }
       }
+      updatedAnnotation = updatedAnnotation.copyWith(
+        position: newPosition,
+        width: newWidth,
+        height: newHeight,
+      );
     }
 
-    state = state.copyWith(
-      modified: true,
-      annotations:
-          state.annotations
-              .map(
-                (e) =>
-                    e.uuid == annotation.uuid
-                        ? annotation.copyWith(
-                          position: annotation.position,
-                          width: annotation.width,
-                          height: annotation.height,
-                        )
-                        : e,
-              )
-              .toList(),
+    // --- 关键优化在这里 ---
+    // 1. 找到需要更新的元素的索引
+    final index = state.annotations.indexWhere(
+      (e) => e.uuid == updatedAnnotation.uuid,
     );
+    if (index == -1) return; // 如果没找到，直接返回
+
+    // 2. 创建一个可修改的列表副本
+    final newList = List<Annotation>.from(state.annotations);
+
+    // 3. 只更新列表中的那一个元素
+    newList[index] = updatedAnnotation;
+
+    // 4. 使用这个新列表更新状态
+    state = state.copyWith(modified: true, annotations: newList);
   }
 
   void addAnnotation(String content) {
