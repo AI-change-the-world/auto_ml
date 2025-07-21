@@ -137,7 +137,7 @@ class CurrentDatasetAnnotationNotifier
     if (state.annotation == null) {
       return;
     }
-    ref.read(annotationNotifierProvider.notifier).changeMode(LabelMode.edit);
+    ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
     if (state.annotation!.annotationType == 1) {
       return _changeCurrentDataForObjectDetection(data);
     } else if (state.annotation!.annotationType == 3) {
@@ -172,7 +172,7 @@ class CurrentDatasetAnnotationNotifier
             .read(imageNotifierProvider.notifier)
             .loadImage(r.data?.content ?? "", data.$1)
             .then((_) {
-              ref.read(annotationNotifierProvider.notifier).setAnnotations("");
+              ref.read(annotationContainerProvider.notifier).setAnnotations("");
             });
         return;
       }
@@ -201,7 +201,7 @@ class CurrentDatasetAnnotationNotifier
           .loadImage(r.data?.content ?? "", data.$1)
           .then((_) {
             ref
-                .read(annotationNotifierProvider.notifier)
+                .read(annotationContainerProvider.notifier)
                 .setAnnotations(r2.data?.content ?? "");
           });
     } catch (e) {

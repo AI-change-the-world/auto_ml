@@ -1,27 +1,25 @@
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/models/changed.dart';
+import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class AnnotationWidget extends StatelessWidget {
+class AnnotationWidget extends ConsumerWidget {
   const AnnotationWidget({
     super.key,
-    required this.transform,
-    required this.annotation,
-    required this.onPanUpdate,
-    required this.onSizeChanged,
-    required this.onSelected,
+    required this.uuid,
+
     required this.classes,
   });
-  @Deprecated("unused")
-  final Matrix4 transform;
-  final Annotation annotation;
-  final Function(DragUpdateDetails details) onPanUpdate;
-  final Function(List<SizeChanged> changed) onSizeChanged;
-  final Function onSelected;
+
+  final String uuid;
+
   final List<String> classes;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final annotation = ref.watch(singleAnnotationProvider(uuid));
+
     if (!annotation.visible) {
       return SizedBox();
     }
@@ -39,10 +37,16 @@ class AnnotationWidget extends StatelessWidget {
       top: annotation.position.dy,
       child: GestureDetector(
         onPanUpdate: (details) {
-          onPanUpdate(details);
+          // onPanUpdate(details);
+          ref
+              .read(singleAnnotationProvider(uuid).notifier)
+              .updateAnnotation(details: details);
         },
         onTap: () {
-          onSelected();
+          // onSelected();
+          ref
+              .read(annotationContainerProvider.notifier)
+              .changeCurrentAnnotation(uuid);
         },
         child: Stack(
           children: [
@@ -80,7 +84,7 @@ class AnnotationWidget extends StatelessWidget {
               ),
             ),
             // 角落 & 边框手柄
-            ..._buildResizeHandles(),
+            ..._buildResizeHandles(annotation, ref),
           ],
         ),
       ),
@@ -88,21 +92,25 @@ class AnnotationWidget extends StatelessWidget {
   }
 
   /// 构建 8 个拖拽手柄
-  List<Widget> _buildResizeHandles() {
+  List<Widget> _buildResizeHandles(Annotation annotation, WidgetRef ref) {
     return [
-      _buildHandle(Alignment.topLeft), // 左上角
-      _buildHandle(Alignment.topRight), // 右上角
-      _buildHandle(Alignment.bottomLeft), // 左下角
-      _buildHandle(Alignment.bottomRight), // 右下角
-      _buildEdgeHandle(Alignment.topCenter), // 顶部
-      _buildEdgeHandle(Alignment.bottomCenter), // 底部
-      _buildEdgeHandle(Alignment.centerLeft), // 左边
-      _buildEdgeHandle(Alignment.centerRight), // 右边
+      _buildHandle(Alignment.topLeft, annotation, ref), // 左上角
+      _buildHandle(Alignment.topRight, annotation, ref), // 右上角
+      _buildHandle(Alignment.bottomLeft, annotation, ref), // 左下角
+      _buildHandle(Alignment.bottomRight, annotation, ref), // 右下角
+      _buildEdgeHandle(Alignment.topCenter, annotation, ref), // 顶部
+      _buildEdgeHandle(Alignment.bottomCenter, annotation, ref), // 底部
+      _buildEdgeHandle(Alignment.centerLeft, annotation, ref), // 左边
+      _buildEdgeHandle(Alignment.centerRight, annotation, ref), // 右边
     ];
   }
 
   /// 创建 **角落** 拖拽手柄（调整宽高）
-  Widget _buildHandle(Alignment alignment) {
+  Widget _buildHandle(
+    Alignment alignment,
+    Annotation annotation,
+    WidgetRef ref,
+  ) {
     return SizedBox(
       width: annotation.width,
       height: annotation.height,
@@ -126,52 +134,68 @@ class AnnotationWidget extends StatelessWidget {
               }
               // onSizeChanged((annotation.position.dx, annotation.position.dy));
               if (alignment == Alignment.topLeft) {
-                onSizeChanged([
-                  SizeChanged(
-                    value: details.delta.dx,
-                    type: SizeChangedType.left,
-                  ),
-                  SizeChanged(
-                    value: details.delta.dy,
-                    type: SizeChangedType.top,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          value: details.delta.dx,
+                          type: SizeChangedType.left,
+                        ),
+                        SizeChanged(
+                          value: details.delta.dy,
+                          type: SizeChangedType.top,
+                        ),
+                      ],
+                    );
               }
               if (alignment == Alignment.topRight) {
-                onSizeChanged([
-                  SizeChanged(
-                    value: details.delta.dx,
-                    type: SizeChangedType.right,
-                  ),
-                  SizeChanged(
-                    value: details.delta.dy,
-                    type: SizeChangedType.top,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          value: details.delta.dx,
+                          type: SizeChangedType.right,
+                        ),
+                        SizeChanged(
+                          value: details.delta.dy,
+                          type: SizeChangedType.top,
+                        ),
+                      ],
+                    );
               }
               if (alignment == Alignment.bottomLeft) {
-                onSizeChanged([
-                  SizeChanged(
-                    value: details.delta.dx,
-                    type: SizeChangedType.left,
-                  ),
-                  SizeChanged(
-                    value: details.delta.dy,
-                    type: SizeChangedType.bottom,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          value: details.delta.dx,
+                          type: SizeChangedType.left,
+                        ),
+                        SizeChanged(
+                          value: details.delta.dy,
+                          type: SizeChangedType.bottom,
+                        ),
+                      ],
+                    );
               }
               if (alignment == Alignment.bottomRight) {
-                onSizeChanged([
-                  SizeChanged(
-                    value: details.delta.dx,
-                    type: SizeChangedType.right,
-                  ),
-                  SizeChanged(
-                    value: details.delta.dy,
-                    type: SizeChangedType.bottom,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          value: details.delta.dx,
+                          type: SizeChangedType.right,
+                        ),
+                        SizeChanged(
+                          value: details.delta.dy,
+                          type: SizeChangedType.bottom,
+                        ),
+                      ],
+                    );
               }
             },
             child: Container(
@@ -189,7 +213,11 @@ class AnnotationWidget extends StatelessWidget {
   }
 
   /// 创建 **边框** 拖拽手柄（调整宽或高）
-  Widget _buildEdgeHandle(Alignment alignment) {
+  Widget _buildEdgeHandle(
+    Alignment alignment,
+    Annotation annotation,
+    WidgetRef ref,
+  ) {
     MouseCursor cursor;
     switch (alignment) {
       case Alignment.topCenter:
@@ -220,37 +248,53 @@ class AnnotationWidget extends StatelessWidget {
               }
 
               if (alignment == Alignment.centerLeft) {
-                onSizeChanged([
-                  SizeChanged(
-                    type: SizeChangedType.left,
-                    value: details.delta.dx,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          type: SizeChangedType.left,
+                          value: details.delta.dx,
+                        ),
+                      ],
+                    );
               }
               if (alignment == Alignment.topCenter) {
-                onSizeChanged([
-                  SizeChanged(
-                    type: SizeChangedType.top,
-                    value: details.delta.dy,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          type: SizeChangedType.top,
+                          value: details.delta.dy,
+                        ),
+                      ],
+                    );
               }
               if (alignment == Alignment.bottomCenter) {
-                onSizeChanged([
-                  SizeChanged(
-                    type: SizeChangedType.bottom,
-                    value: details.delta.dy,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          type: SizeChangedType.bottom,
+                          value: details.delta.dy,
+                        ),
+                      ],
+                    );
               }
 
               if (alignment == Alignment.centerRight) {
-                onSizeChanged([
-                  SizeChanged(
-                    type: SizeChangedType.right,
-                    value: details.delta.dx,
-                  ),
-                ]);
+                ref
+                    .read(singleAnnotationProvider(uuid).notifier)
+                    .updateAnnotation(
+                      sizeChanged: [
+                        SizeChanged(
+                          type: SizeChangedType.right,
+                          value: details.delta.dx,
+                        ),
+                      ],
+                    );
               }
             },
             child: Container(

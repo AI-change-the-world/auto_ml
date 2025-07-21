@@ -109,7 +109,7 @@ class LayoutIcons extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     bool modified = ref.watch(
-      annotationNotifierProvider.select((v) => v.modified),
+      annotationContainerProvider.select((v) => v.modified),
     );
     return Row(
       spacing: 10,
@@ -161,11 +161,11 @@ class LayoutIcons extends ConsumerWidget {
                       style: Styles.getDefaultButtonStyle(),
                       onPressed: () {
                         ref
-                            .read(annotationNotifierProvider.notifier)
+                            .read(annotationContainerProvider.notifier)
                             .putYoloAnnotation()
                             .then((v) {
                               ref
-                                  .read(annotationNotifierProvider.notifier)
+                                  .read(annotationContainerProvider.notifier)
                                   .changeModifiedStatus(v != 0);
                               ref
                                   .read(
@@ -282,7 +282,7 @@ class _DropDownButton extends ConsumerWidget {
               /// TODO:  do something
               /// FIXME: 应该从后端获取访问参数列表，暂时先前端定制
               ref
-                  .read(annotationNotifierProvider.notifier)
+                  .read(annotationContainerProvider.notifier)
                   .handleAgent(value.id, stream: false);
             },
             menuItemStyleData: MenuItemStyleData(

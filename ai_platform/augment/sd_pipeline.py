@@ -23,7 +23,6 @@ reserved_lora_modules = {
     "leather": {
         "path": "/root/lora/lora_feather_m/pytorch_lora_weights.safetensors",
         "prompt": "a macro photo of sks leather with a small dent and fine surface wrinkles",
-        
     },
 }
 

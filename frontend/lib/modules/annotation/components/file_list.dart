@@ -160,7 +160,7 @@ class FileList extends ConsumerWidget {
       child: GestureDetector(
         onTap: () async {
           // print("a");
-          if (ref.read(annotationNotifierProvider).modified) {
+          if (ref.read(annotationContainerProvider).modified) {
             await showGeneralDialog(
               barrierColor: Styles.barriarColor,
               barrierDismissible: true,
@@ -180,7 +180,7 @@ class FileList extends ConsumerWidget {
                     .read(currentDatasetAnnotationNotifierProvider.notifier)
                     .changeCurrentData(data[index]);
                 ref
-                    .read(annotationNotifierProvider.notifier)
+                    .read(annotationContainerProvider.notifier)
                     .changeModifiedStatus(false);
 
                 return;
@@ -192,7 +192,7 @@ class FileList extends ConsumerWidget {
                 .changeCurrentData(data[index]);
 
             ref
-                .read(annotationNotifierProvider.notifier)
+                .read(annotationContainerProvider.notifier)
                 .changeModifiedStatus(false);
           }
         },

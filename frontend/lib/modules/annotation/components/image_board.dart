@@ -8,6 +8,7 @@ import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/notifiers/enum.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -62,7 +63,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
       return Center(child: Text(t.annotation_screen.image_board.empty));
     }
 
-    final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));
+    final mode = ref.watch(annotationContainerProvider.select((v) => v.mode));
 
     return KeyboardListener(
       onKeyEvent: (event) {
@@ -82,13 +83,13 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
 
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyS) {
-          if (ref.read(annotationNotifierProvider).modified) {
+          if (ref.read(annotationContainerProvider).modified) {
             ref
-                .read(annotationNotifierProvider.notifier)
+                .read(annotationContainerProvider.notifier)
                 .putYoloAnnotation()
                 .then((v) {
                   ref
-                      .read(annotationNotifierProvider.notifier)
+                      .read(annotationContainerProvider.notifier)
                       .changeModifiedStatus(v != 0);
                   ref
                       .read(currentDatasetAnnotationNotifierProvider.notifier)
@@ -99,19 +100,19 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
 
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyW) {
-          ref.read(annotationNotifierProvider.notifier).easyChangeMode();
+          ref.read(annotationContainerProvider.notifier).easyChangeMode();
         }
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyH) {
           ref
-              .read(annotationNotifierProvider.notifier)
+              .read(annotationContainerProvider.notifier)
               .changeCurrentSelectedAnnotationVisibility();
         }
 
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyD) {
           ref
-              .read(annotationNotifierProvider.notifier)
+              .read(annotationContainerProvider.notifier)
               .deleteCurrentSelectedAnnotation();
         }
       },
@@ -141,7 +142,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                 onTap: () {
                   focusNode.requestFocus();
                   ref
-                      .read(annotationNotifierProvider.notifier)
+                      .read(annotationContainerProvider.notifier)
                       .changeCurrentAnnotation("");
                 },
 
@@ -155,9 +156,10 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                           startPoint = imagePosition;
                           logger.d("startPoint: $imagePosition");
                           ref
-                              .read(annotationNotifierProvider.notifier)
+                              .read(annotationContainerProvider.notifier)
                               .addFakeAnnotation(
-                                Annotation(imagePosition, 0, 0, -1),
+                                Annotation(imagePosition, 0, 0, -1)
+                                  ..uuid = fakeUuId,
                               );
                         }
                         : null, // <--- 设为 null
@@ -170,14 +172,14 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                             details.localPosition,
                           );
                           ref
-                              .read(annotationNotifierProvider.notifier)
+                              .read(annotationContainerProvider.notifier)
                               .addFakeAnnotation(
                                 Annotation(
                                   startPoint!,
                                   previewRect!.width,
                                   previewRect!.height,
                                   -1,
-                                ),
+                                )..uuid = fakeUuId,
                               );
                         }
                         : null, // <--- 设为 null
@@ -186,7 +188,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                     mode == LabelMode.add
                         ? (details) {
                           ref
-                              .read(annotationNotifierProvider.notifier)
+                              .read(annotationContainerProvider.notifier)
                               .fakeAnnotationFinalize();
                           startPoint = null;
                           previewRect = null;
@@ -207,16 +209,14 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                           child: Builder(
                             builder: (c) {
                               final annotations = ref.watch(
-                                annotationNotifierProvider.select(
-                                  (v) => v.annotations,
-                                ),
+                                annotationContainerProvider,
                               );
                               // logger.d(
                               //   "annotations length: ${annotations.length}",
                               // );
                               return Stack(
                                 children:
-                                    annotations
+                                    annotations.annotations
                                         .map(
                                           (e) => AnnotationWidget(
                                             classes:
@@ -225,41 +225,40 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                                       currentDatasetAnnotationNotifierProvider,
                                                     )
                                                     .classes,
-                                            transform:
-                                                _transformationController.value,
-                                            annotation: e,
-                                            onPanUpdate: (details) {
-                                              ref
-                                                  .read(
-                                                    annotationNotifierProvider
-                                                        .notifier,
-                                                  )
-                                                  .updateAnnotation(
-                                                    e,
-                                                    dragDetails: details,
-                                                  );
-                                            },
-                                            onSizeChanged: (changedValue) {
-                                              ref
-                                                  .read(
-                                                    annotationNotifierProvider
-                                                        .notifier,
-                                                  )
-                                                  .updateAnnotation(
-                                                    e,
-                                                    sizeChanged: changedValue,
-                                                  );
-                                            },
-                                            onSelected: () {
-                                              ref
-                                                  .read(
-                                                    annotationNotifierProvider
-                                                        .notifier,
-                                                  )
-                                                  .changeCurrentAnnotation(
-                                                    e.uuid,
-                                                  );
-                                            },
+
+                                            uuid: e.uuid,
+                                            // onPanUpdate: (details) {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .updateAnnotation(
+                                            //         e,
+                                            //         dragDetails: details,
+                                            //       );
+                                            // },
+                                            // onSizeChanged: (changedValue) {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .updateAnnotation(
+                                            //         e,
+                                            //         sizeChanged: changedValue,
+                                            //       );
+                                            // },
+                                            // onSelected: () {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .changeCurrentAnnotation(
+                                            //         e.uuid,
+                                            //       );
+                                            // },
                                           ),
                                         )
                                         .toList(),

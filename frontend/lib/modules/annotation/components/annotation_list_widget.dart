@@ -20,7 +20,7 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(annotationNotifierProvider);
+    final state = ref.watch(annotationContainerProvider);
 
     return Material(
       borderRadius: BorderRadius.circular(10),
@@ -99,7 +99,8 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
                                     onTap: () {
                                       ref
                                           .read(
-                                            annotationNotifierProvider.notifier,
+                                            annotationContainerProvider
+                                                .notifier,
                                           )
                                           .changeCurrentAnnotation(
                                             state.annotations[index].uuid,
@@ -111,13 +112,22 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
                                       if (widget.classes.contains(value)) {
                                         // state.annotations[index].id = classes
                                         //     .indexOf(value);
+                                        // ref
+                                        //     .read(
+                                        //       annotationContainerProvider
+                                        //           .notifier,
+                                        //     )
+                                        //     .changeAnnotationClassId(
+                                        //       state.annotations[index].uuid,
+                                        //       widget.classes.indexOf(value),
+                                        //     );
                                         ref
                                             .read(
-                                              annotationNotifierProvider
-                                                  .notifier,
+                                              singleAnnotationProvider(
+                                                state.annotations[index].uuid,
+                                              ).notifier,
                                             )
                                             .changeAnnotationClassId(
-                                              state.annotations[index].uuid,
                                               widget.classes.indexOf(value),
                                             );
                                       } else {
@@ -128,13 +138,22 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
                                             )
                                             .addClassType(value);
                                         widget.classes.add(value);
+                                        // ref
+                                        //     .read(
+                                        //       annotationNotifierProvider
+                                        //           .notifier,
+                                        //     )
+                                        //     .changeAnnotationClassId(
+                                        //       state.annotations[index].uuid,
+                                        //       widget.classes.indexOf(value),
+                                        //     );
                                         ref
                                             .read(
-                                              annotationNotifierProvider
-                                                  .notifier,
+                                              singleAnnotationProvider(
+                                                state.annotations[index].uuid,
+                                              ).notifier,
                                             )
                                             .changeAnnotationClassId(
-                                              state.annotations[index].uuid,
                                               widget.classes.indexOf(value),
                                             );
                                       }
@@ -159,7 +178,7 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
                                   onTap: () {
                                     ref
                                         .read(
-                                          annotationNotifierProvider.notifier,
+                                          annotationContainerProvider.notifier,
                                         )
                                         .changeAnnotationVisibility(
                                           state.annotations[index].uuid,
@@ -176,7 +195,7 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
                                   onTap: () {
                                     ref
                                         .read(
-                                          annotationNotifierProvider.notifier,
+                                          annotationContainerProvider.notifier,
                                         )
                                         .removeAnnotationById(
                                           state.annotations[index].uuid,

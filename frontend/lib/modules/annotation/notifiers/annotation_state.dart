@@ -29,3 +29,27 @@ class AnnotationState {
     );
   }
 }
+
+class RefactorAnnotationState {
+  final List<Annotation> annotations;
+  final LabelMode mode;
+  final bool modified;
+
+  RefactorAnnotationState({
+    this.annotations = const [],
+    this.mode = LabelMode.edit,
+    this.modified = false,
+  });
+
+  RefactorAnnotationState copyWith({
+    List<Annotation>? annotations,
+    LabelMode? mode,
+    bool? modified,
+  }) {
+    return RefactorAnnotationState(
+      annotations: annotations ?? this.annotations,
+      mode: mode ?? this.mode,
+      modified: modified ?? this.modified,
+    );
+  }
+}
