@@ -1,6 +1,8 @@
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 
+const String fakeUuId = "fake_uuid";
+
 // TODO: fix this
 enum ModelType { llm, mllm, vision }
 

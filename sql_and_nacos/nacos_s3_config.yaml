@@ -5,3 +5,4 @@ local-s3-config:
   endpoint: http://127.0.0.1:9000
   datasets_bucket_name: datasets
   models_bucket_name: models
+  augment_bucket_name: augment

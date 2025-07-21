@@ -13,6 +13,7 @@ from ultralytics.engine.trainer import BaseTrainer
 from base.file_delegate import get_operator, s3_properties
 from base.logger import logger
 from base.nacos_config import get_sync_db
+from base.tools import download_from_s3
 from db.available_models.available_models_crud import create_available_model
 from db.task.task_crud import get_task, update_task
 from db.task_log.task_log_crud import create_log
@@ -21,7 +22,6 @@ from yolo.prepare_dataset import (
     prepare_dataset_for_cls,
     prepare_temp_training_dir_split,
 )
-from yolo.tools import download_from_s3
 
 
 def __download_dataset_from_s3(

@@ -1,6 +1,7 @@
 class Api {
   Api._();
 
+  // dev
   static String baseUrl = 'http://localhost:8080';
 
   static void setBaseUrl(String url) {
@@ -114,4 +115,24 @@ class Api {
 
   /// [home] index
   static final String homeIndex = "/home/index";
+
+  /// [aug-and-qua] augment and quality
+  static final String gan =
+      "http://localhost:18000/augment/gan/generate/stream";
+
+  static final String cv = "http://localhost:18000/augment/cv/generate/stream";
+
+  static final String getAugData = "/augmentAndQuality/get/image";
+
+  static final String optimize =
+      "http://localhost:18000/augment/sd/prompt/optimize";
+
+  static final String sd = "http://localhost:18000/augment/sd/generate";
+
+  static final String measure = "http://localhost:18000/augment/measure/stream";
+
+  static final String sdIsOn = "http://localhost:18000/augment/on";
+
+  static final String sdInitial =
+      "http://localhost:18000/augment/sd/initialize";
 }

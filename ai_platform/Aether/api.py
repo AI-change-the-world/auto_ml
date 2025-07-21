@@ -52,13 +52,13 @@ async def handle_request(req: AetherRequest[dict], db: Session = Depends(get_db)
             )
             logger.info(f"res: {res}")
             response = AetherResponse[PredictResults](
-                success= res is not None,
+                success=res is not None,
                 output=res,
                 meta=ResponseMeta(
                     time_cost_ms=int((time.time() - start_time) * 1000),
                     task_id=req.meta.task_id,
                 ),
-                error= "agent error" if res is None else None,
+                error="agent error" if res is None else None,
             )
             if task_available:
                 tlc = TaskLogCreate(

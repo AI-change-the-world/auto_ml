@@ -21,9 +21,7 @@ def estimate_vram(
 
     # 计算优化器状态显存
     if optimizer == "adam":
-        optimizer_memory = (
-            num_params * bytes_per_param * 3
-        )  # Adam 需要额外存储一阶与二阶矩估计
+        optimizer_memory = num_params * bytes_per_param * 3  # Adam 需要额外存储一阶与二阶矩估计
     else:
         optimizer_memory = num_params * bytes_per_param  # SGD 仅存储梯度
 

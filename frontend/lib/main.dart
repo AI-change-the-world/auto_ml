@@ -13,8 +13,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // add this
   LocaleSettings.useDeviceLocale(); // and this
   MediaKit.ensureInitialized();
+
   DioClient().init(baseUrl: 'http://localhost:8080/automl');
   Api.setBaseUrl('http://localhost:8080/automl');
+  // local test
+  // DioClient().init(baseUrl: 'http://192.168.2.10:8080/automl');
+  // Api.setBaseUrl('http://192.168.2.10:8080/automl');
   await Globals.init();
 
   runApp(

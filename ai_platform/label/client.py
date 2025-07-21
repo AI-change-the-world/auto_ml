@@ -108,7 +108,6 @@ class ProvidedModelClient:
 
             self.model = YOLO(model_name)
         elif model_type == ProvidedModelEnum.gd:
-
             self.model = load_model(
                 "./gd/groundingdino/config/GroundingDINO_SwinT_OGC.py",
                 "groundingdino_swint_ogc.pth",
@@ -167,7 +166,7 @@ def get_model(tool_model: ToolModel) -> Union[OpenAI, ProvidedModelClient, None]
     if (
         tool_model.base_url is not None
         and tool_model.base_url.startswith("http")
-        and tool_model.type == "mllm"
+        and (tool_model.type == "mllm" or tool_model.type == "llm")
     ):
         model = OpenAI(api_key=tool_model.api_key, base_url=tool_model.base_url)
         global_activated_model[tool_model.id] = model

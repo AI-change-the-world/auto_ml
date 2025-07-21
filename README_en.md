@@ -2,79 +2,81 @@
   <img src="./readme/icon_with_text.png" width="300" height="300">
 </div>
 
+<p align="center">📘 Other Language Versions</p>
 <p align="center">
-  <a href="README_en.md">English</a> | <a href="README.md">简体中文</a>
+  <a href="README_en.md">English</a> | <a href="README.md">Simplified Chinese</a>
 </p>
 
-### framework
 
-![image](./readme/image.png)
+**Note:** This project is in the early development stage and is not recommended for production environments.
 
-**Notice:** This project is in the early stages of development. Please do not use it in a production environment.
+## Environment Dependencies
 
-### requirements
+- Python 3.10+ (AI tools)
+- Java (backend)
+- Flutter (frontend)
+- FFmpeg (video processing)
+- Docker (for running services such as MySQL, Nacos, MinIO)
 
-* python3.10+ (AI tools)
-* java (backend)
-* flutter (frontend)
-* ffmpeg (video processing)
-* docker (mysql, rnacos, minio)
-
-### changelog
+## Changelog
 
 - [CHANGELOG.md](./CHANGELOG.md)
 
-### screenshots
+## Screenshot Preview
 
-* home
+### Homepage
 
 ![home](./readme/home.png)
 
-* dataset
+### Dataset
 
-| 1      | 2 | 3     |
-| :---        |    :----:   |          ---: |
-| ![1](./readme/dataset1.jpg)      |  ![2](./readme/dataset2.png)       |![3](./readme/dataset3.png)   |
+| Example 1 | Example 2 | Example 3 |
+| :--- | :---: | ---: |
+| ![1](./readme/dataset1.jpg) | ![2](./readme/dataset2.png) | ![3](./readme/dataset3.png) |
 
-* annotation
+### Annotation Interface
 
 ![annotation](./readme/annotation.png)
 
-* agent
+### Agent
 
 ![agent](./readme/agent.png)
 
-* task
+### Task Management
 
 ![task](./readme/task.png)
 
-* deploy
+### Deployment Interface
 
 ![deploy](./readme/deploy.png)
 
+## Bug List
 
-### BUG list
-* [x] **[Frontend]** Image scaling inconsistent with browser resize (non-critical rendering issue)
-* [ ] **[Frontend]** Dont show classes list if annotation class is an empty string (Priority: P3)
-* [x] **[Frontend]** State error after switch to other datasets (Priority: P2)
-* [ ] **[Frontend]** Cannot delete annotation after auto-label(Priority: P1)
-* [ ] **[Frontend]** Unsaved status shown but dont show warning when switch images after auto-label(Priority: P3)
-* [ ] **[Frontend]** Cls annotation state not change after trigger button(Priority: P2)
-* [ ] **[AI,backend]** Sometimes, cannot parse LLM results(Priority: P2)
+- [x] **[Frontend]** Inconsistent image scaling when browser is zoomed (non-critical rendering issue)
+- [ ] **[Frontend]** Class list should not be displayed when annotation class is an empty string (Priority: P3)
+- [x] **[Frontend]** Incorrect state after switching datasets (Priority: P2)
+- [ ] **[Frontend]** Cannot delete annotations after automatic annotation (Priority: P1)
+- [ ] **[Frontend]** No prompt for unsaved state when switching images after automatic annotation (Priority: P3)
+- [ ] **[Frontend]** Classification annotation state not updated after clicking the button (Priority: P2)
+- [ ] **[AI/Backend]** Sometimes fails to correctly parse large model return results (Priority: P2)
+- [ ] **[Backend]** Exceptions not properly caught in the upload file list
 
+## TODO List
 
-### TODO list
-* [ ] **[frontend]** Implement i18n localization support (Priority: P4)
-* [ ] **[frontend，backend]**  Add support for saving additional data source types to local S3 (Priority: P1)
-    * [ ] Enable ZIP file upload functionality
-* [ ] **[frontend，backend]** Improve annotation persistence mechanism (Priority: P1)
-    * [x] Display unsaved changes confirmation dialog (Priority: P4)
-    * [x] Implement manual save button functionality (Priority: P3)
-    * [ ] Add automatic save feature (triggered by timer/edits) (Priority: P1)
-* [x] **[frontend，backend]** Implement dataset append functionality for new data (Priority: P2)
-* [ ] **[frontend，backend]** Add annotation append support for existing datasets (Priority: P4)
-* [ ] **[backend]** Implement image resizing (>1024×1024) to improve MLLM detection accuracy (Priority: P1)
-* [ ] **[backend]** Add bounding box post-processing to remove >95% overlapping regions (Priority: P2)
+- [ ] **[Frontend]** Implement internationalization (i18n) multi-language support (Priority: P4)
+- [ ] **[Frontend & Backend]** Support saving multiple data source types to local S3 (Priority: P1)
+  - [ ] Implement ZIP file upload function
+- [ ] **[Frontend & Backend]** Improve annotation saving mechanism (Priority: P1)
+  - [x] Pop up unsaved confirmation prompt (Priority: P4)
+  - [x] Implement manual save button function (Priority: P3)
+  - [ ] Add automatic save mechanism (triggered by timing or editing, Priority: P1)
+- [x] **[Frontend & Backend]** Support appending new data to datasets (Priority: P2)
+- [ ] **[Frontend & Backend]** Support appending annotation information to existing datasets (Priority: P4)
+- [ ] **[Backend]** Implement image scaling for images larger than 1024×1024 to improve MLLM detection accuracy (Priority: P1)
+- [ ] **[Backend]** Add post-processing for annotation boxes to remove overlapping areas >95% (Priority: P2)
+- [ ] **[Backend]** No restrictions on file size and quantity in the upload file list
+- [ ] **[Frontend]** After operations such as file upload, the provider state is not forced to update and requires manual refresh
 
-### HELP WANTED
-* [ ] **[frontend]** disable dual finger return to the previous page in Flutter Web (Priority: P2)
+## HELP WANTED
+
+- [ ] **[Frontend]** Disable two-finger back navigation in Flutter Web (Priority: P2)

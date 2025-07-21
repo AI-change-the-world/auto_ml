@@ -4,7 +4,7 @@ import 'package:auto_ml/common/merge_files_and_annotations.dart';
 import 'package:auto_ml/modules/annotation/models/api/annotation_file_response.dart';
 import 'package:auto_ml/modules/annotation/models/api/dataset_file_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
+import 'package:auto_ml/modules/annotation/notifiers/enum.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_request.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_response.dart';
@@ -137,7 +137,7 @@ class CurrentDatasetAnnotationNotifier
     if (state.annotation == null) {
       return;
     }
-    ref.read(annotationNotifierProvider.notifier).changeMode(LabelMode.edit);
+    ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
     if (state.annotation!.annotationType == 1) {
       return _changeCurrentDataForObjectDetection(data);
     } else if (state.annotation!.annotationType == 3) {
@@ -172,7 +172,7 @@ class CurrentDatasetAnnotationNotifier
             .read(imageNotifierProvider.notifier)
             .loadImage(r.data?.content ?? "", data.$1)
             .then((_) {
-              ref.read(annotationNotifierProvider.notifier).setAnnotations("");
+              ref.read(annotationContainerProvider.notifier).setAnnotations("");
             });
         return;
       }
@@ -201,7 +201,7 @@ class CurrentDatasetAnnotationNotifier
           .loadImage(r.data?.content ?? "", data.$1)
           .then((_) {
             ref
-                .read(annotationNotifierProvider.notifier)
+                .read(annotationContainerProvider.notifier)
                 .setAnnotations(r2.data?.content ?? "");
           });
     } catch (e) {

@@ -132,12 +132,18 @@ public class DatasetService {
     queryWrapper.eq("is_deleted", 0);
     List<Dataset> val = datasetMapper.selectList(queryWrapper);
     for (Dataset dataset : val) {
+      if (dataset.getSampleFilePath()==null){
+        continue;
+      }
       if (dataset.getType() == 0) {
         String p = null;
         try {
           p =
-              s3FileDelegate.getFile(
+              s3FileDelegate.cachedGetFile(
                   dataset.getSampleFilePath(), properties.getDatasetsBucketName());
+          if (p == null) {
+            log.warn("sample file path is null, maybe dataset is empty or error");
+          }
         } catch (Exception e) {
           log.error("get sample file error: {}", e.getMessage());
           continue;

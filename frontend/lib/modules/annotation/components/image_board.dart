@@ -1,16 +1,30 @@
 import 'dart:ui' as ui;
+import 'dart:ui';
 
 import 'package:auto_ml/i18n/strings.g.dart';
 import 'package:auto_ml/modules/annotation/components/annotation_widget.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/modules/annotation/notifiers/annotation_state.dart';
+import 'package:auto_ml/modules/annotation/notifiers/enum.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/modules/dataset/constants.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+class MyCustomScrollBehavior extends MaterialScrollBehavior {
+  // 重写 agetDragDevices 方法，告诉 Flutter 哪些设备可以触发拖拽事件
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+    // 关键：在这里添加鼠标设备，表示鼠标左键按下并移动时可以触发拖拽
+    PointerDeviceKind.mouse,
+  };
+}
 
 class ImageBoard extends ConsumerStatefulWidget {
   const ImageBoard({super.key});
@@ -49,7 +63,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
       return Center(child: Text(t.annotation_screen.image_board.empty));
     }
 
-    final mode = ref.watch(annotationNotifierProvider.select((v) => v.mode));
+    final mode = ref.watch(annotationContainerProvider.select((v) => v.mode));
 
     return KeyboardListener(
       onKeyEvent: (event) {
@@ -69,13 +83,13 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
 
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyS) {
-          if (ref.read(annotationNotifierProvider).modified) {
+          if (ref.read(annotationContainerProvider).modified) {
             ref
-                .read(annotationNotifierProvider.notifier)
+                .read(annotationContainerProvider.notifier)
                 .putYoloAnnotation()
                 .then((v) {
                   ref
-                      .read(annotationNotifierProvider.notifier)
+                      .read(annotationContainerProvider.notifier)
                       .changeModifiedStatus(v != 0);
                   ref
                       .read(currentDatasetAnnotationNotifierProvider.notifier)
@@ -86,19 +100,19 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
 
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyW) {
-          ref.read(annotationNotifierProvider.notifier).easyChangeMode();
+          ref.read(annotationContainerProvider.notifier).easyChangeMode();
         }
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyH) {
           ref
-              .read(annotationNotifierProvider.notifier)
+              .read(annotationContainerProvider.notifier)
               .changeCurrentSelectedAnnotationVisibility();
         }
 
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyD) {
           ref
-              .read(annotationNotifierProvider.notifier)
+              .read(annotationContainerProvider.notifier)
               .deleteCurrentSelectedAnnotation();
         }
       },
@@ -106,152 +120,157 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
       child: Center(
         child: Padding(
           padding: const EdgeInsets.only(top: 10, bottom: 10),
-          child: InteractiveViewer(
-            panEnabled: mode != LabelMode.add,
 
-            ///  scaleEnabled is set to false for better performance
-            scaleEnabled: false,
-            transformationController: _transformationController,
-            boundaryMargin: EdgeInsets.all(0),
+          child: ScrollConfiguration(
+            behavior: MyCustomScrollBehavior(),
+            child: InteractiveViewer(
+              panEnabled: mode != LabelMode.add,
 
-            ///  minScale is set to 1 for better performance
-            minScale: 1,
+              ///  scaleEnabled is set to false for better performance
+              scaleEnabled: false,
+              transformationController: _transformationController,
+              boundaryMargin: EdgeInsets.all(0),
 
-            ///  maxScale is set to 1 for better performance
-            maxScale: 1,
-            constrained: false,
-            child: GestureDetector(
-              onTap: () {
-                focusNode.requestFocus();
-                ref
-                    .read(annotationNotifierProvider.notifier)
-                    .changeCurrentAnnotation("");
-              },
-              onPanStart: (details) {
-                if (mode != LabelMode.add) {
-                  return;
-                }
-                previewRect = null;
-                startPoint = null;
+              ///  minScale is set to 1 for better performance
+              minScale: 1,
 
-                // final imagePosition = getImagePosition(details);
-                final imagePosition = details.localPosition;
-                previewRect = Rect.zero;
-                startPoint = imagePosition;
-                logger.d("startPoint: $imagePosition");
-                ref
-                    .read(annotationNotifierProvider.notifier)
-                    .addFakeAnnotation(Annotation(imagePosition, 0, 0, -1));
-              },
-              onPanUpdate: (details) {
-                if (mode != LabelMode.add) {
-                  return;
-                }
-                // final currentPoint = MatrixUtils.transformPoint(
-                //   Matrix4.inverted(_transformationController.value),
-                //   details.localPosition,
-                // );
-                previewRect = Rect.fromPoints(
-                  startPoint!,
-                  details.localPosition,
-                );
-                ref
-                    .read(annotationNotifierProvider.notifier)
-                    .addFakeAnnotation(
-                      Annotation(
-                        startPoint!,
-                        previewRect!.width,
-                        previewRect!.height,
-                        -1,
-                      ),
-                    );
-              },
-              onPanEnd: (details) {
-                ref
-                    .read(annotationNotifierProvider.notifier)
-                    .fakeAnnotationFinalize();
-                startPoint = null;
-                previewRect = null;
-              },
+              ///  maxScale is set to 1 for better performance
+              maxScale: 1,
+              constrained: false,
 
-              child: Builder(
-                builder: (c) {
-                  final data = ref.watch(imageNotifierProvider);
-
-                  if (data.image != null) {
-                    return SizedBox(
-                      width: data.size.width,
-                      height: data.size.height,
-                      child: CustomPaint(
-                        size: data.size,
-                        painter: _ImagePainter(data.image!, data.imgKey),
-                        child: Builder(
-                          builder: (c) {
-                            final annotations = ref.watch(
-                              annotationNotifierProvider.select(
-                                (v) => v.annotations,
-                              ),
-                            );
-                            // logger.d(
-                            //   "annotations length: ${annotations.length}",
-                            // );
-                            return Stack(
-                              children:
-                                  annotations
-                                      .map(
-                                        (e) => AnnotationWidget(
-                                          classes:
-                                              ref
-                                                  .read(
-                                                    currentDatasetAnnotationNotifierProvider,
-                                                  )
-                                                  .classes,
-                                          transform:
-                                              _transformationController.value,
-                                          annotation: e,
-                                          onPanUpdate: (details) {
-                                            ref
-                                                .read(
-                                                  annotationNotifierProvider
-                                                      .notifier,
-                                                )
-                                                .updateAnnotation(
-                                                  e,
-                                                  dragDetails: details,
-                                                );
-                                          },
-                                          onSizeChanged: (changedValue) {
-                                            ref
-                                                .read(
-                                                  annotationNotifierProvider
-                                                      .notifier,
-                                                )
-                                                .updateAnnotation(
-                                                  e,
-                                                  sizeChanged: changedValue,
-                                                );
-                                          },
-                                          onSelected: () {
-                                            ref
-                                                .read(
-                                                  annotationNotifierProvider
-                                                      .notifier,
-                                                )
-                                                .changeCurrentAnnotation(
-                                                  e.uuid,
-                                                );
-                                          },
-                                        ),
-                                      )
-                                      .toList(),
-                            );
-                          },
-                        ),
-                      ),
-                    );
-                  }
-                  return Center(child: CircularProgressIndicator());
+              child: GestureDetector(
+                onTap: () {
+                  focusNode.requestFocus();
+                  ref
+                      .read(annotationContainerProvider.notifier)
+                      .changeCurrentAnnotation("");
                 },
+
+                onPanStart:
+                    mode == LabelMode.add
+                        ? (details) {
+                          previewRect = null;
+                          startPoint = null;
+                          final imagePosition = details.localPosition;
+                          previewRect = Rect.zero;
+                          startPoint = imagePosition;
+                          logger.d("startPoint: $imagePosition");
+                          ref
+                              .read(annotationContainerProvider.notifier)
+                              .addFakeAnnotation(
+                                Annotation(imagePosition, 0, 0, -1)
+                                  ..uuid = fakeUuId,
+                              );
+                        }
+                        : null, // <--- 设为 null
+
+                onPanUpdate:
+                    mode == LabelMode.add
+                        ? (details) {
+                          previewRect = Rect.fromPoints(
+                            startPoint!,
+                            details.localPosition,
+                          );
+                          ref
+                              .read(annotationContainerProvider.notifier)
+                              .addFakeAnnotation(
+                                Annotation(
+                                  startPoint!,
+                                  previewRect!.width,
+                                  previewRect!.height,
+                                  -1,
+                                )..uuid = fakeUuId,
+                              );
+                        }
+                        : null, // <--- 设为 null
+
+                onPanEnd:
+                    mode == LabelMode.add
+                        ? (details) {
+                          ref
+                              .read(annotationContainerProvider.notifier)
+                              .fakeAnnotationFinalize();
+                          startPoint = null;
+                          previewRect = null;
+                        }
+                        : null, // <--- 设为 null
+
+                child: Builder(
+                  builder: (c) {
+                    final data = ref.watch(imageNotifierProvider);
+
+                    if (data.image != null) {
+                      return SizedBox(
+                        width: data.size.width,
+                        height: data.size.height,
+                        child: CustomPaint(
+                          size: data.size,
+                          painter: _ImagePainter(data.image!, data.imgKey),
+                          child: Builder(
+                            builder: (c) {
+                              final annotations = ref.watch(
+                                annotationContainerProvider,
+                              );
+                              // logger.d(
+                              //   "annotations length: ${annotations.length}",
+                              // );
+                              return Stack(
+                                children:
+                                    annotations.annotations
+                                        .map(
+                                          (e) => AnnotationWidget(
+                                            classes:
+                                                ref
+                                                    .read(
+                                                      currentDatasetAnnotationNotifierProvider,
+                                                    )
+                                                    .classes,
+
+                                            uuid: e.uuid,
+                                            // onPanUpdate: (details) {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .updateAnnotation(
+                                            //         e,
+                                            //         dragDetails: details,
+                                            //       );
+                                            // },
+                                            // onSizeChanged: (changedValue) {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .updateAnnotation(
+                                            //         e,
+                                            //         sizeChanged: changedValue,
+                                            //       );
+                                            // },
+                                            // onSelected: () {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .changeCurrentAnnotation(
+                                            //         e.uuid,
+                                            //       );
+                                            // },
+                                          ),
+                                        )
+                                        .toList(),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    }
+                    return Center(child: CircularProgressIndicator());
+                  },
+                ),
               ),
             ),
           ),

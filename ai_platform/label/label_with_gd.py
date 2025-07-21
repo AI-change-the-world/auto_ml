@@ -7,11 +7,13 @@ from label.client import ProvidedModelClient, get_model
 from yolo.response import PredictResults
 
 
-def label_with_gd(img_path:str, classes: List[str], tool_model: ToolModel) -> Union[PredictResults, None]:
+def label_with_gd(
+    img_path: str, classes: List[str], tool_model: ToolModel
+) -> Union[PredictResults, None]:
     op = get_operator(s3_properties.datasets_bucket_name)
     model = get_model(tool_model)
     logger.info(f"label_with_gd model ; model is None : {model is None}  {type(model)}")
-    assert model is not None and  isinstance(model, ProvidedModelClient)
+    assert model is not None and isinstance(model, ProvidedModelClient)
     img_data = op.read(img_path)
-    res = model.predict(image= img_data, image_save_path= img_path, classes= classes)
+    res = model.predict(image=img_data, image_save_path=img_path, classes=classes)
     return res
