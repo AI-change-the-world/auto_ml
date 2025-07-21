@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+enum BgImageType { asset, network }
+
 class LeftRightBackgroundContainer extends StatelessWidget {
   final List<Widget> children;
   final double height;
   final double width;
   final Color leftBackgroundColor;
   final String? rightBackgroundImage;
+  final BgImageType bgImageType;
 
   const LeftRightBackgroundContainer({
     super.key,
@@ -14,6 +17,7 @@ class LeftRightBackgroundContainer extends StatelessWidget {
     this.width = 100,
     this.leftBackgroundColor = Colors.white,
     this.rightBackgroundImage,
+    this.bgImageType = BgImageType.network,
   });
 
   @override
@@ -58,7 +62,14 @@ class LeftRightBackgroundContainer extends StatelessWidget {
                                           width: 0.5 * width,
                                           fit: BoxFit.fill,
                                         )
-                                        : Image.network(
+                                        : bgImageType == BgImageType.network
+                                        ? Image.network(
+                                          rightBackgroundImage!,
+                                          height: height,
+                                          width: 0.5 * width,
+                                          fit: BoxFit.fill,
+                                        )
+                                        : Image.asset(
                                           rightBackgroundImage!,
                                           height: height,
                                           width: 0.5 * width,

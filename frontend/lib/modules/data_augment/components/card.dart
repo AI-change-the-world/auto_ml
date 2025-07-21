@@ -9,6 +9,7 @@ class Hover3DCard extends StatefulWidget {
     required this.imageUrl,
     this.onTap,
     this.onDoubleTap,
+    this.bgImageType = BgImageType.network,
   });
 
   final String title;
@@ -16,6 +17,7 @@ class Hover3DCard extends StatefulWidget {
   final String imageUrl;
   final VoidCallback? onTap;
   final VoidCallback? onDoubleTap;
+  final BgImageType bgImageType;
 
   @override
   State<Hover3DCard> createState() => _Hover3DCardState();
@@ -76,6 +78,7 @@ class _Hover3DCardState extends State<Hover3DCard> {
       width: 400,
       height: 300,
       rightBackgroundImage: widget.imageUrl,
+      bgImageType: widget.bgImageType,
       children: [
         Positioned(
           top: 20,

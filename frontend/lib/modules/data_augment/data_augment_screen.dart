@@ -2,6 +2,8 @@ import 'package:auto_ml/modules/data_augment/components/card.dart';
 import 'package:auto_ml/modules/data_augment/components/cv_dialog.dart';
 import 'package:auto_ml/modules/data_augment/components/gan_dialog.dart';
 import 'package:auto_ml/modules/data_augment/components/sd_dialog.dart';
+import 'package:auto_ml/modules/dataset/components/left_right_background_container.dart'
+    show BgImageType;
 import 'package:flutter/material.dart';
 
 class DataAugmentScreen extends StatefulWidget {
@@ -36,6 +38,7 @@ class _DataAugmentScreenState extends State<DataAugmentScreen> {
                   },
                 );
               },
+              bgImageType: BgImageType.asset,
             ),
             Hover3DCard(
               title: "GAN Augmentation",
@@ -51,17 +54,20 @@ class _DataAugmentScreenState extends State<DataAugmentScreen> {
                   },
                 );
               },
+              bgImageType: BgImageType.asset,
             ),
             Hover3DCard(
               title: "Time Series Augmentation",
               description: "Data augmentation for time series.",
               imageUrl: "assets/ts.png",
+              bgImageType: BgImageType.asset,
               onTap: () {},
             ),
             Hover3DCard(
               title: "Video to image extraction",
               description: "Extract high-quality frames from videos.",
               imageUrl: "assets/v2i.png",
+              bgImageType: BgImageType.asset,
               onTap: () {},
             ),
             Hover3DCard(
@@ -75,6 +81,7 @@ class _DataAugmentScreenState extends State<DataAugmentScreen> {
                   },
                 );
               },
+              bgImageType: BgImageType.asset,
               title: "Augmentation Pipeline",
               description: "Customize your augmentation pipeline.",
               imageUrl: "assets/sd.jpeg",
