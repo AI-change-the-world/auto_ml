@@ -2,7 +2,7 @@ name: auto_ml
 description: "A new Flutter project."
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
-version: 0.0.1-2025.07.19
+version: 0.0.1-2025.07.22
 
 environment:
   sdk: ^3.7.2
@@ -16,6 +16,7 @@ dependencies:
   dio: ^5.8.0+1
   dropdown_button2: ^2.3.9
   file_selector: ^1.0.3
+  file_type_dart: ^1.0.2
   flow_compose:
     git:
       url: https://github.com/guchengxi1994/flow_compose
@@ -60,6 +61,7 @@ dev_dependencies:
 
 dependency_overrides:
   flutter_math_fork: 0.7.4
+  meta: ^1.17.0
   # flow_compose:
   #   path: D:/flow_compose/
 

@@ -22,12 +22,14 @@ vl_model = OpenAI(
     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
 )
 
-img = r"D:\fh_project\dataset\images\val_reshape\20241231084955.jpg"
+img = r"D:\fh_project\dataset\images\train\20240720134934.jpg"
 
 # 读取图像并 base64 编码
 with open(img, "rb") as f:
     img_bytes = f.read()
     base64_img = base64.b64encode(img_bytes).decode("utf-8")
+
+print(len(base64_img))
 
 # 构建消息
 messages = [

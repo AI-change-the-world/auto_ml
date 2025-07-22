@@ -45,6 +45,8 @@ class SdAugmentRequest(BaseModel):
     # only for img to img augmentation
     prompt_optimize: bool = False
     model_id: Optional[int] = None
+    # only for inpaint & img2img augmentation
+    strength: float = 0.5
 
 
 class GANTrainRequest(BaseModel):

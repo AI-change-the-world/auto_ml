@@ -6,6 +6,8 @@ import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/common/sse/sse.dart';
 import 'package:auto_ml/modules/async_state_button.dart';
+import 'package:auto_ml/modules/data_augment/components/deletable_image.dart';
+import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
 import 'package:auto_ml/modules/data_augment/models/sd_augment_req.dart';
 import 'package:auto_ml/modules/data_augment/models/sd_initialize_req.dart';
 import 'package:auto_ml/modules/data_augment/notifiers/sd_client_on_notifier.dart';
@@ -17,8 +19,10 @@ import 'package:basic_dropdown_button/basic_dropwon_button_widget.dart';
 import 'package:basic_dropdown_button/custom_dropdown_button.dart';
 import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_type_dart/file_type_dart.dart';
 
 class SdDialog extends StatefulWidget {
   const SdDialog({super.key});
@@ -30,7 +34,7 @@ class SdDialog extends StatefulWidget {
 class _SdDialogState extends State<SdDialog> {
   int generateCount = 1;
   final StreamController<String> ss = StreamController.broadcast();
-  List<String> images = [];
+  List<CvResp> images = [];
 
   static const XTypeGroup typeGroup = XTypeGroup(
     label: 'images',
@@ -64,10 +68,18 @@ class _SdDialogState extends State<SdDialog> {
       //   setState(() {});
       // }
       if (event.startsWith("path:") && event.contains("png")) {
-        String url = event.split(":")[1];
+        String s = event.replaceFirst("path:", "");
+        Map<String, dynamic> map = jsonDecode(s);
+        if (map["img_url"] == null) {
+          return;
+        }
+        CvResp cvResp = CvResp.fromJson(map);
+
+        String url = cvResp.imgUrl;
         Future.microtask(() async {
           final s = await getPresignUrl(url);
-          images.add(s);
+          cvResp.presignUrl = s;
+          images.add(cvResp);
           setState(() {});
         });
       }
@@ -195,6 +207,9 @@ class _SdDialogState extends State<SdDialog> {
                           );
                           if (file != null) {
                             image = await file.readAsBytes();
+                            setState(() {});
+                          } else {
+                            image = null;
                             setState(() {});
                           }
                         },
@@ -325,6 +340,8 @@ class _SdDialogState extends State<SdDialog> {
                         ),
                       ),
 
+                      _buildStrengthSlider(),
+
                       SizedBox(
                         height: 30,
                         child: Row(
@@ -433,14 +450,40 @@ class _SdDialogState extends State<SdDialog> {
                                 if (_promptController.text.isEmpty) {
                                   return;
                                 }
+
+                                FileTypeResult? fileType =
+                                    image == null
+                                        ? null
+                                        : FileType.fromBuffer(image!);
+                                logger.d("file type: $fileType");
+                                String? imgB64 =
+                                    image == null ? null : base64Encode(image!);
+                                if (imgB64 != null) {
+                                  imgB64 =
+                                      "data:${fileType?.mime};base64,$imgB64";
+                                }
+                                if (_strength == 0) {
+                                  _strength = 0.01;
+                                }
+                                if (_strength == 1) {
+                                  _strength = 0.99;
+                                }
                                 SDAugmentReq req = SDAugmentReq(
+                                  strength: _strength,
                                   prompt: _promptController.text,
-                                  jobType: "txt2img",
+                                  jobType:
+                                      imgB64 == null ? "txt2img" : "img2img",
                                   count: generateCount,
+                                  img: imgB64,
+                                  modelId: 3,
                                   loraName:
                                       selectedLora == "None"
                                           ? null
                                           : selectedLora.toLowerCase(),
+                                );
+
+                                logger.d(
+                                  "enable prompt optimize: ${req.promptOptimize} and model id: ${req.modelId}, base64: ${imgB64?.length}",
                                 );
 
                                 sse(Api.sd, req.toJson(), ss);
@@ -477,7 +520,15 @@ class _SdDialogState extends State<SdDialog> {
                     children:
                         images
                             .map(
-                              (v) => Image.network(v, width: 512, height: 512),
+                              (v) => DeletableImage(
+                                width: 512,
+                                height: 512,
+                                resp: v,
+                                onDelete: () {
+                                  images.remove(v);
+                                  setState(() {});
+                                },
+                              ),
                             )
                             .toList(),
                   ),
@@ -584,6 +635,40 @@ class _SdDialogState extends State<SdDialog> {
               selectedValue: selectedLora,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  double _strength = 0.3;
+  Widget _buildStrengthSlider() {
+    return SizedBox(
+      height: 30,
+      child: Row(
+        children: [
+          Text("Strength:", style: Styles.defaultButtonTextStyle),
+          SizedBox(width: 10),
+          Tooltip(
+            message:
+                "Noise strength, not work when image is not null. Larger values mean generation will be more different.",
+            child: Icon(Icons.info, size: 20),
+          ),
+
+          const SizedBox(width: 30),
+          CupertinoSlider(
+            value: _strength,
+            min: 0.0,
+            max: 1.0,
+            divisions: 100,
+            // label: _strength.toString(),
+            onChanged: (double value) {
+              setState(() {
+                _strength = value;
+              });
+            },
+          ),
+          const SizedBox(width: 10),
+          Text(_strength.toString(), style: Styles.defaultButtonTextStyleGrey),
         ],
       ),
     );

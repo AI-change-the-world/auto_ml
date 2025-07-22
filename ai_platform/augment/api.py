@@ -4,6 +4,7 @@ import functools
 import io
 import json
 import random
+import traceback
 import uuid
 from typing import Optional
 
@@ -24,6 +25,8 @@ from base.logger import logger
 from base.nacos_config import get_db
 from db.tool_model.tool_model_crud import get_tool_model
 from label.client import get_model
+from label.tools import base64_to_pil_image, pil_to_base64
+from augment.measure import cnn_measure, openai_measure
 
 model_path = "generator.pth"
 
@@ -76,7 +79,6 @@ async def gan_generate_stream(req: GANRequest):
 @router.post("/cv/generate/stream")
 async def cv_generate_stream(req: CvAugmentRequest):
     """Stream-generated images from the cv model"""
-    from augment.measure import cnn_measure
     from mltools.augmentation.aug_no_label import random_aug_stream
     from mltools.utils.json2mask.third_party import img_b64_to_arr
 
@@ -172,7 +174,7 @@ def optimize_prompt(req: PromptOptimizeRequest, db: Session = Depends(get_db)):
 
 @router.post("/measure/stream")
 async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
-    from augment.measure import cnn_measure, openai_measure
+    
 
     tool_model = get_tool_model(db, req.model_id)
 
@@ -237,6 +239,7 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
         if req.prompt_optimize and req.model_id is not None:
             tool_model = get_tool_model(db, req.model_id)
             model: OpenAI = get_model(tool_model)
+            logger.info(f"[tool model] {tool_model.id}.{tool_model.model_name} ")
             messages = [
                 {
                     "role": "system",
@@ -269,37 +272,44 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                     ],
                 },
             ]
-            completion = model.chat.completions.create(
-                model=tool_model.model_name,
-                max_tokens=1024,
-                messages=messages,
-                temperature=0.7,
-            )
-
             try:
+                completion = model.chat.completions.create(
+                    model=tool_model.model_name,
+                    max_tokens=1024,
+                    messages=messages,
+                    temperature=0.7,
+                )
                 response = (
                     completion.choices[0]
                     .message.content.replace("```json", "")
                     .replace("```", "")
                     .strip()
                 )
+                logger.info(f"merge user`s prompt with llm generated prompt")
                 prompt = json.loads(response)
-                req.prompt = prompt["prompt"]
+                req.prompt = prompt["prompt"] + "," + req.prompt
                 req.negative_prompt = prompt["negative_prompt"]
             except Exception:
-                logger.error("prompt optimize failed because of json parse error")
+                logger.error("prompt optimize failed because of llm or json parse error. Details:\n")
+                traceback.print_exc()
 
         async def __img_to_img():
             if req.negative_prompt is None:
                 req.negative_prompt = __RESERVED_NEGATIVE_PROMPT__
+
+            
+            
+            logger.info(f"prompt: {req.prompt}")
+            logger.info(f"negative_prompt: {req.negative_prompt}")
+            
+            ref_img = base64_to_pil_image(base64_img)
             for i in range(req.count):
                 res = SD_CLIENT.img2img(
+                    image=ref_img,
                     prompt=req.prompt,
                     negative_prompt=req.negative_prompt,
-                    width=req.width,
-                    height=req.height,
                     steps=req.steps,
-                    strength=0.8,
+                    strength=req.strength,
                     guidance_scale=req.guidance_scale,
                     seed=random.randint(1, req.seed + i * 10),
                     num_images_per_prompt=1,
@@ -313,7 +323,17 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                 img_name = str(uuid.uuid4()) + ".png"
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
-                yield f"path: {img_name}\n"
+                # yield f"path: {img_name}\n"
+                ref_img_base64 = pil_to_base64(ref_img)
+                out_base64 = base64.b64encode(img_bytes).decode("utf-8")
+                point = cnn_measure(ref_img_base64, out_base64)
+
+                resp: CvAugmentResponse = CvAugmentResponse(
+                    img_url=img_name, point=point
+                )
+
+                yield f"path: {resp.model_dump_json()}\n"
+
                 await asyncio.sleep(0.5)
 
         return EventSourceResponse(__img_to_img(), media_type="text/event-stream")
@@ -322,7 +342,7 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
         if req.img is None or req.mask is None:
             # TODO unimplemented yet
             return {"status": "error", "message": "img and mask are required"}
-        return {"status": "ok"}
+        return {"status": "error","message": "inpaint is not supported yet"}
 
     if req.job_type == "txt2img":
         if req.lora_name is not None:

@@ -41,6 +41,9 @@ class SDAugmentReq {
   final String? mask;
   @JsonKey(name: 'prompt_optimize')
   final bool promptOptimize;
+  @JsonKey(name: 'model_id')
+  final int? modelId;
+  final double strength;
 
   const SDAugmentReq({
     this.loraName,
@@ -56,6 +59,8 @@ class SDAugmentReq {
     this.img,
     this.mask,
     this.promptOptimize = true,
+    this.strength = 0.3,
+    this.modelId,
   });
 
   factory SDAugmentReq.fromJson(Map<String, dynamic> json) =>
