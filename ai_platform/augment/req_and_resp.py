@@ -10,6 +10,28 @@ class SDInitializeRequest(BaseModel):
     model_path: Optional[str] = "/root/models/sd3m"
 
 
+class SdDeepOptimizeResponse(BaseModel):
+    tip: str
+    img: Optional[str] = None
+
+
+class SdDeepOptimizeRequest(BaseModel):
+    """
+    SD深度优化请求类
+
+    该类继承自BaseModel，用于定义SD深度优化请求的数据结构
+    它包含了优化所需的提示文本、图片和循环次数等信息
+    """
+
+    # 优化提示文本，用于指导优化过程
+    prompt: str
+    # 图片路径或URL，指定需要进行优化的图片
+    img: str
+    # 循环优化的次数，默认为5次，通过多次迭代来逐步优化结果
+    loop_times: int = 5
+    model_id: int
+
+
 class SdAugmentRequest(BaseModel):
     """
     A model representing the parameters required for initiating SD augmentation.

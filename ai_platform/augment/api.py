@@ -15,18 +15,17 @@ from PIL import Image
 from sqlalchemy.orm import Session
 from sse_starlette import EventSourceResponse
 
+from augment.measure import cnn_measure, openai_measure
 from augment.req_and_resp import *
 from augment.sd_pipeline import StableDiffusionUnified, reserved_lora_modules
 from augment.simple_gan.model import Generator as Model
 from base import create_response
-from base.deprecated import deprecated
 from base.file_delegate import get_operator, s3_properties
 from base.logger import logger
 from base.nacos_config import get_db
 from db.tool_model.tool_model_crud import get_tool_model
 from label.client import get_model
 from label.tools import base64_to_pil_image, pil_to_base64
-from augment.measure import cnn_measure, openai_measure
 
 model_path = "generator.pth"
 
@@ -174,8 +173,6 @@ def optimize_prompt(req: PromptOptimizeRequest, db: Session = Depends(get_db)):
 
 @router.post("/measure/stream")
 async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
-    
-
     tool_model = get_tool_model(db, req.model_id)
 
     async def measure_generator():
@@ -290,18 +287,18 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                 req.prompt = prompt["prompt"] + "," + req.prompt
                 req.negative_prompt = prompt["negative_prompt"]
             except Exception:
-                logger.error("prompt optimize failed because of llm or json parse error. Details:\n")
+                logger.error(
+                    "prompt optimize failed because of llm or json parse error. Details:\n"
+                )
                 traceback.print_exc()
 
         async def __img_to_img():
             if req.negative_prompt is None:
                 req.negative_prompt = __RESERVED_NEGATIVE_PROMPT__
 
-            
-            
             logger.info(f"prompt: {req.prompt}")
             logger.info(f"negative_prompt: {req.negative_prompt}")
-            
+
             ref_img = base64_to_pil_image(base64_img)
             for i in range(req.count):
                 res = SD_CLIENT.img2img(
@@ -342,7 +339,7 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
         if req.img is None or req.mask is None:
             # TODO unimplemented yet
             return {"status": "error", "message": "img and mask are required"}
-        return {"status": "error","message": "inpaint is not supported yet"}
+        return {"status": "error", "message": "inpaint is not supported yet"}
 
     if req.job_type == "txt2img":
         if req.lora_name is not None:
@@ -377,7 +374,11 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
                 img_name = str(uuid.uuid4()) + ".png"
                 img_bytes = buf.getvalue()
                 operator.write(img_name, img_bytes)
-                yield f"path: {img_name}\n"
+                # yield f"path: {img_name}\n"
+
+                resp: CvAugmentResponse = CvAugmentResponse(img_url=img_name, point=0)
+
+                yield f"path: {resp.model_dump_json()}\n"
                 await asyncio.sleep(0.5)
             SD_CLIENT.disable_lora()
 
@@ -390,3 +391,131 @@ async def sd_augment(req: SdAugmentRequest, db: Session = Depends(get_db)):
 async def is_client_on():
     global SD_CLIENT
     return {"status": "ok", "data": SD_CLIENT is not None}
+
+
+@router.post("/sd/deep-optimize")
+async def sd_deep_optimize(req: SdDeepOptimizeRequest, db: Session = Depends(get_db)):
+    tool_model = get_tool_model(db, req.model_id)
+    model: OpenAI = get_model(tool_model)
+    operator = get_operator(s3_properties.augment_bucket_name)
+    first_image_path = req.img
+    first_image_bytes = operator.read(first_image_path)
+    first_image_base64 = base64.b64encode(first_image_bytes).decode("utf-8")
+    global SD_CLIENT
+
+    def __evaluate_image_with_mllm(base64_image: str, user_goal: str) -> dict:
+        query = f"""
+            你是一位图像评估专家，请根据以下用户目标对图像进行评估：
+
+            目标：「{user_goal}」
+
+            请：
+            1. 判断图像是否符合该目标（如真实性、对比度等）
+            2. 如果不符合，指出不足，并优化提示词用于 Stable Diffusion 生成
+            3. 回答强制使用英语
+
+            请严格输出以下 JSON 格式（注意字段名）：
+            {{
+                "score": 0~1之间的浮点数,
+                "advice": "你对图像优化的简要建议",
+                "prompt": "新的正向提示词，用于指导 SD 生成",
+                "negative_prompt": "新的负向提示词，用于避免生成错误"
+            }}
+            如果图像已经很好，仍然需要输出 score 和建议。
+        """
+
+        if not base64_image.startswith("data:image/png;base64,"):
+            base64_image = "data:image/png;base64," + base64_image
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": query,
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"{base64_image}"},
+                    },
+                ],
+            },
+        ]
+
+        completion = model.chat.completions.create(
+            model=tool_model.model_name,
+            max_tokens=1024,
+            messages=messages,
+            temperature=0.7,
+        )
+        response = (
+            completion.choices[0]
+            .message.content.replace("```json", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        logger.info(f"🧠 MLLM 响应：{response}")
+
+        try:
+            result = json.loads(response)
+
+            if result.get("score", 0.0) >= 0.95:
+                return {"status": "ok", **result}
+            else:
+                return {"status": "need_improve", **result}
+        except Exception:
+            logger.error(
+                "prompt optimize failed because of llm or json parse error. Details:\n"
+            )
+            traceback.print_exc()
+            return {
+                "status": "error",
+                "message": "Invalid response from Qwen-VL",
+            }
+
+    async def __loop_optimize(base64_image: str, user_goal: str, times: int):
+        for i in range(times):
+            res = __evaluate_image_with_mllm(base64_image, user_goal)
+            if res["status"] == "ok":
+                # save to s3
+                img_name = str(uuid.uuid4()) + ".png"
+                img_bytes = base64.b64decode(base64_image)
+                operator.write(img_name, img_bytes)
+                sdop: SdDeepOptimizeResponse = SdDeepOptimizeResponse(
+                    img=img_name, tip=f"[Round {i+1}] done"
+                )
+                yield f"path: {sdop.model_dump_json()}\n"
+                await asyncio.sleep(0.5)
+                break
+            elif res["status"] == "need_improve":
+                prompt = res["prompt"]
+                negative_prompt = res["negative_prompt"]
+                image = base64_to_pil_image(base64_image)
+
+                imgs = SD_CLIENT.img2img(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt,
+                    image=image,
+                    strength=0.3,
+                )
+                if imgs is None or len(imgs) == 0:
+                    continue
+                new_img = imgs[0]
+                base64_image = pil_to_base64(new_img)
+                img_name = str(uuid.uuid4()) + ".png"
+                img_bytes = base64.b64decode(base64_image)
+                operator.write(img_name, img_bytes)
+                sdop: SdDeepOptimizeResponse = SdDeepOptimizeResponse(
+                    img=img_name, tip=f"[Round {i+1}] {res['advice']}"
+                )
+                yield f"path: {sdop.model_dump_json()}\n"
+                await asyncio.sleep(0.5)
+            else:
+                yield f"loop error \n"
+
+    return EventSourceResponse(
+        __loop_optimize(first_image_base64, req.prompt, req.loop_times),
+        media_type="text/event-stream",
+    )

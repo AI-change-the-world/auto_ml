@@ -6,7 +6,8 @@ import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/common/sse/sse.dart';
 import 'package:auto_ml/modules/async_state_button.dart';
-import 'package:auto_ml/modules/data_augment/components/deletable_image.dart';
+import 'package:auto_ml/modules/data_augment/components/deep_edit_dialog.dart';
+import 'package:auto_ml/modules/data_augment/components/editable_image.dart';
 import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
 import 'package:auto_ml/modules/data_augment/models/sd_augment_req.dart';
 import 'package:auto_ml/modules/data_augment/models/sd_initialize_req.dart';
@@ -462,12 +463,7 @@ class _SdDialogState extends State<SdDialog> {
                                   imgB64 =
                                       "data:${fileType?.mime};base64,$imgB64";
                                 }
-                                if (_strength == 0) {
-                                  _strength = 0.01;
-                                }
-                                if (_strength == 1) {
-                                  _strength = 0.99;
-                                }
+
                                 SDAugmentReq req = SDAugmentReq(
                                   strength: _strength,
                                   prompt: _promptController.text,
@@ -520,7 +516,20 @@ class _SdDialogState extends State<SdDialog> {
                     children:
                         images
                             .map(
-                              (v) => DeletableImage(
+                              (v) => EditableImage(
+                                onEdit: () {
+                                  showGeneralDialog(
+                                    barrierColor: Styles.barriarColor,
+                                    barrierDismissible: true,
+                                    barrierLabel: "DeepEditDialog",
+                                    context: context,
+                                    pageBuilder: (c, _, _) {
+                                      return Center(
+                                        child: DeepEditDialog(cvResp: v),
+                                      );
+                                    },
+                                  );
+                                },
                                 width: 512,
                                 height: 512,
                                 resp: v,
@@ -657,9 +666,9 @@ class _SdDialogState extends State<SdDialog> {
           const SizedBox(width: 30),
           CupertinoSlider(
             value: _strength,
-            min: 0.0,
-            max: 1.0,
-            divisions: 100,
+            min: 0.01,
+            max: 0.99,
+            divisions: 98,
             // label: _strength.toString(),
             onChanged: (double value) {
               setState(() {

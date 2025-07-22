@@ -6,7 +6,7 @@ import 'package:auto_ml/api.dart';
 import 'package:auto_ml/common/dialog_wrapper.dart';
 import 'package:auto_ml/modules/async_state_button.dart';
 import 'package:auto_ml/modules/data_augment/common.dart';
-import 'package:auto_ml/modules/data_augment/components/deletable_image.dart';
+import 'package:auto_ml/modules/data_augment/components/editable_image.dart';
 import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
 import 'package:auto_ml/modules/data_augment/utils.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -425,7 +425,7 @@ class _CvDialogState extends State<CvDialog> {
                           children:
                               images
                                   .map(
-                                    (v) => DeletableImage(
+                                    (v) => EditableImage(
                                       resp: v,
                                       onDelete: () {
                                         images.remove(v);

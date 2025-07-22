@@ -2,24 +2,26 @@ import 'package:auto_ml/modules/data_augment/models/cv_resp.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 
-class DeletableImage extends StatefulWidget {
-  const DeletableImage({
+class EditableImage extends StatefulWidget {
+  const EditableImage({
     super.key,
     required this.resp,
     this.width = 256,
     this.height = 256,
     required this.onDelete,
+    this.onEdit,
   });
   final CvResp resp;
   final double width;
   final double height;
   final VoidCallback onDelete;
+  final VoidCallback? onEdit;
 
   @override
-  State<DeletableImage> createState() => _DeletableImageState();
+  State<EditableImage> createState() => _EditableImageState();
 }
 
-class _DeletableImageState extends State<DeletableImage> {
+class _EditableImageState extends State<EditableImage> {
   bool hover = false;
 
   @override
@@ -61,6 +63,21 @@ class _DeletableImageState extends State<DeletableImage> {
                   child: Icon(
                     Icons.delete,
                     color: Colors.red,
+                    size: Styles.datatableIconSize,
+                  ),
+                ),
+              ),
+            if (hover && widget.onEdit != null)
+              Positioned(
+                right: 40,
+                top: 10,
+                child: InkWell(
+                  onTap: () {
+                    widget.onEdit!();
+                  },
+                  child: Icon(
+                    Icons.edit,
+                    color: Colors.green,
                     size: Styles.datatableIconSize,
                   ),
                 ),

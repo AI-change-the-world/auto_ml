@@ -135,4 +135,7 @@ class Api {
 
   static final String sdInitial =
       "http://localhost:18000/augment/sd/initialize";
+
+  static final String sdOptimize =
+      "http://localhost:18000/augment/sd/deep-optimize";
 }
