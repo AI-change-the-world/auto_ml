@@ -1,0 +1,7 @@
+transformers==4.40.1
+imageio
+decord
+opencv-python
+fastapi==0.115.12
+uvicorn==0.34.2
+sse_starlette
