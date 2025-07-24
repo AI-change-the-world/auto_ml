@@ -47,7 +47,7 @@ Future sse(
       /// TODO 处理所有收到的数据
       /// 因为上面的数据有的时候
       /// 会有处理异常
-      logger.i(request.responseText);
+      // logger.i(request.responseText);
       if (onDone != null) {
         onDone(request.responseText!);
       }

@@ -2,6 +2,7 @@ import 'package:auto_ml/modules/data_augment/components/card.dart';
 import 'package:auto_ml/modules/data_augment/components/cv_dialog.dart';
 import 'package:auto_ml/modules/data_augment/components/gan_dialog.dart';
 import 'package:auto_ml/modules/data_augment/components/sd_dialog.dart';
+import 'package:auto_ml/modules/data_augment/components/video_to_image.dart';
 import 'package:auto_ml/modules/dataset/components/left_right_background_container.dart'
     show BgImageType;
 import 'package:flutter/material.dart';
@@ -68,7 +69,16 @@ class _DataAugmentScreenState extends State<DataAugmentScreen> {
               description: "Extract high-quality frames from videos.",
               imageUrl: "assets/v2i.png",
               bgImageType: BgImageType.asset,
-              onTap: () {},
+              onTap: () {
+                showGeneralDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierLabel: "VideoToImage",
+                  pageBuilder: (c, _, _) {
+                    return Center(child: VideoToImage());
+                  },
+                );
+              },
             ),
             Hover3DCard(
               onTap: () {

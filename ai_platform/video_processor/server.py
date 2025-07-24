@@ -3,6 +3,7 @@ import base64
 import json
 import math
 import numpy as np
+from pydantic import BaseModel
 import torch
 import torchvision.transforms as T
 from decord import VideoReader, cpu
@@ -15,8 +16,18 @@ from tempfile import NamedTemporaryFile
 from typing import List
 import shutil
 import io
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 允许访问的前端地址列表
+    allow_credentials=True,  # 是否允许携带 cookie
+    allow_methods=["*"],  # 允许的请求方法
+    allow_headers=["*"],  # 允许的请求头
+)
+
 
 
 # model setting
@@ -149,12 +160,25 @@ frame_interval = 24
 
 SEGMENT_SECONDS = 10  # 每段时长，秒
 
+
+class VideoAnalyzerRequest(BaseModel):
+    video_path: str
+    prompt: str
+
+@app.post("/video/upload")
+async def upload_video_file(video: UploadFile):
+    try:
+        with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+            shutil.copyfileobj(video.file, tmp)
+            tmp_path = tmp.name
+        return {"video_path": tmp_path}
+    except Exception as e:
+        raise {"video_path": None}
+
 @app.post("/video/search-frame")
-async def search_relevant_frame(video: UploadFile, prompt: str = Form(...)):
+async def search_relevant_frame(req: VideoAnalyzerRequest):
     # 保存视频临时文件
-    with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-        shutil.copyfileobj(video.file, tmp)
-        tmp_path = tmp.name
+    tmp_path = req.video_path
 
     vr = VideoReader(tmp_path, ctx=cpu(0), num_threads=1)
     fps = vr.get_avg_fps()
@@ -186,7 +210,7 @@ async def search_relevant_frame(video: UploadFile, prompt: str = Form(...)):
                 output1, chat_history = model.chat(tokenizer, pixel_values, question, generation_config, num_patches_list=num_patches_list, history=None, return_history=True)
                 print(f"output1 {output1}")
                 
-                question2 = video_prefix + prompt
+                question2 = video_prefix + req.prompt+", 答案回答是或者否"
                 output2, chat_history = model.chat(tokenizer, pixel_values, question2, generation_config, num_patches_list=num_patches_list, history=chat_history, return_history=True)
 
                 print("output:", output2)
@@ -208,7 +232,7 @@ async def search_relevant_frame(video: UploadFile, prompt: str = Form(...)):
                         "text": output1,
                     }
                     yield json.dumps(result, ensure_ascii=False)
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.5)
 
         yield json.dumps({"frame": None})
 

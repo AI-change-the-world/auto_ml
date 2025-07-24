@@ -141,4 +141,10 @@ class Api {
 
   static final String graph =
       "http://localhost:18000/augment/graph/embedded/{model_id}";
+
+  // video processing
+
+  static final String upload = "http://localhost:18001/video/upload";
+
+  static final String searchFrame = "http://localhost:18001/video/search-frame";
 }

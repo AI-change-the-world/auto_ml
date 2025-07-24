@@ -7,7 +7,12 @@ part of 'sd_optimize_resp.dart';
 // **************************************************************************
 
 SdOptimizeResp _$SdOptimizeRespFromJson(Map<String, dynamic> json) =>
-    SdOptimizeResp(tip: json['tip'] as String, img: json['img'] as String);
+    SdOptimizeResp(tip: json['tip'] as String, img: json['img'] as String)
+      ..presignUrl = json['presignUrl'] as String?;
 
 Map<String, dynamic> _$SdOptimizeRespToJson(SdOptimizeResp instance) =>
-    <String, dynamic>{'tip': instance.tip, 'img': instance.img};
+    <String, dynamic>{
+      'tip': instance.tip,
+      'img': instance.img,
+      'presignUrl': instance.presignUrl,
+    };
