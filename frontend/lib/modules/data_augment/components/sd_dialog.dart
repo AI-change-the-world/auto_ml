@@ -471,7 +471,7 @@ class _SdDialogState extends State<SdDialog> {
                                       imgB64 == null ? "txt2img" : "img2img",
                                   count: generateCount,
                                   img: imgB64,
-                                  modelId: 3,
+                                  modelId: 1,
                                   loraName:
                                       selectedLora == "None"
                                           ? null
@@ -664,20 +664,26 @@ class _SdDialogState extends State<SdDialog> {
           ),
 
           const SizedBox(width: 30),
-          CupertinoSlider(
-            value: _strength,
-            min: 0.01,
-            max: 0.99,
-            divisions: 98,
-            // label: _strength.toString(),
-            onChanged: (double value) {
-              setState(() {
-                _strength = value;
-              });
-            },
+          SizedBox(
+            width: 150,
+            child: CupertinoSlider(
+              value: _strength,
+              min: 0.01,
+              max: 0.99,
+              divisions: 98,
+              // label: _strength.toString(),
+              onChanged: (double value) {
+                setState(() {
+                  _strength = value;
+                });
+              },
+            ),
           ),
           const SizedBox(width: 10),
-          Text(_strength.toString(), style: Styles.defaultButtonTextStyleGrey),
+          Text(
+            _strength.toStringAsFixed(2),
+            style: Styles.defaultButtonTextStyleGrey,
+          ),
         ],
       ),
     );

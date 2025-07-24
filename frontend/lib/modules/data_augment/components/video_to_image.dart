@@ -63,7 +63,10 @@ class _VideoToImageState extends State<VideoToImage> {
           images.add(entity);
           setState(() {});
         }
-      } catch (e) {}
+      } catch (e) {
+        logger.e(e);
+        // logger.i(event);
+      }
     });
   }
 

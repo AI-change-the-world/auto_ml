@@ -139,6 +139,7 @@ class _DeepEditDialogState extends State<DeepEditDialog> {
                             SdDeepOptimizeReq req = SdDeepOptimizeReq(
                               prompt: _promptController.text,
                               img: imgPath,
+                              modelId: 1,
                             );
 
                             sse(Api.sdOptimize, req.toJson(), ss);

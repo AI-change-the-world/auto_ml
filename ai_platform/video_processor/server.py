@@ -174,6 +174,25 @@ async def upload_video_file(video: UploadFile):
         return {"video_path": tmp_path}
     except Exception as e:
         raise {"video_path": None}
+    
+
+def image_to_base64_webp(img_array, width=300, quality=80):
+    # 1. 转换为 PIL Image
+    img = Image.fromarray(img_array).convert("RGB")
+
+    # 2. 缩放
+    w_percent = (width / float(img.size[0]))
+    h_size = int((float(img.size[1]) * float(w_percent)))
+    img = img.resize((width, h_size), Image.LANCZOS)
+
+    # 3. 转为 WebP 并压缩
+    buf = io.BytesIO()
+    img.save(buf, format="WEBP", quality=quality)
+    buf.seek(0)
+
+    # 4. Base64 编码
+    b64_img = base64.b64encode(buf.read()).decode("utf-8")
+    return b64_img
 
 @app.post("/video/search-frame")
 async def search_relevant_frame(req: VideoAnalyzerRequest):
@@ -219,16 +238,12 @@ async def search_relevant_frame(req: VideoAnalyzerRequest):
             if "是" in output2 and "否" not in output2:
                 for frame_index in range(0,len(num_patches_list), frame_interval):
                     frame = vr[frame_index].asnumpy()
-                    img = Image.fromarray(frame).convert("RGB")
-                    buf = io.BytesIO()
-                    img.save(buf, format="JPEG")
-                    buf.seek(0)
-                    bytes = buf.getvalue()
+                    img = image_to_base64_webp(frame)
 
                     result = {
                         "segment_index": seg_idx,
                         "frame_index": frame_index,
-                        "frame": base64.b64encode(bytes).decode("utf-8"),
+                        "frame": img,
                         "text": output1,
                     }
                     yield json.dumps(result, ensure_ascii=False)
