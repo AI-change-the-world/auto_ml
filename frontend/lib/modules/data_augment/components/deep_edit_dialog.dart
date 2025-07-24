@@ -25,6 +25,8 @@ class _DeepEditDialogState extends State<DeepEditDialog> {
   final TextEditingController _promptController = TextEditingController();
   final StreamController<String> ss = StreamController.broadcast();
   final GlobalKey<FutureStatusButtonSimpleState> _futureKey = GlobalKey();
+  late String imgPath = widget.cvResp.imgUrl;
+  late String presignedUrl = widget.cvResp.presignUrl!;
 
   @override
   void initState() {
@@ -90,7 +92,7 @@ class _DeepEditDialogState extends State<DeepEditDialog> {
                       style: Styles.defaultButtonTextStyle,
                     ),
                     SizedBox(height: 10),
-                    Image.network(widget.cvResp.presignUrl!),
+                    Image.network(presignedUrl),
                     SizedBox(height: 20),
                     Text(
                       "Input optimization aims:",
@@ -136,7 +138,7 @@ class _DeepEditDialogState extends State<DeepEditDialog> {
                             }
                             SdDeepOptimizeReq req = SdDeepOptimizeReq(
                               prompt: _promptController.text,
-                              img: widget.cvResp.imgUrl,
+                              img: imgPath,
                             );
 
                             sse(Api.sdOptimize, req.toJson(), ss);
@@ -169,27 +171,36 @@ class _DeepEditDialogState extends State<DeepEditDialog> {
           child: Material(
             elevation: 5,
             borderRadius: BorderRadius.circular(4),
-            child: Container(
-              height: 300,
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              margin: EdgeInsets.only(top: 5, bottom: 5),
-              child: Row(
-                children: [
-                  Image.network(list[index].presignUrl!),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 10),
-                      child: Text(
-                        list[index].tip,
-                        style: TextStyle(fontSize: 16),
+            child: InkWell(
+              onTap: () {
+                setState(() {
+                  presignedUrl = list[index].presignUrl!;
+                  imgPath = list[index].img;
+                });
+              },
+              child: Container(
+                height: 300,
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                margin: EdgeInsets.only(top: 5, bottom: 5),
+                child: Row(
+                  children: [
+                    Image.network(list[index].presignUrl!),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 10),
+                        child: Text(
+                          list[index].tip,
+                          style: TextStyle(fontSize: 16),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

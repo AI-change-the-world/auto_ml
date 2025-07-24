@@ -14,8 +14,8 @@ void main() async {
   LocaleSettings.useDeviceLocale(); // and this
   MediaKit.ensureInitialized();
 
-  DioClient().init(baseUrl: 'http://localhost:8080/automl');
-  Api.setBaseUrl('http://localhost:8080/automl');
+  DioClient().init(baseUrl: 'http://localhost:45678/automl');
+  Api.setBaseUrl('http://localhost:45678/automl');
   // local test
   // DioClient().init(baseUrl: 'http://192.168.2.10:8080/automl');
   // Api.setBaseUrl('http://192.168.2.10:8080/automl');

@@ -138,4 +138,7 @@ class Api {
 
   static final String sdOptimize =
       "http://localhost:18000/augment/sd/deep-optimize";
+
+  static final String graph =
+      "http://localhost:18000/augment/graph/embedded/{model_id}";
 }

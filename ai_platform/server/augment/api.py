@@ -195,7 +195,14 @@ async def measure_stream(req: MeasureRequest, db: Session = Depends(get_db)):
 
 @router.get("/graph/embedded/{model_id}")
 def get_graph(model_id: str):
-    pass
+    from pathlib import Path
+    if model_id == "SimpleGan":
+        graph = Path(__file__).parent / "resources/simple_gan.png"
+        b64 = base64.b64encode(graph.read_bytes()).decode("utf-8")
+        return {"data":f"data:image/png;base64,{b64}"}
+    # TODO implement other models
+    return {"data": ""}
+
 
 
 @router.post("/train")

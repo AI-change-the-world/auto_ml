@@ -203,13 +203,13 @@ class SimpleLayout extends StatelessWidget {
                               isSelected: selectedIndex == 8,
                               onTap: () => onIndexChanged(8),
                             ),
-                            SidebarItemWidget(
-                              isDivider: false,
-                              item: items.getByName("quality"),
-                              isSelected: selectedIndex == 9,
-                              onTap: () => onIndexChanged(9),
-                            ),
-
+                            // TODO unused
+                            // SidebarItemWidget(
+                            //   isDivider: false,
+                            //   item: items.getByName("quality"),
+                            //   isSelected: selectedIndex == 9,
+                            //   onTap: () => onIndexChanged(9),
+                            // ),
                             SidebarItemWidget(isDivider: true),
                             SidebarItemWidget(
                               isDivider: false,
@@ -307,8 +307,9 @@ extension SidebarListExtension on List<SidebarItem> {
         return firstWhere((item) => item.index == 7);
       case "augment":
         return firstWhere((item) => item.index == 8);
-      case "quality":
-        return firstWhere((item) => item.index == 9);
+      // TODO unused
+      // case "quality":
+      //   return firstWhere((item) => item.index == 9);
       default:
         return null;
     }
@@ -412,16 +413,16 @@ final List<SidebarItem> items = [
     title: "Augment",
     route: "/augment",
   ),
-  SidebarItem(
-    icon: const Icon(Icons.high_quality, color: Styles.sidebarItemActiveColor),
-    iconInactive: const Icon(
-      Icons.high_quality,
-      color: Styles.sidebarItemInactiveColor,
-    ),
-    index: 9,
-    title: "Quality",
-    route: "/quality",
-  ),
+  // SidebarItem(
+  //   icon: const Icon(Icons.high_quality, color: Styles.sidebarItemActiveColor),
+  //   iconInactive: const Icon(
+  //     Icons.high_quality,
+  //     color: Styles.sidebarItemInactiveColor,
+  //   ),
+  //   index: 9,
+  //   title: "Quality",
+  //   route: "/quality",
+  // ),
 ]..sort((a, b) => a.index.compareTo(b.index));
 
 class SimpleLayoutShell extends StatelessWidget {
