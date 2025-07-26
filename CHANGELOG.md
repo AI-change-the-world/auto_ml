@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.0.1] - 2025-07-26
+
+### ✨ 新增功能
+- 视频处理：
+  - 新增视频上传和帧搜索API
+  - 实现视频处理服务端(FastAPI)
+  - 前端支持视频转图像功能
+  - 添加image_to_base64_webp函数，支持WebP格式编码
+- GAN增强：
+  - 新增GAN训练和评估功能
+  - 实现基础模型结构查看器
+  - 添加数据集选择功能
+  - 支持训练参数配置(epochs, batch size)
+- SD优化：
+  - 新增SD深度优化API及相关模型
+  - 实现基于MLLM的图像评估优化
+  - 支持img2img增强功能
+  - 新增提示词优化功能(使用OpenAI模型)
+- 其他：
+  - 前端DeepEditDialog组件固定模型ID为1
+  - 更新SdDialog组件模型ID和strength滑块显示
+  - 添加VideoToImage组件错误日志记录
+
+### 🔧 功能优化
+- 优化视频帧处理流程
+- 重构项目目录结构
+- 更新API端点支持视频处理
+- 增强前端组件支持新工作流
+- 添加CORS中间件支持跨域请求
+
+### 📦 依赖更新
+- 添加diffusers包到requirements.txt
+- 更新lpips包版本
+- 更新grounding_dino子模块
+
+### 🗑️ 移除内容
+- 删除gd相关代码
+
+### 🌐 架构变更
+- 合并mono分支到主分支
+
+
+
+
+
 ## [0.0.1] - 2025-07-21
 
 ### ✨ Added
