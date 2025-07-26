@@ -15,11 +15,13 @@ SDAugmentReq _$SDAugmentReqFromJson(Map<String, dynamic> json) => SDAugmentReq(
   height: (json['height'] as num?)?.toInt() ?? 1024,
   steps: (json['steps'] as num?)?.toInt() ?? 30,
   guidanceScale: (json['guidance_scale'] as num?)?.toDouble() ?? 7.5,
-  seed: (json['seed'] as num?)?.toInt() ?? 123,
+  seed: (json['seed'] as num?)?.toInt() ?? 12345,
   count: (json['count'] as num?)?.toInt() ?? 1,
   img: json['img'] as String?,
   mask: json['mask'] as String?,
   promptOptimize: json['prompt_optimize'] as bool? ?? true,
+  strength: (json['strength'] as num?)?.toDouble() ?? 0.3,
+  modelId: (json['model_id'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$SDAugmentReqToJson(SDAugmentReq instance) =>
@@ -37,4 +39,6 @@ Map<String, dynamic> _$SDAugmentReqToJson(SDAugmentReq instance) =>
       'img': instance.img,
       'mask': instance.mask,
       'prompt_optimize': instance.promptOptimize,
+      'model_id': instance.modelId,
+      'strength': instance.strength,
     };

@@ -13,3 +13,5 @@ supervision==0.25.1
 ultralytics
 uvicorn==0.34.2
 lpips
+
+diffusers

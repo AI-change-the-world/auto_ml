@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     debug = os.environ.get("IS_DEBUG", None)
     uvicorn.run(
-        "ai_platform:app",
+        "server:app",
         host="0.0.0.0",
         port=8000,
         reload=debug == "true" or debug is None,

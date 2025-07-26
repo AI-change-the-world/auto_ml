@@ -79,6 +79,25 @@ def base64_to_cv2_image(base64_str: str) -> np.ndarray:
     return img
 
 
+def base64_to_pil_image(
+    base64_str: str, width: int = 1024, height: int = 1024
+) -> Image:
+    if "," in base64_str:
+        base64_str = base64_str.split(",")[1]
+    return (
+        Image.open(io.BytesIO(base64.b64decode(base64_str)))
+        .convert("RGB")
+        .resize((width, height))
+    )
+
+
+def pil_to_base64(img):
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format="PNG")
+    base64_str = base64.b64encode(img_bytes.getvalue()).decode("utf-8")
+    return base64_str
+
+
 def cv2_to_base64(img):
     _, img_encoded = cv2.imencode(".png", img)
     base64_str = base64.b64encode(img_encoded).decode("utf-8")

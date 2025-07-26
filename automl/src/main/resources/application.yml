@@ -72,6 +72,7 @@ springdoc:
 server:
   servlet:
     context-path: /automl
+  port: 45678
 
 ai-platform:
   url: ${AI_PLATFORM:http://127.0.0.1:18000}

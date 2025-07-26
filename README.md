@@ -30,13 +30,21 @@
 
 ### 数据集
 
-| 示例1 | 示例2 | 示例3 |
+| Img1 | Img2 | Img3 |
 | :--- | :---: | ---: |
 | ![1](./readme/dataset1.jpg) | ![2](./readme/dataset2.png) | ![3](./readme/dataset3.png) |
 
 ### 标注界面
 
 ![annotation](./readme/annotation.png)
+
+### 数据合成
+
+![annotation](./readme/aug1.png)
+
+| Img1 | Img2 | Img3 |Img4|
+| :---: | :---: | :---: |:---: |
+| ![1](./readme/aug_cv.png) | ![2](./readme/aug_gan.png) | ![3](./readme/aug_pipeline.png) |![4](./readme/aug_deep.png) |
 
 ### 智能体
 

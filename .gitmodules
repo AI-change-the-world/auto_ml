@@ -1,6 +1,6 @@
-[submodule "ai_platform/gd"]
-	path = ai_platform/gd
+[submodule "third_party/grounding_dino"]
+	path = third_party/grounding_dino
 	url = https://github.com/guchengxi1994/GroundingDINO
-[submodule "ai_platform/mltools"]
-	path = ai_platform/mltools
+[submodule "third_party/mltools"]
+	path = third_party/mltools
 	url = https://github.com/guchengxi1994/mltools
