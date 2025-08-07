@@ -19,16 +19,17 @@ import 'dataset/models/annotation_list_response.dart';
 class CurrentDatasetAnnotationState {
   final Dataset? dataset;
   final Annotation? annotation;
-  // final (String, String)? currentData;
+  final (String, String)? currentData;
   final bool isLoading;
   final List<String> classes;
 
   late List<(String, String)> data = [];
+  late String currentFilePath = "";
 
   CurrentDatasetAnnotationState({
     this.dataset,
     this.annotation,
-    // this.currentData,
+    this.currentData,
     this.isLoading = false,
     this.classes = const [],
   });
@@ -36,20 +37,21 @@ class CurrentDatasetAnnotationState {
   CurrentDatasetAnnotationState copyWith({
     Dataset? dataset,
     Annotation? annotation,
-    // (String, String)? currentData,
+    (String, String)? currentData,
     bool? isLoading,
     List<(String, String)>? data,
-    // String? currentFilePath,
+    String? currentFilePath,
     List<String>? classes,
   }) {
     final current = CurrentDatasetAnnotationState(
       dataset: dataset ?? this.dataset,
       annotation: annotation ?? this.annotation,
-      // currentData: currentData ?? this.currentData,
+      currentData: currentData ?? this.currentData,
       isLoading: isLoading ?? this.isLoading,
       classes: classes ?? this.classes,
     );
     current.data = data ?? this.data;
+    current.currentFilePath = currentFilePath ?? this.currentFilePath;
     return current;
   }
 }
@@ -71,8 +73,8 @@ class CurrentDatasetAnnotationNotifier
       state = state.copyWith(
         dataset: dataset,
         annotation: annotation,
-        // isLoading: false,
-        // currentData: ("", ""),
+        isLoading: false,
+        currentData: ("", ""),
         // currentFilePath: null,
       );
       return;
@@ -116,18 +118,16 @@ class CurrentDatasetAnnotationNotifier
   }
 
   void prevData() {
-    final currentData = ref.read(currentAnnotatingDataNotifierProvider);
-    if (currentData == null) return;
-    int currentIndex = state.data.indexOf(currentData);
+    if (state.currentData == null) return;
+    int currentIndex = state.data.indexOf(state.currentData!);
     if (currentIndex == 0) return;
     var prevData = state.data[currentIndex - 1];
     changeCurrentData(prevData);
   }
 
   void nextData() {
-    final currentData = ref.read(currentAnnotatingDataNotifierProvider);
-    if (currentData == null) return;
-    int currentIndex = state.data.indexOf(currentData);
+    if (state.currentData == null) return;
+    int currentIndex = state.data.indexOf(state.currentData!);
     if (currentIndex == state.data.length - 1) return;
     var nextData = state.data[currentIndex + 1];
     changeCurrentData(nextData);
@@ -166,8 +166,7 @@ class CurrentDatasetAnnotationNotifier
       );
 
       if (data.$2 == "") {
-        // state = state.copyWith(currentData: data, currentFilePath: data.$1);
-        ref.read(currentAnnotatingDataNotifierProvider.notifier).setData(data);
+        state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
         ref
             .read(imageNotifierProvider.notifier)
@@ -197,8 +196,7 @@ class CurrentDatasetAnnotationNotifier
       );
 
       // return r.data?.content;
-      // state = state.copyWith(currentData: data, currentFilePath: data.$1);
-      ref.read(currentAnnotatingDataNotifierProvider.notifier).setData(data);
+      state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
       ref
           .read(imageNotifierProvider.notifier)
@@ -217,14 +215,12 @@ class CurrentDatasetAnnotationNotifier
     (String, String) data,
   ) async {
     logger.d("dataset and annotation $data");
-    // state = state.copyWith(currentData: data, currentFilePath: data.$1);
-    ref.read(currentAnnotatingDataNotifierProvider.notifier).setData(data);
+    state = state.copyWith(currentData: data, currentFilePath: data.$1);
   }
 
   Future<void> _changeCurrentDataForCls((String, String) data) async {
     logger.d("dataset and annotation $data");
-    // state = state.copyWith(currentData: data, currentFilePath: data.$1);
-    ref.read(currentAnnotatingDataNotifierProvider.notifier).setData(data);
+    state = state.copyWith(currentData: data, currentFilePath: data.$1);
   }
 
   void addClassType(String className) {
@@ -235,15 +231,14 @@ class CurrentDatasetAnnotationNotifier
   }
 
   void updateDataAfterAnnotationUpdate() {
-    // var filename = state.currentData?.$1;
-    var filename = ref.read(currentAnnotatingDataNotifierProvider)?.$1;
+    var filename = state.currentData?.$1;
     if (filename == null) {
       return;
     }
     var annotationName =
         "${state.annotation?.annotationSavePath}/${filename.split("/").last.split(".").first}.txt";
     state = state.copyWith(
-      // currentData: (filename, annotationName),
+      currentData: (filename, annotationName),
       data:
           state.data.map((e) {
             if (e.$1 == filename) {
@@ -259,21 +254,3 @@ final currentDatasetAnnotationNotifierProvider = AutoDisposeNotifierProvider<
   CurrentDatasetAnnotationNotifier,
   CurrentDatasetAnnotationState
 >(CurrentDatasetAnnotationNotifier.new);
-
-class CurrentDataNotifier extends AutoDisposeNotifier<(String, String)?> {
-  @override
-  (String, String)? build() {
-    return null;
-  }
-
-  void setData((String, String)? data) {
-    if (data != state) {
-      state = data;
-    }
-  }
-}
-
-final currentAnnotatingDataNotifierProvider =
-    AutoDisposeNotifierProvider<CurrentDataNotifier, (String, String)?>(
-      CurrentDataNotifier.new,
-    );
