@@ -145,6 +145,7 @@ class _FileListState extends ConsumerState<FileList> {
     );
   }
 
+
   Widget _wrapper(Widget child, int index, data) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
