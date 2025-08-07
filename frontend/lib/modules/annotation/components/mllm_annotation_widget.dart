@@ -20,8 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 class MllmAnnotationWidget extends ConsumerStatefulWidget {
-  const MllmAnnotationWidget({super.key, required this.data});
-  final List<(String, String)> data;
+  const MllmAnnotationWidget({super.key});
 
   @override
   ConsumerState<MllmAnnotationWidget> createState() =>
@@ -75,7 +74,7 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
 
     return Row(
       children: [
-        FileList(data: widget.data),
+        FileList(),
         Expanded(
           child: Container(
             padding: EdgeInsets.only(left: 10, right: 10),
