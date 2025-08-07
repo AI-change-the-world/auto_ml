@@ -31,9 +31,9 @@ class AnnotationState {
 }
 
 class RefactorAnnotationState {
-  final List<Annotation> annotations;
-  final LabelMode mode;
-  final bool modified;
+  List<Annotation> annotations;
+  LabelMode mode;
+  bool modified;
 
   RefactorAnnotationState({
     this.annotations = const [],
@@ -51,5 +51,15 @@ class RefactorAnnotationState {
       mode: mode ?? this.mode,
       modified: modified ?? this.modified,
     );
+  }
+
+  void updateWith({
+    List<Annotation>? annotations,
+    LabelMode? mode,
+    bool? modified,
+  }) {
+    this.annotations = annotations ?? this.annotations;
+    this.mode = mode ?? this.mode;
+    this.modified = modified ?? this.modified;
   }
 }

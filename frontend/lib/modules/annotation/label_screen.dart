@@ -30,18 +30,16 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final annotation = ref.watch(
+    final (annotation, dataset) = ref.watch(
       currentDatasetAnnotationNotifierProvider.select(
-        (state) => state.annotation,
+        (state) => (state.annotation, state.dataset),
       ),
     );
 
-    final dataset = ref.watch(
-      currentDatasetAnnotationNotifierProvider.select((state) => state.dataset),
-    );
-
+    // You can still log, but get the other values with `read` inside the log.
+    // This avoids creating a dependency.
     logger.d(
-      "Current dataset: ${dataset?.id}, Current annotation: ${annotation?.id} ",
+      "Router rebuilding. Annotation ID: ${annotation?.id}, Type: ${annotation?.annotationType}",
     );
 
     if (annotation == null || dataset == null || dataset.id == 0) {

@@ -42,6 +42,9 @@ class AnnotationWidget extends ConsumerWidget {
               .read(singleAnnotationProvider(uuid).notifier)
               .updateAnnotation(details: details);
         },
+        onPanEnd: (details) {
+          ref.read(singleAnnotationProvider(uuid).notifier).updateDone();
+        },
         onTap: () {
           // onSelected();
           ref
