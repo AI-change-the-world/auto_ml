@@ -1,7 +1,6 @@
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/models/changed.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +18,6 @@ class AnnotationWidget extends ConsumerWidget {
   final List<String> classes;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    logger.i("[annotation] build annotation, current: $uuid");
     final annotation = ref.watch(singleAnnotationProvider(uuid));
 
     if (!annotation.visible) {
