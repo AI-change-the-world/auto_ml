@@ -57,7 +57,7 @@ class CurrentDatasetAnnotationState {
 }
 
 class CurrentDatasetAnnotationNotifier
-    extends Notifier<CurrentDatasetAnnotationState> {
+    extends AutoDisposeNotifier<CurrentDatasetAnnotationState> {
   final dio = DioClient().instance;
   @override
   CurrentDatasetAnnotationState build() {
@@ -137,7 +137,7 @@ class CurrentDatasetAnnotationNotifier
     if (state.annotation == null) {
       return;
     }
-    ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
+    // ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
     if (state.annotation!.annotationType == 1) {
       return _changeCurrentDataForObjectDetection(data);
     } else if (state.annotation!.annotationType == 3) {
@@ -172,7 +172,9 @@ class CurrentDatasetAnnotationNotifier
             .read(imageNotifierProvider.notifier)
             .loadImage(r.data?.content ?? "", data.$1)
             .then((_) {
-              ref.read(annotationContainerProvider.notifier).setAnnotations("");
+              ref
+                  .read(annotationContainerProvider.notifier)
+                  .setAnnotations("", mode: LabelMode.edit);
             });
         return;
       }
@@ -202,7 +204,7 @@ class CurrentDatasetAnnotationNotifier
           .then((_) {
             ref
                 .read(annotationContainerProvider.notifier)
-                .setAnnotations(r2.data?.content ?? "");
+                .setAnnotations(r2.data?.content ?? "", mode: LabelMode.edit);
           });
     } catch (e) {
       logger.e(e);
@@ -248,7 +250,7 @@ class CurrentDatasetAnnotationNotifier
   }
 }
 
-final currentDatasetAnnotationNotifierProvider = NotifierProvider<
+final currentDatasetAnnotationNotifierProvider = AutoDisposeNotifierProvider<
   CurrentDatasetAnnotationNotifier,
   CurrentDatasetAnnotationState
 >(CurrentDatasetAnnotationNotifier.new);

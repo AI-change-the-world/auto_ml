@@ -526,13 +526,9 @@ class AnnotationContainerNotifier
   RefactorAnnotationState build() {
     ref.onDispose(() {
       ss.close();
+      logger.i("AnnotationNotifier dispose");
     });
-    return RefactorAnnotationState(
-      annotations: [
-        Annotation(Offset.zero, 100, 100, 0)..uuid = "1-2-3-4",
-        Annotation(Offset(100, 100), 300, 300, 0)..uuid = "4-256-3-4",
-      ],
-    ); // 或加载已有数据
+    return RefactorAnnotationState(annotations: []); // 或加载已有数据
   }
 
   void changeMode(LabelMode mode) {
@@ -602,7 +598,10 @@ class AnnotationContainerNotifier
     state = state.copyWith(annotations: newAnnotations);
   }
 
-  Future<void> setAnnotations(String content) async {
+  Future<void> setAnnotations(String content, {LabelMode? mode}) async {
+    logger.d("set annotations, clear all annotations");
+    state = state.copyWith(annotations: []);
+
     var imageState = ref.read(imageNotifierProvider);
 
     List<Annotation> annotations = parseYoloAnnotations(
@@ -618,7 +617,7 @@ class AnnotationContainerNotifier
     //       map..putIfAbsent(annotation.uuid, () => annotation),
     // );
 
-    state = state.copyWith(annotations: annotations);
+    state = state.copyWith(annotations: annotations, mode: mode);
   }
 
   Future<void> setAnnotationsWithClasses(String content) async {
@@ -918,6 +917,11 @@ class SingleAnnotationNotifier
     extends AutoDisposeFamilyNotifier<Annotation, String> {
   @override
   Annotation build(String uuid) {
+    ref.onDispose(() {
+      logger.d("SingleAnnotationNotifier dispose $uuid");
+    });
+
+    logger.d("SingleAnnotationNotifier build $uuid");
     final container = ref.watch(annotationContainerProvider);
     final annotation = container.annotations.firstWhereOrNull(
       (v) => v.uuid == uuid,
