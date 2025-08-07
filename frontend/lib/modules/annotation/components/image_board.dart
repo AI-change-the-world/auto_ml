@@ -158,13 +158,8 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                           ref
                               .read(annotationContainerProvider.notifier)
                               .addFakeAnnotation(
-                                Annotation(
-                                  imagePosition,
-                                  0,
-                                  0,
-                                  -1,
-                                  uuid: fakeUuId,
-                                ),
+                                Annotation(imagePosition, 0, 0, -1)
+                                  ..uuid = fakeUuId,
                               );
                         }
                         : null, // <--- 设为 null
@@ -184,8 +179,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                   previewRect!.width,
                                   previewRect!.height,
                                   -1,
-                                  uuid: fakeUuId,
-                                ),
+                                )..uuid = fakeUuId,
                               );
                         }
                         : null, // <--- 设为 null

@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
+import 'package:uuid/uuid.dart';
 
 @Deprecated("[REASON] Deprecated because of windows performance issue")
 class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
@@ -596,11 +597,6 @@ class AnnotationContainerNotifier
     state = state.copyWith(annotations: newAnnotations);
   }
 
-  void clear() {
-    // 清空标注和状态（如 UUID、选中项等）
-    state = RefactorAnnotationState(); // 根据你实际的 state 类型处理
-  }
-
   Future<void> setAnnotations(String content, {LabelMode? mode}) async {
     var imageState = ref.read(imageNotifierProvider);
 
@@ -712,12 +708,16 @@ class AnnotationContainerNotifier
           return e;
         }).toList();
 
-    state = state.copyWith(modified: true, annotations: newAnnotations);
+    state.updateWith(modified: true, annotations: newAnnotations);
+  }
+
+  void annotationFinalize() {
+    state = state.copyWith(modified: true);
   }
 
   void fakeAnnotationFinalize() {
     final lastAnnotation = state.annotations.last;
-    // lastAnnotation.uuid = Uuid().v4();
+    lastAnnotation.uuid = Uuid().v4();
     lastAnnotation.isOnAdding = false;
     final list = List.from(state.annotations)..removeLast();
     state = state.copyWith(
@@ -776,6 +776,10 @@ class AnnotationContainerNotifier
         });
 
     return 0;
+  }
+
+  void clear() {
+    state = RefactorAnnotationState();
   }
 
   void handleAgent(int id, {bool stream = false}) async {
@@ -917,6 +921,9 @@ class SingleAnnotationNotifier
     extends AutoDisposeFamilyNotifier<Annotation, String> {
   @override
   Annotation build(String uuid) {
+    ref.onDispose(() {
+      logger.d('SingleAnnotationNotifier disposed $uuid');
+    });
     final container = ref.watch(annotationContainerProvider);
     final annotation = container.annotations.firstWhereOrNull(
       (v) => v.uuid == uuid,
@@ -970,6 +977,11 @@ class SingleAnnotationNotifier
     state = state.copyWith(id: classId);
     final container = ref.read(annotationContainerProvider.notifier);
     container.update(uuid: state.uuid, annotation: state);
+  }
+
+  void updateDone() {
+    final container = ref.read(annotationContainerProvider.notifier);
+    container.annotationFinalize();
   }
 }
 

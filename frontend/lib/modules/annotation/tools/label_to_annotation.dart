@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
-import 'package:uuid/uuid.dart';
 
 List<Annotation> parseYoloAnnotations(
   String fileContent,
@@ -26,7 +25,7 @@ List<Annotation> parseYoloAnnotations(
     double yMin = yCenter - height / 2;
     Offset position = Offset(xMin, yMin);
 
-    annotations.add(Annotation(position, width, height, id, uuid: Uuid().v4()));
+    annotations.add(Annotation(position, width, height, id));
   }
 
   return annotations;
@@ -55,7 +54,7 @@ List<Annotation> parseYoloAnnotationsWithClasses(
     double yMin = yCenter - height / 2;
     Offset position = Offset(xMin, yMin);
 
-    annotations.add(Annotation(position, width, height, id, uuid: Uuid().v4()));
+    annotations.add(Annotation(position, width, height, id));
   }
 
   return annotations;

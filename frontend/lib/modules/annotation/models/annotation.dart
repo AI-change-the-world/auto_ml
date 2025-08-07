@@ -1,11 +1,13 @@
 import 'dart:ui';
 
+import 'package:uuid/uuid.dart';
+
 class Annotation {
   Offset position;
   double width;
   double height;
   int id;
-  final String uuid;
+  late String uuid;
   bool editable;
   bool selected;
   bool isOnAdding;
@@ -20,8 +22,9 @@ class Annotation {
     this.selected = false,
     this.isOnAdding = false,
     this.visible = true,
-    required this.uuid,
-  });
+  }) {
+    uuid = Uuid().v4();
+  }
 
   String getLabel(List<String> classes) {
     if (id < 0 || id >= classes.length) {
@@ -58,8 +61,8 @@ class Annotation {
       selected: selected ?? this.selected,
       isOnAdding: isOnAdding ?? this.isOnAdding,
       visible: visible ?? this.visible,
-      uuid: uuid,
     );
+    a.uuid = uuid;
     return a;
   }
 }
