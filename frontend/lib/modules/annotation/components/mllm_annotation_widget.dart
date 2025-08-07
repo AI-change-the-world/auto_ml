@@ -20,8 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:markdown_widget/markdown_widget.dart';
 
 class MllmAnnotationWidget extends ConsumerStatefulWidget {
-  const MllmAnnotationWidget({super.key, required this.data});
-  final List<(String, String)> data;
+  const MllmAnnotationWidget({super.key});
 
   @override
   ConsumerState<MllmAnnotationWidget> createState() =>
@@ -64,8 +63,9 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
     final state = ref.read(currentDatasetAnnotationNotifierProvider);
     currentDataset = state.dataset;
     currentAnnotation = state.annotation;
-    selectedImage = state.currentData?.$1 ?? "";
-    selectedAnnotation = state.currentData?.$2 ?? "";
+    final currentData = ref.read(currentAnnotatingDataNotifierProvider);
+    selectedImage = currentData?.$1 ?? "";
+    selectedAnnotation = currentData?.$2 ?? "";
     logger.i(
       "selectedImage   $selectedImage  selectedAnnotation  $selectedAnnotation!",
     );
@@ -75,7 +75,7 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
 
     return Row(
       children: [
-        FileList(data: widget.data),
+        FileList(),
         Expanded(
           child: Container(
             padding: EdgeInsets.only(left: 10, right: 10),
@@ -395,7 +395,7 @@ class _MllmAnnotationWidgetState extends ConsumerState<MllmAnnotationWidget> {
                                   onPressed: () {
                                     if (controller2.text.isNotEmpty) {
                                       final String filename =
-                                          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
+                                          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentAnnotatingDataNotifierProvider)?.$1.split("/").last.split(".").first}.txt";
                                       UpdateAnnotationRequest request =
                                           UpdateAnnotationRequest(
                                             content: controller2.text,

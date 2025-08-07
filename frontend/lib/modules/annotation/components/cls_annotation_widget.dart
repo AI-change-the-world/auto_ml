@@ -16,8 +16,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ClsAnnotationWidget extends ConsumerStatefulWidget {
-  const ClsAnnotationWidget({super.key, required this.data});
-  final List<(String, String)> data;
+  const ClsAnnotationWidget({super.key});
+  // final List<(String, String)> data;
 
   @override
   ConsumerState<ClsAnnotationWidget> createState() =>
@@ -55,8 +55,9 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
     final state = ref.read(currentDatasetAnnotationNotifierProvider);
     currentDataset = state.dataset;
     currentAnnotation = state.annotation;
+    final currentData = ref.read(currentAnnotatingDataNotifierProvider);
 
-    selectedImage = state.currentData?.$1 ?? "";
+    selectedImage = currentData?.$1 ?? "";
 
     logger.d("currentData: $selectedImage");
 
@@ -79,7 +80,7 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
       },
       child: Row(
         children: [
-          FileList(data: widget.data),
+          FileList(),
           Expanded(
             flex: 2,
             child: Container(
@@ -131,15 +132,12 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
                   );
                 }
 
-                if (state.currentData?.$2 == null) {
+                if (currentData?.$2 == null) {
                   return _buildIcons();
                 }
 
                 final asyncDetail = ref.watch(
-                  getAnnotationContent((
-                    currentAnnotation!,
-                    state.currentData!.$2,
-                  )),
+                  getAnnotationContent((currentAnnotation!, currentData!.$2)),
                 );
 
                 return asyncDetail.when(
@@ -196,7 +194,7 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
                         }
 
                         final String filename =
-                            "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
+                            "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentAnnotatingDataNotifierProvider)?.$1.split("/").last.split(".").first}.txt";
                         UpdateAnnotationRequest request =
                             UpdateAnnotationRequest(
                               content: "$selectedImage\n$e",

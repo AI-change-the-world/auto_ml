@@ -282,7 +282,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
       top: top,
       right: right,
       bottom: bottom,
-      path: ref.read(currentDatasetAnnotationNotifierProvider).currentData!.$1,
+      path: ref.read(currentAnnotatingDataNotifierProvider)!.$1,
       label: currentAnnotation.getLabel(classes),
       id: ref.read(currentDatasetAnnotationNotifierProvider).annotation!.id,
     );
@@ -345,11 +345,10 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
     var imgSize = ref.read(imageNotifierProvider).size;
     var filename = "";
     String annotationSavePath =
-        ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$2 ??
-        "";
+        ref.read(currentAnnotatingDataNotifierProvider)?.$2 ?? "";
     if (annotationSavePath.isEmpty) {
       filename =
-          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
+          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentAnnotatingDataNotifierProvider)?.$1.split("/").last.split(".").first}.txt";
     } else {
       filename = annotationSavePath;
     }
@@ -387,8 +386,7 @@ class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
 
   void handleAgent(int id, {bool stream = false}) async {
     logger.d("handleAgent id $id");
-    final filePath =
-        ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1;
+    final filePath = ref.read(currentAnnotatingDataNotifierProvider)?.$1;
     if (filePath == null) {
       ToastUtils.error(null, title: "Please select a file");
       return;
@@ -737,12 +735,14 @@ class AnnotationContainerNotifier
   Future<int> putYoloAnnotation() async {
     var imgSize = ref.read(imageNotifierProvider).size;
     var filename = "";
+    // String annotationSavePath =
+    //     ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$2 ??
+    //     "";
     String annotationSavePath =
-        ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$2 ??
-        "";
+        ref.read(currentAnnotatingDataNotifierProvider)?.$2 ?? "";
     if (annotationSavePath.isEmpty) {
       filename =
-          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1.split("/").last.split(".").first}.txt";
+          "${ref.read(currentDatasetAnnotationNotifierProvider).annotation?.annotationSavePath}/${ref.read(currentAnnotatingDataNotifierProvider)?.$1.split("/").last.split(".").first}.txt";
     } else {
       filename = annotationSavePath;
     }
@@ -780,8 +780,7 @@ class AnnotationContainerNotifier
 
   void handleAgent(int id, {bool stream = false}) async {
     logger.d("handleAgent id $id");
-    final filePath =
-        ref.read(currentDatasetAnnotationNotifierProvider).currentData?.$1;
+    final filePath = ref.read(currentAnnotatingDataNotifierProvider)?.$1;
     if (filePath == null) {
       ToastUtils.error(null, title: "Please select a file");
       return;

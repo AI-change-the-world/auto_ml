@@ -8,14 +8,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class FileList extends ConsumerWidget {
-  const FileList({super.key, required this.data});
-  final List<(String, String)> data;
+  const FileList({super.key});
+  // final List<(String, String)> data;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final data = ref.watch(
+      currentDatasetAnnotationNotifierProvider.select((state) => state.data),
+    );
+
     logger.d("FileList: ${data.length} items");
+    // final current = ref.watch(
+    //   currentDatasetAnnotationNotifierProvider.select((v) => v.currentFilePath),
+    // );
     final current = ref.watch(
-      currentDatasetAnnotationNotifierProvider.select((v) => v.currentFilePath),
+      currentAnnotatingDataNotifierProvider.select((v) => v?.$1),
     );
 
     return Material(
@@ -75,6 +82,7 @@ class FileList extends ConsumerWidget {
                               ref,
                               index,
                               context,
+                              data,
                             );
                           }
                           return _wrapper(
@@ -98,6 +106,7 @@ class FileList extends ConsumerWidget {
                             ref,
                             index,
                             context,
+                            data,
                           );
                         },
                         itemCount: data.length,
@@ -154,6 +163,7 @@ class FileList extends ConsumerWidget {
     WidgetRef ref,
     int index,
     BuildContext context,
+    data,
   ) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
