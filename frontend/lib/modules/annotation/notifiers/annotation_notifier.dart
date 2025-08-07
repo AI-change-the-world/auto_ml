@@ -527,12 +527,7 @@ class AnnotationContainerNotifier
     ref.onDispose(() {
       ss.close();
     });
-    return RefactorAnnotationState(
-      annotations: [
-        Annotation(Offset.zero, 100, 100, 0)..uuid = "1-2-3-4",
-        Annotation(Offset(100, 100), 300, 300, 0)..uuid = "4-256-3-4",
-      ],
-    ); // 或加载已有数据
+    return RefactorAnnotationState(annotations: []); // 或加载已有数据
   }
 
   void changeMode(LabelMode mode) {
@@ -602,7 +597,7 @@ class AnnotationContainerNotifier
     state = state.copyWith(annotations: newAnnotations);
   }
 
-  Future<void> setAnnotations(String content) async {
+  Future<void> setAnnotations(String content, {LabelMode? mode}) async {
     var imageState = ref.read(imageNotifierProvider);
 
     List<Annotation> annotations = parseYoloAnnotations(
@@ -618,7 +613,7 @@ class AnnotationContainerNotifier
     //       map..putIfAbsent(annotation.uuid, () => annotation),
     // );
 
-    state = state.copyWith(annotations: annotations);
+    state = state.copyWith(annotations: annotations, mode: mode);
   }
 
   Future<void> setAnnotationsWithClasses(String content) async {

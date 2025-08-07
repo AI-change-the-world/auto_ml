@@ -30,15 +30,19 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final current = ref.watch(currentDatasetAnnotationNotifierProvider);
-    logger.d(
-      "Current dataset: ${current.dataset?.id}, Current annotation: ${current.annotation?.id} , files: ${current.data.length}",
+    final (annotation, dataset) = ref.watch(
+      currentDatasetAnnotationNotifierProvider.select(
+        (state) => (state.annotation, state.dataset),
+      ),
     );
 
-    if (current.annotation == null ||
-        current.dataset == null ||
-        current.dataset?.id == 0 ||
-        current.annotation?.id == null) {
+    // You can still log, but get the other values with `read` inside the log.
+    // This avoids creating a dependency.
+    logger.d(
+      "Router rebuilding. Annotation ID: ${annotation?.id}, Type: ${annotation?.annotationType}",
+    );
+
+    if (annotation == null || dataset == null || dataset.id == 0) {
       return Center(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -68,18 +72,18 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
       );
     }
 
-    if (current.annotation!.annotationType == 3) {
+    if (annotation.annotationType == 3) {
       return Padding(
         padding: EdgeInsetsGeometry.all(10),
         child: Column(
           spacing: 10,
           children: [
             SizedBox(height: 20, child: _cachedDropDownButton),
-            Expanded(child: MllmAnnotationWidget(data: current.data)),
+            Expanded(child: MllmAnnotationWidget()),
           ],
         ),
       );
-    } else if (current.annotation!.annotationType == 1) {
+    } else if (annotation.annotationType == 1) {
       return Container(
         padding: EdgeInsets.only(top: 10, bottom: 10),
         decoration: BoxDecoration(
@@ -102,7 +106,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
                 child: Row(
                   spacing: 10,
                   children: [
-                    FileList(data: current.data),
+                    FileList(),
                     Expanded(child: ImageBoard()),
                     AnnotationListWidget(
                       classes:
@@ -192,7 +196,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
           ],
         ),
       );
-    } else if (current.annotation!.annotationType == 0) {
+    } else if (annotation.annotationType == 0) {
       // return ClsAnnotationWidget(data: current.data);
       return Padding(
         padding: EdgeInsetsGeometry.all(10),
@@ -200,7 +204,7 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
           spacing: 10,
           children: [
             SizedBox(height: 20, child: _cachedDropDownButton),
-            Expanded(child: ClsAnnotationWidget(data: current.data)),
+            Expanded(child: ClsAnnotationWidget()),
           ],
         ),
       );

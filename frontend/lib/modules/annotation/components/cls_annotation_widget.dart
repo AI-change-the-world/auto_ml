@@ -16,8 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class ClsAnnotationWidget extends ConsumerStatefulWidget {
-  const ClsAnnotationWidget({super.key, required this.data});
-  final List<(String, String)> data;
+  const ClsAnnotationWidget({super.key});
 
   @override
   ConsumerState<ClsAnnotationWidget> createState() =>
@@ -79,7 +78,7 @@ class _ClsAnnotationWidgetState extends ConsumerState<ClsAnnotationWidget> {
       },
       child: Row(
         children: [
-          FileList(data: widget.data),
+          FileList(),
           Expanded(
             flex: 2,
             child: Container(

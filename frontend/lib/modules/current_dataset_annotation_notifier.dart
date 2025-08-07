@@ -57,7 +57,7 @@ class CurrentDatasetAnnotationState {
 }
 
 class CurrentDatasetAnnotationNotifier
-    extends Notifier<CurrentDatasetAnnotationState> {
+    extends AutoDisposeNotifier<CurrentDatasetAnnotationState> {
   final dio = DioClient().instance;
   @override
   CurrentDatasetAnnotationState build() {
@@ -137,7 +137,7 @@ class CurrentDatasetAnnotationNotifier
     if (state.annotation == null) {
       return;
     }
-    ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
+    // ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
     if (state.annotation!.annotationType == 1) {
       return _changeCurrentDataForObjectDetection(data);
     } else if (state.annotation!.annotationType == 3) {
@@ -153,6 +153,10 @@ class CurrentDatasetAnnotationNotifier
     logger.d("dataset and annotation $data");
 
     try {
+      // clear current data
+      ref
+          .read(annotationContainerProvider.notifier)
+          .setAnnotations("", mode: LabelMode.edit);
       final request = FilePreviewRequest(
         baseUrl: state.dataset?.localS3StoragePath ?? "",
         storageType: state.dataset?.storageType ?? 0,
@@ -248,7 +252,7 @@ class CurrentDatasetAnnotationNotifier
   }
 }
 
-final currentDatasetAnnotationNotifierProvider = NotifierProvider<
+final currentDatasetAnnotationNotifierProvider = AutoDisposeNotifierProvider<
   CurrentDatasetAnnotationNotifier,
   CurrentDatasetAnnotationState
 >(CurrentDatasetAnnotationNotifier.new);

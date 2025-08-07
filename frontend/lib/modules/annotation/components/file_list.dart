@@ -7,16 +7,21 @@ import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class FileList extends ConsumerWidget {
-  const FileList({super.key, required this.data});
-  final List<(String, String)> data;
+class FileList extends ConsumerStatefulWidget {
+  const FileList({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    logger.d("FileList: ${data.length} items");
-    final current = ref.watch(
-      currentDatasetAnnotationNotifierProvider.select((v) => v.currentFilePath),
+  ConsumerState<FileList> createState() => _FileListState();
+}
+
+class _FileListState extends ConsumerState<FileList> {
+  @override
+  Widget build(BuildContext context) {
+    final data = ref.watch(
+      currentDatasetAnnotationNotifierProvider.select((v) => v.data),
     );
+
+    logger.d("FileList: ${data.length} items");
 
     return Material(
       borderRadius: BorderRadius.circular(10),
@@ -52,55 +57,46 @@ class FileList extends ConsumerWidget {
                         ),
                       )
                       : ListView.builder(
+                        itemCount: data.length,
                         itemBuilder: (context, index) {
-                          if (data[index].$1 == current) {
-                            return _wrapper(
-                              Container(
-                                padding: EdgeInsets.only(left: 10),
-                                decoration: BoxDecoration(
-                                  color: Colors.lightBlueAccent,
+                          final filePath = data[index].$1;
+
+                          return Consumer(
+                            builder: (context, ref, _) {
+                              final current = ref.watch(
+                                currentDatasetAnnotationNotifierProvider.select(
+                                  (v) => v.currentFilePath,
                                 ),
-                                child: Tooltip(
-                                  waitDuration: Duration(milliseconds: 500),
-                                  message: data[index].$1,
-                                  child: Text(
-                                    data[index].$1.split("/").last,
-                                    // style: TextStyle(color: Colors.white),
-                                    maxLines: 1,
-                                    softWrap: true,
-                                    overflow: TextOverflow.ellipsis,
+                              );
+
+                              final isCurrent = filePath == current;
+
+                              return _wrapper(
+                                Container(
+                                  padding: EdgeInsets.only(left: 10),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isCurrent
+                                            ? Colors.lightBlueAccent
+                                            : Colors.transparent,
+                                  ),
+                                  child: Tooltip(
+                                    waitDuration: Duration(milliseconds: 500),
+                                    message: filePath,
+                                    child: Text(
+                                      filePath.split("/").last,
+                                      maxLines: 1,
+                                      softWrap: true,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              ref,
-                              index,
-                              context,
-                            );
-                          }
-                          return _wrapper(
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                              ),
-                              padding: EdgeInsets.only(left: 10),
-                              child: Tooltip(
-                                waitDuration: Duration(milliseconds: 500),
-                                message: data[index].$1,
-                                child: Text(
-                                  data[index].$1.split("/").last,
-                                  // style: TextStyle(color: Colors.white),
-                                  maxLines: 1,
-                                  softWrap: true,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            ref,
-                            index,
-                            context,
+                                index,
+                                data,
+                              );
+                            },
                           );
                         },
-                        itemCount: data.length,
                       ),
             ),
             if (ref
@@ -149,12 +145,7 @@ class FileList extends ConsumerWidget {
     );
   }
 
-  Widget _wrapper(
-    Widget child,
-    WidgetRef ref,
-    int index,
-    BuildContext context,
-  ) {
+  Widget _wrapper(Widget child, int index, data) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
