@@ -4,7 +4,6 @@ import 'package:auto_ml/common/merge_files_and_annotations.dart';
 import 'package:auto_ml/modules/annotation/models/api/annotation_file_response.dart';
 import 'package:auto_ml/modules/annotation/models/api/dataset_file_response.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
-import 'package:auto_ml/modules/annotation/notifiers/enum.dart';
 import 'package:auto_ml/modules/annotation/notifiers/image_notifier.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_request.dart';
 import 'package:auto_ml/modules/dataset/models/file_preview_response.dart';
@@ -137,7 +136,9 @@ class CurrentDatasetAnnotationNotifier
     if (state.annotation == null) {
       return;
     }
-    // ref.read(annotationContainerProvider.notifier).changeMode(LabelMode.edit);
+    // clear current data
+    ref.read(annotationContainerProvider.notifier).clear();
+    logger.i("[annotation] data reset");
     if (state.annotation!.annotationType == 1) {
       return _changeCurrentDataForObjectDetection(data);
     } else if (state.annotation!.annotationType == 3) {
@@ -153,10 +154,9 @@ class CurrentDatasetAnnotationNotifier
     logger.d("dataset and annotation $data");
 
     try {
-      // clear current data
-      ref
-          .read(annotationContainerProvider.notifier)
-          .setAnnotations("", mode: LabelMode.edit);
+      // set current data
+      state = state.copyWith(currentData: data, currentFilePath: data.$1);
+
       final request = FilePreviewRequest(
         baseUrl: state.dataset?.localS3StoragePath ?? "",
         storageType: state.dataset?.storageType ?? 0,
@@ -170,14 +170,11 @@ class CurrentDatasetAnnotationNotifier
       );
 
       if (data.$2 == "") {
-        state = state.copyWith(currentData: data, currentFilePath: data.$1);
+        // state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
         ref
             .read(imageNotifierProvider.notifier)
-            .loadImage(r.data?.content ?? "", data.$1)
-            .then((_) {
-              ref.read(annotationContainerProvider.notifier).setAnnotations("");
-            });
+            .loadImage(r.data?.content ?? "", data.$1);
         return;
       }
 
@@ -198,7 +195,7 @@ class CurrentDatasetAnnotationNotifier
       );
 
       // return r.data?.content;
-      state = state.copyWith(currentData: data, currentFilePath: data.$1);
+      // state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
       ref
           .read(imageNotifierProvider.notifier)

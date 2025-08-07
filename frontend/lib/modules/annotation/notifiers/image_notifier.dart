@@ -38,6 +38,11 @@ class ImageNotifier extends Notifier<ImageState> {
   }
 
   Future<void> loadImage(String current, String imgPath) async {
+    if (imgPath == state.imgKey) {
+      logger.d("Image already loaded");
+      return;
+    }
+
     if (current.isEmpty) {
       ToastUtils.error(null, title: "No image path/data provided");
       return;

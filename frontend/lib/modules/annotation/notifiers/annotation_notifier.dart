@@ -25,7 +25,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
-import 'package:uuid/uuid.dart';
 
 @Deprecated("[REASON] Deprecated because of windows performance issue")
 class AnnotationNotifier extends AutoDisposeNotifier<AnnotationState> {
@@ -597,6 +596,11 @@ class AnnotationContainerNotifier
     state = state.copyWith(annotations: newAnnotations);
   }
 
+  void clear() {
+    // 清空标注和状态（如 UUID、选中项等）
+    state = RefactorAnnotationState(); // 根据你实际的 state 类型处理
+  }
+
   Future<void> setAnnotations(String content, {LabelMode? mode}) async {
     var imageState = ref.read(imageNotifierProvider);
 
@@ -713,7 +717,7 @@ class AnnotationContainerNotifier
 
   void fakeAnnotationFinalize() {
     final lastAnnotation = state.annotations.last;
-    lastAnnotation.uuid = Uuid().v4();
+    // lastAnnotation.uuid = Uuid().v4();
     lastAnnotation.isOnAdding = false;
     final list = List.from(state.annotations)..removeLast();
     state = state.copyWith(
