@@ -44,6 +44,7 @@ dependencies:
   riverpod: ^2.6.1
   slang: ^4.7.1
   slang_flutter: ^4.7.0
+  super_tooltip: ^2.1.0
   timelines_plus: ^1.0.6
   toastification: ^3.0.2
   toggle_switch: ^2.3.0

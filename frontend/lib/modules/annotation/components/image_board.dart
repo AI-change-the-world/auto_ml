@@ -215,21 +215,20 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                               //   "annotations length: ${annotations.length}",
                               // );
                               return Stack(
-                                children:
-                                    annotations.annotations
-                                        .map(
-                                          (e) => AnnotationWidget(
-                                            classes:
-                                                ref
-                                                    .read(
-                                                      currentDatasetAnnotationNotifierProvider,
-                                                    )
-                                                    .classes,
+                                children: [
+                                  ...annotations.annotations.map(
+                                    (e) => AnnotationWidget(
+                                      classes:
+                                          ref
+                                              .read(
+                                                currentDatasetAnnotationNotifierProvider,
+                                              )
+                                              .classes,
 
-                                            uuid: e.uuid,
-                                          ),
-                                        )
-                                        .toList(),
+                                      uuid: e.uuid,
+                                    ),
+                                  ),
+                                ],
                               );
                             },
                           ),
