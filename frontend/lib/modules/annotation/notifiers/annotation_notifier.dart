@@ -974,9 +974,14 @@ class SingleAnnotationNotifier
   }
 
   void changeAnnotationClassId(int classId) {
+    if (classId == -1) {
+      ToastUtils.error(null, title: "Class not found");
+      return;
+    }
     state = state.copyWith(id: classId);
     final container = ref.read(annotationContainerProvider.notifier);
     container.update(uuid: state.uuid, annotation: state);
+    container.annotationFinalize();
   }
 
   void updateDone() {

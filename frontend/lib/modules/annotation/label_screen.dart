@@ -7,6 +7,7 @@ import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/modules/annotation/components/file_list.dart';
 import 'package:auto_ml/modules/annotation/components/icons.dart';
 import 'package:auto_ml/modules/annotation/components/image_board.dart';
+import 'package:auto_ml/utils/globals.dart';
 import 'package:auto_ml/utils/logger.dart';
 import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/material.dart';
@@ -107,7 +108,9 @@ class _LabelScreenState extends ConsumerState<LabelScreen> {
                   spacing: 10,
                   children: [
                     FileList(),
-                    Expanded(child: ImageBoard()),
+                    Expanded(
+                      child: ImageBoard(key: Globals.globalImageBoardKey),
+                    ),
                     AnnotationListWidget(
                       classes:
                           ref

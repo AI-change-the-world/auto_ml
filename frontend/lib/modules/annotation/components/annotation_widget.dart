@@ -1,19 +1,19 @@
+import 'package:auto_ml/modules/annotation/components/editable_text.dart';
 import 'package:auto_ml/modules/annotation/models/annotation.dart';
 import 'package:auto_ml/modules/annotation/models/changed.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
+import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
+import 'package:auto_ml/utils/styles.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:super_tooltip/super_tooltip.dart';
 
 class AnnotationWidget extends ConsumerWidget {
-  const AnnotationWidget({
-    super.key,
-    required this.uuid,
-
-    required this.classes,
-  });
+  AnnotationWidget({super.key, required this.uuid, required this.classes});
 
   final String uuid;
+  final SuperTooltipController controller = SuperTooltipController();
 
   final List<String> classes;
   @override
@@ -36,6 +36,9 @@ class AnnotationWidget extends ConsumerWidget {
       left: annotation.position.dx,
       top: annotation.position.dy,
       child: GestureDetector(
+        onDoubleTapDown: (details) {
+          controller.showTooltip();
+        },
         onPanUpdate: (details) {
           // onPanUpdate(details);
           ref
@@ -51,44 +54,93 @@ class AnnotationWidget extends ConsumerWidget {
               .read(annotationContainerProvider.notifier)
               .changeCurrentAnnotation(uuid);
         },
-        child: Stack(
-          children: [
-            // 标注框
-            MouseRegion(
-              cursor: SystemMouseCursors.grab,
-              child: Material(
-                color: Colors.transparent,
-                elevation: annotation.selected ? 4 : 0,
-                child: Container(
-                  width: annotation.width,
-                  height: annotation.height,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.3),
-                    border: Border.all(
-                      color: !annotation.editable ? Colors.grey : Colors.red,
-                      width: 2,
+        child: SuperTooltip(
+          showBarrier: false,
+          controller: controller,
+          content: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              width: 200,
+              height: 40,
+              padding: EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                spacing: 10,
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 30,
+                      child: EditableLabel(
+                        onTap: () {},
+                        label: annotation.getLabel(classes),
+                        onSubmit: (value) {
+                          ref
+                              .read(singleAnnotationProvider(uuid).notifier)
+                              .changeAnnotationClassId(
+                                ref
+                                    .read(
+                                      currentDatasetAnnotationNotifierProvider,
+                                    )
+                                    .classes
+                                    .indexOf(value),
+                              );
+                          controller.hideTooltip();
+                        },
+                      ),
                     ),
                   ),
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 1, left: 1),
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                  InkWell(
+                    child: Icon(Icons.cancel, size: Styles.datatableIconSize),
+                    onTap: () {
+                      controller.hideTooltip();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          child: Stack(
+            children: [
+              // 标注框
+              MouseRegion(
+                cursor: SystemMouseCursors.grab,
+                child: Material(
+                  color: Colors.transparent,
+                  elevation: annotation.selected ? 4 : 0,
+                  child: Container(
+                    width: annotation.width,
+                    height: annotation.height,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      border: Border.all(
+                        color: !annotation.editable ? Colors.grey : Colors.red,
+                        width: 2,
+                      ),
+                    ),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 1, left: 1),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            // 角落 & 边框手柄
-            ..._buildResizeHandles(annotation, ref),
-          ],
+              // 角落 & 边框手柄
+              ..._buildResizeHandles(annotation, ref),
+            ],
+          ),
         ),
       ),
     );
@@ -131,6 +183,9 @@ class AnnotationWidget extends ConsumerWidget {
                   ? SystemMouseCursors.resizeUpRight
                   : SystemMouseCursors.click,
           child: GestureDetector(
+            onPanEnd: (details) {
+              ref.read(singleAnnotationProvider(uuid).notifier).updateDone();
+            },
             onPanUpdate: (details) {
               if (!annotation.editable) {
                 return;
@@ -245,6 +300,9 @@ class AnnotationWidget extends ConsumerWidget {
         child: MouseRegion(
           cursor: cursor,
           child: GestureDetector(
+            onPanEnd: (details) {
+              ref.read(singleAnnotationProvider(uuid).notifier).updateDone();
+            },
             onPanUpdate: (details) {
               if (!annotation.editable) {
                 return;

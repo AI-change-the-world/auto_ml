@@ -1,4 +1,5 @@
 import 'package:auto_ml/i18n/strings.g.dart';
+import 'package:auto_ml/modules/annotation/components/editable_text.dart';
 import 'package:auto_ml/modules/annotation/notifiers/annotation_notifier.dart';
 import 'package:auto_ml/modules/current_dataset_annotation_notifier.dart';
 import 'package:auto_ml/utils/styles.dart';
@@ -95,7 +96,7 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: _EditableLabel(
+                                  child: EditableLabel(
                                     onTap: () {
                                       ref
                                           .read(
@@ -215,92 +216,6 @@ class _AnnotationListWidgetState extends ConsumerState<AnnotationListWidget> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _EditableLabel extends StatefulWidget {
-  const _EditableLabel({
-    required this.label,
-    required this.onSubmit,
-    required this.onTap,
-  });
-  final String label;
-  final void Function(String) onSubmit;
-  final VoidCallback onTap;
-
-  @override
-  State<_EditableLabel> createState() => __EditableLabelState();
-}
-
-class __EditableLabelState extends State<_EditableLabel> {
-  bool isEditing = false;
-
-  late final TextEditingController controller =
-      TextEditingController()..text = widget.label;
-
-  FocusNode focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void didUpdateWidget(covariant _EditableLabel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    controller.text = widget.label;
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        widget.onTap();
-      },
-      onDoubleTap: () {
-        setState(() {
-          isEditing = true;
-        });
-        focusNode.requestFocus();
-      },
-      child: SizedBox(
-        height: 20,
-        child:
-            isEditing
-                ? TextField(
-                  focusNode: focusNode,
-                  style: TextStyle(fontSize: 12),
-                  decoration: InputDecoration(
-                    contentPadding: EdgeInsets.only(
-                      top: 10,
-                      left: 10,
-                      right: 10,
-                    ),
-                    border: OutlineInputBorder(),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.blueAccent),
-                    ),
-                    hintText: "New Type",
-                    hintStyle: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  controller: controller,
-                  onSubmitted: (value) {
-                    setState(() {
-                      isEditing = false;
-                    });
-                    widget.onSubmit(controller.text);
-                  },
-                )
-                : Text(controller.text),
       ),
     );
   }
