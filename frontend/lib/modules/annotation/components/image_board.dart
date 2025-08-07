@@ -208,7 +208,7 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                           painter: _ImagePainter(data.image!, data.imgKey),
                           child: Builder(
                             builder: (c) {
-                              final annotations = ref.read(
+                              final annotations = ref.watch(
                                 annotationContainerProvider,
                               );
                               // logger.d(
@@ -227,6 +227,38 @@ class _ImageBoardState extends ConsumerState<ImageBoard> {
                                                     .classes,
 
                                             uuid: e.uuid,
+                                            // onPanUpdate: (details) {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .updateAnnotation(
+                                            //         e,
+                                            //         dragDetails: details,
+                                            //       );
+                                            // },
+                                            // onSizeChanged: (changedValue) {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .updateAnnotation(
+                                            //         e,
+                                            //         sizeChanged: changedValue,
+                                            //       );
+                                            // },
+                                            // onSelected: () {
+                                            //   ref
+                                            //       .read(
+                                            //         annotationNotifierProvider
+                                            //             .notifier,
+                                            //       )
+                                            //       .changeCurrentAnnotation(
+                                            //         e.uuid,
+                                            //       );
+                                            // },
                                           ),
                                         )
                                         .toList(),
