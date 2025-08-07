@@ -57,7 +57,7 @@ class CurrentDatasetAnnotationState {
 }
 
 class CurrentDatasetAnnotationNotifier
-    extends Notifier<CurrentDatasetAnnotationState> {
+    extends AutoDisposeNotifier<CurrentDatasetAnnotationState> {
   final dio = DioClient().instance;
   @override
   CurrentDatasetAnnotationState build() {
@@ -248,7 +248,7 @@ class CurrentDatasetAnnotationNotifier
   }
 }
 
-final currentDatasetAnnotationNotifierProvider = NotifierProvider<
+final currentDatasetAnnotationNotifierProvider = AutoDisposeNotifierProvider<
   CurrentDatasetAnnotationNotifier,
   CurrentDatasetAnnotationState
 >(CurrentDatasetAnnotationNotifier.new);
