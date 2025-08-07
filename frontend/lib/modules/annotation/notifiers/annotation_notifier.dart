@@ -526,7 +526,7 @@ class AnnotationContainerNotifier
     ref.onDispose(() {
       ss.close();
     });
-    return RefactorAnnotationState(annotations: []); // 或加载已有数据
+    return RefactorAnnotationState(annotations: []);
   }
 
   void changeMode(LabelMode mode) {

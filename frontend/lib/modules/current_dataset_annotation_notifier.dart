@@ -154,9 +154,6 @@ class CurrentDatasetAnnotationNotifier
     logger.d("dataset and annotation $data");
 
     try {
-      // set current data
-      state = state.copyWith(currentData: data, currentFilePath: data.$1);
-
       final request = FilePreviewRequest(
         baseUrl: state.dataset?.localS3StoragePath ?? "",
         storageType: state.dataset?.storageType ?? 0,
@@ -170,9 +167,9 @@ class CurrentDatasetAnnotationNotifier
       );
 
       if (data.$2 == "") {
-        // state = state.copyWith(currentData: data, currentFilePath: data.$1);
+        state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
-        ref
+        await ref
             .read(imageNotifierProvider.notifier)
             .loadImage(r.data?.content ?? "", data.$1);
         return;
@@ -195,9 +192,9 @@ class CurrentDatasetAnnotationNotifier
       );
 
       // return r.data?.content;
-      // state = state.copyWith(currentData: data, currentFilePath: data.$1);
+      state = state.copyWith(currentData: data, currentFilePath: data.$1);
 
-      ref
+      await ref
           .read(imageNotifierProvider.notifier)
           .loadImage(r.data?.content ?? "", data.$1)
           .then((_) {
