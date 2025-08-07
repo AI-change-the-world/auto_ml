@@ -598,7 +598,7 @@ class AnnotationContainerNotifier
 
   Future<void> setAnnotations(String content, {LabelMode? mode}) async {
     logger.d("set annotations, clear all annotations");
-    // state = state.copyWith(annotations: []);
+    state = state.copyWith(annotations: []);
 
     var imageState = ref.read(imageNotifierProvider);
 

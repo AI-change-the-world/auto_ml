@@ -153,11 +153,6 @@ class CurrentDatasetAnnotationNotifier
     logger.d("dataset and annotation $data");
 
     try {
-      // clear all annotations
-      ref
-          .read(annotationContainerProvider.notifier)
-          .setAnnotations("", mode: LabelMode.edit);
-
       final request = FilePreviewRequest(
         baseUrl: state.dataset?.localS3StoragePath ?? "",
         storageType: state.dataset?.storageType ?? 0,
