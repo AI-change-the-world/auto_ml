@@ -35,73 +35,70 @@ class AnnotationWidget extends ConsumerWidget {
     return Positioned(
       left: annotation.position.dx,
       top: annotation.position.dy,
-      child: GestureDetector(
-        onDoubleTapDown: (details) {
-          controller.showTooltip();
-        },
-        onPanUpdate: (details) {
-          // onPanUpdate(details);
-          ref
-              .read(singleAnnotationProvider(uuid).notifier)
-              .updateAnnotation(details: details);
-        },
-        onPanEnd: (details) {
-          ref.read(singleAnnotationProvider(uuid).notifier).updateDone();
-        },
-        onTap: () {
-          // onSelected();
-          ref
-              .read(annotationContainerProvider.notifier)
-              .changeCurrentAnnotation(uuid);
-        },
-        child: SuperTooltip(
-          showBarrier: false,
-          controller: controller,
-          content: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              width: 200,
-              height: 40,
-              padding: EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                spacing: 10,
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 30,
-                      child: EditableLabel(
-                        onTap: () {},
-                        label: annotation.getLabel(classes),
-                        onSubmit: (value) {
-                          ref
-                              .read(singleAnnotationProvider(uuid).notifier)
-                              .changeAnnotationClassId(
-                                ref
-                                    .read(
-                                      currentDatasetAnnotationNotifierProvider,
-                                    )
-                                    .classes
-                                    .indexOf(value),
-                              );
-                          controller.hideTooltip();
-                        },
-                      ),
-                    ),
-                  ),
-                  InkWell(
-                    child: Icon(Icons.cancel, size: Styles.datatableIconSize),
-                    onTap: () {
+      child: SuperTooltip(
+        showOnTap: false,
+        showBarrier: true,
+        barrierColor: Styles.barriarColor,
+        controller: controller,
+        content: Container(
+          width: 200,
+          height: 40,
+          padding: EdgeInsets.all(5),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
+          child: Row(
+            spacing: 10,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: EditableLabel(
+                    isEdit: true,
+                    onTap: () {},
+                    label: annotation.getLabel(classes),
+                    onSubmit: (value) {
+                      ref
+                          .read(singleAnnotationProvider(uuid).notifier)
+                          .changeAnnotationClassId(
+                            ref
+                                .read(currentDatasetAnnotationNotifierProvider)
+                                .classes
+                                .indexOf(value),
+                          );
                       controller.hideTooltip();
                     },
                   ),
-                ],
+                ),
               ),
-            ),
+              InkWell(
+                child: Icon(Icons.cancel, size: Styles.datatableIconSize),
+                onTap: () {
+                  debugPrint("hide tooltip");
+                  controller.hideTooltip();
+                },
+              ),
+            ],
           ),
+        ),
+        child: GestureDetector(
+          onDoubleTap: () {
+            debugPrint("show tooltip");
+            controller.showTooltip();
+          },
+          onPanUpdate: (details) {
+            // onPanUpdate(details);
+            ref
+                .read(singleAnnotationProvider(uuid).notifier)
+                .updateAnnotation(details: details);
+          },
+          onPanEnd: (details) {
+            ref.read(singleAnnotationProvider(uuid).notifier).updateDone();
+          },
+          onTap: () {
+            // onSelected();
+            ref
+                .read(annotationContainerProvider.notifier)
+                .changeCurrentAnnotation(uuid);
+          },
           child: Stack(
             children: [
               // 标注框

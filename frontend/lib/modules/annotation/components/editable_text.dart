@@ -6,17 +6,19 @@ class EditableLabel extends StatefulWidget {
     required this.label,
     required this.onSubmit,
     required this.onTap,
+    this.isEdit = false,
   });
   final String label;
   final void Function(String) onSubmit;
   final VoidCallback onTap;
+  final bool isEdit;
 
   @override
   State<EditableLabel> createState() => _EditableLabelState();
 }
 
 class _EditableLabelState extends State<EditableLabel> {
-  bool isEditing = false;
+  late bool isEditing = widget.isEdit;
 
   late final TextEditingController controller =
       TextEditingController()..text = widget.label;
@@ -81,7 +83,10 @@ class _EditableLabelState extends State<EditableLabel> {
                     widget.onSubmit(controller.text);
                   },
                 )
-                : Text(controller.text),
+                : Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(controller.text),
+                ),
       ),
     );
   }
