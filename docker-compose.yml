@@ -1,0 +1,256 @@
+version: "3.8"
+
+services:
+
+  # =========================
+  # MySQL
+  # =========================
+  mysql:
+    image: mysql:8.0
+    container_name: automl-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-auto_ml}
+      MYSQL_USER: ${MYSQL_USER:-automl}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-automl123456}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =========================
+  # Nacos (使用 rnacos)
+  # =========================
+  nacos:
+    image: qingpan/rnacos:v0.7.4
+    container_name: automl-nacos
+    restart: unless-stopped
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "10848:10848"
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+    volumes:
+      - ./nacos/data:/home/nacos/data
+      - ./nacos/logs:/home/nacos/logs
+    networks:
+      - auto-ml-network
+
+  # =========================
+  # MinIO
+  # =========================
+  minio:
+    image: minio/minio:RELEASE.2025-04-03T14-56-28Z
+    container_name: automl-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "9000:9000"
+      - "9010:9001"
+    volumes:
+      - ./minio/data:/data
+      - minio_shared:/shared
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  # =========================
+  # MinIO 初始化
+  # =========================
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: automl-minio-init
+    depends_on:
+      - minio
+    volumes:
+      - minio_shared:/shared
+    networks:
+      - auto-ml-network
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "⏳ waiting minio...";
+        sleep 30;
+
+        ACCESS_KEY=$$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 16);
+        SECRET_KEY=$$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32);
+
+        echo "ACCESS_KEY=$$ACCESS_KEY" > /shared/minio.env;
+        echo "SECRET_KEY=$$SECRET_KEY" >> /shared/minio.env;
+
+        mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+
+        mc admin user add myminio $$ACCESS_KEY $$SECRET_KEY || true;
+        mc admin policy attach myminio readwrite --user $$ACCESS_KEY || true;
+
+        mc mb myminio/auto-ml-datasets --ignore-existing;
+        mc mb myminio/auto-ml-models --ignore-existing;
+        mc mb myminio/auto-ml-augment --ignore-existing;
+
+        echo "✅ MinIO init done";
+
+  # =========================
+  # Nacos 初始化
+  # =========================
+  nacos-init:
+    image: curlimages/curl:8.5.0
+    container_name: automl-nacos-init
+    depends_on:
+      - nacos
+      - minio-init
+    volumes:
+      - ./nacos/init-config.sh:/init-config.sh
+      - ./nacos/automl-config.yaml:/config/automl-config.yaml
+      - minio_shared:/shared
+    networks:
+      - auto-ml-network
+    environment:
+      NACOS_HOST: nacos
+      NACOS_PORT: 8848
+      DATA_ID: AUTO_ML_CONFIG
+      GROUP: AUTO_ML
+      CONFIG_FILE: /config/automl-config.yaml
+      MINIO_ENV_FILE: /shared/minio.env
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "⏳ waiting nacos...";
+        until curl -s http://nacos:8848; do sleep 3; done;
+        sh /init-config.sh
+
+  # =========================
+  # Redis
+  # =========================
+  redis:
+    image: redis:7-alpine
+    container_name: automl-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =========================
+  # Model Trainer Service
+  # =========================
+  model-trainer:
+    build:
+      context: ./model_trainer
+      dockerfile: Dockerfile
+    image: automl-trainer:latest
+    container_name: automl-trainer
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-automl}:${MYSQL_PASSWORD:-automl123456}@mysql:3306/${MYSQL_DATABASE:-auto_ml}?charset=utf8mb4
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET_NAME: auto-ml-datasets
+      S3_DATASETS_BUCKET: auto-ml-datasets
+      S3_MODELS_BUCKET: auto-ml-models
+      NACOS_SERVER_ADDR: nacos:8848
+      MQ_TYPE: redis
+      MQ_URL: redis://redis:6379/0
+      HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./runs:/app/runs
+      - ./logs/trainer:/app/logs
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =========================
+  # Model Deploy Service
+  # =========================
+  model-deploy:
+    build:
+      context: ./model_deploy
+      dockerfile: Dockerfile
+    image: automl-deploy:latest
+    container_name: automl-deploy
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-automl}:${MYSQL_PASSWORD:-automl123456}@mysql:3306/${MYSQL_DATABASE:-auto_ml}?charset=utf8mb4
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET_NAME: auto-ml-models
+      S3_MODELS_BUCKET: auto-ml-models
+      RUNTIME_BASE_PORT: 9001
+      RUNTIME_MAX_PORT: 9100
+      MODEL_CACHE_DIR: /app/models
+      HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      - "8082:8080"
+      - "9001-9020:9001-9020"
+    volumes:
+      - ./models:/app/models
+      - ./logs/deploy:/app/logs
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+  redis_data:
+  minio_shared:
+
+
+networks:
+  auto-ml-network:
+    driver: bridge
