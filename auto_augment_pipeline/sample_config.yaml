@@ -1,0 +1,90 @@
+service_name: auto-augment-pipeline
+
+providers:
+  mock_vision:
+    kind: mock
+    role: multimodal
+    model: mock-vision
+
+  nano_banana2_pro:
+    kind: openai_compatible
+    role: image_edit
+    base_url: ${NANO_BANANA_BASE_URL}
+    api_key: ${NANO_BANANA_API_KEY}
+    model: ${NANO_BANANA_MODEL}
+    timeout_seconds: 120
+    extra:
+      response_format: b64_json
+
+  qwen_vl:
+    kind: openai_compatible
+    role: multimodal
+    base_url: ${QWEN_BASE_URL}
+    api_key: ${QWEN_API_KEY}
+    model: ${QWEN_MODEL}
+    timeout_seconds: 60
+    temperature: 0.0
+    max_tokens: 1024
+
+defaults:
+  multimodal_provider: mock_vision
+  image_edit_provider: mock_vision
+
+pipelines:
+  vision_label_bundle:
+    name: vision_label_bundle
+    description: Use the same input image to produce a scene summary and an annotation draft.
+    steps:
+      - name: describe_scene
+        capability: describe_image
+        input_key: input
+        output_key: scene_description
+      - name: draft_boxes
+        capability: draft_annotation
+        input_key: input
+        output_key: draft_annotations
+        params:
+          score_threshold: 0.2
+
+  overlay_extract:
+    name: overlay_extract
+    description: Extract white boxes from an overlay image and assign OCR text to the nearest box.
+    steps:
+      - name: extract_overlay
+        capability: extract_white_annotations
+        input_key: input
+        output_key: overlay_annotations
+        params:
+          infer_labels: true
+          class_match_score: 0.6
+          min_area: 250
+
+  overlay_understand_mllm:
+    name: overlay_understand_mllm
+    description: Let a multimodal model recover structured labels from a white-box overlay image.
+    steps:
+      - name: understand_overlay
+        capability: understand_white_annotations
+        input_key: input
+        output_key: overlay_annotations
+        params:
+          class_match_score: 0.72
+
+  render_then_extract_overlay:
+    name: render_then_extract_overlay
+    description: Use an image editing model to render pure white overlays, then extract them with OpenCV and OCR.
+    steps:
+      - name: render_overlay
+        capability: render_white_annotation_overlay
+        input_key: input
+        output_key: overlay_result
+      - name: extract_overlay
+        capability: extract_white_annotations
+        input_key: input
+        output_key: overlay_annotations
+        context_mapping:
+          overlay_image: overlay_result.overlay_image
+        params:
+          infer_labels: true
+          class_match_score: 0.6
+          min_area: 250
