@@ -1,32 +1,55 @@
+"""
+配置管理
+从 Nacos 或环境变量获取 S3 配置
+"""
 import os
 from functools import lru_cache
 from typing import Optional
 
 import opendal
+import yaml
 from pydantic import BaseModel
+
+from utils.logger import logger
 
 
 class S3Properties(BaseModel):
+    """S3 配置"""
     access_key: str
     secret_key: str
-    bucket_name: str
     endpoint: str
     datasets_bucket_name: str
     models_bucket_name: str
 
 
-class NacosConfig(BaseModel):
-    server_addr: str = "127.0.0.1:8848"
-    namespace: str = "public"
-    data_id: str = "MODEL_TRAINER_CONFIG"
-    group: str = "AUTO_ML"
+def load_s3_config_from_nacos() -> S3Properties:
+    """从 Nacos 加载 S3 配置"""
+    try:
+        import nacos
 
+        nacos_addr = os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
+        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
+        data_id = os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG")
+        group = os.getenv("NACOS_GROUP", "AUTO_ML")
 
-class TrainerConfig(BaseModel):
-    s3: S3Properties
-    nacos: NacosConfig
-    mq_type: str = "redis"  # redis / rabbitmq
-    mq_url: str = "redis://localhost:6379/0"
+        logger.info(
+            f"Loading S3 config from Nacos: {nacos_addr}, {data_id}, {group}")
+
+        client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
+        config_str = client.get_config(data_id, group)
+        config = yaml.safe_load(config_str)
+
+        s3_config = config.get("local-s3-config", {})
+        return S3Properties(
+            access_key=s3_config.get("access_key", ""),
+            secret_key=s3_config.get("secret_key", ""),
+            endpoint=s3_config.get("endpoint", ""),
+            datasets_bucket_name=s3_config.get("datasets_bucket_name", ""),
+            models_bucket_name=s3_config.get("models_bucket_name", ""),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to load from Nacos, using env config: {e}")
+        return load_s3_config_from_env()
 
 
 def load_s3_config_from_env() -> S3Properties:
@@ -34,39 +57,26 @@ def load_s3_config_from_env() -> S3Properties:
     return S3Properties(
         access_key=os.getenv("S3_ACCESS_KEY", ""),
         secret_key=os.getenv("S3_SECRET_KEY", ""),
-        bucket_name=os.getenv("S3_BUCKET_NAME", ""),
         endpoint=os.getenv("S3_ENDPOINT", ""),
         datasets_bucket_name=os.getenv("S3_DATASETS_BUCKET", ""),
         models_bucket_name=os.getenv("S3_MODELS_BUCKET", ""),
     )
 
 
-def load_nacos_config_from_env() -> NacosConfig:
-    """从环境变量加载 Nacos 配置"""
-    return NacosConfig(
-        server_addr=os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848"),
-        namespace=os.getenv("NACOS_NAMESPACE", "public"),
-        data_id=os.getenv("NACOS_DATA_ID", "MODEL_TRAINER_CONFIG"),
-        group=os.getenv("NACOS_GROUP", "AUTO_ML"),
-    )
-
-
 @lru_cache(maxsize=1)
-def get_trainer_config() -> TrainerConfig:
-    """获取训练服务配置"""
-    return TrainerConfig(
-        s3=load_s3_config_from_env(),
-        nacos=load_nacos_config_from_env(),
-        mq_type=os.getenv("MQ_TYPE", "redis"),
-        mq_url=os.getenv("MQ_URL", "redis://localhost:6379/0"),
-    )
+def get_s3_config() -> S3Properties:
+    """获取 S3 配置（优先从 Nacos）"""
+    use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"
+    if use_nacos:
+        return load_s3_config_from_nacos()
+    return load_s3_config_from_env()
 
 
 @lru_cache(maxsize=10)
 def get_s3_operator(bucket_name: Optional[str] = None) -> opendal.Operator:
     """获取 S3 操作器"""
-    cfg = get_trainer_config().s3
-    b_n = bucket_name or cfg.bucket_name
+    cfg = get_s3_config()
+    b_n = bucket_name or cfg.datasets_bucket_name
     return opendal.Operator(
         "s3",
         endpoint=cfg.endpoint,

@@ -1,21 +1,21 @@
 """
 部署服务核心逻辑
-处理模型的部署、卸载、推理路由等
+使用 RabbitMQ 发送状态更新，不直接写数据库
 """
 import os
 from typing import Any, Dict, List, Optional
 
-from db.base import get_sync_db
-from db.crud import (
-    create_deployment,
-    get_all_deployments,
-    get_available_model,
-    get_deployment_by_model,
-    update_deployment,
-)
-from core.runtime_manager import runtime_manager
-from utils.config import download_from_s3, get_deploy_config
+from core.runtime_manager import RuntimeInstance, runtime_manager
+from utils.config import download_from_s3, get_deploy_config, get_s3_config
 from utils.logger import logger
+from utils.mq import publish_model_deployed, publish_model_undeployed
+
+SERVICE_NAME = "model-deploy"
+
+
+# 内存中维护部署状态（实际状态由主服务管理）
+_deployments: Dict[int, Dict[str, Any]] = {}
+_deployment_counter = 0
 
 
 class DeployService:
@@ -23,10 +23,12 @@ class DeployService:
 
     def __init__(self):
         self.config = get_deploy_config()
+        self.s3_config = get_s3_config()
 
     def deploy(
         self,
         model_id: int,
+        model_path: str,  # S3 路径
         device: str = "cpu",
         version: str = "v1"
     ) -> Dict[str, Any]:
@@ -34,64 +36,65 @@ class DeployService:
         部署模型
 
         Args:
-            model_id: 模型ID
+            model_id: 模型ID（业务ID，由主服务提供）
+            model_path: S3 上的模型路径
             device: 运行设备
             version: 版本号
 
         Returns:
             部署信息
         """
-        db = get_sync_db()
+        global _deployment_counter, _deployments
 
         try:
-            # 检查模型是否存在
-            model = get_available_model(db, model_id)
-            if not model:
-                return {"success": False, "error": f"Model {model_id} not found"}
-
             # 检查是否已部署
-            existing = get_deployment_by_model(db, model_id)
+            existing = self._get_running_deployment(model_id)
             if existing:
                 return {
                     "success": False,
                     "error": f"Model {model_id} already deployed",
-                    "deployment_id": existing.deployment_id,
-                    "port": existing.port
+                    "deployment_id": existing.get("deployment_id"),
+                    "port": existing.get("port")
                 }
 
-            # 下载模型
-            model_local_path = os.path.join(
-                self.config.model_cache_dir, model.save_path)
-            if not os.path.exists(model_local_path):
-                logger.info(f"Downloading model {model_id} from S3...")
-                download_from_s3(
-                    model.save_path,
-                    model_local_path,
-                    self.config.s3.models_bucket_name
-                )
+            # 下载模型到本地
+            local_model_path = os.path.join(
+                self.config.model_cache_dir, f"model_{model_id}.pt")
+            if not os.path.exists(local_model_path):
+                logger.info(
+                    f"Downloading model {model_id} from S3: {model_path}")
+                download_from_s3(model_path, local_model_path,
+                                 self.s3_config.models_bucket_name)
 
             # 启动运行时
             instance = runtime_manager.deploy_model(
-                model_id, model_local_path, device)
+                model_id, local_model_path, device)
             if not instance:
                 return {"success": False, "error": "Failed to start runtime"}
 
-            # 创建部署记录
-            deployment_data = {
+            # 生成本地部署 ID
+            _deployment_counter += 1
+            deployment_id = _deployment_counter
+
+            # 记录部署信息
+            deployment_info = {
+                "deployment_id": deployment_id,
                 "model_id": model_id,
-                "model_name": model.base_model_name,
+                "model_path": model_path,
                 "version": version,
                 "status": 1,  # running
                 "port": instance.port,
                 "pid": instance.pid,
-                "replicas": 1,
                 "device": device,
             }
-            deployment = create_deployment(db, deployment_data)
+            _deployments[model_id] = deployment_info
+
+            # 通过 MQ 发送部署成功消息（让主服务写入数据库）
+            publish_model_deployed(model_id, deployment_info, SERVICE_NAME)
 
             return {
                 "success": True,
-                "deployment_id": deployment.deployment_id,
+                "deployment_id": deployment_id,
                 "model_id": model_id,
                 "port": instance.port,
                 "status": "running"
@@ -100,32 +103,47 @@ class DeployService:
         except Exception as e:
             logger.error(f"Deploy failed: {e}")
             return {"success": False, "error": str(e)}
-        finally:
-            db.close()
 
-    def undeploy(self, deployment_id: int) -> Dict[str, Any]:
+    def _get_running_deployment(self, model_id: int) -> Optional[Dict[str, Any]]:
+        """获取正在运行的部署"""
+        deployment = _deployments.get(model_id)
+        if deployment:
+            instance = runtime_manager.get_instance(model_id)
+            if instance and instance.is_running():
+                return deployment
+            else:
+                # 实例已停止，清理记录
+                del _deployments[model_id]
+        return None
+
+    def undeploy(self, model_id: int) -> Dict[str, Any]:
         """
         卸载模型
 
         Args:
-            deployment_id: 部署ID
+            model_id: 模型ID
 
         Returns:
             操作结果
         """
-        db = get_sync_db()
+        global _deployments
 
         try:
-            from db.crud import get_deployment
-            deployment = get_deployment(db, deployment_id)
+            deployment = _deployments.get(model_id)
             if not deployment:
-                return {"success": False, "error": f"Deployment {deployment_id} not found"}
+                return {"success": False, "error": f"Model {model_id} not deployed"}
+
+            deployment_id = deployment.get("deployment_id")
 
             # 停止运行时
-            success = runtime_manager.undeploy_model(deployment.model_id)
+            success = runtime_manager.undeploy_model(model_id)
 
-            # 更新部署状态
-            update_deployment(db, deployment_id, {"status": 2})  # stopped
+            # 清理本地记录
+            if model_id in _deployments:
+                del _deployments[model_id]
+
+            # 通过 MQ 发送卸载消息
+            publish_model_undeployed(model_id, deployment_id, SERVICE_NAME)
 
             return {
                 "success": success,
@@ -136,51 +154,35 @@ class DeployService:
         except Exception as e:
             logger.error(f"Undeploy failed: {e}")
             return {"success": False, "error": str(e)}
-        finally:
-            db.close()
 
     def get_deployments(self) -> List[Dict[str, Any]]:
-        """获取所有部署"""
-        db = get_sync_db()
+        """获取所有部署（本地维护的状态）"""
+        result = []
 
-        try:
-            deployments = get_all_deployments(db)
-            result = []
+        for model_id, deployment in list(_deployments.items()):
+            instance = runtime_manager.get_instance(model_id)
+            is_running = instance.is_running() if instance else False
 
-            for dep in deployments:
-                # 检查实例状态
-                instance = runtime_manager.get_instance(dep.model_id)
-                is_running = instance.is_running() if instance else False
+            if not is_running:
+                # 清理已停止的部署
+                del _deployments[model_id]
+                continue
 
-                result.append({
-                    "deployment_id": dep.deployment_id,
-                    "model_id": dep.model_id,
-                    "model_name": dep.model_name,
-                    "version": dep.version,
-                    "status": "running" if is_running else "stopped",
-                    "port": dep.port,
-                    "device": dep.device,
-                    "created_at": dep.created_at,
-                })
+            result.append({
+                "deployment_id": deployment.get("deployment_id"),
+                "model_id": model_id,
+                "model_path": deployment.get("model_path"),
+                "version": deployment.get("version"),
+                "status": "running" if is_running else "stopped",
+                "port": deployment.get("port"),
+                "device": deployment.get("device"),
+            })
 
-            return result
-
-        except Exception as e:
-            logger.error(f"Get deployments failed: {e}")
-            return []
-        finally:
-            db.close()
+        return result
 
     def predict(self, model_id: int, image_data: bytes) -> Dict[str, Any]:
         """
         路由推理请求到对应的运行时实例
-
-        Args:
-            model_id: 模型ID
-            image_data: 图像数据
-
-        Returns:
-            推理结果
         """
         import urllib.request
         import json
@@ -193,7 +195,6 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            # 转发请求到运行时服务
             url = f"http://localhost:{instance.port}/predict"
 
             # 构建 multipart 请求
@@ -211,8 +212,7 @@ class DeployService:
                 url,
                 data=b'\r\n'.join(body),
                 headers={
-                    'Content-Type': f'multipart/form-data; boundary={boundary}'
-                },
+                    'Content-Type': f'multipart/form-data; boundary={boundary}'},
                 method='POST'
             )
 
@@ -225,16 +225,7 @@ class DeployService:
             return {"success": False, "error": str(e)}
 
     def predict_base64(self, model_id: int, image_base64: str) -> Dict[str, Any]:
-        """
-        使用 base64 图像进行推理
-
-        Args:
-            model_id: 模型ID
-            image_base64: base64 编码的图像
-
-        Returns:
-            推理结果
-        """
+        """使用 base64 图像进行推理"""
         import urllib.request
         import json
 

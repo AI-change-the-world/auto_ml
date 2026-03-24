@@ -1,6 +1,6 @@
 """
 Model Deploy Service
-轻量级模型部署服务，管理模型运行时实例
+轻量级模型部署服务，使用 RabbitMQ 发送状态
 """
 import os
 from contextlib import asynccontextmanager
@@ -11,28 +11,28 @@ from pydantic import BaseModel
 
 from core.deploy_service import deploy_service
 from core.runtime_manager import runtime_manager
-from db.base import init_db
 from utils.config import get_deploy_config
 from utils.logger import logger
+from utils.mq import get_mq_client
 
-
-# 全局配置
-deploy_config = None
+SERVICE_NAME = "model-deploy"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global deploy_config
-    deploy_config = get_deploy_config()
+    logger.info("Model Deploy Service starting...")
 
-    # 初始化数据库
-    db_url = os.getenv("DATABASE_URL")
-    if db_url:
-        init_db(db_url)
-        logger.info("Database initialized")
-    else:
-        logger.warning("DATABASE_URL not set, database not initialized")
+    # 初始化 MQ 连接
+    try:
+        mq_client = get_mq_client()
+        logger.info("RabbitMQ connection established")
+    except Exception as e:
+        logger.error(f"Failed to connect to RabbitMQ: {e}")
+
+    # 确保模型缓存目录存在
+    config = get_deploy_config()
+    os.makedirs(config.model_cache_dir, exist_ok=True)
 
     logger.info("Model Deploy Service started")
     yield
@@ -41,13 +41,19 @@ async def lifespan(app: FastAPI):
     for model_id in list(runtime_manager.get_all_instances().keys()):
         runtime_manager.undeploy_model(model_id)
 
+    # 关闭 MQ 连接
+    try:
+        get_mq_client().close()
+    except Exception:
+        pass
+
     logger.info("Model Deploy Service stopped")
 
 
 app = FastAPI(
     title="Model Deploy Service",
-    description="轻量级模型部署服务",
-    version="1.0.0",
+    description="轻量级模型部署服务（基于 RabbitMQ）",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -56,6 +62,7 @@ app = FastAPI(
 
 class DeployRequest(BaseModel):
     model_id: int
+    model_path: str  # S3 路径
     device: str = "cpu"
     version: str = "v1"
 
@@ -75,12 +82,11 @@ class UndeployResponse(BaseModel):
 class DeploymentInfo(BaseModel):
     deployment_id: int
     model_id: int
-    model_name: Optional[str]
+    model_path: Optional[str] = None
     version: str
     status: str
-    port: Optional[int]
+    port: Optional[int] = None
     device: str
-    created_at: Optional[Any]
 
 
 class PredictResponse(BaseModel):
@@ -92,6 +98,7 @@ class PredictResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str
+    mq_connected: bool
 
 
 class DeploymentHealthResponse(BaseModel):
@@ -108,7 +115,18 @@ class DeploymentHealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """健康检查"""
-    return HealthResponse(status="healthy", version="1.0.0")
+    mq_connected = False
+    try:
+        client = get_mq_client()
+        mq_connected = client.connection is not None and not client.connection.is_closed
+    except Exception:
+        pass
+
+    return HealthResponse(
+        status="healthy",
+        version="2.0.0",
+        mq_connected=mq_connected
+    )
 
 
 @app.post("/deploy", response_model=DeployResponse)
@@ -116,14 +134,19 @@ async def deploy_model(request: DeployRequest):
     """
     部署模型
 
-    - **model_id**: 模型ID
+    - **model_id**: 模型业务ID
+    - **model_path**: S3 上的模型路径
     - **device**: 运行设备 (cpu/cuda)
     - **version**: 版本号
+
+    部署状态通过 RabbitMQ 发送，主服务负责写入数据库
     """
     try:
-        logger.info(f"Deploying model {request.model_id}")
+        logger.info(
+            f"Deploying model {request.model_id} from {request.model_path}")
         result = deploy_service.deploy(
             model_id=request.model_id,
+            model_path=request.model_path,
             device=request.device,
             version=request.version
         )
@@ -144,16 +167,16 @@ async def deploy_model(request: DeployRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/undeploy/{deployment_id}", response_model=UndeployResponse)
-async def undeploy_model(deployment_id: int):
+@app.post("/undeploy/{model_id}", response_model=UndeployResponse)
+async def undeploy_model(model_id: int):
     """
     卸载模型
 
-    - **deployment_id**: 部署ID
+    - **model_id**: 模型业务ID
     """
     try:
-        logger.info(f"Undeploying deployment {deployment_id}")
-        result = deploy_service.undeploy(deployment_id)
+        logger.info(f"Undeploying model {model_id}")
+        result = deploy_service.undeploy(model_id)
 
         return UndeployResponse(
             success=result["success"],
@@ -166,7 +189,7 @@ async def undeploy_model(deployment_id: int):
 
 @app.get("/deployments", response_model=List[DeploymentInfo])
 async def list_deployments():
-    """获取所有部署列表"""
+    """获取所有部署列表（本地维护的状态）"""
     try:
         deployments = deploy_service.get_deployments()
         return [DeploymentInfo(**dep) for dep in deployments]
@@ -180,7 +203,7 @@ async def predict(model_id: int, file: UploadFile = File(...)):
     """
     执行模型推理
 
-    - **model_id**: 模型ID
+    - **model_id**: 模型业务ID
     - **file**: 图像文件
     """
     try:
@@ -207,7 +230,7 @@ async def predict_base64(model_id: int, data: dict):
     """
     使用 base64 编码的图像进行推理
 
-    - **model_id**: 模型ID
+    - **model_id**: 模型业务ID
     - **image**: base64 编码的图像字符串
     """
     try:
@@ -240,7 +263,7 @@ async def deployment_health(model_id: int):
     """
     检查部署健康状态
 
-    - **model_id**: 模型ID
+    - **model_id**: 模型业务ID
     """
     try:
         result = deploy_service.health_check(model_id)
@@ -255,49 +278,13 @@ async def restart_runtime(model_id: int):
     """
     重启运行时实例
 
-    - **model_id**: 模型ID
+    - **model_id**: 模型业务ID
     """
     try:
         success = runtime_manager.restart_instance(model_id)
         return {"success": success, "message": "Runtime restarted" if success else "Failed to restart runtime"}
     except Exception as e:
         logger.error(f"Restart failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ============ 模型转换工具 ============
-
-@app.post("/convert/yolo-to-onnx")
-async def convert_yolo_to_onnx(data: dict):
-    """
-    将 YOLO .pt 模型转换为 ONNX 格式
-
-    - **pt_path**: .pt 文件路径
-    - **output_path**: 输出 ONNX 文件路径（可选）
-    """
-    try:
-        pt_path = data.get("pt_path")
-        if not pt_path or not os.path.exists(pt_path):
-            raise HTTPException(status_code=400, detail="Invalid pt_path")
-
-        output_path = data.get("output_path", pt_path.replace(".pt", ".onnx"))
-
-        # 使用 ultralytics 导出 ONNX
-        from ultralytics import YOLO
-
-        model = YOLO(pt_path)
-        model.export(format="onnx", imgsz=640)
-
-        return {
-            "success": True,
-            "output_path": output_path,
-            "message": f"Model converted successfully to {output_path}"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Conversion failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
