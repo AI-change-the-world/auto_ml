@@ -12,13 +12,13 @@ from app.config.settings import get_settings
 
 class HttpClient:
     """异步 HTTP 客户端"""
-    
+
     def __init__(self, base_url: str = None, timeout: int = None):
         settings = get_settings()
         self.base_url = base_url or settings.ai_platform.base_url
         self.timeout = timeout or settings.ai_platform.timeout
         self._client: Optional[httpx.AsyncClient] = None
-    
+
     async def _get_client(self) -> httpx.AsyncClient:
         """获取或创建客户端"""
         if self._client is None or self._client.is_closed:
@@ -27,13 +27,13 @@ class HttpClient:
                 timeout=httpx.Timeout(self.timeout, connect=30.0),
             )
         return self._client
-    
+
     async def close(self):
         """关闭客户端"""
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
-    
+
     async def get(
         self,
         path: str,
@@ -44,7 +44,7 @@ class HttpClient:
         client = await self._get_client()
         response = await client.get(path, params=params, headers=headers)
         return response
-    
+
     async def post(
         self,
         path: str,
@@ -63,7 +63,7 @@ class HttpClient:
             files=files,
         )
         return response
-    
+
     async def put(
         self,
         path: str,
@@ -75,7 +75,7 @@ class HttpClient:
         client = await self._get_client()
         response = await client.put(path, data=data, json=json, headers=headers)
         return response
-    
+
     async def delete(
         self,
         path: str,
@@ -86,7 +86,7 @@ class HttpClient:
         client = await self._get_client()
         response = await client.delete(path, params=params, headers=headers)
         return response
-    
+
     async def health_check(self) -> bool:
         """健康检查"""
         try:

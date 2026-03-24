@@ -25,7 +25,7 @@ class AgentResponse(BaseModel):
     description: Optional[str]
     pipeline_content: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -44,12 +44,13 @@ async def list_agents(
     conditions = [Agent.is_deleted == False]
     count_stmt = select(func.count()).select_from(Agent).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
+
     offset = (page - 1) * page_size
-    stmt = select(Agent).where(*conditions).order_by(Agent.created_at.desc()).offset(offset).limit(page_size)
+    stmt = select(Agent).where(
+        *conditions).order_by(Agent.created_at.desc()).offset(offset).limit(page_size)
     result = await db.execute(stmt)
     items = [AgentResponse.model_validate(a) for a in result.scalars().all()]
-    
+
     return Result.ok(PageResult.create(items, total, page, page_size))
 
 
@@ -66,7 +67,7 @@ async def create_agent(
     db.add(agent)
     await db.flush()
     await db.refresh(agent)
-    
+
     return Result.ok(AgentResponse.model_validate(agent), "Agent created")
 
 
@@ -78,10 +79,10 @@ async def get_agent(
     stmt = select(Agent).where(Agent.id == agent_id, Agent.is_deleted == False)
     result = await db.execute(stmt)
     agent = result.scalar_one_or_none()
-    
+
     if not agent:
         return Result.not_found("Agent not found")
-    
+
     return Result.ok(AgentResponse.model_validate(agent))
 
 
@@ -91,14 +92,15 @@ async def execute_pipeline(
     db: AsyncSession = Depends(get_db),
 ):
     """执行工作流 Pipeline"""
-    stmt = select(Agent).where(Agent.id == data.agent_id, Agent.is_deleted == False)
+    stmt = select(Agent).where(
+        Agent.id == data.agent_id, Agent.is_deleted == False)
     result = await db.execute(stmt)
     agent = result.scalar_one_or_none()
-    
+
     if not agent:
         return Result.not_found("Agent not found")
-    
+
     # TODO: 实现工作流引擎执行逻辑
     # 这里需要解析 pipeline_content 并执行各个步骤
-    
+
     return Result.ok({"status": "submitted", "agent_id": data.agent_id}, "Pipeline execution started")

@@ -1,6 +1,15 @@
 """
 AutoML Server - FastAPI 主入口
 """
+from app.modules.home import router as home_router
+from app.modules.augment import router as augment_router
+from app.modules.tool import router as tool_router
+from app.modules.aether import router as aether_router
+from app.modules.predict import router as predict_router
+from app.modules.deploy import router as deploy_router
+from app.modules.task import router as task_router
+from app.modules.annotation import router as annotation_router
+from app.modules.dataset import router as dataset_router
 import asyncio
 from contextlib import asynccontextmanager
 
@@ -29,11 +38,11 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
-    
+
     # 启动消息消费者
     try:
         consumer = get_consumer()
-        
+
         # 注册消息处理器
         consumer.register_handler(
             MessageType.TASK_STATUS_UPDATE.value,
@@ -60,21 +69,21 @@ async def lifespan(app: FastAPI):
             handle_model_undeployed,
             is_async=True
         )
-        
+
         # 启动消费者
         loop = asyncio.get_event_loop()
         consumer.start(event_loop=loop)
         logger.info("RabbitMQ consumer started")
-        
+
     except Exception as e:
         logger.error(f"Failed to start MQ consumer: {e}")
-    
+
     # 启动定时任务
     from app.scheduler.heartbeat import start_scheduler
     start_scheduler()
-    
+
     yield
-    
+
     # 关闭
     logger.info("Shutting down...")
     try:
@@ -109,7 +118,8 @@ app.add_middleware(
 async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(
         status_code=200,  # 业务异常返回 200，通过 code 区分
-        content=Result.fail(code=exc.code, message=exc.message, data=exc.data).model_dump(),
+        content=Result.fail(code=exc.code, message=exc.message,
+                            data=exc.data).model_dump(),
     )
 
 
@@ -129,15 +139,6 @@ async def health_check():
 
 
 # 注册路由
-from app.modules.dataset import router as dataset_router
-from app.modules.annotation import router as annotation_router
-from app.modules.task import router as task_router
-from app.modules.deploy import router as deploy_router
-from app.modules.predict import router as predict_router
-from app.modules.aether import router as aether_router
-from app.modules.tool import router as tool_router
-from app.modules.augment import router as augment_router
-from app.modules.home import router as home_router
 
 app.include_router(dataset_router)
 app.include_router(annotation_router)

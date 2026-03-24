@@ -32,7 +32,7 @@ class PredictTaskResponse(BaseModel):
     status: int
     model_id: Optional[int]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -53,9 +53,9 @@ async def predict_image(
     db.add(task)
     await db.flush()
     await db.refresh(task)
-    
+
     # TODO: 调用部署的模型进行推理
-    
+
     return Result.ok({"task_id": task.id}, "Prediction task created")
 
 
@@ -65,23 +65,23 @@ async def predict_video_sse(
     model_id: int = Query(...),
 ):
     """视频处理 - 使用 SSE 推送进度"""
-    
+
     async def event_generator():
         try:
             yield f"data: {json.dumps({'status': 'started', 'progress': 0})}\n\n"
-            
+
             # 模拟处理进度
             for i in range(1, 101):
                 await asyncio.sleep(0.1)
                 yield f"data: {json.dumps({'status': 'processing', 'progress': i})}\n\n"
-            
+
             yield f"data: {json.dumps({'status': 'completed', 'progress': 100, 'result': 'ok'})}\n\n"
-            
+
         except asyncio.CancelledError:
             logger.info("SSE connection cancelled")
         except Exception as e:
             yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -99,14 +99,17 @@ async def list_predict_tasks(
     db: AsyncSession = Depends(get_db),
 ):
     conditions = [PredictTask.is_deleted == False]
-    count_stmt = select(func.count()).select_from(PredictTask).where(*conditions)
+    count_stmt = select(func.count()).select_from(
+        PredictTask).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
+
     offset = (page - 1) * page_size
-    stmt = select(PredictTask).where(*conditions).order_by(PredictTask.created_at.desc()).offset(offset).limit(page_size)
+    stmt = select(PredictTask).where(
+        *conditions).order_by(PredictTask.created_at.desc()).offset(offset).limit(page_size)
     result = await db.execute(stmt)
-    items = [PredictTaskResponse.model_validate(t) for t in result.scalars().all()]
-    
+    items = [PredictTaskResponse.model_validate(
+        t) for t in result.scalars().all()]
+
     return Result.ok(PageResult.create(items, total, page, page_size))
 
 
@@ -118,10 +121,10 @@ async def get_predict_result(
     stmt = select(PredictTask).where(PredictTask.id == task_id)
     result = await db.execute(stmt)
     task = result.scalar_one_or_none()
-    
+
     if not task:
         return Result.not_found("Predict task not found")
-    
+
     return Result.ok({
         "task_id": task.id,
         "status": task.status,

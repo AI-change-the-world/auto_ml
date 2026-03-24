@@ -15,21 +15,22 @@ async def handle_task_status_update(message: TaskStatusMessage):
     处理任务状态更新消息
     更新 Task 表的状态
     """
-    logger.info(f"Handling task status update: task_id={message.task_id}, status={message.status}")
-    
+    logger.info(
+        f"Handling task status update: task_id={message.task_id}, status={message.status}")
+
     async with AsyncSessionLocal() as session:
         try:
             # 构建更新数据
             update_data = {"status": message.status}
-            
+
             if message.message:
                 update_data["error_message"] = message.message
-            
+
             if message.extra_data:
                 import json
                 # 合并到 result 字段
                 update_data["result"] = json.dumps(message.extra_data)
-            
+
             # 执行更新
             stmt = (
                 update(Task)
@@ -39,9 +40,10 @@ async def handle_task_status_update(message: TaskStatusMessage):
             )
             await session.execute(stmt)
             await session.commit()
-            
-            logger.info(f"Task {message.task_id} status updated to {message.status}")
-            
+
+            logger.info(
+                f"Task {message.task_id} status updated to {message.status}")
+
         except Exception as e:
             logger.error(f"Failed to update task status: {e}")
             await session.rollback()
@@ -54,7 +56,7 @@ async def handle_task_log(message: TaskLogMessage):
     写入 TaskLog 表
     """
     logger.debug(f"Handling task log: task_id={message.task_id}")
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # 创建日志记录
@@ -65,9 +67,9 @@ async def handle_task_log(message: TaskLogMessage):
             )
             session.add(log_entry)
             await session.commit()
-            
+
             logger.debug(f"Task log saved for task {message.task_id}")
-            
+
         except Exception as e:
             logger.error(f"Failed to save task log: {e}")
             await session.rollback()

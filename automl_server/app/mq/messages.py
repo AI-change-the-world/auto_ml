@@ -24,7 +24,7 @@ class BaseMessage(BaseModel):
     message_type: str
     service_name: str
     timestamp: str = ""
-    
+
     def __init__(self, **data):
         if not data.get("timestamp"):
             data["timestamp"] = datetime.now().isoformat()

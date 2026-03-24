@@ -9,16 +9,19 @@ async def get_available_models(db: AsyncSession, offset: int = 0, limit: int = 1
     conditions = [AvailableModel.is_deleted == False]
     if deployed_only is not None:
         conditions.append(AvailableModel.is_deployed == deployed_only)
-    
-    count_stmt = select(func.count()).select_from(AvailableModel).where(*conditions)
+
+    count_stmt = select(func.count()).select_from(
+        AvailableModel).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
-    stmt = select(AvailableModel).where(*conditions).order_by(AvailableModel.created_at.desc()).offset(offset).limit(limit)
+
+    stmt = select(AvailableModel).where(
+        *conditions).order_by(AvailableModel.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 
 
 async def get_model_by_id(db: AsyncSession, model_id: int) -> Optional[AvailableModel]:
-    stmt = select(AvailableModel).where(AvailableModel.id == model_id, AvailableModel.is_deleted == False)
+    stmt = select(AvailableModel).where(AvailableModel.id ==
+                                        model_id, AvailableModel.is_deleted == False)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()

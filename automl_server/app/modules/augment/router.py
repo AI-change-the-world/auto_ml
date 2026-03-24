@@ -31,7 +31,7 @@ async def process_augment(data: AugmentRequest):
     """执行数据增强"""
     # TODO: 调用 auto_augment_pipeline 服务
     # http_client = HttpClient(base_url="http://auto-augment:45682")
-    
+
     return Result.ok({
         "status": "submitted",
         "dataset_id": data.dataset_id,

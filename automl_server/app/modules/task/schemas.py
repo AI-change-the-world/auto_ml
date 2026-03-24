@@ -22,7 +22,7 @@ class TaskResponse(BaseModel):
     error_message: Optional[str]
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -33,7 +33,7 @@ class TaskLogResponse(BaseModel):
     content: Optional[str]
     log_level: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -45,6 +45,6 @@ class BaseModelResponse(BaseModel):
     description: Optional[str]
     save_path: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True

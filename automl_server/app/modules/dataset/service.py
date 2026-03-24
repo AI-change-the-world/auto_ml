@@ -16,23 +16,24 @@ from .schemas import DatasetCreate, DatasetUpdate, DatasetResponse, FilePreviewR
 
 class DatasetService:
     """数据集服务"""
-    
+
     def __init__(self):
         self.s3 = get_s3_delegate()
-    
+
     async def create_dataset(self, db: AsyncSession, data: DatasetCreate) -> DatasetResponse:
         """创建数据集"""
         # 生成 S3 存储路径
         dataset_uuid = str(uuid.uuid4())
         save_path = f"datasets/{dataset_uuid}"
-        
+
         # 在 S3 创建目录
         try:
             await self.s3.create_directory(save_path, bucket_type="datasets")
         except Exception as e:
             logger.error(f"Failed to create S3 directory: {e}")
-            raise BadRequestException(f"Failed to create storage directory: {e}")
-        
+            raise BadRequestException(
+                f"Failed to create storage directory: {e}")
+
         # 保存到数据库
         dataset = await crud.create_dataset(
             db,
@@ -43,17 +44,17 @@ class DatasetService:
             description=data.description,
             count=0,
         )
-        
+
         logger.info(f"Dataset created: {dataset.name}, path={save_path}")
         return DatasetResponse.model_validate(dataset)
-    
+
     async def get_dataset(self, db: AsyncSession, dataset_id: int) -> DatasetResponse:
         """获取数据集"""
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
         return DatasetResponse.model_validate(dataset)
-    
+
     async def list_datasets(
         self,
         db: AsyncSession,
@@ -65,7 +66,7 @@ class DatasetService:
         offset = (page - 1) * page_size
         items, total = await crud.get_datasets(db, offset, page_size, keyword)
         return [DatasetResponse.model_validate(item) for item in items], total
-    
+
     async def update_dataset(
         self,
         db: AsyncSession,
@@ -78,19 +79,19 @@ class DatasetService:
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
         return DatasetResponse.model_validate(dataset)
-    
+
     async def delete_dataset(self, db: AsyncSession, dataset_id: int) -> bool:
         """删除数据集"""
         # 获取数据集
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
-        
+
         # TODO: 可选择是否删除 S3 文件
-        
+
         # 软删除
         return await crud.delete_dataset(db, dataset_id)
-    
+
     async def upload_files(
         self,
         db: AsyncSession,
@@ -101,14 +102,14 @@ class DatasetService:
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
-        
+
         uploaded_count = 0
-        
+
         for file in files:
             try:
                 # 读取文件内容
                 content = await file.read()
-                
+
                 # 上传到 S3
                 file_key = f"{dataset.save_path}/{file.filename}"
                 await self.s3.put_file(
@@ -117,7 +118,7 @@ class DatasetService:
                     bucket_type="datasets",
                     content_type=file.content_type,
                 )
-                
+
                 # 保存文件记录
                 await crud.create_dataset_file(
                     db,
@@ -125,20 +126,20 @@ class DatasetService:
                     file_name=file.filename,
                     save_path=file_key,
                 )
-                
+
                 uploaded_count += 1
-                
+
             except Exception as e:
                 logger.error(f"Failed to upload file {file.filename}: {e}")
                 continue
-        
+
         # 更新文件数量
         new_count = await crud.get_dataset_file_count(db, dataset_id)
         await crud.update_dataset_count(db, dataset_id, new_count)
-        
+
         logger.info(f"Uploaded {uploaded_count} files to dataset {dataset_id}")
         return uploaded_count
-    
+
     async def get_files(
         self,
         db: AsyncSession,
@@ -150,11 +151,11 @@ class DatasetService:
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
-        
+
         offset = (page - 1) * page_size
         files, total = await crud.get_dataset_files(db, dataset_id, offset, page_size)
         return files, total
-    
+
     async def preview_file(
         self,
         db: AsyncSession,
@@ -165,17 +166,17 @@ class DatasetService:
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
-        
+
         file_key = f"{dataset.save_path}/{file_name}"
-        
+
         # 检查文件是否存在
         exists = await self.s3.file_exists(file_key, bucket_type="datasets")
         if not exists:
             raise NotFoundException(f"File {file_name} not found")
-        
+
         # 生成预签名 URL
         presigned_url = await self.s3.get_presigned_url(file_key, bucket_type="datasets")
-        
+
         return FilePreviewResponse(
             file_name=file_name,
             presigned_url=presigned_url,

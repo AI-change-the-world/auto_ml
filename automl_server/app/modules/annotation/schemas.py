@@ -30,7 +30,7 @@ class AnnotationResponse(BaseModel):
     dataset_id: Optional[int]
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -42,7 +42,7 @@ class AnnotationFileResponse(BaseModel):
     save_path: Optional[str]
     content: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

@@ -37,14 +37,14 @@ async def get_datasets(
     """分页查询数据集"""
     # 基础查询条件
     conditions = [Dataset.is_deleted == False]
-    
+
     if keyword:
         conditions.append(Dataset.name.ilike(f"%{keyword}%"))
-    
+
     # 查询总数
     count_stmt = select(func.count()).select_from(Dataset).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
+
     # 分页查询
     stmt = (
         select(Dataset)
@@ -55,7 +55,7 @@ async def get_datasets(
     )
     result = await db.execute(stmt)
     items = list(result.scalars().all())
-    
+
     return items, total
 
 
@@ -64,11 +64,11 @@ async def update_dataset(db: AsyncSession, dataset_id: int, **kwargs) -> Optiona
     dataset = await get_dataset_by_id(db, dataset_id)
     if not dataset:
         return None
-    
+
     for key, value in kwargs.items():
         if value is not None:
             setattr(dataset, key, value)
-    
+
     await db.flush()
     await db.refresh(dataset)
     return dataset
@@ -117,11 +117,12 @@ async def get_dataset_files(
         DatasetFile.dataset_id == dataset_id,
         DatasetFile.is_deleted == False
     ]
-    
+
     # 总数
-    count_stmt = select(func.count()).select_from(DatasetFile).where(*conditions)
+    count_stmt = select(func.count()).select_from(
+        DatasetFile).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
+
     # 分页
     stmt = (
         select(DatasetFile)
@@ -132,7 +133,7 @@ async def get_dataset_files(
     )
     result = await db.execute(stmt)
     items = list(result.scalars().all())
-    
+
     return items, total
 
 

@@ -16,9 +16,9 @@ async def handle_model_registered(message: ModelRegisteredMessage):
     创建 AvailableModel 记录
     """
     logger.info(f"Handling model registered: task_id={message.task_id}")
-    
+
     model_info = message.model_info
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # 创建可用模型记录
@@ -32,9 +32,10 @@ async def handle_model_registered(message: ModelRegisteredMessage):
             )
             session.add(model)
             await session.commit()
-            
-            logger.info(f"Model registered: {model.name}, path={model.model_path}")
-            
+
+            logger.info(
+                f"Model registered: {model.name}, path={model.model_path}")
+
         except Exception as e:
             logger.error(f"Failed to register model: {e}")
             await session.rollback()
@@ -47,9 +48,9 @@ async def handle_model_deployed(message: ModelDeployedMessage):
     更新 AvailableModel 的部署状态
     """
     logger.info(f"Handling model deployed: model_id={message.model_id}")
-    
+
     deployment_info = message.deployment_info
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # 更新部署状态
@@ -67,9 +68,10 @@ async def handle_model_deployed(message: ModelDeployedMessage):
             )
             await session.execute(stmt)
             await session.commit()
-            
-            logger.info(f"Model {message.model_id} deployed at port {deployment_info.get('port')}")
-            
+
+            logger.info(
+                f"Model {message.model_id} deployed at port {deployment_info.get('port')}")
+
         except Exception as e:
             logger.error(f"Failed to update model deployment status: {e}")
             await session.rollback()
@@ -82,7 +84,7 @@ async def handle_model_undeployed(message: ModelUndeployedMessage):
     更新 AvailableModel 的部署状态
     """
     logger.info(f"Handling model undeployed: model_id={message.model_id}")
-    
+
     async with AsyncSessionLocal() as session:
         try:
             # 更新部署状态
@@ -98,9 +100,9 @@ async def handle_model_undeployed(message: ModelUndeployedMessage):
             )
             await session.execute(stmt)
             await session.commit()
-            
+
             logger.info(f"Model {message.model_id} undeployed")
-            
+
         except Exception as e:
             logger.error(f"Failed to update model undeploy status: {e}")
             await session.rollback()

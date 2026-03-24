@@ -23,11 +23,12 @@ async def get_tasks(db: AsyncSession, offset: int = 0, limit: int = 10, status: 
     conditions = [Task.is_deleted == False]
     if status is not None:
         conditions.append(Task.status == status)
-    
+
     count_stmt = select(func.count()).select_from(Task).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
-    stmt = select(Task).where(*conditions).order_by(Task.created_at.desc()).offset(offset).limit(limit)
+
+    stmt = select(Task).where(
+        *conditions).order_by(Task.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 
@@ -45,13 +46,15 @@ async def get_task_logs(db: AsyncSession, task_id: int, offset: int = 0, limit: 
     conditions = [TaskLog.task_id == task_id, TaskLog.is_deleted == False]
     count_stmt = select(func.count()).select_from(TaskLog).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
-    stmt = select(TaskLog).where(*conditions).order_by(TaskLog.created_at.asc()).offset(offset).limit(limit)
+
+    stmt = select(TaskLog).where(
+        *conditions).order_by(TaskLog.created_at.asc()).offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 
 
 async def get_base_models(db: AsyncSession) -> List[BaseModels]:
-    stmt = select(BaseModels).where(BaseModels.is_deleted == False).order_by(BaseModels.name)
+    stmt = select(BaseModels).where(
+        BaseModels.is_deleted == False).order_by(BaseModels.name)
     result = await db.execute(stmt)
     return list(result.scalars().all())

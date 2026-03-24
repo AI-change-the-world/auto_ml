@@ -12,8 +12,10 @@ from pydantic import BaseModel, Field
 class DatasetCreate(BaseModel):
     """创建数据集请求"""
     name: str = Field(..., min_length=1, max_length=255, description="数据集名称")
-    storage_type: int = Field(default=1, description="存储类型: 0=本地, 1=S3, 2=WebDAV")
-    data_type: int = Field(default=0, description="数据类型: 0=图像, 1=文本, 2=视频, 3=音频")
+    storage_type: int = Field(
+        default=1, description="存储类型: 0=本地, 1=S3, 2=WebDAV")
+    data_type: int = Field(
+        default=0, description="数据类型: 0=图像, 1=文本, 2=视频, 3=音频")
     description: Optional[str] = Field(default=None, description="描述")
 
 
@@ -36,7 +38,7 @@ class DatasetResponse(BaseModel):
     description: Optional[str]
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -48,7 +50,7 @@ class DatasetFileResponse(BaseModel):
     file_name: str
     save_path: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

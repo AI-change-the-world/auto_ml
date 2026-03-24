@@ -14,7 +14,8 @@ async def create_annotation(db: AsyncSession, **kwargs) -> Annotation:
 
 
 async def get_annotation_by_id(db: AsyncSession, annotation_id: int) -> Optional[Annotation]:
-    stmt = select(Annotation).where(Annotation.id == annotation_id, Annotation.is_deleted == False)
+    stmt = select(Annotation).where(Annotation.id ==
+                                    annotation_id, Annotation.is_deleted == False)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -23,11 +24,13 @@ async def get_annotations(db: AsyncSession, offset: int = 0, limit: int = 10, ke
     conditions = [Annotation.is_deleted == False]
     if keyword:
         conditions.append(Annotation.name.ilike(f"%{keyword}%"))
-    
-    count_stmt = select(func.count()).select_from(Annotation).where(*conditions)
+
+    count_stmt = select(func.count()).select_from(
+        Annotation).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
-    stmt = select(Annotation).where(*conditions).order_by(Annotation.created_at.desc()).offset(offset).limit(limit)
+
+    stmt = select(Annotation).where(
+        *conditions).order_by(Annotation.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 
@@ -45,7 +48,8 @@ async def update_annotation(db: AsyncSession, annotation_id: int, **kwargs) -> O
 
 
 async def delete_annotation(db: AsyncSession, annotation_id: int) -> bool:
-    stmt = update(Annotation).where(Annotation.id == annotation_id).values(is_deleted=True)
+    stmt = update(Annotation).where(Annotation.id ==
+                                    annotation_id).values(is_deleted=True)
     result = await db.execute(stmt)
     return result.rowcount > 0
 
@@ -69,11 +73,14 @@ async def get_annotation_file(db: AsyncSession, annotation_id: int, file_name: s
 
 
 async def get_annotation_files(db: AsyncSession, annotation_id: int, offset: int = 0, limit: int = 100) -> tuple[List[AnnotationFile], int]:
-    conditions = [AnnotationFile.annotation_id == annotation_id, AnnotationFile.is_deleted == False]
-    count_stmt = select(func.count()).select_from(AnnotationFile).where(*conditions)
+    conditions = [AnnotationFile.annotation_id ==
+                  annotation_id, AnnotationFile.is_deleted == False]
+    count_stmt = select(func.count()).select_from(
+        AnnotationFile).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
-    stmt = select(AnnotationFile).where(*conditions).order_by(AnnotationFile.created_at.desc()).offset(offset).limit(limit)
+
+    stmt = select(AnnotationFile).where(
+        *conditions).order_by(AnnotationFile.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 

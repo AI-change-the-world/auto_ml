@@ -18,7 +18,7 @@ class DatabaseConfig(BaseModel):
     username: str = "root"
     password: str = ""
     database: str = "auto_ml"
-    
+
     @property
     def url(self) -> str:
         return f"mysql+aiomysql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
@@ -47,12 +47,12 @@ class Settings(BaseModel):
     port: int = 45678
     context_path: str = "/automl"
     debug: bool = False
-    
+
     # 子配置
     database: DatabaseConfig = DatabaseConfig()
     nacos: NacosConfig = NacosConfig()
     ai_platform: AIPlatformConfig = AIPlatformConfig()
-    
+
     # 心跳检查间隔（秒）
     heartbeat_interval: int = 300
 
@@ -61,12 +61,13 @@ def _load_from_nacos(nacos_config: NacosConfig) -> dict:
     """从 Nacos 加载配置"""
     try:
         import nacos
-        
+
         client = nacos.NacosClient(
             nacos_config.server_addr,
             namespace=nacos_config.namespace
         )
-        config_str = client.get_config(nacos_config.data_id, nacos_config.group)
+        config_str = client.get_config(
+            nacos_config.data_id, nacos_config.group)
         if config_str:
             return yaml.safe_load(config_str) or {}
         return {}
@@ -84,14 +85,14 @@ def _load_settings() -> Settings:
         data_id=os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG"),
         group=os.getenv("NACOS_GROUP", "AUTO_ML"),
     )
-    
+
     # 2. 尝试从 Nacos 加载配置
     use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"
     nacos_data = {}
     if use_nacos:
         nacos_data = _load_from_nacos(nacos_config)
         logger.info(f"Loaded config from Nacos: {list(nacos_data.keys())}")
-    
+
     # 3. 合并 Nacos 配置和环境变量（环境变量优先）
     db_nacos = nacos_data.get("db", {})
     database = DatabaseConfig(
@@ -101,13 +102,15 @@ def _load_settings() -> Settings:
         password=os.getenv("DB_PASSWORD", db_nacos.get("password", "")),
         database=os.getenv("DB_NAME", db_nacos.get("database", "auto_ml")),
     )
-    
+
     ai_nacos = nacos_data.get("ai-platform", {})
     ai_platform = AIPlatformConfig(
-        base_url=os.getenv("AI_PLATFORM_URL", ai_nacos.get("base_url", "http://localhost:45679")),
-        timeout=int(os.getenv("AI_PLATFORM_TIMEOUT", ai_nacos.get("timeout", 1800))),
+        base_url=os.getenv("AI_PLATFORM_URL", ai_nacos.get(
+            "base_url", "http://localhost:45679")),
+        timeout=int(os.getenv("AI_PLATFORM_TIMEOUT",
+                    ai_nacos.get("timeout", 1800))),
     )
-    
+
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),

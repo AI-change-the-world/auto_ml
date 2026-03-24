@@ -27,7 +27,7 @@ class ToolModelResponse(BaseModel):
     endpoint: Optional[str]
     config: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -41,12 +41,14 @@ async def list_tool_models(
     conditions = [ToolModel.is_deleted == False]
     count_stmt = select(func.count()).select_from(ToolModel).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-    
+
     offset = (page - 1) * page_size
-    stmt = select(ToolModel).where(*conditions).order_by(ToolModel.created_at.desc()).offset(offset).limit(page_size)
+    stmt = select(ToolModel).where(
+        *conditions).order_by(ToolModel.created_at.desc()).offset(offset).limit(page_size)
     result = await db.execute(stmt)
-    items = [ToolModelResponse.model_validate(t) for t in result.scalars().all()]
-    
+    items = [ToolModelResponse.model_validate(
+        t) for t in result.scalars().all()]
+
     return Result.ok(PageResult.create(items, total, page, page_size))
 
 
@@ -64,5 +66,5 @@ async def create_tool_model(
     db.add(model)
     await db.flush()
     await db.refresh(model)
-    
+
     return Result.ok(ToolModelResponse.model_validate(model), "Tool model created")
