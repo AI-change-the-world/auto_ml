@@ -1,9 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  Typography, Button, Table, Tag, Space, Modal, Form, Select, InputNumber, message, Tabs,
-} from 'antd';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { message, Spin, Modal, Select } from 'antd';
+import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createTrainTask, getBaseModels } from '../../api/task';
 import { listDatasets } from '../../api/dataset';
@@ -13,7 +11,12 @@ import type { Dataset } from '../../types/dataset';
 import type { AnnotationProject } from '../../types/annotation';
 import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
 
-const { Title } = Typography;
+const statusStyles: Record<string, { bg: string; fg: string }> = {
+  default: { bg: '#f5f5f5', fg: '#888' },
+  processing: { bg: '#eef2ff', fg: '#4f6ef7' },
+  error: { bg: '#fef2f2', fg: '#dc2626' },
+  success: { bg: '#f0fdf4', fg: '#16a34a' },
+};
 
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,211 +24,139 @@ const TaskListPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
+  const [statusFilter, setStatusFilter] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form] = Form.useForm();
-
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
-  const [baseModels, setBaseModels] = useState<BaseModelResponse[]>([]);
+  const [_bm, setBm] = useState<BaseModelResponse[]>([]);
+  const [form, setForm] = useState<{ task_type: number; dataset_id?: number; annotation_id?: number }>({ task_type: 0 });
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const status = statusFilter === 'all' ? undefined : Number(statusFilter);
-      const res = await listTasks(page, 10, status);
-      if (res) {
-        setTasks(res.items);
-        setTotal(res.total);
-      }
-    } catch {
-      message.error('获取任务列表失败');
-    } finally {
-      setLoading(false);
-    }
+      const st = statusFilter === 'all' ? undefined : Number(statusFilter);
+      const r = await listTasks(page, 20, st);
+      if (r) { setTasks(r.items); setTotal(r.total); }
+    } catch { message.error('加载失败'); }
+    finally { setLoading(false); }
   }, [page, statusFilter]);
 
-  useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  const loadFormData = async () => {
+  const openCreate = async () => {
+    setCreateOpen(true);
     try {
-      const [dsRes, annRes, bmRes] = await Promise.all([
-        listDatasets(1, 100),
-        listAnnotations(1, 100),
-        getBaseModels(),
-      ]);
-      if (dsRes) setDatasets(dsRes.items);
-      if (annRes) setAnnotations(annRes.items);
-      if (bmRes) setBaseModels(Array.isArray(bmRes) ? bmRes : []);
-    } catch {
-      /* ignore */
-    }
+      const [d, a, b] = await Promise.all([listDatasets(1, 100), listAnnotations(1, 100), getBaseModels()]);
+      if (d) setDatasets(d.items);
+      if (a) setAnnotations(a.items);
+      if (b) setBm(Array.isArray(b) ? b : []);
+    } catch {}
   };
 
   const handleCreate = async () => {
+    if (!form.dataset_id) { message.warning('请选择数据集'); return; }
+    setCreating(true);
     try {
-      const values = await form.validateFields();
-      setCreating(true);
-      const data: TaskCreate = {
-        task_type: values.task_type,
-        dataset_id: values.dataset_id,
-        annotation_id: values.annotation_id,
-        config: values.config ? JSON.stringify(values.config) : undefined,
-      };
+      const data: TaskCreate = { task_type: form.task_type, dataset_id: form.dataset_id, annotation_id: form.annotation_id };
       await createTrainTask(data);
-      message.success('任务创建成功');
+      message.success('创建成功');
       setCreateOpen(false);
-      form.resetFields();
+      setForm({ task_type: 0 });
       fetchTasks();
-    } catch {
-      message.error('创建失败');
-    } finally {
-      setCreating(false);
-    }
+    } catch { message.error('创建失败'); }
+    finally { setCreating(false); }
   };
 
-  const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      width: 80,
-    },
-    {
-      title: '任务类型',
-      dataIndex: 'task_type',
-      width: 120,
-      render: (v: number) => {
-        const labels: Record<number, string> = { 0: '检测', 1: '分类', 2: '分割' };
-        return labels[v] ?? `类型${v}`;
-      },
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 100,
-      render: (v: number) => (
-        <Tag color={TaskStatusColors[v] || 'default'}>{TaskStatusLabels[v] || '未知'}</Tag>
-      ),
-    },
-    {
-      title: '数据集 ID',
-      dataIndex: 'dataset_id',
-      width: 100,
-      render: (v: number | null) => v ?? '-',
-    },
-    {
-      title: '标注 ID',
-      dataIndex: 'annotation_id',
-      width: 100,
-      render: (v: number | null) => v ?? '-',
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      width: 180,
-      render: (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm'),
-    },
-    {
-      title: '操作',
-      width: 100,
-      render: (_: unknown, record: TaskResponse) => (
-        <Button type="link" size="small" onClick={() => navigate(`/tasks/${record.id}`)}>
-          详情
-        </Button>
-      ),
-    },
+  const tabs = [
+    { key: 'all', label: '全部' }, { key: '0', label: '排队中' },
+    { key: '1', label: '运行中' }, { key: '3', label: '已完成' }, { key: '2', label: '失败' },
   ];
-
-  const tabItems = [
-    { key: 'all', label: '全部' },
-    { key: '0', label: '排队中' },
-    { key: '1', label: '运行中' },
-    { key: '3', label: '已完成' },
-    { key: '2', label: '失败' },
-  ];
+  const typeLabels: Record<number, string> = { 0: '检测', 1: '分类', 2: '分割' };
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <Title level={4} style={{ margin: 0 }}>训练任务</Title>
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={fetchTasks}>刷新</Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => { setCreateOpen(true); loadFormData(); }}
-          >
-            创建训练
-          </Button>
-        </Space>
+    <div className="page-container">
+      <div className="page-header">
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><ExperimentOutlined /> 训练任务</h1>
+          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>管理模型训练任务</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={fetchTasks} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> 刷新</button>
+          <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><PlusOutlined /> 创建训练</button>
+        </div>
       </div>
 
-      <Tabs
-        activeKey={statusFilter}
-        onChange={(key) => { setStatusFilter(key); setPage(1); }}
-        items={tabItems}
-        style={{ marginBottom: 16 }}
-      />
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #eee', marginBottom: 20 }}>
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => { setStatusFilter(t.key); setPage(1); }} style={{
+            padding: '10px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none', background: 'none',
+            borderBottom: statusFilter === t.key ? '2px solid #4f6ef7' : '2px solid transparent',
+            color: statusFilter === t.key ? '#4f6ef7' : '#888', marginBottom: -1,
+          }}>{t.label}</button>
+        ))}
+      </div>
 
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={tasks}
-        loading={loading}
-        pagination={{
-          current: page,
-          total,
-          pageSize: 10,
-          onChange: setPage,
-          showTotal: (t) => `共 ${t} 条`,
-        }}
-      />
+      {loading ? <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
+      : tasks.length === 0 ? <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}><ExperimentOutlined style={{ fontSize: 48, marginBottom: 12 }} /><p>暂无任务</p></div>
+      : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {tasks.map((task) => {
+            const ck = TaskStatusColors[task.status] || 'default';
+            const s = statusStyles[ck] || statusStyles.default;
+            return (
+              <div key={task.id} onClick={() => navigate(`/tasks/${task.id}`)} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '14px 18px', cursor: 'pointer', transition: 'box-shadow 0.2s',
+              }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'} onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f6ef7', fontWeight: 600, fontSize: 13 }}>#{task.id}</div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `类型${task.task_type}`} 训练</span>
+                      <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || '未知'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
+                      <span>数据集 #{task.dataset_id ?? '-'}</span>
+                      {task.annotation_id && <span>标注 #{task.annotation_id}</span>}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
+                    </div>
+                  </div>
+                </div>
+                <RightOutlined style={{ color: '#ddd' }} />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-      <Modal
-        title="创建训练任务"
-        open={createOpen}
-        onOk={handleCreate}
-        onCancel={() => { setCreateOpen(false); form.resetFields(); }}
-        confirmLoading={creating}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="task_type" label="任务类型" rules={[{ required: true, message: '请选择任务类型' }]}>
-            <Select placeholder="选择任务类型">
-              <Select.Option value={0}>检测</Select.Option>
-              <Select.Option value={1}>分类</Select.Option>
-              <Select.Option value={2}>分割</Select.Option>
-            </Select>
-          </Form.Item>
-          <Form.Item name="dataset_id" label="数据集" rules={[{ required: true, message: '请选择数据集' }]}>
-            <Select placeholder="选择数据集" showSearch optionFilterProp="label">
-              {datasets.map((ds) => (
-                <Select.Option key={ds.id} value={ds.id} label={ds.name}>{ds.name}</Select.Option>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>共 {total} 条</div>
+
+      <Modal title="创建训练任务" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText="创建" cancelText="取消">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>任务类型</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {Object.entries(typeLabels).map(([k, v]) => (
+                <button key={k} onClick={() => setForm({ ...form, task_type: Number(k) })} style={{
+                  padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
+                  border: form.task_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                  background: form.task_type === Number(k) ? '#eef2ff' : '#fff',
+                  color: form.task_type === Number(k) ? '#4f6ef7' : '#666',
+                }}>{v}</button>
               ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="annotation_id" label="标注项目">
-            <Select placeholder="选择标注项目（可选）" allowClear showSearch optionFilterProp="label">
-              {annotations.map((a) => (
-                <Select.Option key={a.id} value={a.id} label={a.name}>{a.name}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="base_model_id" label="基础模型">
-            <Select placeholder="选择基础模型（可选）" allowClear>
-              {baseModels.map((m) => (
-                <Select.Option key={m.id} value={m.id}>{m.name}</Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item name="epochs" label="训练轮次">
-            <InputNumber min={1} max={1000} placeholder="默认值" style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>数据集</label>
+            <Select style={{ width: '100%' }} placeholder="选择数据集" value={form.dataset_id} onChange={(v) => setForm({ ...form, dataset_id: v })} options={datasets.map((d) => ({ label: d.name, value: d.id }))} showSearch optionFilterProp="label" />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>标注项目（可选）</label>
+            <Select style={{ width: '100%' }} placeholder="选择标注项目" allowClear value={form.annotation_id} onChange={(v) => setForm({ ...form, annotation_id: v })} options={annotations.map((a) => ({ label: a.name, value: a.id }))} showSearch optionFilterProp="label" />
+          </div>
+        </div>
       </Modal>
     </div>
   );
