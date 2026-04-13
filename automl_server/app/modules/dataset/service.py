@@ -18,7 +18,8 @@ from . import crud
 from .schemas import DatasetCreate, DatasetUpdate, DatasetResponse, FilePreviewResponse
 
 # 支持的压缩包扩展名
-ARCHIVE_EXTENSIONS = {'.zip', '.tar', '.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz'}
+ARCHIVE_EXTENSIONS = {'.zip', '.tar', '.tar.gz',
+                      '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz'}
 # 跳过的文件/目录前缀
 SKIP_PREFIXES = ('__MACOSX/', '.', '._')
 
@@ -345,14 +346,16 @@ class DatasetService:
 
         file_record = await crud.get_dataset_file_by_id(db, file_id)
         if not file_record or file_record.dataset_id != dataset_id:
-            raise NotFoundException(f"File {file_id} not found in dataset {dataset_id}")
+            raise NotFoundException(
+                f"File {file_id} not found in dataset {dataset_id}")
 
         # 从 S3 删除
         try:
             if file_record.save_path:
                 await self.s3.delete_file(file_record.save_path, bucket_type="datasets")
         except Exception as e:
-            logger.warning(f"Failed to delete S3 file {file_record.save_path}: {e}")
+            logger.warning(
+                f"Failed to delete S3 file {file_record.save_path}: {e}")
 
         # 软删除数据库记录
         await crud.delete_dataset_file(db, file_id)
