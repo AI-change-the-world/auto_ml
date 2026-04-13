@@ -94,7 +94,8 @@ class S3Delegate:
         for bucket in buckets:
             try:
                 # HEAD 检查 bucket 是否存在
-                headers, url = self._sign_bucket_request("HEAD", bucket, host, scheme)
+                headers, url = self._sign_bucket_request(
+                    "HEAD", bucket, host, scheme)
                 resp = req.head(url, headers=headers, timeout=5)
                 if resp.status_code == 200:
                     logger.info(f"Bucket '{bucket}' already exists")
@@ -104,12 +105,14 @@ class S3Delegate:
 
             # 创建 bucket
             try:
-                headers, url = self._sign_bucket_request("PUT", bucket, host, scheme)
+                headers, url = self._sign_bucket_request(
+                    "PUT", bucket, host, scheme)
                 resp = req.put(url, headers=headers, data=b"", timeout=5)
                 if resp.status_code in (200, 409):
                     logger.info(f"Bucket '{bucket}' ensured")
                 else:
-                    logger.warning(f"Create bucket '{bucket}' failed: {resp.status_code}")
+                    logger.warning(
+                        f"Create bucket '{bucket}' failed: {resp.status_code}")
             except Exception as e:
                 logger.warning(f"Create bucket '{bucket}' error: {e}")
 
@@ -138,10 +141,12 @@ class S3Delegate:
             return hmac.new(key_bytes, msg.encode(), hashlib.sha256).digest()
 
         signing_key = _sign(
-            _sign(_sign(_sign(f"AWS4{secret_key}".encode(), date_stamp), region), "s3"),
+            _sign(
+                _sign(_sign(f"AWS4{secret_key}".encode(), date_stamp), region), "s3"),
             "aws4_request"
         )
-        signature = hmac.new(signing_key, string_to_sign.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            signing_key, string_to_sign.encode(), hashlib.sha256).hexdigest()
 
         authorization = (
             f"AWS4-HMAC-SHA256 Credential={access_key}/{credential_scope}, "
