@@ -1,0 +1,16 @@
+{
+  "title": "Annotations",
+  "subtitle": "Manage annotation projects for image labeling",
+  "newAnnotation": "New Annotation",
+  "searchPlaceholder": "Search annotations...",
+  "empty": "No annotation projects yet",
+  "totalAnnotations": "{{count}} annotation projects in total",
+  "deleteTitle": "Delete Annotation",
+  "annotationType": "Annotation Type",
+  "linkedDataset": "Linked Dataset",
+  "selectDataset": "Select dataset (optional)",
+  "initialClasses": "Initial Classes",
+  "classesPlaceholder": "Comma separated, e.g.: person,car,dog",
+  "inputName": "Enter annotation name",
+  "classCount": "{{count}} classes"
+}

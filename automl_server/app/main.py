@@ -38,6 +38,13 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
 
+    # 初始化数据库（自动建表）
+    from app.config.database import init_db
+    try:
+        await init_db()
+    except Exception as e:
+        logger.error(f"Failed to init database: {e}")
+
     # 启动消息消费者
     try:
         consumer = get_consumer()
@@ -118,7 +125,7 @@ async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(
         status_code=200,  # 业务异常返回 200，通过 code 区分
         content=Result.fail(code=exc.code, message=exc.message,
-                            data=exc.data).model_dump(),
+                            data=exc.data).model_dump(mode="json"),
     )
 
 
@@ -127,7 +134,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
-        content=Result.fail(code=500, message=str(exc)).model_dump(),
+        content=Result.fail(code=500, message=str(exc)
+                            ).model_dump(mode="json"),
     )
 
 

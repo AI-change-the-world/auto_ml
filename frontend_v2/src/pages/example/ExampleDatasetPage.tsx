@@ -14,6 +14,7 @@ import {
   EditOutlined,
   DragOutlined,
 } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
 
 /* ─── Static data ─── */
 const DEFAULT_CLASSES = [
@@ -44,11 +45,11 @@ const EXAMPLE_IMAGE = {
 };
 
 const STEPS = [
-  { num: 1, title: '创建数据集', desc: '上传图片或拖放压缩包。' },
-  { num: 2, title: '创建标注项目', desc: '选择标注类型并关联数据集。' },
-  { num: 3, title: '开始标注', desc: '拖拽矩形框并指定类别。' },
-  { num: 4, title: '训练模型', desc: '创建训练任务，开始训练。' },
-  { num: 5, title: '部署上线', desc: '一键部署，API 调用推理。' },
+  { num: 1, title: 'step1Title', desc: 'step1Desc' },
+  { num: 2, title: 'step2Title', desc: 'step2Desc' },
+  { num: 3, title: 'step3Title', desc: 'step3Desc' },
+  { num: 4, title: 'step4Title', desc: 'step4Desc' },
+  { num: 5, title: 'step5Title', desc: 'step5Desc' },
 ];
 
 /* ─── Drag action types ─── */
@@ -64,6 +65,8 @@ const HANDLE_SIZE = 0.015; // normalized hit area
 /* ─── Component ─── */
 const ExampleDatasetPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('example');
+  const tc = useTranslation('common').t;
 
   const [showPreset, setShowPreset] = useState(true);
   const [hoveredClass, setHoveredClass] = useState<number | null>(null);
@@ -325,12 +328,10 @@ const ExampleDatasetPage: React.FC = () => {
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8, flexWrap: 'wrap' }}>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#111', margin: 0 }}>Example Dataset</h1>
-          <span style={{ padding: '3px 12px', background: '#eef2ff', color: '#4f6ef7', fontSize: 12, borderRadius: 999, fontWeight: 500 }}>目标检测</span>
-          <span style={{ padding: '3px 12px', background: '#fef3c7', color: '#d97706', fontSize: 12, borderRadius: 999, fontWeight: 500 }}>交互演示</span>
+          <span style={{ padding: '3px 12px', background: '#eef2ff', color: '#4f6ef7', fontSize: 12, borderRadius: 999, fontWeight: 500 }}>{t('objectDetection')}</span>
+          <span style={{ padding: '3px 12px', background: '#fef3c7', color: '#d97706', fontSize: 12, borderRadius: 999, fontWeight: 500 }}>{t('interactiveDemo')}</span>
         </div>
-        <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.6 }}>
-          切换到<strong>「标注模式」</strong>后在图片上<strong>拖拽画框</strong>。选中已有框可<strong>拖动移动</strong>、<strong>拖角缩放</strong>，右侧可<strong>修改类别</strong>。纯前端演示，不保存数据。
-        </p>
+        <p style={{ fontSize: 14, color: '#666', margin: 0, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: t('demoDesc') }} />
       </div>
 
       <div style={{ display: 'flex', gap: 20, marginBottom: 32, flexWrap: 'wrap' }}>
@@ -356,7 +357,7 @@ const ExampleDatasetPage: React.FC = () => {
                   fontWeight: mode === 'draw' ? 600 : 400,
                 }}>
                 {mode === 'draw' ? <EditOutlined /> : <DragOutlined />}
-                {mode === 'draw' ? '标注模式' : '查看模式'}
+                {mode === 'draw' ? t('annotateMode') : t('viewMode')}
               </button>
               <button onClick={() => setShowPreset(!showPreset)}
                 style={{
@@ -366,7 +367,7 @@ const ExampleDatasetPage: React.FC = () => {
                   color: showPreset ? '#a78bfa' : '#999', fontSize: 12, cursor: 'pointer',
                 }}>
                 {showPreset ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                预设标注
+                {t('presetAnnotation')}
               </button>
             </div>
           </div>
@@ -455,7 +456,7 @@ const ExampleDatasetPage: React.FC = () => {
                 background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '12px 24px', borderRadius: 10,
                 fontSize: 14, pointerEvents: 'none', textAlign: 'center',
               }}>
-                🖱️ 拖拽画框 · 点击选中 · 拖动移动 · 拖角缩放
+                🖱️ {t('dragHint').replace('🖱️ ', '')}
               </div>
             )}
           </div>
@@ -469,10 +470,10 @@ const ExampleDatasetPage: React.FC = () => {
               {/* Top row: info + actions */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                 <span style={{ fontSize: 13, color: '#666' }}>
-                  {userBoxes.length} 个标注框
+                  {t('boxCount', { count: userBoxes.length })}
                   {selectedIdx !== null && userBoxes[selectedIdx] && (
                     <span style={{ marginLeft: 6, color: classMap[userBoxes[selectedIdx].classId]?.color || '#4f6ef7' }}>
-                      — 选中 #{selectedIdx + 1}
+                      — {t('selected', { idx: selectedIdx + 1 })}
                     </span>
                   )}
                 </span>
@@ -482,13 +483,13 @@ const ExampleDatasetPage: React.FC = () => {
                       display: 'flex', alignItems: 'center', gap: 4, padding: '4px 12px',
                       background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
                       borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                    }}><DeleteOutlined /> 删除</button>
+                    }}><DeleteOutlined /> {tc('action.delete', { ns: 'common' })}</button>
                   )}
                   <button onClick={clearUserBoxes} style={{
                     display: 'flex', alignItems: 'center', gap: 4, padding: '4px 12px',
                     background: '#f5f5f5', color: '#666', border: '1px solid #e5e5e5',
                     borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                  }}><UndoOutlined /> 清除全部</button>
+                  }}><UndoOutlined /> {tc('action.clearAll', { ns: 'common' })}</button>
                 </div>
               </div>
 
@@ -498,7 +499,7 @@ const ExampleDatasetPage: React.FC = () => {
                 const selCls = classMap[selBox.classId];
                 return (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
-                    <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>修改类别标签：</div>
+                    <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{t('changeClassLabel')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       {/* Existing class quick-select */}
                       {classes.map((cls) => (
@@ -534,7 +535,7 @@ const ExampleDatasetPage: React.FC = () => {
                         }
                         input.value = '';
                       }} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <input name="newClass" placeholder="输入新类别..."
+                        <input name="newClass" placeholder={t('inputNewClass')}
                           style={{
                             width: 110, padding: '4px 8px', border: '1px solid #e5e5e5',
                             borderRadius: 6, fontSize: 12, outline: 'none',
@@ -545,7 +546,7 @@ const ExampleDatasetPage: React.FC = () => {
                         <button type="submit" style={{
                           padding: '4px 10px', background: '#4f6ef7', color: '#fff',
                           border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap',
-                        }}>+ 添加</button>
+                        }}>+ {tc('action.add', { ns: 'common' })}</button>
                       </form>
                     </div>
                     {selCls && (
@@ -565,10 +566,10 @@ const ExampleDatasetPage: React.FC = () => {
           {/* Class selector */}
           <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <TagOutlined style={{ color: '#22c55e' }} /> 标注类别
+              <TagOutlined style={{ color: '#22c55e' }} /> {t('annotationClasses')}
             </h3>
             <p style={{ fontSize: 12, color: '#999', margin: '0 0 10px' }}>
-              {selectedIdx !== null ? '点击类别可修改选中框的类别' : mode === 'draw' ? '选择类别后在图片上画框' : '悬浮查看各类别标注'}
+              {selectedIdx !== null ? t('classHintSelected') : mode === 'draw' ? t('classHintDraw') : t('classHintView')}
             </p>
             {classes.map((cls) => {
               const presetCount = EXAMPLE_IMAGE.boxes.filter((b) => b.classId === cls.id).length;
@@ -604,7 +605,7 @@ const ExampleDatasetPage: React.FC = () => {
             })}
             {selectedIdx !== null && (
               <div style={{ marginTop: 8, padding: '8px 10px', background: '#f0f7ff', borderRadius: 8, fontSize: 12, color: '#4f6ef7' }}>
-                💡 点击上方类别即可修改选中框的类别
+                {t('clickToChangeClass')}
               </div>
             )}
           </div>
@@ -612,13 +613,13 @@ const ExampleDatasetPage: React.FC = () => {
           {/* Info */}
           <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 20, marginBottom: 16 }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, color: '#111', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <InfoCircleOutlined style={{ color: '#4f6ef7' }} /> 数据集信息
+              <InfoCircleOutlined style={{ color: '#4f6ef7' }} /> {t('datasetInfo')}
             </h3>
             {[
-              { label: '标注格式', value: 'YOLO v8' },
-              { label: '预设标注', value: `${EXAMPLE_IMAGE.boxes.length} 个` },
-              { label: '你的标注', value: `${userBoxes.length} 个` },
-              { label: '类别数', value: `${classes.length} 个` },
+              { label: t('annotationFormat'), value: 'YOLO v8' },
+              { label: t('presetCount'), value: t('countUnit', { count: EXAMPLE_IMAGE.boxes.length }) },
+              { label: t('yourAnnotations'), value: t('countUnit', { count: userBoxes.length }) },
+              { label: t('classCount'), value: t('countUnit', { count: classes.length }) },
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderBottom: i < 3 ? '1px solid #f8f8f8' : 'none' }}>
                 <span style={{ color: '#888' }}>{item.label}</span>
@@ -632,7 +633,7 @@ const ExampleDatasetPage: React.FC = () => {
             background: '#1a1a2e', borderRadius: 12, padding: 14,
             fontFamily: 'monospace', fontSize: 11, lineHeight: 1.8, color: '#a5b4fc', overflow: 'auto', maxHeight: 160,
           }}>
-            <div style={{ color: '#666', marginBottom: 4, fontSize: 10, fontFamily: 'sans-serif' }}>YOLO 标注预览</div>
+            <div style={{ color: '#666', marginBottom: 4, fontSize: 10, fontFamily: 'sans-serif' }}>{t('yoloPreview')}</div>
             {userBoxes.length > 0 ? userBoxes.map((box, i) => {
               const cx = (box.x1 + box.x2) / 2, cy = (box.y1 + box.y2) / 2;
               const w = box.x2 - box.x1, h = box.y2 - box.y1;
@@ -647,7 +648,7 @@ const ExampleDatasetPage: React.FC = () => {
                 </div>
               );
             }) : (
-              <div style={{ color: '#555', fontFamily: 'sans-serif' }}>画框后这里会显示 YOLO 格式数据</div>
+              <div style={{ color: '#555', fontFamily: 'sans-serif' }}>{t('yoloHint')}</div>
             )}
           </div>
         </div>
@@ -656,17 +657,17 @@ const ExampleDatasetPage: React.FC = () => {
       {/* ─── Steps ─── */}
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <BulbOutlined style={{ color: '#f59e0b' }} /> 标注工作流
+          <BulbOutlined style={{ color: '#f59e0b' }} /> {t('workflow')}
         </h2>
-        <p style={{ fontSize: 14, color: '#888', margin: '0 0 20px' }}>从数据准备到模型部署</p>
+        <p style={{ fontSize: 14, color: '#888', margin: '0 0 20px' }}>{t('workflowDesc')}</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
           {STEPS.map((s) => (
             <div key={s.num} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 16, transition: 'box-shadow 0.2s' }}
               onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: '#eef2ff', color: '#4f6ef7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{s.num}</div>
-              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', margin: '0 0 4px' }}>{s.title}</h3>
-              <p style={{ fontSize: 12, color: '#666', margin: 0, lineHeight: 1.5 }}>{s.desc}</p>
+              <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', margin: '0 0 4px' }}>{t(s.title)}</h3>
+              <p style={{ fontSize: 12, color: '#666', margin: 0, lineHeight: 1.5 }}>{t(s.desc)}</p>
             </div>
           ))}
         </div>
@@ -678,18 +679,18 @@ const ExampleDatasetPage: React.FC = () => {
         padding: '28px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16,
       }}>
         <div>
-          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>准备好开始标注了吗？</h3>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0 }}>创建你自己的数据集，上传图片开始标注</p>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: '0 0 4px' }}>{t('readyToStart')}</h3>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0 }}>{t('readyDesc')}</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => navigate('/datasets')} style={{
             padding: '10px 24px', background: '#fff', color: '#4f6ef7', border: 'none',
             borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          }}><CheckCircleOutlined /> 创建数据集</button>
+          }}><CheckCircleOutlined /> {t('createDataset')}</button>
           <button onClick={() => navigate('/annotations')} style={{
             padding: '10px 24px', background: 'rgba(255,255,255,0.15)', color: '#fff',
             border: '1px solid rgba(255,255,255,0.3)', borderRadius: 10, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-          }}>创建标注项目</button>
+          }}>{t('createAnnotation')}</button>
         </div>
       </div>
     </div>

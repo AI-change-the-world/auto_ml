@@ -1,0 +1,10 @@
+{
+  "title": "数据增强",
+  "subtitle": "使用多种增强策略扩充训练数据",
+  "empty": "暂无可用增强能力",
+  "startAugment": "开始增强",
+  "modalTitle": "数据增强 - {{type}}",
+  "selectDataset": "选择数据集",
+  "selectAugmentDataset": "选择要增强的数据集",
+  "augmentSubmitted": "增强任务已提交"
+}

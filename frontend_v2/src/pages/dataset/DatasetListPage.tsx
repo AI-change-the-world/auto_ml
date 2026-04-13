@@ -12,9 +12,12 @@ import {
 import { listDatasets, createDataset, deleteDataset } from '../../api/dataset';
 import type { Dataset, DatasetCreate } from '../../types';
 import { DataTypeLabels } from '../../types';
+import { useTranslation } from 'react-i18next';
 
 const DatasetListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('dataset');
+  const tc = useTranslation('common').t;
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -28,32 +31,32 @@ const DatasetListPage: React.FC = () => {
     try {
       const res = await listDatasets(1, 50, keyword || undefined);
       if (res) { setDatasets(res.items); setTotal(res.total); }
-    } catch { message.error('加载失败'); }
+    } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [keyword]);
 
   useEffect(() => { fetchDatasets(); }, [fetchDatasets]);
 
   const handleCreate = async () => {
-    if (!formData.name.trim()) { message.warning('请输入名称'); return; }
+    if (!formData.name.trim()) { message.warning(tc('msg.pleaseInputName')); return; }
     setCreating(true);
     try {
       const res = await createDataset(formData);
-      message.success('创建成功');
+      message.success(tc('msg.createSuccess'));
       setCreateOpen(false);
       setFormData({ name: '', data_type: 0 });
       fetchDatasets();
       if (res) navigate(`/datasets/${res.id}`);
-    } catch { message.error('创建失败'); }
+    } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
   };
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     Modal.confirm({
-      title: '删除数据集', content: '确定删除？',
+      title: t('deleteTitle'), content: tc('msg.confirmDelete'),
       okButtonProps: { danger: true },
-      onOk: async () => { await deleteDataset(id); message.success('已删除'); fetchDatasets(); },
+      onOk: async () => { await deleteDataset(id); message.success(tc('msg.deleted')); fetchDatasets(); },
     });
   };
 
@@ -62,9 +65,9 @@ const DatasetListPage: React.FC = () => {
       <div className="page-header">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-            <DatabaseOutlined /> 数据集
+            <DatabaseOutlined /> {t('title')}
           </h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>管理图片、视频和数据集</p>
+          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
         </div>
         <button
           onClick={() => setCreateOpen(true)}
@@ -74,7 +77,7 @@ const DatasetListPage: React.FC = () => {
             background: '#4f6ef7', color: '#fff', border: 'none', cursor: 'pointer',
           }}
         >
-          <PlusOutlined /> 新建数据集
+          <PlusOutlined /> {t('newDataset')}
         </button>
       </div>
 
@@ -86,7 +89,7 @@ const DatasetListPage: React.FC = () => {
             width: '100%', padding: '8px 12px 8px 34px', border: '1px solid #e5e5e5',
             borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff',
           }}
-          placeholder="搜索数据集..."
+          placeholder={t('searchPlaceholder')}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
@@ -97,7 +100,7 @@ const DatasetListPage: React.FC = () => {
       ) : datasets.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}>
           <DatabaseOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-          <p style={{ fontSize: 14 }}>暂无数据集</p>
+          <p style={{ fontSize: 14 }}>{t('empty')}</p>
         </div>
       ) : (
         <div className="card-grid">
@@ -134,11 +137,11 @@ const DatasetListPage: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ds.name}</span>
                   <span style={{ fontSize: 11, padding: '1px 8px', background: '#eef2ff', color: '#4f6ef7', borderRadius: 999, flexShrink: 0 }}>
-                    {DataTypeLabels[ds.data_type] ?? '未知'}
+                    {DataTypeLabels[ds.data_type] ?? tc('status.unknown')}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><PictureOutlined /> {ds.count} 文件</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><PictureOutlined /> {ds.count} {tc('label.files')}</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {new Date(ds.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -147,16 +150,16 @@ const DatasetListPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>共 {total} 个数据集</div>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalDatasets', { count: total })}</div>
 
-      <Modal title="新建数据集" open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', data_type: 0 }); }} confirmLoading={creating} okText="创建" cancelText="取消">
+      <Modal title={t('newDataset')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', data_type: 0 }); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>名称</label>
-            <Input placeholder="输入数据集名称" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.name')}</label>
+            <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>数据类型</label>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {Object.entries(DataTypeLabels).map(([k, v]) => (
                 <button
@@ -173,8 +176,8 @@ const DatasetListPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>描述</label>
-            <Input.TextArea rows={3} placeholder="可选描述" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.description')}</label>
+            <Input.TextArea rows={3} placeholder={t('optionalDesc')} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
           </div>
         </div>
       </Modal>

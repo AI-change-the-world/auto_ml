@@ -7,6 +7,7 @@ import { listModels } from '../../api/deploy';
 import type { PredictTaskResponse } from '../../types/predict';
 import type { AvailableModelResponse } from '../../types/deploy';
 import { PredictStatusLabels, PredictStatusColors } from '../../types/predict';
+import { useTranslation } from 'react-i18next';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
     default: { bg: '#f5f5f5', fg: '#888' },
@@ -16,6 +17,8 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
 };
 
 const PredictPage: React.FC = () => {
+    const { t } = useTranslation('predict');
+    const tc = useTranslation('common').t;
     const [tasks, setTasks] = useState<PredictTaskResponse[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -32,7 +35,7 @@ const PredictPage: React.FC = () => {
         try {
             const r = await listPredictTasks(1, 20);
             if (r) { setTasks(r.items); setTotal(r.total); }
-        } catch { message.error('加载失败'); }
+        } catch { message.error(tc('msg.loadFailed')); }
         finally { setLoading(false); }
     }, []);
 
@@ -47,16 +50,16 @@ const PredictPage: React.FC = () => {
     };
 
     const handleCreate = async () => {
-        if (!form.source) { message.warning('请输入数据源'); return; }
-        if (!form.model_id) { message.warning('请选择模型'); return; }
+        if (!form.source) { message.warning(t('pleaseInputSource')); return; }
+        if (!form.model_id) { message.warning(t('pleaseSelectModel')); return; }
         setCreating(true);
         try {
             await predictImage({ source: form.source, model_id: form.model_id, task_type: form.task_type });
-            message.success('预测任务已提交');
+            message.success(t('predictSubmitted'));
             setCreateOpen(false);
             setForm({ source: '', task_type: 'image' });
             fetchTasks();
-        } catch { message.error('提交失败'); }
+        } catch { message.error(tc('msg.submitFailed')); }
         finally { setCreating(false); }
     };
 
@@ -65,16 +68,16 @@ const PredictPage: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <div>
                     <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-                        <AimOutlined /> 模型预测
+                        <AimOutlined /> {t('title')}
                     </h1>
-                    <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>使用已部署的模型进行推理预测</p>
+                    <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={fetchTasks} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}>
-                        <ReloadOutlined /> 刷新
+                        <ReloadOutlined /> {tc('action.refresh')}
                     </button>
                     <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                        <PlusOutlined /> 新建预测
+                        <PlusOutlined /> {t('newPredict')}
                     </button>
                 </div>
             </div>
@@ -84,8 +87,8 @@ const PredictPage: React.FC = () => {
             ) : tasks.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}>
                     <AimOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-                    <p>暂无预测任务</p>
-                    <p style={{ fontSize: 13 }}>部署模型后即可进行推理预测</p>
+                    <p>{t('empty')}</p>
+                    <p style={{ fontSize: 13 }}>{t('emptyHint')}</p>
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -104,21 +107,21 @@ const PredictPage: React.FC = () => {
                                     <div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>
-                                                {task.task_type === 'video' ? '视频预测' : '图像预测'} #{task.id}
+                                                {task.task_type === 'video' ? t('videoPredict') : t('imagePredict')} #{task.id}
                                             </span>
                                             <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>
-                                                {PredictStatusLabels[task.status] || '未知'}
+                                                {PredictStatusLabels[task.status] || tc('status.unknown')}
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
-                                            {task.model_id && <span>模型 #{task.model_id}</span>}
+                                            {task.model_id && <span>{t('modelId', { id: task.model_id })}</span>}
                                             <span>{dayjs(task.created_at).format('MM-DD HH:mm')}</span>
                                         </div>
                                     </div>
                                 </div>
                                 {task.result && (
                                     <span style={{ fontSize: 12, color: '#16a34a', background: '#f0fdf4', padding: '2px 10px', borderRadius: 6 }}>
-                                        有结果
+                                        {tc('status.hasResult')}
                                     </span>
                                 )}
                             </div>
@@ -127,30 +130,30 @@ const PredictPage: React.FC = () => {
                 </div>
             )}
 
-            <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>共 {total} 条</div>
+            <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalTasks', { count: total })}</div>
 
-            <Modal title="新建预测任务" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText="提交" cancelText="取消">
+            <Modal title={t('createTitle')} open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText={tc('action.submit')} cancelText={tc('action.cancel')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
                     <div>
-                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>任务类型</label>
+                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('taskType')}</label>
                         <div style={{ display: 'flex', gap: 8 }}>
-                            {[{ key: 'image', label: '图像', icon: <PictureOutlined /> }, { key: 'video', label: '视频', icon: <VideoCameraOutlined /> }].map((t) => (
-                                <button key={t.key} onClick={() => setForm({ ...form, task_type: t.key })} style={{
+                            {[{ key: 'image', label: t('image'), icon: <PictureOutlined /> }, { key: 'video', label: t('video'), icon: <VideoCameraOutlined /> }].map((tt) => (
+                                <button key={tt.key} onClick={() => setForm({ ...form, task_type: tt.key })} style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
-                                    border: form.task_type === t.key ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
-                                    background: form.task_type === t.key ? '#eef2ff' : '#fff',
-                                    color: form.task_type === t.key ? '#4f6ef7' : '#666',
-                                }}>{t.icon} {t.label}</button>
+                                    border: form.task_type === tt.key ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                                    background: form.task_type === tt.key ? '#eef2ff' : '#fff',
+                                    color: form.task_type === tt.key ? '#4f6ef7' : '#666',
+                                }}>{tt.icon} {tt.label}</button>
                             ))}
                         </div>
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>数据源</label>
-                        <Input placeholder="图片/视频 URL 或 S3 路径" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
+                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataSource')}</label>
+                        <Input placeholder={t('dataSourcePlaceholder')} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>选择模型</label>
-                        <Select style={{ width: '100%' }} placeholder="选择已部署的模型" value={form.model_id} onChange={(v) => setForm({ ...form, model_id: v })}
+                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('selectModel')}</label>
+                        <Select style={{ width: '100%' }} placeholder={t('selectDeployedModel')} value={form.model_id} onChange={(v) => setForm({ ...form, model_id: v })}
                             options={models.map((m) => ({ label: m.name || `Model #${m.id}`, value: m.id }))} showSearch optionFilterProp="label" />
                     </div>
                 </div>

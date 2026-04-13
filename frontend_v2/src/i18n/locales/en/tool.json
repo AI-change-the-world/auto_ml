@@ -1,0 +1,17 @@
+{
+  "title": "Tool Models",
+  "subtitle": "Manage segmentation, detection, OCR and other tool models",
+  "addModel": "Add Model",
+  "addTitle": "Add Tool Model",
+  "empty": "No tool models yet",
+  "emptyHint": "Add segmentation, detection tool models for annotation assistance",
+  "totalModels": "{{count}} tool models in total",
+  "modelName": "Model Name",
+  "modelType": "Model Type",
+  "selectType": "Select model type",
+  "endpoint": "Endpoint",
+  "detection": "Object Detection",
+  "segmentation": "Image Segmentation",
+  "classification": "Image Classification",
+  "ocr": "OCR"
+}

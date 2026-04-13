@@ -18,6 +18,7 @@ import {
 } from '@ant-design/icons';
 import { getHomeStats } from '../../api/home';
 import type { HomeStats } from '../../types/home';
+import { useTranslation } from 'react-i18next';
 
 /* ─── Reusable Card ─── */
 const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties; className?: string }> = ({
@@ -69,6 +70,7 @@ const PrimaryBtn: React.FC<{
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('home');
   const [stats, setStats] = useState<HomeStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -94,12 +96,12 @@ const HomePage: React.FC = () => {
   }
 
   const statItems = [
-    { icon: <DatabaseOutlined style={{ fontSize: 16 }} />, value: stats?.datasets ?? 1, label: 'Datasets' },
-    { icon: <PictureOutlined style={{ fontSize: 16 }} />, value: 8, label: 'Images' },
-    { icon: <TagsOutlined style={{ fontSize: 16 }} />, value: stats?.annotations ?? 30, label: 'Annotations' },
-    { icon: <FolderOutlined style={{ fontSize: 16 }} />, value: 1, label: 'Projects' },
-    { icon: <ExperimentOutlined style={{ fontSize: 16 }} />, value: stats?.models?.total ?? 1, label: 'Models' },
-    { icon: <CloudServerOutlined style={{ fontSize: 16 }} />, value: stats?.models?.deployed ?? 0, label: 'Deployments' },
+    { icon: <DatabaseOutlined style={{ fontSize: 16 }} />, value: stats?.datasets ?? 1, label: t('datasets') },
+    { icon: <PictureOutlined style={{ fontSize: 16 }} />, value: 8, label: t('images') },
+    { icon: <TagsOutlined style={{ fontSize: 16 }} />, value: stats?.annotations ?? 30, label: t('annotations') },
+    { icon: <FolderOutlined style={{ fontSize: 16 }} />, value: 1, label: t('projects') },
+    { icon: <ExperimentOutlined style={{ fontSize: 16 }} />, value: stats?.models?.total ?? 1, label: t('models') },
+    { icon: <CloudServerOutlined style={{ fontSize: 16 }} />, value: stats?.models?.deployed ?? 0, label: t('deployments') },
   ];
 
   const storageUsed = 5.3;
@@ -121,10 +123,10 @@ const HomePage: React.FC = () => {
             margin: 0,
           }}
         >
-          <HomeOutlined /> Home
+          <HomeOutlined /> {t('title')}
         </h1>
         <p style={{ color: '#666', marginTop: 6, fontSize: 14, lineHeight: 1.5 }}>
-          Welcome to AutoML Platform. Annotate, train, and deploy your computer vision models.
+          {t('subtitle')}
         </p>
       </div>
 
@@ -150,7 +152,7 @@ const HomePage: React.FC = () => {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', margin: 0 }}>Welcome back, Admin</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', margin: 0 }}>{t('welcomeBack')}</h2>
               <span
                 style={{
                   fontSize: 11,
@@ -161,7 +163,7 @@ const HomePage: React.FC = () => {
                   fontWeight: 500,
                 }}
               >
-                Free
+                {t('free')}
               </span>
             </div>
             <p style={{ fontSize: 13, color: '#999', margin: '2px 0 0' }}>admin · admin@automl.local</p>
@@ -198,13 +200,13 @@ const HomePage: React.FC = () => {
                 margin: 0,
               }}
             >
-              <DatabaseOutlined style={{ color: '#f59e0b' }} /> Datasets
+              <DatabaseOutlined style={{ color: '#f59e0b' }} /> {t('datasets')}
             </h3>
             <PrimaryBtn onClick={() => navigate('/datasets')}>
-              <PlusOutlined /> New Dataset
+              <PlusOutlined /> {t('newDataset')}
             </PrimaryBtn>
           </div>
-          <p style={{ fontSize: 13, color: '#888', margin: '0 0 16px' }}>Upload images, videos, and datasets</p>
+          <p style={{ fontSize: 13, color: '#888', margin: '0 0 16px' }}>{t('uploadDesc')}</p>
 
           {/* Drop zone */}
           <div
@@ -226,9 +228,9 @@ const HomePage: React.FC = () => {
             }}
           >
             <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', display: 'block', marginBottom: 8 }} />
-            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Drop images, videos or datasets</p>
+            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropFiles')}</p>
             <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>
-              Images &lt;50 MB · Videos &lt;1 GB · Datasets &lt;10 GB — ZIP, TAR, NDJSON
+              {t('dropLimit')}
             </p>
           </div>
 
@@ -303,7 +305,7 @@ const HomePage: React.FC = () => {
               e.currentTarget.style.color = '#888';
             }}
           >
-            View all <ArrowRightOutlined style={{ fontSize: 11 }} />
+            {t('action:viewAll', { defaultValue: t('common:action.viewAll') })} <ArrowRightOutlined style={{ fontSize: 11 }} />
           </div>
         </Card>
 
@@ -321,13 +323,13 @@ const HomePage: React.FC = () => {
                 margin: 0,
               }}
             >
-              <FolderOutlined style={{ color: '#f59e0b' }} /> Projects
+              <FolderOutlined style={{ color: '#f59e0b' }} /> {t('projects')}
             </h3>
             <PrimaryBtn onClick={() => navigate('/annotations')}>
-              <PlusOutlined /> New Project
+              <PlusOutlined /> {t('newProject')}
             </PrimaryBtn>
           </div>
-          <p style={{ fontSize: 13, color: '#888', margin: '0 0 16px' }}>Create a project to organize models</p>
+          <p style={{ fontSize: 13, color: '#888', margin: '0 0 16px' }}>{t('projectDesc')}</p>
 
           {/* Drop zone */}
           <div
@@ -349,8 +351,8 @@ const HomePage: React.FC = () => {
             }}
           >
             <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', display: 'block', marginBottom: 8 }} />
-            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>Drop .pt model files</p>
-            <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>PyTorch models up to 1 GB</p>
+            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropModel')}</p>
+            <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>{t('dropModelLimit')}</p>
           </div>
 
           {/* Example project card */}
@@ -392,12 +394,12 @@ const HomePage: React.FC = () => {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>Example Project</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t('exampleProject')}</span>
                 <LockOutlined style={{ fontSize: 12, color: '#ccc' }} />
               </div>
               <div style={{ fontSize: 12, color: '#999', display: 'flex', gap: 10, marginTop: 2 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <ExperimentOutlined style={{ fontSize: 11 }} /> 1 model
+                  <ExperimentOutlined style={{ fontSize: 11 }} /> {t('model1')}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <DatabaseOutlined style={{ fontSize: 11 }} /> 5.3 MB
@@ -425,7 +427,7 @@ const HomePage: React.FC = () => {
               e.currentTarget.style.color = '#888';
             }}
           >
-            View all <ArrowRightOutlined style={{ fontSize: 11 }} />
+            {t('common:action.viewAll')} <ArrowRightOutlined style={{ fontSize: 11 }} />
           </div>
         </Card>
 
@@ -443,7 +445,7 @@ const HomePage: React.FC = () => {
                 margin: 0,
               }}
             >
-              <CloudServerOutlined /> Storage
+              <CloudServerOutlined /> {t('storage')}
             </h3>
             <SyncOutlined style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }} />
           </div>
@@ -467,7 +469,7 @@ const HomePage: React.FC = () => {
           {/* By category */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 12, color: '#999', fontWeight: 600, marginBottom: 8, letterSpacing: 0.3 }}>
-              By category
+              {t('byCategory')}
             </div>
             {/* Category bar */}
             <div style={{ width: '100%', background: '#f0f0f0', borderRadius: 999, height: 8, marginBottom: 8, overflow: 'hidden' }}>
@@ -482,14 +484,14 @@ const HomePage: React.FC = () => {
           {/* Resources */}
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: '#999', fontWeight: 600, marginBottom: 10, letterSpacing: 0.3 }}>
-              Resources
+              {t('resources')}
             </div>
             {[
-              { icon: <FolderOutlined />, label: 'Projects', value: '1' },
-              { icon: <DatabaseOutlined />, label: 'Datasets', value: String(stats?.datasets ?? 1) },
-              { icon: <ExperimentOutlined />, label: 'Models', value: `${stats?.models?.total ?? 1} / 100` },
-              { icon: <PictureOutlined />, label: 'Images', value: '8' },
-              { icon: <CloudServerOutlined />, label: 'Deployments', value: `${stats?.models?.deployed ?? 0} / 3` },
+              { icon: <FolderOutlined />, label: t('projects'), value: '1' },
+              { icon: <DatabaseOutlined />, label: t('datasets'), value: String(stats?.datasets ?? 1) },
+              { icon: <ExperimentOutlined />, label: t('models'), value: `${stats?.models?.total ?? 1} / 100` },
+              { icon: <PictureOutlined />, label: t('images'), value: '8' },
+              { icon: <CloudServerOutlined />, label: t('deployments'), value: `${stats?.models?.deployed ?? 0} / 3` },
             ].map((r, i) => (
               <div
                 key={i}
@@ -513,7 +515,7 @@ const HomePage: React.FC = () => {
           {/* Largest items */}
           <div>
             <div style={{ fontSize: 12, color: '#999', fontWeight: 600, marginBottom: 8, letterSpacing: 0.3 }}>
-              Largest items
+              {t('largestItems')}
             </div>
             <div
               style={{
@@ -536,13 +538,13 @@ const HomePage: React.FC = () => {
 
       {/* ─── Recent Activity ─── */}
       <Card style={{ padding: 24, marginTop: 24 }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111', margin: '0 0 6px' }}>Recent Activity</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111', margin: '0 0 6px' }}>{t('recentActivity')}</h3>
         <p style={{ fontSize: 13, color: '#888', margin: '0 0 20px' }}>
-          Your latest datasets, models, and training runs
+          {t('recentDesc')}
         </p>
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#e5e5e5' }}>
           <CloudDownloadOutlined style={{ fontSize: 40, marginBottom: 10, display: 'block' }} />
-          <p style={{ fontSize: 13, color: '#bbb', margin: 0 }}>No recent activity</p>
+          <p style={{ fontSize: 13, color: '#bbb', margin: 0 }}>{t('noRecent')}</p>
         </div>
       </Card>
     </div>

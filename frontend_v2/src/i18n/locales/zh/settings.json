@@ -1,0 +1,15 @@
+{
+  "title": "设置",
+  "systemInfo": "系统信息",
+  "platformName": "平台名称",
+  "version": "版本",
+  "apiAddress": "API 地址",
+  "backendProxy": "后端代理",
+  "modules": "功能模块",
+  "datasetMgmt": "数据集管理",
+  "annotationMgmt": "标注管理",
+  "trainTask": "训练任务",
+  "modelDeploy": "模型部署",
+  "userMgmt": "用户管理",
+  "predictService": "预测服务"
+}

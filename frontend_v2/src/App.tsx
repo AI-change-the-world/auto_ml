@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
+import { useTranslation } from 'react-i18next';
 
 import MainLayout from './layouts/MainLayout';
 import AnnotationLayout from './layouts/AnnotationLayout';
@@ -21,9 +23,12 @@ import SettingsPage from './pages/settings/SettingsPage';
 import ExampleDatasetPage from './pages/example/ExampleDatasetPage';
 
 const App: React.FC = () => {
+  const { i18n } = useTranslation();
+  const antdLocale = i18n.language === 'en' ? enUS : zhCN;
+
   return (
     <ConfigProvider
-      locale={zhCN}
+      locale={antdLocale}
       theme={{
         token: {
           colorPrimary: '#667eea',

@@ -10,6 +10,7 @@ import { listDatasets } from '../../api/dataset';
 import type { AnnotationProject, AnnotationCreate } from '../../types/annotation';
 import type { Dataset } from '../../types/dataset';
 import { AnnotationTypeLabels, AnnotationTypeColors } from '../../types/annotation';
+import { useTranslation } from 'react-i18next';
 
 const colorMap: Record<string, { bg: string; fg: string }> = {
   blue: { bg: '#eef2ff', fg: '#4f6ef7' },
@@ -20,6 +21,8 @@ const colorMap: Record<string, { bg: string; fg: string }> = {
 
 const AnnotationListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('annotation');
+  const tc = useTranslation('common').t;
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,7 +37,7 @@ const AnnotationListPage: React.FC = () => {
     try {
       const res = await listAnnotations(1, 50, keyword || undefined);
       if (res) { setAnnotations(res.items); setTotal(res.total); }
-    } catch { message.error('加载失败'); }
+    } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [keyword]);
 
@@ -46,23 +49,23 @@ const AnnotationListPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!formData.name.trim()) { message.warning('请输入名称'); return; }
+    if (!formData.name.trim()) { message.warning(tc('msg.pleaseInputName')); return; }
     setCreating(true);
     try {
       await createAnnotation(formData);
-      message.success('创建成功');
+      message.success(tc('msg.createSuccess'));
       setCreateOpen(false);
       setFormData({ name: '', annotation_type: 0 });
       fetch();
-    } catch { message.error('创建失败'); }
+    } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
   };
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     Modal.confirm({
-      title: '删除标注项目', content: '确定删除？', okButtonProps: { danger: true },
-      onOk: async () => { await deleteAnnotation(id); message.success('已删除'); fetch(); },
+      title: t('deleteTitle'), content: tc('msg.confirmDelete'), okButtonProps: { danger: true },
+      onOk: async () => { await deleteAnnotation(id); message.success(tc('msg.deleted')); fetch(); },
     });
   };
 
@@ -71,16 +74,16 @@ const AnnotationListPage: React.FC = () => {
       <div className="page-header">
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-            <TagsOutlined /> 标注项目
+            <TagsOutlined /> {t('title')}
           </h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>管理标注项目，进行图像标注</p>
+          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
         </div>
         <button onClick={openCreate} style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
           background: '#4f6ef7', color: '#fff', border: 'none', cursor: 'pointer',
         }}>
-          <PlusOutlined /> 新建标注
+          <PlusOutlined /> {t('newAnnotation')}
         </button>
       </div>
 
@@ -88,7 +91,7 @@ const AnnotationListPage: React.FC = () => {
         <SearchOutlined style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#bbb', fontSize: 13 }} />
         <input
           style={{ width: '100%', padding: '8px 12px 8px 34px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, outline: 'none' }}
-          placeholder="搜索标注项目..."
+          placeholder={t('searchPlaceholder')}
           value={keyword} onChange={(e) => setKeyword(e.target.value)}
         />
       </div>
@@ -98,7 +101,7 @@ const AnnotationListPage: React.FC = () => {
       ) : annotations.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}>
           <TagsOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-          <p style={{ fontSize: 14 }}>暂无标注项目</p>
+          <p style={{ fontSize: 14 }}>{t('empty')}</p>
         </div>
       ) : (
         <div className="card-grid">
@@ -125,7 +128,7 @@ const AnnotationListPage: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ann.name}</span>
                     <span style={{ fontSize: 11, padding: '1px 8px', background: c.bg, color: c.fg, borderRadius: 999, flexShrink: 0 }}>
-                      {AnnotationTypeLabels[ann.annotation_type] ?? '未知'}
+                      {AnnotationTypeLabels[ann.annotation_type] ?? tc('status.unknown')}
                     </span>
                   </div>
                   {classes.length > 0 && (
@@ -137,7 +140,7 @@ const AnnotationListPage: React.FC = () => {
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999' }}>
-                    <span>{classes.length} 个类别</span>
+                    <span>{t('classCount', { count: classes.length })}</span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {new Date(ann.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -147,16 +150,16 @@ const AnnotationListPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>共 {total} 个标注项目</div>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalAnnotations', { count: total })}</div>
 
-      <Modal title="新建标注项目" open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); }} confirmLoading={creating} okText="创建" cancelText="取消">
+      <Modal title={t('newAnnotation')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>名称</label>
-            <Input placeholder="输入标注项目名称" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.name')}</label>
+            <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>标注类型</label>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {Object.entries(AnnotationTypeLabels).map(([k, v]) => (
                 <button key={k} onClick={() => setFormData({ ...formData, annotation_type: Number(k) })} style={{
@@ -169,13 +172,13 @@ const AnnotationListPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>关联数据集</label>
-            <Select placeholder="选择数据集（可选）" allowClear style={{ width: '100%' }} value={formData.dataset_id}
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('linkedDataset')}</label>
+            <Select placeholder={t('selectDataset')} allowClear style={{ width: '100%' }} value={formData.dataset_id}
               onChange={(v) => setFormData({ ...formData, dataset_id: v })} options={datasets.map((ds) => ({ label: ds.name, value: ds.id }))} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>初始类别</label>
-            <Input.TextArea rows={2} placeholder="逗号分隔，例如: person,car,dog" value={formData.classes}
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('initialClasses')}</label>
+            <Input.TextArea rows={2} placeholder={t('classesPlaceholder')} value={formData.classes}
               onChange={(e) => setFormData({ ...formData, classes: e.target.value })} />
           </div>
         </div>

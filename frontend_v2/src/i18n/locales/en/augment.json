@@ -1,0 +1,10 @@
+{
+  "title": "Data Augmentation",
+  "subtitle": "Use various augmentation strategies to expand training data",
+  "empty": "No augmentation capabilities available",
+  "startAugment": "Start Augmentation",
+  "modalTitle": "Data Augmentation - {{type}}",
+  "selectDataset": "Select Dataset",
+  "selectAugmentDataset": "Select dataset to augment",
+  "augmentSubmitted": "Augmentation task submitted"
+}

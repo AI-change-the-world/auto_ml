@@ -6,8 +6,11 @@ import { listDatasets } from '../../api/dataset';
 import type { AugmentCapability } from '../../types/augment';
 import type { Dataset } from '../../types/dataset';
 import { AugmentTypeColors } from '../../types/augment';
+import { useTranslation } from 'react-i18next';
 
 const AugmentPage: React.FC = () => {
+    const { t } = useTranslation('augment');
+    const tc = useTranslation('common').t;
     const [capabilities, setCapabilities] = useState<AugmentCapability[]>([]);
     const [datasets, setDatasets] = useState<Dataset[]>([]);
     const [loading, setLoading] = useState(false);
@@ -21,7 +24,7 @@ const AugmentPage: React.FC = () => {
         try {
             const r = await getAugmentCapabilities();
             if (r) setCapabilities(r);
-        } catch { message.error('加载失败'); }
+        } catch { message.error(tc('msg.loadFailed')); }
         finally { setLoading(false); }
     }, []);
 
@@ -38,13 +41,13 @@ const AugmentPage: React.FC = () => {
     };
 
     const handleProcess = async () => {
-        if (!form.dataset_id) { message.warning('请选择数据集'); return; }
+        if (!form.dataset_id) { message.warning(tc('msg.pleaseSelectDataset')); return; }
         setProcessing(true);
         try {
             await processAugment({ dataset_id: form.dataset_id, augment_type: form.augment_type });
-            message.success('增强任务已提交');
+            message.success(t('augmentSubmitted'));
             setProcessOpen(false);
-        } catch { message.error('提交失败'); }
+        } catch { message.error(tc('msg.submitFailed')); }
         finally { setProcessing(false); }
     };
 
@@ -55,12 +58,12 @@ const AugmentPage: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <div>
                     <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-                        <ThunderboltOutlined /> 数据增强
+                        <ThunderboltOutlined /> {t('title')}
                     </h1>
-                    <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>使用多种增强策略扩充训练数据</p>
+                    <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
                 </div>
                 <button onClick={fetchCapabilities} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}>
-                    <ReloadOutlined /> 刷新
+                    <ReloadOutlined /> {tc('action.refresh')}
                 </button>
             </div>
 
@@ -69,7 +72,7 @@ const AugmentPage: React.FC = () => {
             ) : capabilities.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}>
                     <ThunderboltOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-                    <p>暂无可用增强能力</p>
+                    <p>{t('empty')}</p>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
@@ -101,7 +104,7 @@ const AugmentPage: React.FC = () => {
                                     padding: '8px 16px', background: color, color: '#fff', border: 'none', borderRadius: 8,
                                     fontSize: 13, fontWeight: 500, cursor: 'pointer', marginTop: 'auto',
                                 }}>
-                                    <PlayCircleOutlined /> 开始增强
+                                    <PlayCircleOutlined /> {t('startAugment')}
                                 </button>
                             </div>
                         );
@@ -109,12 +112,12 @@ const AugmentPage: React.FC = () => {
                 </div>
             )}
 
-            <Modal title={`数据增强 - ${selectedType?.toUpperCase() || ''}`} open={processOpen} onOk={handleProcess}
-                onCancel={() => setProcessOpen(false)} confirmLoading={processing} okText="提交" cancelText="取消">
+            <Modal title={t('modalTitle', { type: selectedType?.toUpperCase() || '' })} open={processOpen} onOk={handleProcess}
+                onCancel={() => setProcessOpen(false)} confirmLoading={processing} okText={tc('action.submit')} cancelText={tc('action.cancel')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
                     <div>
-                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>选择数据集</label>
-                        <Select style={{ width: '100%' }} placeholder="选择要增强的数据集" value={form.dataset_id}
+                        <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('selectDataset')}</label>
+                        <Select style={{ width: '100%' }} placeholder={t('selectAugmentDataset')} value={form.dataset_id}
                             onChange={(v) => setForm({ ...form, dataset_id: v })}
                             options={datasets.map((d) => ({ label: d.name, value: d.id }))} showSearch optionFilterProp="label" />
                     </div>

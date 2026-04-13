@@ -15,8 +15,8 @@ class DatabaseConfig(BaseModel):
     """数据库配置"""
     host: str = "localhost"
     port: int = 3306
-    username: str = "root"
-    password: str = ""
+    username: str = "root"  # for test
+    password: str = "root123456"  # for test
     database: str = "auto_ml"
 
     @property
@@ -92,14 +92,18 @@ def _load_settings() -> Settings:
         nacos_data = _load_from_nacos(nacos_config)
         logger.info(f"Loaded config from Nacos: {list(nacos_data.keys())}")
 
-    # 3. 合并 Nacos 配置和环境变量（环境变量优先）
+    # 3. 合并配置：环境变量 > Nacos > DatabaseConfig 默认值
+    _db_defaults = DatabaseConfig()
     db_nacos = nacos_data.get("db", {})
     database = DatabaseConfig(
-        host=os.getenv("DB_HOST", db_nacos.get("host", "localhost")),
-        port=int(os.getenv("DB_PORT", db_nacos.get("port", 3306))),
-        username=os.getenv("DB_USERNAME", db_nacos.get("username", "root")),
-        password=os.getenv("DB_PASSWORD", db_nacos.get("password", "")),
-        database=os.getenv("DB_NAME", db_nacos.get("database", "auto_ml")),
+        host=os.getenv("DB_HOST", db_nacos.get("host", _db_defaults.host)),
+        port=int(os.getenv("DB_PORT", db_nacos.get("port", _db_defaults.port))),
+        username=os.getenv("DB_USERNAME", db_nacos.get(
+            "username", _db_defaults.username)),
+        password=os.getenv("DB_PASSWORD", db_nacos.get(
+            "password", _db_defaults.password)),
+        database=os.getenv("DB_NAME", db_nacos.get(
+            "database", _db_defaults.database)),
     )
 
     ai_nacos = nacos_data.get("ai-platform", {})

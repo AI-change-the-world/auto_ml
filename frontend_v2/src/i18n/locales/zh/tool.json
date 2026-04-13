@@ -1,0 +1,17 @@
+{
+  "title": "工具模型",
+  "subtitle": "管理分割、检测、OCR 等辅助工具模型",
+  "addModel": "添加模型",
+  "addTitle": "添加工具模型",
+  "empty": "暂无工具模型",
+  "emptyHint": "添加分割、检测等工具模型用于辅助标注",
+  "totalModels": "共 {{count}} 个工具模型",
+  "modelName": "模型名称",
+  "modelType": "模型类型",
+  "selectType": "选择模型类型",
+  "endpoint": "服务地址",
+  "detection": "目标检测",
+  "segmentation": "图像分割",
+  "classification": "图像分类",
+  "ocr": "OCR"
+}

@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { getTask, getTaskLogs } from '../../api/task';
 import type { TaskResponse, TaskLogResponse } from '../../types/task';
 import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
+import { useTranslation } from 'react-i18next';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -17,6 +18,8 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
 const TaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation('task');
+  const tc = useTranslation('common').t;
   const taskId = Number(id);
   const [task, setTask] = useState<TaskResponse | null>(null);
   const [logs, setLogs] = useState<TaskLogResponse[]>([]);
@@ -25,7 +28,7 @@ const TaskDetailPage: React.FC = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchTask = useCallback(async () => {
-    try { const r = await getTask(taskId); if (r) setTask(r); } catch { message.error('获取失败'); }
+    try { const r = await getTask(taskId); if (r) setTask(r); } catch { message.error(tc('msg.fetchFailed')); }
   }, [taskId]);
 
   const fetchLogs = useCallback(async () => {
@@ -49,12 +52,12 @@ const TaskDetailPage: React.FC = () => {
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}><Spin size="large" /></div>;
   if (!task) return (
     <div style={{ padding: 24 }}>
-      <button onClick={() => navigate('/tasks')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}><ArrowLeftOutlined /> 返回</button>
-      <div style={{ textAlign: 'center', marginTop: 80, color: '#ccc' }}>任务不存在</div>
+      <button onClick={() => navigate('/tasks')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}><ArrowLeftOutlined /> {tc('action.back')}</button>
+      <div style={{ textAlign: 'center', marginTop: 80, color: '#ccc' }}>{t('notExist')}</div>
     </div>
   );
 
-  const typeLabels: Record<number, string> = { 0: '检测', 1: '分类', 2: '分割' };
+  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification'), 2: t('segmentation') };
   const ck = TaskStatusColors[task.status] || 'default';
   const s = statusStyles[ck] || statusStyles.default;
 
@@ -63,22 +66,22 @@ const TaskDetailPage: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={() => navigate('/tasks')} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #eee', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}><ArrowLeftOutlined /></button>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111', margin: 0 }}>任务 #{task.id}</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111', margin: 0 }}>{t('taskId', { id: task.id })}</h1>
           <span style={{ padding: '2px 10px', fontSize: 12, borderRadius: 999, background: s.bg, color: s.fg, fontWeight: 500 }}>{TaskStatusLabels[task.status]}</span>
         </div>
-        <button onClick={() => { fetchTask(); fetchLogs(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> 刷新</button>
+        <button onClick={() => { fetchTask(); fetchLogs(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
       </div>
 
       {/* Info */}
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
           {[
-            { label: '任务类型', value: typeLabels[task.task_type] ?? task.task_type },
-            { label: '数据集', value: task.dataset_id ?? '-' },
-            { label: '标注', value: task.annotation_id ?? '-' },
-            { label: '状态', value: TaskStatusLabels[task.status] },
-            { label: '创建时间', value: dayjs(task.created_at).format('YYYY-MM-DD HH:mm:ss') },
-            { label: '更新时间', value: dayjs(task.updated_at).format('YYYY-MM-DD HH:mm:ss') },
+            { label: t('taskTypeLabel'), value: typeLabels[task.task_type] ?? task.task_type },
+            { label: t('dataset'), value: task.dataset_id ?? '-' },
+            { label: tc('nav.annotation', { ns: 'common' }), value: task.annotation_id ?? '-' },
+            { label: tc('label.status'), value: TaskStatusLabels[task.status] },
+            { label: tc('label.createdAt'), value: dayjs(task.created_at).format('YYYY-MM-DD HH:mm:ss') },
+            { label: tc('label.updatedAt'), value: dayjs(task.updated_at).format('YYYY-MM-DD HH:mm:ss') },
           ].map((item, i) => (
             <div key={i}>
               <div style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>{item.label}</div>
@@ -88,13 +91,13 @@ const TaskDetailPage: React.FC = () => {
         </div>
         {task.error_message && (
           <div style={{ marginTop: 16, padding: 12, background: '#fef2f2', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 2 }}>错误信息</div>
+            <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 2 }}>{t('errorMessage')}</div>
             <div style={{ fontSize: 13, color: '#991b1b' }}>{task.error_message}</div>
           </div>
         )}
         {task.result && (
           <div style={{ marginTop: 16, padding: 12, background: '#f0fdf4', borderRadius: 8 }}>
-            <div style={{ fontSize: 12, color: '#16a34a', marginBottom: 2 }}>结果</div>
+            <div style={{ fontSize: 12, color: '#16a34a', marginBottom: 2 }}>{t('result')}</div>
             <div style={{ fontSize: 13, color: '#166534', fontFamily: 'monospace' }}>{task.result}</div>
           </div>
         )}
@@ -103,16 +106,16 @@ const TaskDetailPage: React.FC = () => {
       {/* Logs */}
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid #f5f5f5' }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>训练日志</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t('trainLog')}</span>
           <span style={{ fontSize: 12, color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <ClockCircleOutlined /> {task.status <= 1 ? '每 5 秒自动刷新' : `共 ${logs.length} 条`}
+            <ClockCircleOutlined /> {task.status <= 1 ? t('autoRefresh') : t('totalLogs', { count: logs.length })}
           </span>
         </div>
         <div ref={logRef} style={{
           background: '#1e1e1e', color: '#d4d4d4', padding: 16, height: 380, overflow: 'auto',
           fontFamily: "'Cascadia Code', 'Fira Code', Consolas, monospace", fontSize: 12, lineHeight: 1.7,
         }}>
-          {logs.length === 0 ? <span style={{ color: '#555' }}>暂无日志</span>
+          {logs.length === 0 ? <span style={{ color: '#555' }}>{t('noLogs')}</span>
           : logs.map((log) => (
             <div key={log.id}>
               <span style={{ color: '#6a9955' }}>[{dayjs(log.created_at).format('HH:mm:ss')}]</span>{' '}

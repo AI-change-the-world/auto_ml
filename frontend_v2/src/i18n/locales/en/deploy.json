@@ -1,0 +1,16 @@
+{
+  "title": "Model Deployment",
+  "subtitle": "Manage model deployment and undeployment",
+  "empty": "No models available",
+  "totalModels": "{{count}} models in total",
+  "deploy": "Deploy",
+  "undeploy": "Undeploy",
+  "confirmUndeploy": "Confirm Undeploy",
+  "confirmUndeployMsg": "Are you sure to undeploy?",
+  "deploySuccess": "Deployed successfully",
+  "deployFailed": "Deploy failed",
+  "undeploySuccess": "Undeployed successfully",
+  "undeployFailed": "Undeploy failed",
+  "port": "Port",
+  "device": "Device"
+}

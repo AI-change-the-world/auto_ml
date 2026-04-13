@@ -5,7 +5,6 @@ from .annotation import Annotation, AnnotationFile
 from .task import Task, TaskLog, BaseModels
 from .predict import PredictTask, PredictData
 from .deploy import AvailableModel
-from .aether import Agent
 from .tool import ToolModel
 
 __all__ = [
@@ -15,6 +14,5 @@ __all__ = [
     "Task", "TaskLog", "BaseModels",
     "PredictTask", "PredictData",
     "AvailableModel",
-    "Agent",
     "ToolModel",
 ]

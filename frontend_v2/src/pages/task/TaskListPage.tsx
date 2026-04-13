@@ -10,6 +10,7 @@ import type { TaskResponse, TaskCreate, BaseModelResponse } from '../../types/ta
 import type { Dataset } from '../../types/dataset';
 import type { AnnotationProject } from '../../types/annotation';
 import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
+import { useTranslation } from 'react-i18next';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -20,6 +21,8 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
 
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('task');
+  const tc = useTranslation('common').t;
   const [tasks, setTasks] = useState<TaskResponse[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -38,7 +41,7 @@ const TaskListPage: React.FC = () => {
       const st = statusFilter === 'all' ? undefined : Number(statusFilter);
       const r = await listTasks(page, 20, st);
       if (r) { setTasks(r.items); setTotal(r.total); }
-    } catch { message.error('加载失败'); }
+    } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [page, statusFilter]);
 
@@ -55,35 +58,35 @@ const TaskListPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!form.dataset_id) { message.warning('请选择数据集'); return; }
+    if (!form.dataset_id) { message.warning(t('pleaseSelectDataset')); return; }
     setCreating(true);
     try {
       const data: TaskCreate = { task_type: form.task_type, dataset_id: form.dataset_id, annotation_id: form.annotation_id };
       await createTrainTask(data);
-      message.success('创建成功');
+      message.success(tc('msg.createSuccess'));
       setCreateOpen(false);
       setForm({ task_type: 0 });
       fetchTasks();
-    } catch { message.error('创建失败'); }
+    } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
   };
 
   const tabs = [
-    { key: 'all', label: '全部' }, { key: '0', label: '排队中' },
-    { key: '1', label: '运行中' }, { key: '3', label: '已完成' }, { key: '2', label: '失败' },
+    { key: 'all', label: tc('label.all') }, { key: '0', label: tc('status.queued') },
+    { key: '1', label: tc('status.running') }, { key: '3', label: tc('status.completed') }, { key: '2', label: tc('status.failed') },
   ];
-  const typeLabels: Record<number, string> = { 0: '检测', 1: '分类', 2: '分割' };
+  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification'), 2: t('segmentation') };
 
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><ExperimentOutlined /> 训练任务</h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>管理模型训练任务</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><ExperimentOutlined /> {t('title')}</h1>
+          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={fetchTasks} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> 刷新</button>
-          <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><PlusOutlined /> 创建训练</button>
+          <button onClick={fetchTasks} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
+          <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
         </div>
       </div>
 
@@ -99,7 +102,7 @@ const TaskListPage: React.FC = () => {
       </div>
 
       {loading ? <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
-      : tasks.length === 0 ? <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}><ExperimentOutlined style={{ fontSize: 48, marginBottom: 12 }} /><p>暂无任务</p></div>
+      : tasks.length === 0 ? <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}><ExperimentOutlined style={{ fontSize: 48, marginBottom: 12 }} /><p>{t('empty')}</p></div>
       : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {tasks.map((task) => {
@@ -114,12 +117,12 @@ const TaskListPage: React.FC = () => {
                   <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f6ef7', fontWeight: 600, fontSize: 13 }}>#{task.id}</div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `类型${task.task_type}`} 训练</span>
-                      <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || '未知'}</span>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `${t('taskType')}${task.task_type}`} {t('training')}</span>
+                      <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || tc('status.unknown')}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
-                      <span>数据集 #{task.dataset_id ?? '-'}</span>
-                      {task.annotation_id && <span>标注 #{task.annotation_id}</span>}
+                      <span>{t('datasetId', { id: task.dataset_id ?? '-' })}</span>
+                      {task.annotation_id && <span>{t('annotationId', { id: task.annotation_id })}</span>}
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
                     </div>
                   </div>
@@ -131,12 +134,12 @@ const TaskListPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>共 {total} 条</div>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalTasks', { count: total })}</div>
 
-      <Modal title="创建训练任务" open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText="创建" cancelText="取消">
+      <Modal title={t('createTitle')} open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>任务类型</label>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('taskType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {Object.entries(typeLabels).map(([k, v]) => (
                 <button key={k} onClick={() => setForm({ ...form, task_type: Number(k) })} style={{
@@ -149,12 +152,12 @@ const TaskListPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>数据集</label>
-            <Select style={{ width: '100%' }} placeholder="选择数据集" value={form.dataset_id} onChange={(v) => setForm({ ...form, dataset_id: v })} options={datasets.map((d) => ({ label: d.name, value: d.id }))} showSearch optionFilterProp="label" />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataset')}</label>
+            <Select style={{ width: '100%' }} placeholder={t('selectDataset')} value={form.dataset_id} onChange={(v) => setForm({ ...form, dataset_id: v })} options={datasets.map((d) => ({ label: d.name, value: d.id }))} showSearch optionFilterProp="label" />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>标注项目（可选）</label>
-            <Select style={{ width: '100%' }} placeholder="选择标注项目" allowClear value={form.annotation_id} onChange={(v) => setForm({ ...form, annotation_id: v })} options={annotations.map((a) => ({ label: a.name, value: a.id }))} showSearch optionFilterProp="label" />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationOptional')}</label>
+            <Select style={{ width: '100%' }} placeholder={t('selectAnnotation')} allowClear value={form.annotation_id} onChange={(v) => setForm({ ...form, annotation_id: v })} options={annotations.map((a) => ({ label: a.name, value: a.id }))} showSearch optionFilterProp="label" />
           </div>
         </div>
       </Modal>

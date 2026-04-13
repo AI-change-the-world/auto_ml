@@ -13,10 +13,13 @@ import {
 import { getDataset, getDatasetFiles, uploadDatasetFiles, previewFile, deleteDataset } from '../../api/dataset';
 import type { Dataset, DatasetFile } from '../../types';
 import { DataTypeLabels } from '../../types';
+import { useTranslation } from 'react-i18next';
 
 const DatasetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation('dataset');
+  const tc = useTranslation('common').t;
   const datasetId = Number(id);
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [files, setFiles] = useState<DatasetFile[]>([]);
@@ -30,7 +33,7 @@ const DatasetDetailPage: React.FC = () => {
       const [ds, filesRes] = await Promise.all([getDataset(datasetId), getDatasetFiles(datasetId)]);
       if (ds) setDataset(ds);
       if (filesRes) setFiles(filesRes.items);
-    } catch { message.error('加载失败'); }
+    } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [datasetId]);
 
@@ -53,17 +56,17 @@ const DatasetDetailPage: React.FC = () => {
     setUploading(true);
     try {
       await uploadDatasetFiles(datasetId, Array.from(fileList));
-      message.success(`上传 ${fileList.length} 个文件成功`);
+      message.success(t('uploadSuccess', { count: fileList.length }));
       fetchData();
-    } catch { message.error('上传失败'); }
+    } catch { message.error(tc('msg.uploadFailed')); }
     finally { setUploading(false); }
   };
 
   const handleDelete = () => {
     Modal.confirm({
-      title: '删除数据集', content: '确定要删除此数据集吗？此操作不可恢复。',
+      title: t('deleteTitle'), content: t('deleteIrreversible'),
       okButtonProps: { danger: true },
-      onOk: async () => { await deleteDataset(datasetId); message.success('删除成功'); navigate('/datasets'); },
+      onOk: async () => { await deleteDataset(datasetId); message.success(tc('msg.deleted')); navigate('/datasets'); },
     });
   };
 
@@ -71,15 +74,15 @@ const DatasetDetailPage: React.FC = () => {
   if (!dataset) return (
     <div style={{ padding: 24 }}>
       <button onClick={() => navigate('/datasets')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}>
-        <ArrowLeftOutlined /> 返回
+        <ArrowLeftOutlined /> {tc('action.back')}
       </button>
-      <div style={{ textAlign: 'center', marginTop: 80, color: '#ccc' }}>数据集不存在</div>
+      <div style={{ textAlign: 'center', marginTop: 80, color: '#ccc' }}>{t('notExist')}</div>
     </div>
   );
 
   const tabs = [
-    { key: 'images', label: '图片', icon: <PictureOutlined /> },
-    { key: 'info', label: '信息', icon: <TagOutlined /> },
+    { key: 'images', label: t('images'), icon: <PictureOutlined /> },
+    { key: 'info', label: t('info'), icon: <TagOutlined /> },
   ];
 
   const imageFiles = files.filter((f) => {
@@ -91,7 +94,7 @@ const DatasetDetailPage: React.FC = () => {
     <div className="page-container">
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#999', marginBottom: 16 }}>
-        <span style={{ cursor: 'pointer' }} onClick={() => navigate('/datasets')}>数据集</span>
+        <span style={{ cursor: 'pointer' }} onClick={() => navigate('/datasets')}>{t('title')}</span>
         <span>&gt;</span>
         <span style={{ color: '#111', fontWeight: 500 }}>{dataset.name}</span>
       </div>
@@ -102,25 +105,25 @@ const DatasetDetailPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', margin: 0 }}>{dataset.name}</h1>
             <span style={{ padding: '2px 10px', background: '#eef2ff', color: '#4f6ef7', fontSize: 12, borderRadius: 999 }}>
-              {DataTypeLabels[dataset.data_type] ?? '未知'}
+              {DataTypeLabels[dataset.data_type] ?? tc('status.unknown')}
             </span>
             <span style={{ padding: '2px 10px', background: '#f0fdf4', color: '#16a34a', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ width: 5, height: 5, borderRadius: 999, background: '#16a34a' }} /> 就绪
+              <span style={{ width: 5, height: 5, borderRadius: 999, background: '#16a34a' }} /> {tc('status.ready')}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: '#888' }}>
-            <span><PictureOutlined /> {files.length} 张图片</span>
+            <span><PictureOutlined /> {t('filesCount', { count: files.length })}</span>
             <span>·</span>
-            <span><TagOutlined /> {files.length} 已标注</span>
+            <span><TagOutlined /> {t('annotated', { count: files.length })}</span>
             <span>·</span>
-            <span><ClockCircleOutlined /> 更新于 {new Date(dataset.updated_at).toLocaleDateString()}</span>
+            <span><ClockCircleOutlined /> {t('updatedAt', { date: new Date(dataset.updated_at).toLocaleDateString() })}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => navigate('/tasks')}
             style={{ padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
-          >+ 新建模型</button>
+          >+ {t('newModel')}</button>
           <button
             onClick={handleDelete}
             style={{ padding: '8px 10px', background: '#fff', color: '#999', border: '1px solid #eee', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
@@ -170,11 +173,11 @@ const DatasetDetailPage: React.FC = () => {
               input.click();
             }}
           >
-            {uploading ? <Spin tip="上传中..." /> : (
+            {uploading ? <Spin tip={t('uploading')} /> : (
               <>
                 <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', marginBottom: 8 }} />
-                <p style={{ fontSize: 13, color: '#888', margin: 0 }}>拖放图片、视频或数据集</p>
-                <p style={{ fontSize: 11, color: '#bbb', margin: '4px 0 0' }}>图片 &lt;50 MB · 数据集 &lt;10 GB — ZIP, TAR</p>
+                <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropUpload')}</p>
+                <p style={{ fontSize: 11, color: '#bbb', margin: '4px 0 0' }}>{t('dropLimit')}</p>
               </>
             )}
           </div>
@@ -192,7 +195,7 @@ const DatasetDetailPage: React.FC = () => {
                         src={previewUrls[f.file_name]}
                         alt={f.file_name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        preview={{ mask: <span style={{ color: '#fff', fontSize: 12 }}>预览</span> }}
+                        preview={{ mask: <span style={{ color: '#fff', fontSize: 12 }}>{t('preview')}</span> }}
                       />
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ddd' }}>
@@ -210,7 +213,7 @@ const DatasetDetailPage: React.FC = () => {
           ) : (
             <div style={{ textAlign: 'center', padding: 60, color: '#ddd' }}>
               <InboxOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-              <p style={{ fontSize: 13 }}>暂无图片，请上传</p>
+              <p style={{ fontSize: 13 }}>{t('noImages')}</p>
             </div>
           )}
         </>
@@ -220,14 +223,14 @@ const DatasetDetailPage: React.FC = () => {
         <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24 }}>
           <div className="info-grid-2">
             {[
-              { label: '名称', value: dataset.name },
-              { label: '类型', value: DataTypeLabels[dataset.data_type] ?? '未知' },
-              { label: '文件数', value: `${files.length} 个` },
-              { label: '存储', value: dataset.storage_type === 0 ? '本地' : 'S3' },
-              { label: '创建', value: new Date(dataset.created_at).toLocaleString() },
-              { label: '更新', value: new Date(dataset.updated_at).toLocaleString() },
-              { label: '路径', value: dataset.save_path || '-' },
-              { label: '描述', value: dataset.description || '-' },
+              { label: tc('label.name'), value: dataset.name },
+              { label: tc('label.type'), value: DataTypeLabels[dataset.data_type] ?? tc('status.unknown') },
+              { label: tc('label.files'), value: t('fileCount', { count: files.length }) },
+              { label: t('storageLocal'), value: dataset.storage_type === 0 ? t('storageLocal') : t('storageS3') },
+              { label: tc('label.createdAt'), value: new Date(dataset.created_at).toLocaleString() },
+              { label: tc('label.updatedAt'), value: new Date(dataset.updated_at).toLocaleString() },
+              { label: t('path'), value: dataset.save_path || '-' },
+              { label: tc('label.description'), value: dataset.description || '-' },
             ].map((item, i) => (
               <div key={i}>
                 <div style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>{item.label}</div>

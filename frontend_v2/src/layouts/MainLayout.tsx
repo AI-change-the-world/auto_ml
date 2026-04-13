@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   HomeOutlined,
   SearchOutlined,
@@ -27,60 +28,67 @@ interface NavItem {
   children?: { key: string; label: string; icon?: React.ReactNode; badge?: string }[];
 }
 
-/* ─── nav definition ─── */
-const myProjectsNav: NavItem[] = [
-  {
-    key: '/annotations',
-    icon: <TagsOutlined />,
-    label: '标注',
-    children: [
-      { key: '/annotations/example', label: '示例数据集', icon: <DatabaseOutlined style={{ color: '#8b5cf6' }} />, badge: '8' },
-    ],
-  },
-  {
-    key: '/tasks',
-    icon: <ExperimentOutlined />,
-    label: '训练',
-    children: [
-      { key: '/tasks/example', label: '示例项目', icon: <ExperimentOutlined style={{ color: '#ef4444' }} />, badge: '1' },
-    ],
-  },
-  {
-    key: '/deploy',
-    icon: <CloudServerOutlined />,
-    label: '部署',
-    children: [],
-  },
-  {
-    key: '/predict',
-    icon: <AimOutlined />,
-    label: '预测',
-    children: [],
-  },
-  {
-    key: '/augment',
-    icon: <ThunderboltOutlined />,
-    label: '增强',
-    children: [],
-  },
-  {
-    key: '/tools',
-    icon: <ToolOutlined />,
-    label: '工具',
-    children: [],
-  },
-];
-
-const bottomItems = [
-  { key: '/trash', icon: <DeleteOutlined />, label: '回收站' },
-  { key: '/settings', icon: <SettingOutlined />, label: '设置' },
-  { key: '/help', icon: <QuestionCircleOutlined />, label: '帮助' },
-];
-
 /* ─── component ─── */
+
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation('common');
+
+  const toggleLanguage = useCallback(() => {
+    const next = i18n.language === 'en' ? 'zh' : 'en';
+    i18n.changeLanguage(next);
+    localStorage.setItem('automl-lang', next);
+  }, [i18n]);
+
+  const myProjectsNav: NavItem[] = [
+    {
+      key: '/annotations',
+      icon: <TagsOutlined />,
+      label: t('nav.annotation'),
+      children: [
+        { key: '/annotations/example', label: t('nav.exampleDataset'), icon: <DatabaseOutlined style={{ color: '#8b5cf6' }} />, badge: '8' },
+      ],
+    },
+    {
+      key: '/tasks',
+      icon: <ExperimentOutlined />,
+      label: t('nav.training'),
+      children: [
+        { key: '/tasks/example', label: t('nav.exampleProject'), icon: <ExperimentOutlined style={{ color: '#ef4444' }} />, badge: '1' },
+      ],
+    },
+    {
+      key: '/deploy',
+      icon: <CloudServerOutlined />,
+      label: t('nav.deploy'),
+      children: [],
+    },
+    {
+      key: '/predict',
+      icon: <AimOutlined />,
+      label: t('nav.predict'),
+      children: [],
+    },
+    {
+      key: '/augment',
+      icon: <ThunderboltOutlined />,
+      label: t('nav.augment'),
+      children: [],
+    },
+    {
+      key: '/tools',
+      icon: <ToolOutlined />,
+      label: t('nav.tools'),
+      children: [],
+    },
+  ];
+
+  const bottomItems = [
+    { key: '/trash', icon: <DeleteOutlined />, label: t('nav.trash') },
+    { key: '/settings', icon: <SettingOutlined />, label: t('nav.settings') },
+    { key: '/help', icon: <QuestionCircleOutlined />, label: t('nav.help') },
+  ];
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     '/annotations': true,
@@ -201,7 +209,7 @@ const MainLayout: React.FC = () => {
               }}
             >
               <SearchOutlined style={{ fontSize: 12 }} />
-              <span>搜索...</span>
+              <span>{t('nav.search')}</span>
               <span
                 style={{
                   marginLeft: 'auto',
@@ -222,8 +230,8 @@ const MainLayout: React.FC = () => {
         {/* Top nav */}
         <nav style={{ padding: '4px 8px', overflow: 'hidden' }}>
           {[
-            { key: '/', icon: <HomeOutlined />, label: '首页' },
-            { key: '/datasets', icon: <SearchOutlined />, label: '浏览' },
+            { key: '/', icon: <HomeOutlined />, label: t('nav.home') },
+            { key: '/datasets', icon: <SearchOutlined />, label: t('nav.browse') },
           ].map((item) => {
             const active = isActive(item.key);
             return (
@@ -258,7 +266,7 @@ const MainLayout: React.FC = () => {
                 padding: '4px 12px 6px',
               }}
             >
-              我的项目
+              {t('nav.myProjects')}
             </div>
 
             {myProjectsNav.map((group) => {
@@ -374,7 +382,7 @@ const MainLayout: React.FC = () => {
                         color: '#ccc',
                       }}
                     >
-                      暂无活跃部署
+                      {t('nav.noActiveDeploy')}
                     </div>
                   )}
                 </div>
@@ -493,16 +501,38 @@ const MainLayout: React.FC = () => {
           )}
           <RightOutlined style={{ fontSize: 10, color: '#ddd' }} />
           <span style={{ fontSize: 14, color: '#555', fontWeight: 500 }}>
-            {location.pathname === '/' && '首页'}
-            {location.pathname.startsWith('/datasets') && '数据集'}
-            {location.pathname.startsWith('/annotations') && '标注'}
-            {location.pathname.startsWith('/tasks') && '训练'}
-            {location.pathname.startsWith('/deploy') && '部署'}
-            {location.pathname.startsWith('/predict') && '预测'}
-            {location.pathname.startsWith('/augment') && '增强'}
-            {location.pathname.startsWith('/tools') && '工具'}
-            {location.pathname.startsWith('/settings') && '设置'}
+            {location.pathname === '/' && t('nav.home')}
+            {location.pathname.startsWith('/datasets') && t('nav.datasets')}
+            {location.pathname.startsWith('/annotations') && t('nav.annotation')}
+            {location.pathname.startsWith('/tasks') && t('nav.training')}
+            {location.pathname.startsWith('/deploy') && t('nav.deploy')}
+            {location.pathname.startsWith('/predict') && t('nav.predict')}
+            {location.pathname.startsWith('/augment') && t('nav.augment')}
+            {location.pathname.startsWith('/tools') && t('nav.tools')}
+            {location.pathname.startsWith('/settings') && t('nav.settings')}
           </span>
+          <button
+            onClick={toggleLanguage}
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '4px 12px',
+              border: '1px solid #e5e7eb',
+              borderRadius: 6,
+              background: '#f9fafb',
+              color: '#374151',
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#4f6ef7'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+          >
+            🌐 {i18n.language === 'en' ? '中文' : 'English'}
+          </button>
         </header>
 
         <main style={{ flex: 1, overflow: 'auto', background: '#fafafa' }}>

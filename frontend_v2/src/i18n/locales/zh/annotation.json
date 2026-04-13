@@ -1,0 +1,16 @@
+{
+  "title": "标注项目",
+  "subtitle": "管理标注项目，进行图像标注",
+  "newAnnotation": "新建标注",
+  "searchPlaceholder": "搜索标注项目...",
+  "empty": "暂无标注项目",
+  "totalAnnotations": "共 {{count}} 个标注项目",
+  "deleteTitle": "删除标注项目",
+  "annotationType": "标注类型",
+  "linkedDataset": "关联数据集",
+  "selectDataset": "选择数据集（可选）",
+  "initialClasses": "初始类别",
+  "classesPlaceholder": "逗号分隔，例如: person,car,dog",
+  "inputName": "输入标注项目名称",
+  "classCount": "{{count}} 个类别"
+}
