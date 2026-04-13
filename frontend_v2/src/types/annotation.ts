@@ -6,17 +6,54 @@ export enum LabelMode {
   Add = 'add',
 }
 
-/** 边界框标注 */
-export interface BBoxAnnotation {
-  uuid: string;
+/** 标注形状类型 */
+export enum AnnotationShape {
+  BBox = 'bbox',
+  Polygon = 'polygon',
+  OBB = 'obb',
+}
+
+/** 2D 坐标点 */
+export interface Point {
   x: number;
   y: number;
-  width: number;
-  height: number;
+}
+
+/** 标注基础字段 */
+interface BaseAnnotation {
+  uuid: string;
   classId: number;
   visible: boolean;
   selected: boolean;
 }
+
+/** 边界框标注 */
+export interface BBoxAnnotation extends BaseAnnotation {
+  shape: AnnotationShape.BBox;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** 多边形标注（分割） */
+export interface PolygonAnnotation extends BaseAnnotation {
+  shape: AnnotationShape.Polygon;
+  points: Point[];
+}
+
+/** 旋转框标注（OBB） */
+export interface OBBAnnotation extends BaseAnnotation {
+  shape: AnnotationShape.OBB;
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  angle: number; // 弧度
+}
+
+/** 联合标注类型 */
+export type Annotation = BBoxAnnotation | PolygonAnnotation | OBBAnnotation;
 
 /** 创建新的边界框标注 */
 export function createBBoxAnnotation(
@@ -27,6 +64,7 @@ export function createBBoxAnnotation(
   classId: number = -1,
 ): BBoxAnnotation {
   return {
+    shape: AnnotationShape.BBox,
     uuid: uuidv4(),
     x,
     y,
@@ -36,6 +74,66 @@ export function createBBoxAnnotation(
     visible: true,
     selected: false,
   };
+}
+
+/** 创建新的多边形标注 */
+export function createPolygonAnnotation(
+  points: Point[],
+  classId: number = -1,
+): PolygonAnnotation {
+  return {
+    shape: AnnotationShape.Polygon,
+    uuid: uuidv4(),
+    points,
+    classId,
+    visible: true,
+    selected: false,
+  };
+}
+
+/** 创建新的 OBB 标注 */
+export function createOBBAnnotation(
+  cx: number,
+  cy: number,
+  width: number,
+  height: number,
+  angle: number = 0,
+  classId: number = -1,
+): OBBAnnotation {
+  return {
+    shape: AnnotationShape.OBB,
+    uuid: uuidv4(),
+    cx,
+    cy,
+    width,
+    height,
+    angle,
+    classId,
+    visible: true,
+    selected: false,
+  };
+}
+
+/** 获取 OBB 的 4 个顶点坐标（顺时针） */
+export function getOBBVertices(obb: OBBAnnotation): [Point, Point, Point, Point] {
+  const cos = Math.cos(obb.angle);
+  const sin = Math.sin(obb.angle);
+  const hw = obb.width / 2;
+  const hh = obb.height / 2;
+  const corners: [number, number][] = [
+    [-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh],
+  ];
+  return corners.map(([dx, dy]) => ({
+    x: obb.cx + dx * cos - dy * sin,
+    y: obb.cy + dx * sin + dy * cos,
+  })) as [Point, Point, Point, Point];
+}
+
+/** 获取多边形的包围盒中心 */
+export function getPolygonCenter(poly: PolygonAnnotation): Point {
+  if (poly.points.length === 0) return { x: 0, y: 0 };
+  const sum = poly.points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+  return { x: sum.x / poly.points.length, y: sum.y / poly.points.length };
 }
 
 /** YOLO 格式标签 */

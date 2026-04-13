@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class AnnotationCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    annotation_type: int = Field(default=0, description="0=检测, 1=分类, 2=分割")
+    annotation_type: int = Field(default=0, description="0=检测(BBox/OBB), 1=分类, 2=分割(Polygon), 3=MLLM")
     classes: Optional[str] = Field(default=None, description="分类项 JSON")
     storage_type: int = Field(default=1)
     prompt: Optional[str] = None

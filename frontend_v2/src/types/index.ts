@@ -1,6 +1,10 @@
 export type { Result, PageResult, PageParams } from './api';
 export type {
   BBoxAnnotation,
+  PolygonAnnotation,
+  OBBAnnotation,
+  Annotation,
+  Point,
   YoloLabel,
   AnnotationProject,
   AnnotationFile,
@@ -10,9 +14,14 @@ export type {
 export {
   LabelMode,
   AnnotationType,
+  AnnotationShape,
   CLASS_COLORS,
   getClassColor,
   createBBoxAnnotation,
+  createPolygonAnnotation,
+  createOBBAnnotation,
+  getOBBVertices,
+  getPolygonCenter,
   AnnotationTypeLabels,
   AnnotationTypeColors,
 } from './annotation';

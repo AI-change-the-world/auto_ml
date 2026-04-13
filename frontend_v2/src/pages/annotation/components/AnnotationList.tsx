@@ -1,8 +1,38 @@
 import React, { useState } from 'react';
 import { List, Button, Tag, Select, Popconfirm, Empty, Badge } from 'antd';
-import { DeleteOutlined, EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined, EyeOutlined, EyeInvisibleOutlined,
+  BorderOutlined, StarOutlined, GatewayOutlined,
+} from '@ant-design/icons';
 import { useAnnotationStore } from '../../../stores/annotationStore';
-import { getClassColor } from '../../../types';
+import { getClassColor, AnnotationShape } from '../../../types';
+import type { Annotation, PolygonAnnotation, OBBAnnotation } from '../../../types';
+
+const ShapeIcon: React.FC<{ shape: AnnotationShape }> = ({ shape }) => {
+  switch (shape) {
+    case AnnotationShape.BBox:
+      return <BorderOutlined style={{ fontSize: 12, color: '#999' }} />;
+    case AnnotationShape.OBB:
+      return <StarOutlined style={{ fontSize: 12, color: '#999' }} />;
+    case AnnotationShape.Polygon:
+      return <GatewayOutlined style={{ fontSize: 12, color: '#999' }} />;
+    default:
+      return null;
+  }
+};
+
+const getShapeInfo = (item: Annotation): string => {
+  switch (item.shape) {
+    case AnnotationShape.Polygon:
+      return `${(item as PolygonAnnotation).points.length} pts`;
+    case AnnotationShape.OBB: {
+      const deg = Math.round(((item as OBBAnnotation).angle * 180) / Math.PI);
+      return `${deg}°`;
+    }
+    default:
+      return '';
+  }
+};
 
 const AnnotationList: React.FC = () => {
   const {
@@ -36,6 +66,7 @@ const AnnotationList: React.FC = () => {
             renderItem={(item) => {
               const isSelected = item.uuid === selectedUuid;
               const color = getClassColor(item.classId);
+              const shapeInfo = getShapeInfo(item);
 
               return (
                 <List.Item
@@ -49,6 +80,9 @@ const AnnotationList: React.FC = () => {
                   onClick={() => selectAnnotation(item.uuid)}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
+                    {/* 形状图标 */}
+                    <ShapeIcon shape={item.shape} />
+
                     {/* 类别标签 */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {editingUuid === item.uuid ? (
@@ -78,6 +112,13 @@ const AnnotationList: React.FC = () => {
                         </Tag>
                       )}
                     </div>
+
+                    {/* 形状信息 */}
+                    {shapeInfo && (
+                      <span style={{ fontSize: 11, color: '#999', whiteSpace: 'nowrap' }}>
+                        {shapeInfo}
+                      </span>
+                    )}
 
                     {/* 可见性按钮 */}
                     <Button

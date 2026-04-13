@@ -1,25 +1,28 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { LabelMode } from '../types';
-import type { BBoxAnnotation } from '../types';
+import { LabelMode, AnnotationShape } from '../types';
+import type { Annotation } from '../types';
 
 interface AnnotationStoreState {
   // 标注数据
-  annotations: BBoxAnnotation[];
+  annotations: Annotation[];
   selectedUuid: string;
   mode: LabelMode;
   modified: boolean;
   classes: string[];
+
+  // 当前标注形状工具
+  annotationShape: AnnotationShape;
 
   // 图像尺寸
   imageWidth: number;
   imageHeight: number;
 
   // Actions
-  setAnnotations: (annotations: BBoxAnnotation[]) => void;
-  addAnnotation: (annotation: BBoxAnnotation) => void;
+  setAnnotations: (annotations: Annotation[]) => void;
+  addAnnotation: (annotation: Annotation) => void;
   deleteAnnotation: (uuid: string) => void;
-  updateAnnotation: (uuid: string, updates: Partial<BBoxAnnotation>) => void;
+  updateAnnotation: (uuid: string, updates: Partial<Annotation>) => void;
   selectAnnotation: (uuid: string) => void;
   clearSelection: () => void;
   toggleVisibility: (uuid: string) => void;
@@ -30,6 +33,7 @@ interface AnnotationStoreState {
   setModified: (modified: boolean) => void;
   setClasses: (classes: string[]) => void;
   setImageSize: (width: number, height: number) => void;
+  setAnnotationShape: (shape: AnnotationShape) => void;
   reset: () => void;
 }
 
@@ -39,6 +43,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
   mode: LabelMode.Edit,
   modified: false,
   classes: [],
+  annotationShape: AnnotationShape.BBox,
   imageWidth: 0,
   imageHeight: 0,
 
@@ -61,26 +66,26 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
 
   updateAnnotation: (uuid, updates) =>
     set((state) => ({
-      annotations: state.annotations.map((a) => (a.uuid === uuid ? { ...a, ...updates } : a)),
+      annotations: state.annotations.map((a) => (a.uuid === uuid ? { ...a, ...updates } as Annotation : a)),
       modified: true,
     })),
 
   selectAnnotation: (uuid) =>
     set((state) => ({
       selectedUuid: uuid,
-      annotations: state.annotations.map((a) => ({ ...a, selected: a.uuid === uuid })),
+      annotations: state.annotations.map((a) => ({ ...a, selected: a.uuid === uuid }) as Annotation),
     })),
 
   clearSelection: () =>
     set((state) => ({
       selectedUuid: '',
-      annotations: state.annotations.map((a) => ({ ...a, selected: false })),
+      annotations: state.annotations.map((a) => ({ ...a, selected: false }) as Annotation),
     })),
 
   toggleVisibility: (uuid) =>
     set((state) => ({
       annotations: state.annotations.map((a) =>
-        a.uuid === uuid ? { ...a, visible: !a.visible } : a,
+        a.uuid === uuid ? { ...a, visible: !a.visible } as Annotation : a,
       ),
     })),
 
@@ -89,7 +94,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
     if (!selectedUuid) return;
     set((state) => ({
       annotations: state.annotations.map((a) =>
-        a.uuid === selectedUuid ? { ...a, visible: !a.visible } : a,
+        a.uuid === selectedUuid ? { ...a, visible: !a.visible } as Annotation : a,
       ),
     }));
   },
@@ -117,12 +122,15 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
 
   setImageSize: (width, height) => set({ imageWidth: width, imageHeight: height }),
 
+  setAnnotationShape: (shape) => set({ annotationShape: shape }),
+
   reset: () =>
     set({
       annotations: [],
       selectedUuid: '',
       mode: LabelMode.Edit,
       modified: false,
+      annotationShape: AnnotationShape.BBox,
       imageWidth: 0,
       imageHeight: 0,
     }),
