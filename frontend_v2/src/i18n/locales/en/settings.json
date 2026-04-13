@@ -1,15 +1,15 @@
 {
-  "title": "Settings",
-  "systemInfo": "System Info",
-  "platformName": "Platform Name",
-  "version": "Version",
-  "apiAddress": "API Address",
-  "backendProxy": "Backend Proxy",
-  "modules": "Modules",
-  "datasetMgmt": "Dataset Management",
-  "annotationMgmt": "Annotation Management",
-  "trainTask": "Training Task",
-  "modelDeploy": "Model Deployment",
-  "userMgmt": "User Management",
-  "predictService": "Prediction Service"
+    "title": "Settings",
+    "systemInfo": "System Info",
+    "platformName": "Platform Name",
+    "version": "Version",
+    "apiAddress": "API Address",
+    "backendProxy": "Backend Proxy",
+    "modules": "Modules",
+    "datasetMgmt": "Dataset Management",
+    "annotationMgmt": "Annotation Management",
+    "trainTask": "Training Task",
+    "modelDeploy": "Model Deployment",
+    "userMgmt": "User Management",
+    "predictService": "Prediction Service"
 }

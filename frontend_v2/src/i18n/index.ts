@@ -28,40 +28,40 @@ import enExample from './locales/en/example.json';
 const savedLang = localStorage.getItem('automl-lang') || 'zh';
 
 i18n.use(initReactI18next).init({
-  resources: {
-    zh: {
-      common: zhCommon,
-      home: zhHome,
-      dataset: zhDataset,
-      annotation: zhAnnotation,
-      task: zhTask,
-      deploy: zhDeploy,
-      predict: zhPredict,
-      augment: zhAugment,
-      tool: zhTool,
-      settings: zhSettings,
-      example: zhExample,
+    resources: {
+        zh: {
+            common: zhCommon,
+            home: zhHome,
+            dataset: zhDataset,
+            annotation: zhAnnotation,
+            task: zhTask,
+            deploy: zhDeploy,
+            predict: zhPredict,
+            augment: zhAugment,
+            tool: zhTool,
+            settings: zhSettings,
+            example: zhExample,
+        },
+        en: {
+            common: enCommon,
+            home: enHome,
+            dataset: enDataset,
+            annotation: enAnnotation,
+            task: enTask,
+            deploy: enDeploy,
+            predict: enPredict,
+            augment: enAugment,
+            tool: enTool,
+            settings: enSettings,
+            example: enExample,
+        },
     },
-    en: {
-      common: enCommon,
-      home: enHome,
-      dataset: enDataset,
-      annotation: enAnnotation,
-      task: enTask,
-      deploy: enDeploy,
-      predict: enPredict,
-      augment: enAugment,
-      tool: enTool,
-      settings: enSettings,
-      example: enExample,
+    lng: savedLang,
+    fallbackLng: 'zh',
+    defaultNS: 'common',
+    interpolation: {
+        escapeValue: false,
     },
-  },
-  lng: savedLang,
-  fallbackLng: 'zh',
-  defaultNS: 'common',
-  interpolation: {
-    escapeValue: false,
-  },
 });
 
 export default i18n;

@@ -35,7 +35,7 @@ const TaskDetailPage: React.FC = () => {
     try {
       const r = await getTaskLogs(taskId, 1, 500);
       if (r) { setLogs(r.items); setTimeout(() => { logRef.current && (logRef.current.scrollTop = logRef.current.scrollHeight); }, 50); }
-    } catch {}
+    } catch { }
   }, [taskId]);
 
   useEffect(() => {
@@ -116,12 +116,12 @@ const TaskDetailPage: React.FC = () => {
           fontFamily: "'Cascadia Code', 'Fira Code', Consolas, monospace", fontSize: 12, lineHeight: 1.7,
         }}>
           {logs.length === 0 ? <span style={{ color: '#555' }}>{t('noLogs')}</span>
-          : logs.map((log) => (
-            <div key={log.id}>
-              <span style={{ color: '#6a9955' }}>[{dayjs(log.created_at).format('HH:mm:ss')}]</span>{' '}
-              <span style={{ color: log.log_level === 'ERROR' ? '#f44747' : log.log_level === 'WARNING' ? '#cca700' : '#d4d4d4' }}>{log.content}</span>
-            </div>
-          ))}
+            : logs.map((log) => (
+              <div key={log.id}>
+                <span style={{ color: '#6a9955' }}>[{dayjs(log.created_at).format('HH:mm:ss')}]</span>{' '}
+                <span style={{ color: log.log_level === 'ERROR' ? '#f44747' : log.log_level === 'WARNING' ? '#cca700' : '#d4d4d4' }}>{log.content}</span>
+              </div>
+            ))}
         </div>
       </div>
     </div>

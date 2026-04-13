@@ -54,7 +54,7 @@ const TaskListPage: React.FC = () => {
       if (d) setDatasets(d.items);
       if (a) setAnnotations(a.items);
       if (b) setBm(Array.isArray(b) ? b : []);
-    } catch {}
+    } catch { }
   };
 
   const handleCreate = async () => {
@@ -102,37 +102,37 @@ const TaskListPage: React.FC = () => {
       </div>
 
       {loading ? <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
-      : tasks.length === 0 ? <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}><ExperimentOutlined style={{ fontSize: 48, marginBottom: 12 }} /><p>{t('empty')}</p></div>
-      : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {tasks.map((task) => {
-            const ck = TaskStatusColors[task.status] || 'default';
-            const s = statusStyles[ck] || statusStyles.default;
-            return (
-              <div key={task.id} onClick={() => navigate(`/tasks/${task.id}`)} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '14px 18px', cursor: 'pointer', transition: 'box-shadow 0.2s',
-              }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'} onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f6ef7', fontWeight: 600, fontSize: 13 }}>#{task.id}</div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `${t('taskType')}${task.task_type}`} {t('training')}</span>
-                      <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || tc('status.unknown')}</span>
+        : tasks.length === 0 ? <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}><ExperimentOutlined style={{ fontSize: 48, marginBottom: 12 }} /><p>{t('empty')}</p></div>
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {tasks.map((task) => {
+                const ck = TaskStatusColors[task.status] || 'default';
+                const s = statusStyles[ck] || statusStyles.default;
+                return (
+                  <div key={task.id} onClick={() => navigate(`/tasks/${task.id}`)} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '14px 18px', cursor: 'pointer', transition: 'box-shadow 0.2s',
+                  }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'} onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f6ef7', fontWeight: 600, fontSize: 13 }}>#{task.id}</div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `${t('taskType')}${task.task_type}`} {t('training')}</span>
+                          <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || tc('status.unknown')}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
+                          <span>{t('datasetId', { id: task.dataset_id ?? '-' })}</span>
+                          {task.annotation_id && <span>{t('annotationId', { id: task.annotation_id })}</span>}
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
-                      <span>{t('datasetId', { id: task.dataset_id ?? '-' })}</span>
-                      {task.annotation_id && <span>{t('annotationId', { id: task.annotation_id })}</span>}
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
-                    </div>
+                    <RightOutlined style={{ color: '#ddd' }} />
                   </div>
-                </div>
-                <RightOutlined style={{ color: '#ddd' }} />
-              </div>
-            );
-          })}
-        </div>
-      )}
+                );
+              })}
+            </div>
+          )}
 
       <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalTasks', { count: total })}</div>
 

@@ -45,7 +45,7 @@ const AnnotationListPage: React.FC = () => {
 
   const openCreate = async () => {
     setCreateOpen(true);
-    try { const r = await listDatasets(1, 100); if (r) setDatasets(r.items); } catch {}
+    try { const r = await listDatasets(1, 100); if (r) setDatasets(r.items); } catch { }
   };
 
   const handleCreate = async () => {
