@@ -10,7 +10,7 @@ from app.common import Result, PageResult
 from app.config.database import get_db
 from .schemas import (
     DatasetCreate, DatasetUpdate, DatasetResponse,
-    DatasetFileResponse, FilePreviewResponse
+    DatasetFileResponse, FilePreviewResponse, BatchDeleteRequest
 )
 from .service import get_dataset_service, DatasetService
 
@@ -114,3 +114,27 @@ async def preview_file(
     """预览文件（获取预签名 URL）"""
     result = await service.preview_file(db, dataset_id, file_name)
     return Result.ok(result)
+
+
+@router.delete("/{dataset_id}/files/{file_id}", response_model=Result, summary="删除单个文件")
+async def delete_file(
+    dataset_id: int,
+    file_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: DatasetService = Depends(get_dataset_service),
+):
+    """删除数据集中的单个文件"""
+    await service.delete_file(db, dataset_id, file_id)
+    return Result.ok(message="File deleted successfully")
+
+
+@router.post("/{dataset_id}/files/batch-delete", response_model=Result[int], summary="批量删除文件")
+async def batch_delete_files(
+    dataset_id: int,
+    data: BatchDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    service: DatasetService = Depends(get_dataset_service),
+):
+    """批量删除数据集文件"""
+    deleted = await service.batch_delete_files(db, dataset_id, data.file_ids)
+    return Result.ok(deleted, f"Deleted {deleted} files successfully")

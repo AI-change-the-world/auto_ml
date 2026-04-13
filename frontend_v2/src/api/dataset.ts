@@ -59,3 +59,15 @@ export async function previewFile(datasetId: number, fileName: string) {
   });
   return res.data.data;
 }
+
+/** 删除单个文件 */
+export async function deleteDatasetFile(datasetId: number, fileId: number) {
+  const res = await apiClient.delete<Result<unknown>>(`/dataset/${datasetId}/files/${fileId}`);
+  return res.data;
+}
+
+/** 批量删除文件 */
+export async function batchDeleteDatasetFiles(datasetId: number, fileIds: number[]) {
+  const res = await apiClient.post<Result<number>>(`/dataset/${datasetId}/files/batch-delete`, { file_ids: fileIds });
+  return res.data.data;
+}

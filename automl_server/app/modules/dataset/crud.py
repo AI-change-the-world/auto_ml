@@ -149,3 +149,35 @@ async def get_dataset_file_count(db: AsyncSession, dataset_id: int) -> int:
     )
     result = await db.execute(stmt)
     return result.scalar()
+
+
+async def get_dataset_file_by_id(db: AsyncSession, file_id: int) -> Optional[DatasetFile]:
+    """根据 ID 获取数据集文件"""
+    stmt = select(DatasetFile).where(
+        DatasetFile.id == file_id,
+        DatasetFile.is_deleted == False
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def delete_dataset_file(db: AsyncSession, file_id: int) -> bool:
+    """软删除数据集文件"""
+    stmt = (
+        update(DatasetFile)
+        .where(DatasetFile.id == file_id)
+        .values(is_deleted=True)
+    )
+    result = await db.execute(stmt)
+    return result.rowcount > 0
+
+
+async def batch_delete_dataset_files(db: AsyncSession, file_ids: list[int]) -> int:
+    """批量软删除数据集文件"""
+    stmt = (
+        update(DatasetFile)
+        .where(DatasetFile.id.in_(file_ids))
+        .values(is_deleted=True)
+    )
+    result = await db.execute(stmt)
+    return result.rowcount

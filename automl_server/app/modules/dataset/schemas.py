@@ -64,3 +64,8 @@ class FilePreviewResponse(BaseModel):
     """文件预览响应"""
     file_name: str
     presigned_url: str
+
+
+class BatchDeleteRequest(BaseModel):
+    """批量删除请求"""
+    file_ids: List[int] = Field(..., min_length=1, description="要删除的文件ID列表")
