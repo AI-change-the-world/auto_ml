@@ -13,8 +13,7 @@ nacos-sdk-python>=1.0.0
 PyYAML>=6.0
 
 # 对象存储
-aioboto3>=12.0.0
-botocore>=1.34.0
+opendal>=0.45.0
 
 # 消息队列
 pika>=1.3.0
