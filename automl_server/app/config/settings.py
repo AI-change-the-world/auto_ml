@@ -45,7 +45,6 @@ class Settings(BaseModel):
     app_version: str = "1.0.0"
     host: str = "0.0.0.0"
     port: int = 45678
-    context_path: str = "/automl"
     debug: bool = False
 
     # 子配置

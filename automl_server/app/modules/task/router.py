@@ -31,6 +31,15 @@ async def list_tasks(
     return Result.ok(PageResult.create(items, total, page, page_size))
 
 
+@router.get("/base-models", response_model=Result[list[BaseModelResponse]], summary="获取基础模型列表")
+async def get_base_models(
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    models = await service.get_base_models(db)
+    return Result.ok(models)
+
+
 @router.get("/{task_id}", response_model=Result[TaskResponse], summary="获取任务详情")
 async def get_task(
     task_id: int,
@@ -51,12 +60,3 @@ async def get_task_logs(
 ):
     logs, total = await service.get_task_logs(db, task_id, page, page_size)
     return Result.ok(PageResult.create(logs, total, page, page_size))
-
-
-@router.get("/base-models", response_model=Result[list[BaseModelResponse]], summary="获取基础模型列表")
-async def get_base_models(
-    db: AsyncSession = Depends(get_db),
-    service: TaskService = Depends(get_task_service),
-):
-    models = await service.get_base_models(db)
-    return Result.ok(models)

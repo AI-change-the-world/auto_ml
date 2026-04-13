@@ -14,6 +14,7 @@
     "antd": "^6.3.5",
     "axios": "^1.15.0",
     "dayjs": "^1.11.20",
+    "frontend_v2": "link:",
     "konva": "^10.2.5",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

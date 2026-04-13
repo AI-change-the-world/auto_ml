@@ -14,6 +14,9 @@ import {
   RightOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  AimOutlined,
+  ThunderboltOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 
 /* ─── types ─── */
@@ -48,6 +51,24 @@ const myProjectsNav: NavItem[] = [
     label: '部署',
     children: [],
   },
+  {
+    key: '/predict',
+    icon: <AimOutlined />,
+    label: '预测',
+    children: [],
+  },
+  {
+    key: '/augment',
+    icon: <ThunderboltOutlined />,
+    label: '增强',
+    children: [],
+  },
+  {
+    key: '/tools',
+    icon: <ToolOutlined />,
+    label: '工具',
+    children: [],
+  },
 ];
 
 const bottomItems = [
@@ -65,6 +86,9 @@ const MainLayout: React.FC = () => {
     '/annotations': true,
     '/tasks': true,
     '/deploy': true,
+    '/predict': true,
+    '/augment': true,
+    '/tools': true,
   });
 
   // Auto-expand based on route
@@ -474,6 +498,9 @@ const MainLayout: React.FC = () => {
             {location.pathname.startsWith('/annotations') && '标注'}
             {location.pathname.startsWith('/tasks') && '训练'}
             {location.pathname.startsWith('/deploy') && '部署'}
+            {location.pathname.startsWith('/predict') && '预测'}
+            {location.pathname.startsWith('/augment') && '增强'}
+            {location.pathname.startsWith('/tools') && '工具'}
             {location.pathname.startsWith('/settings') && '设置'}
           </span>
         </header>

@@ -1,8 +1,10 @@
 /** 统一响应格式 */
 export interface Result<T = unknown> {
+  success: boolean;
   code: number;
   message: string;
   data: T;
+  timestamp?: string;
 }
 
 /** 分页结果 */
@@ -11,6 +13,7 @@ export interface PageResult<T> {
   total: number;
   page: number;
   page_size: number;
+  pages: number;
 }
 
 /** 分页请求参数 */
