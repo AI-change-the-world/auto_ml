@@ -96,11 +96,11 @@ const HomePage: React.FC = () => {
   }
 
   const statItems = [
-    { icon: <DatabaseOutlined style={{ fontSize: 16 }} />, value: stats?.datasets ?? 1, label: t('datasets') },
-    { icon: <PictureOutlined style={{ fontSize: 16 }} />, value: 8, label: t('images') },
-    { icon: <TagsOutlined style={{ fontSize: 16 }} />, value: stats?.annotations ?? 30, label: t('annotations') },
-    { icon: <FolderOutlined style={{ fontSize: 16 }} />, value: 1, label: t('projects') },
-    { icon: <ExperimentOutlined style={{ fontSize: 16 }} />, value: stats?.models?.total ?? 1, label: t('models') },
+    { icon: <DatabaseOutlined style={{ fontSize: 16 }} />, value: stats?.datasets ?? 0, label: t('datasets') },
+    { icon: <PictureOutlined style={{ fontSize: 16 }} />, value: stats?.images ?? 0, label: t('images') },
+    { icon: <TagsOutlined style={{ fontSize: 16 }} />, value: stats?.annotations ?? 0, label: t('annotations') },
+    { icon: <FolderOutlined style={{ fontSize: 16 }} />, value: stats?.tasks?.total ?? 0, label: t('projects') },
+    { icon: <ExperimentOutlined style={{ fontSize: 16 }} />, value: stats?.models?.total ?? 0, label: t('models') },
     { icon: <CloudServerOutlined style={{ fontSize: 16 }} />, value: stats?.models?.deployed ?? 0, label: t('deployments') },
   ];
 
@@ -487,10 +487,10 @@ const HomePage: React.FC = () => {
               {t('resources')}
             </div>
             {[
-              { icon: <FolderOutlined />, label: t('projects'), value: '1' },
-              { icon: <DatabaseOutlined />, label: t('datasets'), value: String(stats?.datasets ?? 1) },
-              { icon: <ExperimentOutlined />, label: t('models'), value: `${stats?.models?.total ?? 1} / 100` },
-              { icon: <PictureOutlined />, label: t('images'), value: '8' },
+              { icon: <FolderOutlined />, label: t('projects'), value: String(stats?.tasks?.total ?? 0) },
+              { icon: <DatabaseOutlined />, label: t('datasets'), value: String(stats?.datasets ?? 0) },
+              { icon: <ExperimentOutlined />, label: t('models'), value: `${stats?.models?.total ?? 0} / 100` },
+              { icon: <PictureOutlined />, label: t('images'), value: String(stats?.images ?? 0) },
               { icon: <CloudServerOutlined />, label: t('deployments'), value: `${stats?.models?.deployed ?? 0} / 3` },
             ].map((r, i) => (
               <div

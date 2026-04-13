@@ -50,14 +50,16 @@ class S3Delegate:
         """获取指定 bucket 的 AsyncOperator（带缓存）"""
         bucket = self.get_bucket_name(bucket_type)
         if bucket not in self._operators:
-            self._operators[bucket] = opendal.AsyncOperator(
-                "s3",
-                endpoint=self.config.endpoint,
-                access_key_id=self.config.access_key,
-                secret_access_key=self.config.secret_key,
-                region=self.config.region,
-                bucket=bucket,
-            )
+            kwargs = {
+                "endpoint": self.config.endpoint,
+                "access_key_id": self.config.access_key,
+                "secret_access_key": self.config.secret_key,
+                "region": self.config.region,
+                "bucket": bucket,
+                # 禁用 AWS 默认凭证链（EC2 元数据服务等），避免本地开发时访问 169.254.169.254
+                "disable_ec2_metadata": "true",
+            }
+            self._operators[bucket] = opendal.AsyncOperator("s3", **kwargs)
         return self._operators[bucket]
 
     def get_bucket_name(self, bucket_type: str = "default") -> str:
@@ -70,6 +72,89 @@ class S3Delegate:
             "augmented": self.config.augmented_bucket,
         }
         return bucket_map.get(bucket_type, self.config.default_bucket)
+
+    async def ensure_buckets(self):
+        """检查并创建所有需要的 bucket（使用 requests + S3 v4 签名）"""
+        import requests as req
+
+        all_buckets = [
+            self.config.default_bucket,
+            self.config.datasets_bucket,
+            self.config.models_bucket,
+            self.config.annotations_bucket,
+            self.config.augmented_bucket,
+        ]
+        buckets = list(dict.fromkeys(all_buckets))  # 去重
+
+        endpoint = self.config.endpoint.rstrip("/")
+        parsed = urllib.parse.urlparse(endpoint)
+        host = parsed.netloc
+        scheme = parsed.scheme
+
+        for bucket in buckets:
+            try:
+                # HEAD 检查 bucket 是否存在
+                headers, url = self._sign_bucket_request("HEAD", bucket, host, scheme)
+                resp = req.head(url, headers=headers, timeout=5)
+                if resp.status_code == 200:
+                    logger.info(f"Bucket '{bucket}' already exists")
+                    continue
+            except Exception:
+                pass
+
+            # 创建 bucket
+            try:
+                headers, url = self._sign_bucket_request("PUT", bucket, host, scheme)
+                resp = req.put(url, headers=headers, data=b"", timeout=5)
+                if resp.status_code in (200, 409):
+                    logger.info(f"Bucket '{bucket}' ensured")
+                else:
+                    logger.warning(f"Create bucket '{bucket}' failed: {resp.status_code}")
+            except Exception as e:
+                logger.warning(f"Create bucket '{bucket}' error: {e}")
+
+    def _sign_bucket_request(
+        self, method: str, bucket: str, host: str, scheme: str
+    ) -> tuple[dict, str]:
+        """为 bucket 操作生成 S3 v4 签名头"""
+        now = datetime.utcnow()
+        date_stamp = now.strftime("%Y%m%d")
+        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
+        region = self.config.region
+        access_key = self.config.access_key
+        secret_key = self.config.secret_key
+
+        canonical_uri = f"/{bucket}"
+        payload_hash = hashlib.sha256(b"").hexdigest()
+        credential_scope = f"{date_stamp}/{region}/s3/aws4_request"
+
+        canonical_headers = f"host:{host}\nx-amz-content-sha256:{payload_hash}\nx-amz-date:{amz_date}\n"
+        signed_headers = "host;x-amz-content-sha256;x-amz-date"
+        canonical_request = f"{method}\n{canonical_uri}\n\n{canonical_headers}\n{signed_headers}\n{payload_hash}"
+
+        string_to_sign = f"AWS4-HMAC-SHA256\n{amz_date}\n{credential_scope}\n{hashlib.sha256(canonical_request.encode()).hexdigest()}"
+
+        def _sign(key_bytes: bytes, msg: str) -> bytes:
+            return hmac.new(key_bytes, msg.encode(), hashlib.sha256).digest()
+
+        signing_key = _sign(
+            _sign(_sign(_sign(f"AWS4{secret_key}".encode(), date_stamp), region), "s3"),
+            "aws4_request"
+        )
+        signature = hmac.new(signing_key, string_to_sign.encode(), hashlib.sha256).hexdigest()
+
+        authorization = (
+            f"AWS4-HMAC-SHA256 Credential={access_key}/{credential_scope}, "
+            f"SignedHeaders={signed_headers}, Signature={signature}"
+        )
+        headers = {
+            "Host": host,
+            "x-amz-date": amz_date,
+            "x-amz-content-sha256": payload_hash,
+            "Authorization": authorization,
+        }
+        url = f"{scheme}://{host}{canonical_uri}"
+        return headers, url
 
     async def put_file(
         self,
@@ -122,10 +207,14 @@ class S3Delegate:
             return False
 
     async def create_directory(self, path: str, bucket_type: str = "default"):
-        """创建目录（上传空对象）"""
+        """创建目录（S3 不需要显式创建目录，上传文件时自动创建）"""
+        # OpenDAL 不允许 write 以 / 结尾的路径
+        # S3/MinIO 中目录是虚拟的，上传文件时会自动创建路径
+        # 这里用 .keep 占位文件来确保目录存在
         if not path.endswith("/"):
             path = path + "/"
-        await self.put_file(path, b"", bucket_type)
+        keep_path = path + ".keep"
+        await self.put_file(keep_path, b"", bucket_type)
 
     async def get_presigned_url(
         self,

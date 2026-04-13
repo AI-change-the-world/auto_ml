@@ -45,6 +45,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to init database: {e}")
 
+    # 初始化 S3 bucket
+    from app.utils.s3_delegate import get_s3_delegate
+    try:
+        s3 = get_s3_delegate()
+        await s3.ensure_buckets()
+    except Exception as e:
+        logger.error(f"Failed to ensure S3 buckets: {e}")
+
     # 启动消息消费者
     try:
         consumer = get_consumer()

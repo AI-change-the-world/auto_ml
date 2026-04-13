@@ -12,8 +12,8 @@ from loguru import logger
 
 class S3Config(BaseModel):
     """S3 配置"""
-    access_key: str = ""
-    secret_key: str = ""
+    access_key: str = "68GsKGa0TUEX9F75z4ql"  # for test
+    secret_key: str = "OeMMqlWIBFNQpoXAkEwEnN4Xxx7qhcCyqrG9RNm2"  # for test
     endpoint: str = "http://localhost:9000"
     region: str = "us-east-1"
 
@@ -43,38 +43,47 @@ def _load_s3_from_nacos() -> S3Config:
         config = yaml.safe_load(config_str) or {}
 
         s3 = config.get("local-s3-config", {})
-        return S3Config(
-            access_key=s3.get("access_key", ""),
-            secret_key=s3.get("secret_key", ""),
-            endpoint=s3.get("endpoint", "http://localhost:9000"),
-            region=s3.get("region", "us-east-1"),
-            default_bucket=s3.get("bucket_name", "automl"),
-            datasets_bucket=s3.get("datasets_bucket_name", "automl-datasets"),
-            models_bucket=s3.get("models_bucket_name", "automl-models"),
-            annotations_bucket=s3.get(
-                "annotations_bucket_name", "automl-annotations"),
-            augmented_bucket=s3.get(
-                "augmented_bucket_name", "automl-augmented"),
-        )
+        kwargs = {}
+        nacos_mapping = {
+            "access_key": "access_key",
+            "secret_key": "secret_key",
+            "endpoint": "endpoint",
+            "region": "region",
+            "bucket_name": "default_bucket",
+            "datasets_bucket_name": "datasets_bucket",
+            "models_bucket_name": "models_bucket",
+            "annotations_bucket_name": "annotations_bucket",
+            "augmented_bucket_name": "augmented_bucket",
+        }
+        for nacos_key, field_name in nacos_mapping.items():
+            val = s3.get(nacos_key)
+            if val:  # 只在非空时设置，否则用类默认值
+                kwargs[field_name] = val
+        return S3Config(**kwargs)
     except Exception as e:
         logger.warning(f"Failed to load S3 config from Nacos: {e}")
         return _load_s3_from_env()
 
 
 def _load_s3_from_env() -> S3Config:
-    """从环境变量加载 S3 配置"""
-    return S3Config(
-        access_key=os.getenv("S3_ACCESS_KEY", ""),
-        secret_key=os.getenv("S3_SECRET_KEY", ""),
-        endpoint=os.getenv("S3_ENDPOINT", "http://localhost:9000"),
-        region=os.getenv("S3_REGION", "us-east-1"),
-        default_bucket=os.getenv("S3_DEFAULT_BUCKET", "automl"),
-        datasets_bucket=os.getenv("S3_DATASETS_BUCKET", "automl-datasets"),
-        models_bucket=os.getenv("S3_MODELS_BUCKET", "automl-models"),
-        annotations_bucket=os.getenv(
-            "S3_ANNOTATIONS_BUCKET", "automl-annotations"),
-        augmented_bucket=os.getenv("S3_AUGMENTED_BUCKET", "automl-augmented"),
-    )
+    """从环境变量加载 S3 配置，未设置的项使用类默认值"""
+    kwargs = {}
+    env_mapping = {
+        "S3_ACCESS_KEY": "access_key",
+        "S3_SECRET_KEY": "secret_key",
+        "S3_ENDPOINT": "endpoint",
+        "S3_REGION": "region",
+        "S3_DEFAULT_BUCKET": "default_bucket",
+        "S3_DATASETS_BUCKET": "datasets_bucket",
+        "S3_MODELS_BUCKET": "models_bucket",
+        "S3_ANNOTATIONS_BUCKET": "annotations_bucket",
+        "S3_AUGMENTED_BUCKET": "augmented_bucket",
+    }
+    for env_key, field_name in env_mapping.items():
+        val = os.getenv(env_key)
+        if val is not None:
+            kwargs[field_name] = val
+    return S3Config(**kwargs)
 
 
 @lru_cache(maxsize=1)

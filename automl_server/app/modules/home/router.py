@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 
 from app.common import Result
 from app.config.database import get_db
-from app.db.models import Dataset, Annotation, Task, AvailableModel
+from app.db.models import Dataset, DatasetFile, Annotation, Task, AvailableModel
 
 router = APIRouter(prefix="/home", tags=["首页"])
 
@@ -17,6 +17,12 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
     # 数据集数量
     dataset_count = (await db.execute(
         select(func.count()).select_from(
+            Dataset).where(Dataset.is_deleted == False)
+    )).scalar()
+
+    # 数据集文件（图片）数量
+    image_count = (await db.execute(
+        select(func.coalesce(func.sum(Dataset.count), 0)).select_from(
             Dataset).where(Dataset.is_deleted == False)
     )).scalar()
 
@@ -56,6 +62,7 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 
     return Result.ok({
         "datasets": dataset_count,
+        "images": image_count,
         "annotations": annotation_count,
         "tasks": {
             "total": total_tasks,
