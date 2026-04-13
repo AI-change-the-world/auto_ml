@@ -195,7 +195,8 @@ class S3Delegate:
             ),
             "aws4_request"
         )
-        signature = hmac.new(signing_key, string_to_sign.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            signing_key, string_to_sign.encode(), hashlib.sha256).hexdigest()
 
         return f"{scheme}://{host}{canonical_uri}?{canonical_querystring}&X-Amz-Signature={signature}"
 
@@ -209,7 +210,8 @@ class S3Delegate:
         """复制文件（读取后写入）"""
         data = await self.get_file(src_key, src_bucket_type)
         await self.put_file(dst_key, data, dst_bucket_type)
-        logger.debug(f"Copied {src_bucket_type}:{src_key} to {dst_bucket_type}:{dst_key}")
+        logger.debug(
+            f"Copied {src_bucket_type}:{src_key} to {dst_bucket_type}:{dst_key}")
 
 
 @lru_cache(maxsize=1)
