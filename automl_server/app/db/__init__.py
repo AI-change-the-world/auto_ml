@@ -3,7 +3,6 @@ from .models.base_entity import BaseEntity
 from .models.dataset import Dataset, DatasetFile
 from .models.annotation import Annotation, AnnotationFile
 from .models.task import Task, TaskLog, BaseModels
-from .models.predict import PredictTask, PredictData
 from .models.deploy import AvailableModel
 from .models.tool import ToolModel
 
@@ -12,7 +11,6 @@ __all__ = [
     "Dataset", "DatasetFile",
     "Annotation", "AnnotationFile",
     "Task", "TaskLog", "BaseModels",
-    "PredictTask", "PredictData",
     "AvailableModel",
     "ToolModel",
 ]

@@ -16,9 +16,6 @@ import AnnotationPage from './pages/annotation/AnnotationPage';
 import TaskListPage from './pages/task/TaskListPage';
 import TaskDetailPage from './pages/task/TaskDetailPage';
 import DeployPage from './pages/deploy/DeployPage';
-import PredictPage from './pages/predict/PredictPage';
-import AugmentPage from './pages/augment/AugmentPage';
-import ToolPage from './pages/tool/ToolPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import ExampleDatasetPage from './pages/example/ExampleDatasetPage';
 
@@ -47,9 +44,6 @@ const App: React.FC = () => {
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskDetailPage />} />
             <Route path="/deploy" element={<DeployPage />} />
-            <Route path="/predict" element={<PredictPage />} />
-            <Route path="/augment" element={<AugmentPage />} />
-            <Route path="/tools" element={<ToolPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/example-dataset" element={<ExampleDatasetPage />} />
           </Route>

@@ -128,33 +128,8 @@ const HomePage: React.FC = () => {
         </p>
       </div>
 
-      {/* ─── Welcome Card ─── */}
+      {/* ─── Stats Card ─── */}
       <Card style={{ padding: '24px 24px 0', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-          <div
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 16,
-              background: 'linear-gradient(135deg, #f97316, #ef4444)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 22,
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
-          >
-            A
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', margin: 0 }}>{t('welcomeBack')}</h2>
-            </div>
-            <p style={{ fontSize: 13, color: '#999', margin: '2px 0 0' }}>admin · admin@automl.local</p>
-          </div>
-        </div>
 
         {/* Stats row with dividers via CSS class */}
         <div className="stats-grid" style={{ borderTop: '1px solid #f0f0f0' }}>

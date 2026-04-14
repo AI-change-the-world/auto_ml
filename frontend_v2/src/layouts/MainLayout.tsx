@@ -15,9 +15,6 @@ import {
   RightOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  AimOutlined,
-  ThunderboltOutlined,
-  ToolOutlined,
   EditOutlined,
 } from '@ant-design/icons';
 import { driver } from 'driver.js';
@@ -108,22 +105,6 @@ const MainLayout: React.FC = () => {
           },
         },
         {
-          element: '[data-tour="nav-augment"]',
-          popover: {
-            title: '⚡ 数据增强',
-            description: '使用 CV 变换、GAN 生成、Stable Diffusion 等方式扩充训练数据，提升模型效果',
-            side: 'right', align: 'start',
-          },
-        },
-        {
-          element: '[data-tour="nav-tools"]',
-          popover: {
-            title: '🛠 工具箱',
-            description: '内置实用工具：图片处理、格式转换、模型管理等',
-            side: 'right', align: 'start',
-          },
-        },
-        {
           element: '[data-tour="lang-toggle"]',
           popover: {
             title: '🌐 语言切换',
@@ -177,24 +158,6 @@ const MainLayout: React.FC = () => {
       label: t('nav.deploy'),
       children: [],
     },
-    {
-      key: '/predict',
-      icon: <AimOutlined />,
-      label: t('nav.predict'),
-      children: [],
-    },
-    {
-      key: '/augment',
-      icon: <ThunderboltOutlined />,
-      label: t('nav.augment'),
-      children: [],
-    },
-    {
-      key: '/tools',
-      icon: <ToolOutlined />,
-      label: t('nav.tools'),
-      children: [],
-    },
   ];
 
   const bottomItems = [
@@ -207,9 +170,6 @@ const MainLayout: React.FC = () => {
     '/annotations': true,
     '/tasks': true,
     '/deploy': true,
-    '/predict': true,
-    '/augment': true,
-    '/tools': true,
   });
 
   // Auto-expand based on route
@@ -388,7 +348,7 @@ const MainLayout: React.FC = () => {
               const groupActive = isActive(group.key);
               const tourMap: Record<string, string> = {
                 '/annotations': 'nav-annotation', '/tasks': 'nav-training',
-                '/deploy': 'nav-deploy', '/augment': 'nav-augment', '/tools': 'nav-tools',
+                '/deploy': 'nav-deploy',
               };
               return (
                 <div key={group.key} data-tour={tourMap[group.key]}>
@@ -489,7 +449,7 @@ const MainLayout: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Empty state for deploy */}
+                  {/* Empty state */}
                   {group.children && group.children.length === 0 && isExp && (
                     <div
                       style={{
@@ -498,7 +458,7 @@ const MainLayout: React.FC = () => {
                         color: '#ccc',
                       }}
                     >
-                      {t('nav.noActiveDeploy')}
+                      {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
                     </div>
                   )}
                 </div>
@@ -578,7 +538,6 @@ const MainLayout: React.FC = () => {
               >
                 AutoML
               </div>
-              <div style={{ fontSize: 11, color: '#aaa' }}>admin@automl.local</div>
             </div>
           )}
           {!collapsed && (
@@ -623,9 +582,6 @@ const MainLayout: React.FC = () => {
             {location.pathname.startsWith('/annotations') && t('nav.annotation')}
             {location.pathname.startsWith('/tasks') && t('nav.training')}
             {location.pathname.startsWith('/deploy') && t('nav.deploy')}
-            {location.pathname.startsWith('/predict') && t('nav.predict')}
-            {location.pathname.startsWith('/augment') && t('nav.augment')}
-            {location.pathname.startsWith('/tools') && t('nav.tools')}
             {location.pathname.startsWith('/settings') && t('nav.settings')}
           </span>
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>

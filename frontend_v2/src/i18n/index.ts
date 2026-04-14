@@ -7,7 +7,6 @@ import zhDataset from './locales/zh/dataset.json';
 import zhAnnotation from './locales/zh/annotation.json';
 import zhTask from './locales/zh/task.json';
 import zhDeploy from './locales/zh/deploy.json';
-import zhPredict from './locales/zh/predict.json';
 import zhAugment from './locales/zh/augment.json';
 import zhTool from './locales/zh/tool.json';
 import zhSettings from './locales/zh/settings.json';
@@ -19,7 +18,6 @@ import enDataset from './locales/en/dataset.json';
 import enAnnotation from './locales/en/annotation.json';
 import enTask from './locales/en/task.json';
 import enDeploy from './locales/en/deploy.json';
-import enPredict from './locales/en/predict.json';
 import enAugment from './locales/en/augment.json';
 import enTool from './locales/en/tool.json';
 import enSettings from './locales/en/settings.json';
@@ -36,7 +34,6 @@ i18n.use(initReactI18next).init({
             annotation: zhAnnotation,
             task: zhTask,
             deploy: zhDeploy,
-            predict: zhPredict,
             augment: zhAugment,
             tool: zhTool,
             settings: zhSettings,
@@ -49,7 +46,6 @@ i18n.use(initReactI18next).init({
             annotation: enAnnotation,
             task: enTask,
             deploy: enDeploy,
-            predict: enPredict,
             augment: enAugment,
             tool: enTool,
             settings: enSettings,

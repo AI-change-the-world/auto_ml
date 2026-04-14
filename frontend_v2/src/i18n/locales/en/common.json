@@ -5,7 +5,6 @@
         "annotation": "Annotation",
         "training": "Training",
         "deploy": "Deploy",
-        "predict": "Predict",
         "augment": "Augment",
         "tools": "Tools",
         "trash": "Trash",

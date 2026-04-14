@@ -31,8 +31,6 @@ export type { HomeStats } from './home';
 export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse } from './task';
 export { TaskStatus, TaskStatusLabels, TaskStatusColors } from './task';
 export type { DeployRequest, AvailableModelResponse, DeployStatusResponse } from './deploy';
-export type { PredictRequest, PredictTaskResponse } from './predict';
-export { PredictStatus, PredictStatusLabels, PredictStatusColors } from './predict';
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
 export type { ToolModelCreate, ToolModelResponse } from './tool';
