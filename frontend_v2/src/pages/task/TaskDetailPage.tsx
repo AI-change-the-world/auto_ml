@@ -43,7 +43,7 @@ const TaskDetailPage: React.FC = () => {
   }, [fetchTask, fetchLogs]);
 
   useEffect(() => {
-    if (task && (task.status === 0 || task.status === 1)) {
+    if (task && (task.status === 0 || task.status === 1 || task.status === 2)) {
       timerRef.current = setInterval(() => { fetchTask(); fetchLogs(); }, 5000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -108,7 +108,7 @@ const TaskDetailPage: React.FC = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid #f5f5f5' }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t('trainLog')}</span>
           <span style={{ fontSize: 12, color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <ClockCircleOutlined /> {task.status <= 1 ? t('autoRefresh') : t('totalLogs', { count: logs.length })}
+            <ClockCircleOutlined /> {task.status <= 2 ? t('autoRefresh') : t('totalLogs', { count: logs.length })}
           </span>
         </div>
         <div ref={logRef} style={{

@@ -106,6 +106,8 @@ class RabbitMQConfig(BaseModel):
     task_queue: str = "auto_ml.task"
     model_queue: str = "auto_ml.model"
     log_queue: str = "auto_ml.log"
+    trainer_task_queue: str = "trainer.task.queue"
+    trainer_task_routing_key: str = "trainer.task.submit"
 
 
 def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
@@ -133,6 +135,8 @@ def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
             password=mq_config.get("password", "guest"),
             virtual_host=mq_config.get("virtual_host", "/"),
             exchange_name=mq_config.get("exchange_name", "auto_ml_exchange"),
+            trainer_task_queue=mq_config.get("trainer_task_queue", "trainer.task.queue"),
+            trainer_task_routing_key=mq_config.get("trainer_task_routing_key", "trainer.task.submit"),
         )
     except Exception as e:
         logger.warning(f"Failed to load from Nacos, using env config: {e}")
@@ -148,6 +152,8 @@ def load_rabbitmq_config_from_env() -> RabbitMQConfig:
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         virtual_host=os.getenv("RABBITMQ_VHOST", "/"),
         exchange_name=os.getenv("RABBITMQ_EXCHANGE", "auto_ml_exchange"),
+        trainer_task_queue=os.getenv("TRAINER_TASK_QUEUE", "trainer.task.queue"),
+        trainer_task_routing_key=os.getenv("TRAINER_TASK_ROUTING_KEY", "trainer.task.submit"),
     )
 
 

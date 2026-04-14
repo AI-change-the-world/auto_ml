@@ -153,6 +153,12 @@ def _train_detection_model(
             raise FileNotFoundError(f"Model file not found: {best_pt_path}")
 
         # 上传模型到 S3
+        publish_task_status(
+            task_id,
+            TaskStatus.POST_PROCESS,
+            SERVICE_NAME,
+            "Uploading model artifacts and registering model",
+        )
         publish_task_log(
             task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
@@ -270,6 +276,12 @@ def _train_classification_model(
             raise FileNotFoundError(f"Model file not found: {best_pt_path}")
 
         # 上传模型到 S3
+        publish_task_status(
+            task_id,
+            TaskStatus.POST_PROCESS,
+            SERVICE_NAME,
+            "Uploading model artifacts and registering model",
+        )
         publish_task_log(
             task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
@@ -316,7 +328,7 @@ def train_detection(
 ):
     """启动目标检测模型训练（异步）"""
     thread = threading.Thread(
-        target=_train_detection_model,
+        target=run_detection_task,
         kwargs={
             "task_id": task_id,
             "dataset_path": dataset_path,
@@ -338,7 +350,7 @@ def train_classification(
 ):
     """启动分类模型训练（异步）"""
     thread = threading.Thread(
-        target=_train_classification_model,
+        target=run_classification_task,
         kwargs={
             "task_id": task_id,
             "dataset_path": dataset_path,
@@ -349,3 +361,35 @@ def train_classification(
     )
     thread.start()
     return thread
+
+
+def run_detection_task(
+    task_id: int,
+    dataset_path: str,
+    annotation_path: str,
+    classes: List[str],
+    task_config: Dict[str, Any],
+):
+    """同步执行目标检测训练任务"""
+    _train_detection_model(
+        task_id=task_id,
+        dataset_path=dataset_path,
+        annotation_path=annotation_path,
+        classes=classes,
+        task_config=task_config,
+    )
+
+
+def run_classification_task(
+    task_id: int,
+    dataset_path: str,
+    annotation_path: str,
+    task_config: Dict[str, Any],
+):
+    """同步执行分类训练任务"""
+    _train_classification_model(
+        task_id=task_id,
+        dataset_path=dataset_path,
+        annotation_path=annotation_path,
+        task_config=task_config,
+    )

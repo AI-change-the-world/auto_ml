@@ -21,6 +21,7 @@ from app.common import Result
 from app.common.exceptions import AppException
 from app.config.settings import get_settings
 from app.mq.consumer import get_consumer
+from app.mq.publisher import get_publisher
 from app.mq.messages import MessageType
 from app.mq.handlers import (
     handle_task_status_update,
@@ -88,6 +89,7 @@ async def lifespan(app: FastAPI):
         loop = asyncio.get_event_loop()
         consumer.start(event_loop=loop)
         logger.info("RabbitMQ consumer started")
+        get_publisher()
 
     except Exception as e:
         logger.error(f"Failed to start MQ consumer: {e}")
@@ -103,6 +105,11 @@ async def lifespan(app: FastAPI):
     try:
         consumer = get_consumer()
         consumer.stop()
+    except Exception:
+        pass
+    try:
+        publisher = get_publisher()
+        publisher.close()
     except Exception:
         pass
 

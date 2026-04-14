@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
-from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse
+from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse
 from .service import get_task_service, TaskService
 
 router = APIRouter(prefix="/task", tags=["任务管理"])
@@ -38,6 +38,14 @@ async def get_base_models(
 ):
     models = await service.get_base_models(db)
     return Result.ok(models)
+
+
+@router.get("/trainer/status", response_model=Result[TrainerStatusResponse], summary="获取训练服务状态")
+async def get_trainer_status(
+    service: TaskService = Depends(get_task_service),
+):
+    status = await service.get_trainer_status()
+    return Result.ok(status)
 
 
 @router.get("/{task_id}", response_model=Result[TaskResponse], summary="获取任务详情")

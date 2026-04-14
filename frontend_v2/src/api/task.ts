@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Result, PageResult, TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse } from '../types';
+import type { Result, PageResult, TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse } from '../types';
 
 /** 创建训练任务 */
 export async function createTrainTask(data: TaskCreate) {
@@ -32,5 +32,11 @@ export async function getTaskLogs(taskId: number, page = 1, pageSize = 100) {
 /** 获取基础模型列表 */
 export async function getBaseModels() {
   const res = await apiClient.get<Result<BaseModelResponse[]>>('/task/base-models');
+  return res.data.data;
+}
+
+/** 获取训练服务状态 */
+export async function getTrainerStatus() {
+  const res = await apiClient.get<Result<TrainerStatusResponse>>('/task/trainer/status');
   return res.data.data;
 }

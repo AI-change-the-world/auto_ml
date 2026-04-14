@@ -28,6 +28,7 @@ class RabbitMQConfig(BaseModel):
     model_deployed_queue: str = "auto_ml.model.deployed"
     model_undeployed_queue: str = "auto_ml.model.undeployed"
     heartbeat_queue: str = "auto_ml.heartbeat"
+    trainer_task_queue: str = "trainer.task.queue"
 
     # 路由键
     task_status_routing_key: str = "task.status.update"
@@ -35,6 +36,7 @@ class RabbitMQConfig(BaseModel):
     model_registered_routing_key: str = "model.registered"
     model_deployed_routing_key: str = "model.deployed"
     model_undeployed_routing_key: str = "model.undeployed"
+    trainer_task_routing_key: str = "trainer.task.submit"
 
 
 def _load_mq_from_nacos() -> RabbitMQConfig:
@@ -68,6 +70,7 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
                 "model_registered", "auto_ml.model.registered"),
             model_deployed_queue=queues.get(
                 "model_deployed", "auto_ml.model.deployed"),
+            trainer_task_queue=queues.get("trainer_task", "trainer.task.queue"),
         )
     except Exception as e:
         logger.warning(f"Failed to load RabbitMQ config from Nacos: {e}")
@@ -83,6 +86,8 @@ def _load_mq_from_env() -> RabbitMQConfig:
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         virtual_host=os.getenv("RABBITMQ_VHOST", "/"),
         exchange_name=os.getenv("RABBITMQ_EXCHANGE", "auto_ml_exchange"),
+        trainer_task_queue=os.getenv("TRAINER_TASK_QUEUE", "trainer.task.queue"),
+        trainer_task_routing_key=os.getenv("TRAINER_TASK_ROUTING_KEY", "trainer.task.submit"),
     )
 
 

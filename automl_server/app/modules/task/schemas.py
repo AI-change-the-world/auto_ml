@@ -48,3 +48,14 @@ class BaseModelResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TrainerStatusResponse(BaseModel):
+    reachable: bool
+    status: str
+    version: Optional[str] = None
+    mq_connected: bool = False
+    max_concurrent: int = 0
+    active_tasks: int = 0
+    queued_tasks: int = 0
+    message: Optional[str] = None

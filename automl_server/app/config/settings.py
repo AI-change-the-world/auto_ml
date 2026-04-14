@@ -38,6 +38,12 @@ class AIPlatformConfig(BaseModel):
     timeout: int = 1800
 
 
+class ModelTrainerConfig(BaseModel):
+    """Model Trainer 服务配置"""
+    base_url: str = "http://model-trainer:8080"
+    timeout: int = 30
+
+
 class Settings(BaseModel):
     """全局设置"""
     # 服务配置
@@ -51,6 +57,7 @@ class Settings(BaseModel):
     database: DatabaseConfig = DatabaseConfig()
     nacos: NacosConfig = NacosConfig()
     ai_platform: AIPlatformConfig = AIPlatformConfig()
+    model_trainer: ModelTrainerConfig = ModelTrainerConfig()
 
     # 心跳检查间隔（秒）
     heartbeat_interval: int = 300
@@ -114,6 +121,18 @@ def _load_settings() -> Settings:
                     ai_nacos.get("timeout", 1800))),
     )
 
+    trainer_nacos = nacos_data.get("model-trainer", {})
+    model_trainer = ModelTrainerConfig(
+        base_url=os.getenv(
+            "MODEL_TRAINER_URL",
+            trainer_nacos.get("base_url", "http://model-trainer:8080"),
+        ),
+        timeout=int(os.getenv(
+            "MODEL_TRAINER_TIMEOUT",
+            trainer_nacos.get("timeout", 30),
+        )),
+    )
+
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),
@@ -121,6 +140,7 @@ def _load_settings() -> Settings:
         database=database,
         nacos=nacos_config,
         ai_platform=ai_platform,
+        model_trainer=model_trainer,
     )
 
 

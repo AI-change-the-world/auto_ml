@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { message, Spin, Modal, Select } from 'antd';
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listTasks, createTrainTask, getBaseModels } from '../../api/task';
+import { listTasks, createTrainTask, getBaseModels, getTrainerStatus } from '../../api/task';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
-import type { TaskResponse, TaskCreate, BaseModelResponse } from '../../types/task';
+import type { TaskResponse, TaskCreate, BaseModelResponse, TrainerStatusResponse } from '../../types/task';
 import type { Dataset } from '../../types/dataset';
 import type { AnnotationProject } from '../../types/annotation';
 import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
@@ -33,6 +33,7 @@ const TaskListPage: React.FC = () => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
   const [_bm, setBm] = useState<BaseModelResponse[]>([]);
+  const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
   const [form, setForm] = useState<{ task_type: number; dataset_id?: number; annotation_id?: number }>({ task_type: 0 });
 
   const fetchTasks = useCallback(async () => {
@@ -45,7 +46,22 @@ const TaskListPage: React.FC = () => {
     finally { setLoading(false); }
   }, [page, statusFilter]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  const fetchTrainer = useCallback(async () => {
+    try {
+      const r = await getTrainerStatus();
+      if (r) setTrainerStatus(r);
+    } catch { }
+  }, []);
+
+  useEffect(() => { fetchTasks(); fetchTrainer(); }, [fetchTasks, fetchTrainer]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchTasks();
+      fetchTrainer();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [fetchTasks, fetchTrainer]);
 
   const openCreate = async () => {
     setCreateOpen(true);
@@ -73,7 +89,7 @@ const TaskListPage: React.FC = () => {
 
   const tabs = [
     { key: 'all', label: tc('label.all') }, { key: '0', label: tc('status.queued') },
-    { key: '1', label: tc('status.running') }, { key: '3', label: tc('status.completed') }, { key: '2', label: tc('status.failed') },
+    { key: '1', label: tc('status.running') }, { key: '2', label: '后处理' }, { key: '3', label: tc('status.completed') }, { key: '4', label: tc('status.failed') },
   ];
   const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification'), 2: t('segmentation') };
 
@@ -85,9 +101,40 @@ const TaskListPage: React.FC = () => {
           <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={fetchTasks} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
+          <button onClick={() => { fetchTasks(); fetchTrainer(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
           <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
         </div>
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t('trainerStatusTitle')}</div>
+          <span style={{
+            padding: '2px 10px',
+            borderRadius: 999,
+            fontSize: 12,
+            background: trainerStatus?.reachable ? '#f0fdf4' : '#fef2f2',
+            color: trainerStatus?.reachable ? '#16a34a' : '#dc2626',
+          }}>
+            {trainerStatus?.reachable ? t('trainerReachable') : t('trainerUnreachable')}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          {[
+            { label: t('trainerMq'), value: trainerStatus?.mq_connected ? t('connected') : t('disconnected') },
+            { label: t('trainerMaxConcurrent'), value: trainerStatus?.max_concurrent ?? '-' },
+            { label: t('trainerActiveTasks'), value: trainerStatus?.active_tasks ?? '-' },
+            { label: t('trainerQueuedTasks'), value: trainerStatus?.queued_tasks ?? '-' },
+          ].map((item, i) => (
+            <div key={i}>
+              <div style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>{item.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{item.value}</div>
+            </div>
+          ))}
+        </div>
+        {trainerStatus?.message && (
+          <div style={{ marginTop: 10, fontSize: 12, color: '#999' }}>{trainerStatus.message}</div>
+        )}
       </div>
 
       {/* Tabs */}

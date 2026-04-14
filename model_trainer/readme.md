@@ -1,6 +1,7 @@
 # Model Trainer Service
 
 轻量级模型训练服务，专门用于 YOLO 模型的训练。
+训练任务统一通过 RabbitMQ 下发，服务内部按并发限制消费执行。
 
 ## 架构特点
 
@@ -69,13 +70,11 @@ docker-compose up -d model-trainer
 GET /health
 ```
 
-### 启动检测模型训练
+### MQ 训练任务
 ```bash
-POST /train/detection
-Content-Type: application/json
-
 {
   "task_id": 1,
+  "task_type": "detection",
   "dataset_path": "datasets/dataset_1",
   "annotation_path": "annotations/anno_1",
   "classes": ["person", "car", "dog"],
@@ -103,57 +102,23 @@ Detection 训练允许标注目录里混放 BBox 和 OBB；训练前会自动归
 - 训练 `bbox` 时：`OBB -> 外接 BBox`
 - 训练 `obb` 时：`BBox -> 四点 OBB`
 
-### 启动分类模型训练
-```bash
-POST /train/classification
-Content-Type: application/json
-
-{
-  "task_id": 2,
-  "dataset_path": "datasets/dataset_2",
-  "annotation_path": "annotations/anno_2",
-  "task_config": {
-    "name": "yolo11n-cls.pt",
-    "epoch": 10,
-    "size": 640,
-    "batch": 8,
-    "device": "cpu",
-    "dataset_id": 2,
-    "annotation_id": 2
-  }
-}
-```
-
-### 查询训练状态
-```bash
-GET /train/{task_id}/status
-```
+分类任务将 `task_type` 改为 `classification`，并省略 `classes`。
 
 ## 消息队列模式
 
-启动 MQ 消费者模式（用于异步处理训练任务）：
+启动服务后会自动监听训练队列。
 
 ```bash
-export MQ_CONSUMER=true
 python server.py
 ```
 
-向 Redis 队列推送任务：
-```python
-import redis
-import json
+并发训练数通过环境变量控制：
 
-r = redis.from_url("redis://localhost:6379/0")
-task = {
-    "task_type": "detection",
-    "task_id": 1,
-    "dataset_path": "datasets/dataset_1",
-    "annotation_path": "annotations/anno_1",
-    "classes": ["person", "car"],
-    "task_config": {...}
-}
-r.lpush("model_trainer_queue", json.dumps(task))
+```bash
+export TRAINER_MAX_CONCURRENT=1
 ```
+
+服务会把超出并发上限的任务保存在本地等待队列中，并持续通过 RabbitMQ 回传状态和日志。
 
 ## 目录结构
 
@@ -184,7 +149,8 @@ model_trainer/
 | S3_ENDPOINT | S3 服务端点 | - |
 | S3_MODELS_BUCKET | 模型存储 Bucket | - |
 | S3_DATASETS_BUCKET | 数据集 Bucket | - |
-| MQ_TYPE | 消息队列类型 (redis) | redis |
-| MQ_URL | 消息队列连接 URL | redis://localhost:6379/0 |
+| TRAINER_MAX_CONCURRENT | 最大并发训练数 | 1 |
+| TRAINER_TASK_QUEUE | 训练任务队列名 | trainer.task.queue |
+| TRAINER_TASK_ROUTING_KEY | 训练任务路由键 | trainer.task.submit |
 | HOST | 服务监听地址 | 0.0.0.0 |
 | PORT | 服务端口 | 8080 |
