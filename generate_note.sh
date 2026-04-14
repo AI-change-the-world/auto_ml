@@ -1,1 +1,0 @@
-git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"- %s" --no-merges > release_note.md
