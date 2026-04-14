@@ -85,11 +85,23 @@ Content-Type: application/json
     "size": 640,
     "batch": 8,
     "device": "cpu",
+    "label_format": "auto",
     "dataset_id": 1,
     "annotation_id": 1
   }
 }
 ```
+
+`task_config.label_format` 支持：
+
+- `auto`: 默认。模型名包含 `obb` 时导出为 OBB，否则导出为普通 YOLO BBox
+- `bbox`: 统一导出为 `class x_center y_center width height`
+- `obb`: 统一导出为 `class x1 y1 x2 y2 x3 y3 x4 y4`
+
+Detection 训练允许标注目录里混放 BBox 和 OBB；训练前会自动归一化：
+
+- 训练 `bbox` 时：`OBB -> 外接 BBox`
+- 训练 `obb` 时：`BBox -> 四点 OBB`
 
 ### 启动分类模型训练
 ```bash

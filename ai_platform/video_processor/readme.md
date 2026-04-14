@@ -1,1 +1,0 @@
-this project is part of [server](../server) for video processor (different transformers)

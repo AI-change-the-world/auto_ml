@@ -1,1 +1,0 @@
-llamafactory-cli train config/qwen_lora_sft.yaml

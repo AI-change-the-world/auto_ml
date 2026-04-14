@@ -1,1 +1,0 @@
-enum LabelMode { edit, add }

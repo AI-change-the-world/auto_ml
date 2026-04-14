@@ -84,20 +84,42 @@ def _train_detection_model(
         if not temp_folder:
             raise ValueError("Failed to download dataset")
 
+        model_name = task_config.get("name", "yolo11n.pt")
+        requested_label_format = task_config.get(
+            "label_format",
+            task_config.get("train_format", "auto"),
+        )
+
         # 准备训练数据
         publish_task_log(
             task_id, "[pre-train] Preparing training dataset...", SERVICE_NAME)
-        train_dir = prepare_detection_dataset(
+        prepared_dataset = prepare_detection_dataset(
             all_images_dir=os.path.join(temp_folder, "dataset"),
             all_labels_dir=os.path.join(temp_folder, "annotations"),
             class_names=classes,
+            label_format=requested_label_format,
+            model_name=model_name,
+        )
+        train_dir = prepared_dataset.root_dir
+        stats = prepared_dataset.stats
+        publish_task_log(
+            task_id,
+            (
+                "[pre-train] Detection labels normalized: "
+                f"target={prepared_dataset.label_format}, "
+                f"images={stats.images}, "
+                f"bbox={stats.bbox_labels}, "
+                f"obb={stats.obb_labels}, "
+                f"to_bbox={stats.converted_to_bbox}, "
+                f"to_obb={stats.converted_to_obb}"
+            ),
+            SERVICE_NAME,
         )
 
         # 创建回调
         callback = TrainingCallback(task_id)
 
         # 加载模型并开始训练
-        model_name = task_config.get("name", "yolo11n.pt")
         epochs = task_config.get("epoch", 10)
         imgsz = task_config.get("size", 640)
         batch = task_config.get("batch", 8)
