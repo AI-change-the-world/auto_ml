@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Stage, Layer, Rect, Image as KonvaImage, Text, Group, Transformer, Line, Circle } from 'react-konva';
+import { Stage, Layer, Rect, Image as KonvaImage, Text, Group, Line, Circle } from 'react-konva';
 import type Konva from 'konva';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
@@ -17,7 +17,6 @@ const HANDLE_RADIUS = 4;
 
 const ImageCanvas: React.FC = () => {
   const stageRef = useRef<Konva.Stage>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [image, setImage] = useState<HTMLImageElement | null>(null);
@@ -34,13 +33,16 @@ const ImageCanvas: React.FC = () => {
   const [polygonPoints, setPolygonPoints] = useState<Point[]>([]);
   const [polygonPreview, setPolygonPreview] = useState<Point | null>(null);
 
-  // BBox 缩放/拖拽状态（统一用 Stage 鼠标事件驱动）
+  // BBox/OBB 缩放/拖拽/旋转状态（统一用 Stage 鼠标事件驱动）
   const [resizing, setResizing] = useState<{
     uuid: string; handle: string;
     startMouse: Point; origRect: { x: number; y: number; w: number; h: number };
   } | null>(null);
   const [draggingBox, setDraggingBox] = useState<{
     uuid: string; startMouse: Point; origX: number; origY: number;
+  } | null>(null);
+  const [rotating, setRotating] = useState<{
+    uuid: string; cx: number; cy: number; startAngle: number; origAngle: number;
   } | null>(null);
 
   const {
@@ -107,27 +109,6 @@ const ImageCanvas: React.FC = () => {
     img.src = currentImageUrl;
   }, [currentImageUrl, stageSize.width, stageSize.height]);
 
-  // Transformer 绑定 — 只用于 OBB
-  useEffect(() => {
-    const stage = stageRef.current;
-    const transformer = transformerRef.current;
-    if (!stage || !transformer) return;
-
-    if (selectedUuid && mode === LabelMode.Edit) {
-      const selected = annotations.find((a) => a.uuid === selectedUuid);
-      if (selected && selected.shape === AnnotationShape.OBB) {
-        const node = stage.findOne(`#shape-${selectedUuid}`);
-        if (node) {
-          transformer.nodes([node]);
-          transformer.getLayer()?.batchDraw();
-          return;
-        }
-      }
-    }
-    transformer.nodes([]);
-    transformer.getLayer()?.batchDraw();
-  }, [selectedUuid, mode, annotations, scale]);
-
   // 获取鼠标在图像坐标系中的位置
   const getImagePos = useCallback((_e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = stageRef.current;
@@ -164,10 +145,31 @@ const ImageCanvas: React.FC = () => {
     if (draggingBox && pos) {
       const dx = pos.x - draggingBox.startMouse.x;
       const dy = pos.y - draggingBox.startMouse.y;
-      updateAnnotation(draggingBox.uuid, {
-        x: draggingBox.origX + dx,
-        y: draggingBox.origY + dy,
-      });
+      const ann = annotations.find((a) => a.uuid === draggingBox.uuid);
+      if (ann?.shape === AnnotationShape.OBB) {
+        updateAnnotation(draggingBox.uuid, {
+          cx: draggingBox.origX + dx,
+          cy: draggingBox.origY + dy,
+        } as Partial<OBBAnnotation>);
+      } else {
+        updateAnnotation(draggingBox.uuid, {
+          x: draggingBox.origX + dx,
+          y: draggingBox.origY + dy,
+        });
+      }
+      return;
+    }
+
+    // OBB 旋转
+    if (rotating && pos) {
+      const currentAngle = Math.atan2(pos.y - rotating.cy, pos.x - rotating.cx);
+      let deltaAngle = currentAngle - rotating.startAngle;
+      // 归一化到 [-π, π]，避免 atan2 跨 ±π 边界时跳变
+      while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
+      while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
+      updateAnnotation(rotating.uuid, {
+        angle: rotating.origAngle + deltaAngle,
+      } as Partial<OBBAnnotation>);
       return;
     }
 
@@ -210,12 +212,13 @@ const ImageCanvas: React.FC = () => {
       w: Math.abs(pos.x - drawStart.x),
       h: Math.abs(pos.y - drawStart.y),
     });
-  }, [isDrawing, drawStart, getImagePos, mode, annotationShape, polygonPoints, draggingBox, resizing, updateAnnotation]);
+  }, [isDrawing, drawStart, getImagePos, mode, annotationShape, polygonPoints, draggingBox, resizing, rotating, updateAnnotation, annotations]);
 
   const handleMouseUp = useCallback(() => {
     // BBox 拖拽/缩放结束
     if (draggingBox) { setDraggingBox(null); return; }
     if (resizing) { setResizing(null); return; }
+    if (rotating) { setRotating(null); return; }
 
     if (!isDrawing || !drawRect) {
       setIsDrawing(false);
@@ -236,7 +239,7 @@ const ImageCanvas: React.FC = () => {
     }
 
     setDrawRect(null);
-  }, [isDrawing, drawRect, addAnnotation, annotationShape, draggingBox, resizing]);
+  }, [isDrawing, drawRect, addAnnotation, annotationShape, draggingBox, resizing, rotating]);
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon) {
@@ -488,72 +491,96 @@ const ImageCanvas: React.FC = () => {
   };
 
   const renderOBB = (a: OBBAnnotation, color: string, isSelected: boolean) => {
-    const angleDeg = (a.angle * 180) / Math.PI;
-    const topLeftX = a.cx - a.width / 2;
-    const topLeftY = a.cy - a.height / 2;
     const vertices = getOBBVertices(a);
+    const editable = isSelected && mode === LabelMode.Edit;
+    const r = HANDLE_RADIUS / scale;
+
+    // 四个顶点坐标
+    const flatPoints = vertices.flatMap((v) => [v.x, v.y]);
+
+    // 旋转手柄位置：顶边中点沿外法线方向延伸
+    const topMidX = (vertices[0].x + vertices[1].x) / 2;
+    const topMidY = (vertices[0].y + vertices[1].y) / 2;
+    const rotHandleDist = 30 / scale;
+    // 顶边外法线方向 = (sin(θ), -cos(θ))
+    const rotX = topMidX + Math.sin(a.angle) * rotHandleDist;
+    const rotY = topMidY - Math.cos(a.angle) * rotHandleDist;
+
+    // 标签放在最靠上的顶点
+    const topVertex = vertices.reduce((best, v) => v.y < best.y ? v : best, vertices[0]);
 
     return (
-      <Group
-        key={a.uuid}
-        x={topLeftX}
-        y={topLeftY}
-        draggable={mode === LabelMode.Edit}
-        onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
-        onDragEnd={(e) => {
-          const group = e.target;
-          updateAnnotation(a.uuid, {
-            cx: group.x() + a.width / 2,
-            cy: group.y() + a.height / 2,
-          } as Partial<OBBAnnotation>);
-        }}
-      >
-        <Rect
-          id={`shape-${a.uuid}`}
-          width={a.width}
-          height={a.height}
-          rotation={angleDeg}
+      <Group key={a.uuid}>
+        {/* OBB 框体 */}
+        <Line
+          points={flatPoints}
+          closed
           stroke={color}
-          strokeWidth={isSelected ? 3 / scale : 2 / scale}
+          strokeWidth={isSelected ? 2.5 / scale : 2 / scale}
           fill={isSelected ? `${color}22` : 'transparent'}
-          onTransformEnd={(e) => {
-            const node = e.target as Konva.Rect;
-            const group = node.getParent();
-            const sx = node.scaleX();
-            const sy = node.scaleY();
-            node.scaleX(1);
-            node.scaleY(1);
-            const w = Math.max(MIN_BOX_SIZE, node.width() * sx);
-            const h = Math.max(MIN_BOX_SIZE, node.height() * sy);
-            const rotation = node.rotation() || 0;
-            const angleRad = (rotation * Math.PI) / 180;
-            const gx = (group?.x() || 0) + node.x();
-            const gy = (group?.y() || 0) + node.y();
-            node.position({ x: 0, y: 0 });
-            node.rotation(angleDeg);
-            updateAnnotation(a.uuid, {
-              cx: gx + w / 2,
-              cy: gy + h / 2,
-              width: w,
-              height: h,
-              angle: angleRad,
-            } as Partial<OBBAnnotation>);
+          onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
+          onMouseDown={(e) => {
+            if (mode !== LabelMode.Edit || !isSelected) return;
+            e.cancelBubble = true;
+            const pos = getImagePos(e);
+            if (!pos) return;
+            setDraggingBox({ uuid: a.uuid, startMouse: pos, origX: a.cx, origY: a.cy });
           }}
         />
-        {isSelected && (
-          <Line
-            points={[
-              a.width / 2, a.height / 2,
-              vertices[0].x - topLeftX + (vertices[1].x - vertices[0].x) / 2,
-              vertices[0].y - topLeftY + (vertices[1].y - vertices[0].y) / 2,
-            ]}
+        {/* 标签 */}
+        {renderLabel(topVertex.x, topVertex.y, a.classId)}
+        {/* 4个顶点手柄 */}
+        {editable && vertices.map((v, i) => (
+          <Circle
+            key={`v${i}`}
+            x={v.x}
+            y={v.y}
+            radius={r}
+            fill="#fff"
             stroke={color}
-            strokeWidth={1 / scale}
-            dash={[4 / scale, 2 / scale]}
-            listening={false}
+            strokeWidth={1.5 / scale}
           />
+        ))}
+        {/* 旋转手柄 */}
+        {editable && (
+          <>
+            <Line
+              points={[topMidX, topMidY, rotX, rotY]}
+              stroke={color}
+              strokeWidth={1 / scale}
+              dash={[4 / scale, 2 / scale]}
+              listening={false}
+            />
+            <Circle
+              x={rotX}
+              y={rotY}
+              radius={r * 1.2}
+              fill="#fff"
+              stroke={color}
+              strokeWidth={1.5 / scale}
+              onMouseEnter={(e) => {
+                const stage = e.target.getStage();
+                if (stage) stage.container().style.cursor = 'grab';
+              }}
+              onMouseLeave={(e) => {
+                const stage = e.target.getStage();
+                if (stage) stage.container().style.cursor = 'default';
+              }}
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                const pos = getImagePos(e);
+                if (!pos) return;
+                setRotating({
+                  uuid: a.uuid,
+                  cx: a.cx,
+                  cy: a.cy,
+                  startAngle: Math.atan2(pos.y - a.cy, pos.x - a.cx),
+                  origAngle: a.angle,
+                });
+              }}
+            />
+          </>
         )}
-        {renderLabel(0, 0, a.classId)}
       </Group>
     );
   };
@@ -637,23 +664,6 @@ const ImageCanvas: React.FC = () => {
             </>
           )}
 
-          {/* Transformer 仅用于 OBB 旋转 */}
-          <Transformer
-            ref={transformerRef}
-            boundBoxFunc={(oldBox, newBox) => {
-              if (newBox.width < MIN_BOX_SIZE || newBox.height < MIN_BOX_SIZE) {
-                return oldBox;
-              }
-              return newBox;
-            }}
-            rotateEnabled={true}
-            borderStroke="#1890ff"
-            borderStrokeWidth={1 / scale}
-            anchorStroke="#1890ff"
-            anchorFill="#fff"
-            anchorSize={5 / scale}
-            anchorStrokeWidth={1 / scale}
-          />
         </Layer>
       </Stage>
 
