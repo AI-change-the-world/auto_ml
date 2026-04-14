@@ -13,6 +13,7 @@ import { parseYoloAnnotations } from '../../../utils/yolo';
 
 const MIN_BOX_SIZE = 5;
 const VERTEX_RADIUS = 4;
+const HANDLE_RADIUS = 4;
 
 const ImageCanvas: React.FC = () => {
   const stageRef = useRef<Konva.Stage>(null);
@@ -33,10 +34,19 @@ const ImageCanvas: React.FC = () => {
   const [polygonPoints, setPolygonPoints] = useState<Point[]>([]);
   const [polygonPreview, setPolygonPreview] = useState<Point | null>(null);
 
+  // BBox 缩放/拖拽状态（统一用 Stage 鼠标事件驱动）
+  const [resizing, setResizing] = useState<{
+    uuid: string; handle: string;
+    startMouse: Point; origRect: { x: number; y: number; w: number; h: number };
+  } | null>(null);
+  const [draggingBox, setDraggingBox] = useState<{
+    uuid: string; startMouse: Point; origX: number; origY: number;
+  } | null>(null);
+
   const {
     annotations, mode, selectedUuid, classes, annotationShape,
     addAnnotation, selectAnnotation, clearSelection,
-    updateAnnotation, setImageSize,
+    updateAnnotation, setImageSize, changeMode,
   } = useAnnotationStore();
 
   const { currentImageUrl, annotationFiles, datasetFiles, currentFileIndex } = useDatasetStore();
@@ -79,6 +89,7 @@ const ImageCanvas: React.FC = () => {
         y: (stageSize.height - img.naturalHeight * newScale) / 2,
       });
 
+      let hasExistingAnnotations = false;
       if (datasetFiles.length > 0 && currentFileIndex >= 0) {
         const file = datasetFiles[currentFileIndex];
         const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
@@ -86,13 +97,17 @@ const ImageCanvas: React.FC = () => {
         if (annotationFile?.content) {
           const parsed = parseYoloAnnotations(annotationFile.content, img.naturalWidth, img.naturalHeight);
           setAnnotations(parsed);
+          hasExistingAnnotations = parsed.length > 0;
         }
+      }
+      if (!hasExistingAnnotations) {
+        changeMode(LabelMode.Add);
       }
     };
     img.src = currentImageUrl;
   }, [currentImageUrl, stageSize.width, stageSize.height]);
 
-  // Transformer 绑定
+  // Transformer 绑定 — 只用于 OBB
   useEffect(() => {
     const stage = stageRef.current;
     const transformer = transformerRef.current;
@@ -100,8 +115,7 @@ const ImageCanvas: React.FC = () => {
 
     if (selectedUuid && mode === LabelMode.Edit) {
       const selected = annotations.find((a) => a.uuid === selectedUuid);
-      // Transformer 只用于 BBox 和 OBB
-      if (selected && (selected.shape === AnnotationShape.BBox || selected.shape === AnnotationShape.OBB)) {
+      if (selected && selected.shape === AnnotationShape.OBB) {
         const node = stage.findOne(`#shape-${selectedUuid}`);
         if (node) {
           transformer.nodes([node]);
@@ -112,7 +126,7 @@ const ImageCanvas: React.FC = () => {
     }
     transformer.nodes([]);
     transformer.getLayer()?.batchDraw();
-  }, [selectedUuid, mode, annotations]);
+  }, [selectedUuid, mode, annotations, scale]);
 
   // 获取鼠标在图像坐标系中的位置
   const getImagePos = useCallback((_e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -135,11 +149,9 @@ const ImageCanvas: React.FC = () => {
     if (!pos) return;
 
     if (annotationShape === AnnotationShape.Polygon) {
-      // Polygon: 不在 mouseDown 开始，用 click 添加点
       return;
     }
 
-    // BBox / OBB: 拖拽绘制
     setIsDrawing(true);
     setDrawStart(pos);
     setDrawRect({ x: pos.x, y: pos.y, w: 0, h: 0 });
@@ -148,13 +160,49 @@ const ImageCanvas: React.FC = () => {
   const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     const pos = getImagePos(e);
 
+    // BBox 拖拽移动
+    if (draggingBox && pos) {
+      const dx = pos.x - draggingBox.startMouse.x;
+      const dy = pos.y - draggingBox.startMouse.y;
+      updateAnnotation(draggingBox.uuid, {
+        x: draggingBox.origX + dx,
+        y: draggingBox.origY + dy,
+      });
+      return;
+    }
+
+    // BBox 缩放
+    if (resizing && pos) {
+      const dx = pos.x - resizing.startMouse.x;
+      const dy = pos.y - resizing.startMouse.y;
+      const { x: ox, y: oy, w: ow, h: oh } = resizing.origRect;
+      let nx = ox, ny = oy, nw = ow, nh = oh;
+
+      switch (resizing.handle) {
+        case 'tl': nx = ox + dx; ny = oy + dy; nw = ow - dx; nh = oh - dy; break;
+        case 'tc': ny = oy + dy; nh = oh - dy; break;
+        case 'tr': ny = oy + dy; nw = ow + dx; nh = oh - dy; break;
+        case 'ml': nx = ox + dx; nw = ow - dx; break;
+        case 'mr': nw = ow + dx; break;
+        case 'bl': nx = ox + dx; nw = ow - dx; nh = oh + dy; break;
+        case 'bc': nh = oh + dy; break;
+        case 'br': nw = ow + dx; nh = oh + dy; break;
+      }
+
+      if (nw < MIN_BOX_SIZE) { nw = MIN_BOX_SIZE; nx = ox; }
+      if (nh < MIN_BOX_SIZE) { nh = MIN_BOX_SIZE; ny = oy; }
+
+      updateAnnotation(resizing.uuid, { x: nx, y: ny, width: nw, height: nh });
+      return;
+    }
+
     // Polygon 预览线
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon && polygonPoints.length > 0 && pos) {
       setPolygonPreview(pos);
       return;
     }
 
-    // BBox / OBB 拖拽
+    // BBox / OBB 拖拽绘制
     if (!isDrawing || !drawStart || !pos) return;
     setDrawRect({
       x: Math.min(drawStart.x, pos.x),
@@ -162,9 +210,13 @@ const ImageCanvas: React.FC = () => {
       w: Math.abs(pos.x - drawStart.x),
       h: Math.abs(pos.y - drawStart.y),
     });
-  }, [isDrawing, drawStart, getImagePos, mode, annotationShape, polygonPoints]);
+  }, [isDrawing, drawStart, getImagePos, mode, annotationShape, polygonPoints, draggingBox, resizing, updateAnnotation]);
 
   const handleMouseUp = useCallback(() => {
+    // BBox 拖拽/缩放结束
+    if (draggingBox) { setDraggingBox(null); return; }
+    if (resizing) { setResizing(null); return; }
+
     if (!isDrawing || !drawRect) {
       setIsDrawing(false);
       return;
@@ -184,21 +236,17 @@ const ImageCanvas: React.FC = () => {
     }
 
     setDrawRect(null);
-  }, [isDrawing, drawRect, addAnnotation, annotationShape]);
+  }, [isDrawing, drawRect, addAnnotation, annotationShape, draggingBox, resizing]);
 
-  // Stage click for polygon point adding and selection
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
-    // Polygon 添加点
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon) {
       const pos = getImagePos(e);
       if (!pos) return;
 
-      // 如果靠近第一个点，闭合多边形
       if (polygonPoints.length >= 3) {
         const first = polygonPoints[0];
         const dist = Math.sqrt((pos.x - first.x) ** 2 + (pos.y - first.y) ** 2);
         if (dist < 10 / scale) {
-          // 闭合
           addAnnotation(createPolygonAnnotation([...polygonPoints], 0));
           setPolygonPoints([]);
           setPolygonPreview(null);
@@ -210,13 +258,11 @@ const ImageCanvas: React.FC = () => {
       return;
     }
 
-    // 点击空白取消选中
     if (e.target === e.target.getStage() || e.target.name() === 'background-image') {
       clearSelection();
     }
   }, [mode, annotationShape, getImagePos, polygonPoints, scale, addAnnotation, clearSelection]);
 
-  // 双击闭合 polygon
   const handleStageDblClick = useCallback(() => {
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon && polygonPoints.length >= 3) {
       addAnnotation(createPolygonAnnotation([...polygonPoints], 0));
@@ -225,7 +271,6 @@ const ImageCanvas: React.FC = () => {
     }
   }, [mode, annotationShape, polygonPoints, addAnnotation]);
 
-  // Escape 取消 polygon 绘制
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && polygonPoints.length > 0) {
@@ -237,7 +282,6 @@ const ImageCanvas: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [polygonPoints]);
 
-  // 滚轮缩放
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     const stage = stageRef.current;
@@ -264,52 +308,6 @@ const ImageCanvas: React.FC = () => {
 
   // ============ 标注交互 ============
 
-  const handleDragEnd = useCallback((uuid: string, e: Konva.KonvaEventObject<DragEvent>) => {
-    const node = e.target;
-    const ann = annotations.find((a) => a.uuid === uuid);
-    if (!ann) return;
-
-    if (ann.shape === AnnotationShape.BBox) {
-      updateAnnotation(uuid, { x: node.x(), y: node.y() });
-    } else if (ann.shape === AnnotationShape.OBB) {
-      updateAnnotation(uuid, { cx: node.x() + ann.width / 2, cy: node.y() + ann.height / 2 } as Partial<OBBAnnotation>);
-    }
-  }, [updateAnnotation, annotations]);
-
-  const handleTransformEnd = useCallback((uuid: string, e: Konva.KonvaEventObject<Event>) => {
-    const node = e.target as Konva.Rect;
-    const ann = annotations.find((a) => a.uuid === uuid);
-    if (!ann) return;
-
-    const sx = node.scaleX();
-    const sy = node.scaleY();
-    node.scaleX(1);
-    node.scaleY(1);
-
-    if (ann.shape === AnnotationShape.BBox) {
-      updateAnnotation(uuid, {
-        x: node.x(),
-        y: node.y(),
-        width: Math.max(MIN_BOX_SIZE, node.width() * sx),
-        height: Math.max(MIN_BOX_SIZE, node.height() * sy),
-      });
-    } else if (ann.shape === AnnotationShape.OBB) {
-      const w = Math.max(MIN_BOX_SIZE, node.width() * sx);
-      const h = Math.max(MIN_BOX_SIZE, node.height() * sy);
-      const rotation = node.rotation() || 0;
-      const angleRad = (rotation * Math.PI) / 180;
-      updateAnnotation(uuid, {
-        cx: node.x() + w / 2,
-        cy: node.y() + h / 2,
-        width: w,
-        height: h,
-        angle: ann.angle + angleRad,
-      } as Partial<OBBAnnotation>);
-      node.rotation(0);
-    }
-  }, [updateAnnotation, annotations]);
-
-  // Polygon 顶点拖拽
   const handlePolygonVertexDrag = useCallback((uuid: string, vertexIndex: number, e: Konva.KonvaEventObject<DragEvent>) => {
     const node = e.target;
     const ann = annotations.find((a) => a.uuid === uuid);
@@ -319,6 +317,8 @@ const ImageCanvas: React.FC = () => {
     newPoints[vertexIndex] = { x: node.x(), y: node.y() };
     updateAnnotation(uuid, { points: newPoints } as Partial<PolygonAnnotation>);
   }, [updateAnnotation, annotations]);
+
+  // BBox 缩放手柄拖拽结束 — 已由 Stage 鼠标事件替代
 
   const fitToWindow = useCallback(() => {
     if (!image) return;
@@ -383,25 +383,78 @@ const ImageCanvas: React.FC = () => {
     );
   };
 
-  const renderBBox = (a: BBoxAnnotation, color: string, isSelected: boolean) => (
-    <Group key={a.uuid}>
-      <Rect
-        id={`shape-${a.uuid}`}
-        x={a.x}
-        y={a.y}
-        width={a.width}
-        height={a.height}
-        stroke={color}
-        strokeWidth={isSelected ? 3 / scale : 2 / scale}
-        fill={isSelected ? `${color}22` : 'transparent'}
-        draggable={mode === LabelMode.Edit}
-        onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
-        onDragEnd={(e) => handleDragEnd(a.uuid, e)}
-        onTransformEnd={(e) => handleTransformEnd(a.uuid, e)}
-      />
-      {renderLabel(a.x, a.y, a.classId)}
-    </Group>
-  );
+  // BBox: 一个 Group = 框 + 标签 + 手柄，通过 Stage 鼠标事件统一驱动
+  const renderBBox = (a: BBoxAnnotation, color: string, isSelected: boolean) => {
+    const r = HANDLE_RADIUS / scale;
+    const editable = isSelected && mode === LabelMode.Edit;
+
+    const handles = [
+      { name: 'tl', x: a.x, y: a.y, cursor: 'nwse-resize' },
+      { name: 'tc', x: a.x + a.width / 2, y: a.y, cursor: 'ns-resize' },
+      { name: 'tr', x: a.x + a.width, y: a.y, cursor: 'nesw-resize' },
+      { name: 'ml', x: a.x, y: a.y + a.height / 2, cursor: 'ew-resize' },
+      { name: 'mr', x: a.x + a.width, y: a.y + a.height / 2, cursor: 'ew-resize' },
+      { name: 'bl', x: a.x, y: a.y + a.height, cursor: 'nesw-resize' },
+      { name: 'bc', x: a.x + a.width / 2, y: a.y + a.height, cursor: 'ns-resize' },
+      { name: 'br', x: a.x + a.width, y: a.y + a.height, cursor: 'nwse-resize' },
+    ];
+
+    return (
+      <Group key={a.uuid}>
+        {/* 框体 —— 点击选中，mouseDown 开始拖拽 */}
+        <Rect
+          x={a.x}
+          y={a.y}
+          width={a.width}
+          height={a.height}
+          stroke={color}
+          strokeWidth={isSelected ? 2.5 / scale : 2 / scale}
+          fill={isSelected ? `${color}22` : 'transparent'}
+          onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
+          onMouseDown={(e) => {
+            if (mode !== LabelMode.Edit || !isSelected) return;
+            e.cancelBubble = true;
+            const pos = getImagePos(e);
+            if (!pos) return;
+            setDraggingBox({ uuid: a.uuid, startMouse: pos, origX: a.x, origY: a.y });
+          }}
+        />
+        {/* 标签 */}
+        {renderLabel(a.x, a.y, a.classId)}
+        {/* 缩放手柄 */}
+        {editable && handles.map((h) => (
+          <Circle
+            key={h.name}
+            x={h.x}
+            y={h.y}
+            radius={r}
+            fill="#fff"
+            stroke={color}
+            strokeWidth={1.5 / scale}
+            onMouseEnter={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = h.cursor;
+            }}
+            onMouseLeave={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = 'default';
+            }}
+            onMouseDown={(e) => {
+              e.cancelBubble = true;
+              const pos = getImagePos(e);
+              if (!pos) return;
+              setResizing({
+                uuid: a.uuid,
+                handle: h.name,
+                startMouse: pos,
+                origRect: { x: a.x, y: a.y, w: a.width, h: a.height },
+              });
+            }}
+          />
+        ))}
+      </Group>
+    );
+  };
 
   const renderPolygon = (a: PolygonAnnotation, color: string, isSelected: boolean) => {
     const flatPoints = a.points.flatMap((p) => [p.x, p.y]);
@@ -416,7 +469,6 @@ const ImageCanvas: React.FC = () => {
           fill={isSelected ? `${color}33` : `${color}11`}
           onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
         />
-        {/* 编辑模式显示顶点 */}
         {isSelected && mode === LabelMode.Edit && a.points.map((p, i) => (
           <Circle
             key={`vertex-${a.uuid}-${i}`}
@@ -436,48 +488,72 @@ const ImageCanvas: React.FC = () => {
   };
 
   const renderOBB = (a: OBBAnnotation, color: string, isSelected: boolean) => {
-    const vertices = getOBBVertices(a);
-    const flatPoints = vertices.flatMap((p) => [p.x, p.y]);
     const angleDeg = (a.angle * 180) / Math.PI;
     const topLeftX = a.cx - a.width / 2;
     const topLeftY = a.cy - a.height / 2;
+    const vertices = getOBBVertices(a);
 
     return (
-      <Group key={a.uuid}>
-        {/* 用于 Transformer 拖拽/变换的隐形 Rect */}
+      <Group
+        key={a.uuid}
+        x={topLeftX}
+        y={topLeftY}
+        draggable={mode === LabelMode.Edit}
+        onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
+        onDragEnd={(e) => {
+          const group = e.target;
+          updateAnnotation(a.uuid, {
+            cx: group.x() + a.width / 2,
+            cy: group.y() + a.height / 2,
+          } as Partial<OBBAnnotation>);
+        }}
+      >
         <Rect
           id={`shape-${a.uuid}`}
-          x={topLeftX}
-          y={topLeftY}
           width={a.width}
           height={a.height}
-          offsetX={0}
-          offsetY={0}
           rotation={angleDeg}
           stroke={color}
           strokeWidth={isSelected ? 3 / scale : 2 / scale}
           fill={isSelected ? `${color}22` : 'transparent'}
-          draggable={mode === LabelMode.Edit}
-          onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
-          onDragEnd={(e) => {
-            const node = e.target;
-            const newCx = node.x() + a.width / 2;
-            const newCy = node.y() + a.height / 2;
-            updateAnnotation(a.uuid, { cx: newCx, cy: newCy } as Partial<OBBAnnotation>);
+          onTransformEnd={(e) => {
+            const node = e.target as Konva.Rect;
+            const group = node.getParent();
+            const sx = node.scaleX();
+            const sy = node.scaleY();
+            node.scaleX(1);
+            node.scaleY(1);
+            const w = Math.max(MIN_BOX_SIZE, node.width() * sx);
+            const h = Math.max(MIN_BOX_SIZE, node.height() * sy);
+            const rotation = node.rotation() || 0;
+            const angleRad = (rotation * Math.PI) / 180;
+            const gx = (group?.x() || 0) + node.x();
+            const gy = (group?.y() || 0) + node.y();
+            node.position({ x: 0, y: 0 });
+            node.rotation(angleDeg);
+            updateAnnotation(a.uuid, {
+              cx: gx + w / 2,
+              cy: gy + h / 2,
+              width: w,
+              height: h,
+              angle: angleRad,
+            } as Partial<OBBAnnotation>);
           }}
-          onTransformEnd={(e) => handleTransformEnd(a.uuid, e)}
         />
-        {/* 方向指示线（从中心到顶边中点） */}
         {isSelected && (
           <Line
-            points={[a.cx, a.cy, vertices[0].x + (vertices[1].x - vertices[0].x) / 2, vertices[0].y + (vertices[1].y - vertices[0].y) / 2]}
+            points={[
+              a.width / 2, a.height / 2,
+              vertices[0].x - topLeftX + (vertices[1].x - vertices[0].x) / 2,
+              vertices[0].y - topLeftY + (vertices[1].y - vertices[0].y) / 2,
+            ]}
             stroke={color}
             strokeWidth={1 / scale}
             dash={[4 / scale, 2 / scale]}
             listening={false}
           />
         )}
-        {renderLabel(vertices[0].x, vertices[0].y, a.classId)}
+        {renderLabel(0, 0, a.classId)}
       </Group>
     );
   };
@@ -486,7 +562,6 @@ const ImageCanvas: React.FC = () => {
 
   const getCursor = () => {
     if (mode !== LabelMode.Add) return 'default';
-    if (annotationShape === AnnotationShape.Polygon) return 'crosshair';
     return 'crosshair';
   };
 
@@ -513,7 +588,6 @@ const ImageCanvas: React.FC = () => {
         onDblClick={handleStageDblClick}
       >
         <Layer x={position.x} y={position.y} scaleX={scale} scaleY={scale}>
-          {/* 图像 */}
           {image && (
             <KonvaImage
               image={image}
@@ -521,10 +595,8 @@ const ImageCanvas: React.FC = () => {
             />
           )}
 
-          {/* 已有标注 */}
           {annotations.filter((a) => a.visible).map((a) => renderAnnotation(a))}
 
-          {/* BBox/OBB 绘制中的临时矩形 */}
           {drawRect && (
             <Rect
               x={drawRect.x}
@@ -538,7 +610,6 @@ const ImageCanvas: React.FC = () => {
             />
           )}
 
-          {/* Polygon 绘制中的临时线 */}
           {polygonPoints.length > 0 && (
             <>
               <Line
@@ -552,7 +623,6 @@ const ImageCanvas: React.FC = () => {
                 fill="rgba(24,144,255,0.1)"
                 closed={false}
               />
-              {/* 顶点 */}
               {polygonPoints.map((p, i) => (
                 <Circle
                   key={`draw-vertex-${i}`}
@@ -567,7 +637,7 @@ const ImageCanvas: React.FC = () => {
             </>
           )}
 
-          {/* Transformer */}
+          {/* Transformer 仅用于 OBB 旋转 */}
           <Transformer
             ref={transformerRef}
             boundBoxFunc={(oldBox, newBox) => {
@@ -576,15 +646,17 @@ const ImageCanvas: React.FC = () => {
               }
               return newBox;
             }}
-            rotateEnabled={annotationShape === AnnotationShape.OBB || annotations.find((a) => a.uuid === selectedUuid)?.shape === AnnotationShape.OBB}
+            rotateEnabled={true}
             borderStroke="#1890ff"
+            borderStrokeWidth={1 / scale}
             anchorStroke="#1890ff"
-            anchorSize={8 / scale}
+            anchorFill="#fff"
+            anchorSize={5 / scale}
+            anchorStrokeWidth={1 / scale}
           />
         </Layer>
       </Stage>
 
-      {/* 缩放比例 */}
       <div
         style={{
           position: 'absolute',

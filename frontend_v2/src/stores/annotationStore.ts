@@ -32,6 +32,7 @@ interface AnnotationStoreState {
   toggleMode: () => void;
   setModified: (modified: boolean) => void;
   setClasses: (classes: string[]) => void;
+  addOrGetClassId: (className: string) => number;
   setImageSize: (width: number, height: number) => void;
   setAnnotationShape: (shape: AnnotationShape) => void;
   reset: () => void;
@@ -119,6 +120,15 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
   setModified: (modified) => set({ modified }),
 
   setClasses: (classes) => set({ classes }),
+
+  addOrGetClassId: (className: string) => {
+    const { classes } = get();
+    const idx = classes.indexOf(className);
+    if (idx >= 0) return idx;
+    const newClasses = [...classes, className];
+    set({ classes: newClasses });
+    return newClasses.length - 1;
+  },
 
   setImageSize: (width, height) => set({ imageWidth: width, imageHeight: height }),
 

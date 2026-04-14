@@ -93,10 +93,10 @@ const DatasetDetailPage: React.FC = () => {
       const timer = setInterval(() => {
         setUploadProgress((p) => Math.min(p + 10, 90));
       }, 500);
-      await uploadDatasetFiles(datasetId, Array.from(fileList));
+      const uploadedCount = await uploadDatasetFiles(datasetId, Array.from(fileList));
       clearInterval(timer);
       setUploadProgress(100);
-      message.success(t('uploadSuccess', { count: fileList.length }));
+      message.success(t('uploadSuccess', { count: uploadedCount ?? fileList.length }));
       setSelectedIds(new Set());
       fetchData();
     } catch { message.error(tc('msg.uploadFailed')); }

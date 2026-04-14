@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { List, Button, Tag, Select, Popconfirm, Empty, Badge } from 'antd';
+import { List, Button, Tag, Popconfirm, Empty, Badge, AutoComplete, Input } from 'antd';
 import {
   DeleteOutlined, EyeOutlined, EyeInvisibleOutlined,
   BorderOutlined, StarOutlined, GatewayOutlined,
@@ -38,16 +38,32 @@ const AnnotationList: React.FC = () => {
   const {
     annotations, selectedUuid, classes,
     selectAnnotation, toggleVisibility, deleteAnnotation, updateAnnotation,
+    addOrGetClassId,
   } = useAnnotationStore();
 
   const [editingUuid, setEditingUuid] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+
+  const startEditing = (uuid: string, classId: number) => {
+    setEditingUuid(uuid);
+    setEditingText(getLabel(classId));
+  };
+
+  const commitEditing = (uuid: string) => {
+    const text = editingText.trim();
+    if (text) {
+      const classId = addOrGetClassId(text);
+      updateAnnotation(uuid, { classId });
+    }
+    setEditingUuid(null);
+  };
 
   const getLabel = (classId: number) => {
     if (classId >= 0 && classId < classes.length) return classes[classId];
     return classId < 0 ? 'unknown' : `class_${classId}`;
   };
 
-  const classOptions = classes.map((c, i) => ({ label: c, value: i }));
+  const classOptions = classes.map((c) => ({ value: c, label: c }));
 
   return (
     <div style={{ width: 240, display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -83,29 +99,40 @@ const AnnotationList: React.FC = () => {
                     {/* 形状图标 */}
                     <ShapeIcon shape={item.shape} />
 
-                    {/* 类别标签 */}
+                    {/* 类别标签 - 单击编辑 */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {editingUuid === item.uuid ? (
-                        <Select
+                        <AutoComplete
                           size="small"
                           style={{ width: '100%' }}
-                          value={item.classId}
+                          value={editingText}
                           options={classOptions}
-                          onChange={(value) => {
-                            updateAnnotation(item.uuid, { classId: value });
+                          onChange={(value) => setEditingText(value)}
+                          onSelect={(value) => {
+                            setEditingText(value);
+                            const classId = addOrGetClassId(value);
+                            updateAnnotation(item.uuid, { classId });
                             setEditingUuid(null);
                           }}
-                          onBlur={() => setEditingUuid(null)}
+                          onBlur={() => commitEditing(item.uuid)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              commitEditing(item.uuid);
+                            }
+                          }}
                           autoFocus
                           open
-                        />
+                        >
+                          <Input size="small" placeholder="输入类别名" />
+                        </AutoComplete>
                       ) : (
                         <Tag
                           color={color}
                           style={{ cursor: 'pointer', margin: 0 }}
-                          onDoubleClick={(e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
-                            if (classes.length > 0) setEditingUuid(item.uuid);
+                            startEditing(item.uuid, item.classId);
                           }}
                         >
                           {getLabel(item.classId)}
