@@ -25,7 +25,7 @@ httpx>=0.26.0
 pydantic>=2.5.0
 
 # 文件上传
-python-multipart>=0.0.6
+python-multipart>=0.0.22
 
 # 日志
 loguru>=0.7.0

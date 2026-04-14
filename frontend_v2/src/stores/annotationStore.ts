@@ -18,6 +18,12 @@ interface AnnotationStoreState {
   imageWidth: number;
   imageHeight: number;
 
+  // Undo / Redo 历史栈
+  _history: Annotation[][];
+  _future: Annotation[][];
+  /** 是否处于拖拽/缩放/旋转等连续操作中，连续操作期间 updateAnnotation 不入栈 */
+  _batch: boolean;
+
   // Actions
   setAnnotations: (annotations: Annotation[]) => void;
   addAnnotation: (annotation: Annotation) => void;
@@ -35,7 +41,22 @@ interface AnnotationStoreState {
   addOrGetClassId: (className: string) => number;
   setImageSize: (width: number, height: number) => void;
   setAnnotationShape: (shape: AnnotationShape) => void;
+  /** 开始一次连续操作（拖拽/缩放/旋转），先保存快照 */
+  beginBatch: () => void;
+  /** 结束连续操作 */
+  endBatch: () => void;
+  undo: () => void;
+  redo: () => void;
   reset: () => void;
+}
+
+const MAX_HISTORY = 50;
+
+/** 保存当前 annotations 快照到历史栈，并清空 future */
+function pushHistory(state: AnnotationStoreState) {
+  const history = [...state._history, state.annotations.map((a) => ({ ...a }))];
+  if (history.length > MAX_HISTORY) history.shift();
+  return { _history: history, _future: [] as Annotation[][] };
 }
 
 export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
@@ -47,12 +68,16 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
   annotationShape: AnnotationShape.BBox,
   imageWidth: 0,
   imageHeight: 0,
+  _history: [],
+  _future: [],
+  _batch: false,
 
-  setAnnotations: (annotations) => set({ annotations, selectedUuid: '', modified: false }),
+  setAnnotations: (annotations) => set({ annotations, selectedUuid: '', modified: false, _history: [], _future: [] }),
 
   addAnnotation: (annotation) => {
     const newAnnotation = { ...annotation, uuid: annotation.uuid || uuidv4() };
     set((state) => ({
+      ...pushHistory(state),
       annotations: [...state.annotations, newAnnotation],
       modified: true,
     }));
@@ -60,6 +85,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
 
   deleteAnnotation: (uuid) =>
     set((state) => ({
+      ...pushHistory(state),
       annotations: state.annotations.filter((a) => a.uuid !== uuid),
       selectedUuid: state.selectedUuid === uuid ? '' : state.selectedUuid,
       modified: true,
@@ -67,6 +93,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
 
   updateAnnotation: (uuid, updates) =>
     set((state) => ({
+      ...(state._batch ? {} : pushHistory(state)),
       annotations: state.annotations.map((a) => (a.uuid === uuid ? { ...a, ...updates } as Annotation : a)),
       modified: true,
     })),
@@ -104,6 +131,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
     const { selectedUuid } = get();
     if (!selectedUuid) return;
     set((state) => ({
+      ...pushHistory(state),
       annotations: state.annotations.filter((a) => a.uuid !== selectedUuid),
       selectedUuid: '',
       modified: true,
@@ -134,6 +162,41 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
 
   setAnnotationShape: (shape) => set({ annotationShape: shape }),
 
+  beginBatch: () => {
+    set((state) => ({
+      ...pushHistory(state),
+      _batch: true,
+    }));
+  },
+
+  endBatch: () => set({ _batch: false }),
+
+  undo: () => {
+    const { _history } = get();
+    if (_history.length === 0) return;
+    const prev = _history[_history.length - 1];
+    set((state) => ({
+      _history: state._history.slice(0, -1),
+      _future: [state.annotations.map((a) => ({ ...a })), ...state._future],
+      annotations: prev,
+      selectedUuid: '',
+      modified: true,
+    }));
+  },
+
+  redo: () => {
+    const { _future } = get();
+    if (_future.length === 0) return;
+    const next = _future[0];
+    set((state) => ({
+      _future: state._future.slice(1),
+      _history: [...state._history, state.annotations.map((a) => ({ ...a }))],
+      annotations: next,
+      selectedUuid: '',
+      modified: true,
+    }));
+  },
+
   reset: () =>
     set({
       annotations: [],
@@ -143,5 +206,8 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
       annotationShape: AnnotationShape.BBox,
       imageWidth: 0,
       imageHeight: 0,
+      _history: [],
+      _future: [],
+      _batch: false,
     }),
 }));

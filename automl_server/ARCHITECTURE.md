@@ -619,7 +619,7 @@ sse-starlette>=1.8.0
 
 # 工具
 pydantic>=2.5.0
-python-multipart>=0.0.6
+python-multipart>=0.0.22
 loguru>=0.7.0
 python-dotenv>=1.0.0
 

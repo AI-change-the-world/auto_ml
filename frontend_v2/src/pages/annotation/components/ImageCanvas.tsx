@@ -145,6 +145,10 @@ const ImageCanvas: React.FC = () => {
 
   const { currentImageUrl, annotationFiles, datasetFiles, currentFileIndex } = useDatasetStore();
   const setAnnotations = useAnnotationStore((s) => s.setAnnotations);
+  const undo = useAnnotationStore((s) => s.undo);
+  const redo = useAnnotationStore((s) => s.redo);
+  const beginBatch = useAnnotationStore((s) => s.beginBatch);
+  const endBatch = useAnnotationStore((s) => s.endBatch);
 
   // 容器尺寸响应
   useEffect(() => {
@@ -316,9 +320,9 @@ const ImageCanvas: React.FC = () => {
 
   const handleMouseUp = useCallback(() => {
     // BBox 拖拽/缩放结束
-    if (draggingBox) { setDraggingBox(null); return; }
-    if (resizing) { setResizing(null); return; }
-    if (rotating) { setRotating(null); return; }
+    if (draggingBox) { setDraggingBox(null); endBatch(); return; }
+    if (resizing) { setResizing(null); endBatch(); return; }
+    if (rotating) { setRotating(null); endBatch(); return; }
 
     if (!isDrawing || !drawRect) {
       setIsDrawing(false);
@@ -339,7 +343,7 @@ const ImageCanvas: React.FC = () => {
     }
 
     setDrawRect(null);
-  }, [isDrawing, drawRect, addAnnotation, annotationShape, draggingBox, resizing, rotating]);
+  }, [isDrawing, drawRect, addAnnotation, annotationShape, draggingBox, resizing, rotating, endBatch]);
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon) {
@@ -380,10 +384,20 @@ const ImageCanvas: React.FC = () => {
         setPolygonPoints([]);
         setPolygonPreview(null);
       }
+      // Ctrl+Z / Cmd+Z 撤销
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      // Ctrl+Shift+Z / Cmd+Shift+Z 重做
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        redo();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [polygonPoints]);
+  }, [polygonPoints, undo, redo]);
 
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -526,6 +540,7 @@ const ImageCanvas: React.FC = () => {
             const pos = getImagePos(e);
             if (!pos) return;
             setDraggingBox({ uuid: a.uuid, startMouse: pos, origX: a.x, origY: a.y });
+            beginBatch();
           }}
         />
         {/* 标签 */}
@@ -559,6 +574,7 @@ const ImageCanvas: React.FC = () => {
                 startMouse: pos,
                 origRect: { x: a.x, y: a.y, w: a.width, h: a.height },
               });
+              beginBatch();
             }}
           />
         ))}
@@ -641,6 +657,7 @@ const ImageCanvas: React.FC = () => {
             const pos = getImagePos(e);
             if (!pos) return;
             setDraggingBox({ uuid: a.uuid, startMouse: pos, origX: a.cx, origY: a.cy });
+            beginBatch();
           }}
         />
         {/* 标签 */}
@@ -677,6 +694,7 @@ const ImageCanvas: React.FC = () => {
                     angle: a.angle,
                   },
                 });
+                beginBatch();
               }}
             />
             <Circle
@@ -710,6 +728,7 @@ const ImageCanvas: React.FC = () => {
                     angle: a.angle,
                   },
                 });
+                beginBatch();
               }}
             />
           </React.Fragment>
@@ -748,6 +767,7 @@ const ImageCanvas: React.FC = () => {
                   angle: a.angle,
                 },
               });
+              beginBatch();
             }}
           />
         ))}
@@ -787,6 +807,7 @@ const ImageCanvas: React.FC = () => {
                   startAngle: Math.atan2(pos.y - a.cy, pos.x - a.cx),
                   origAngle: a.angle,
                 });
+                beginBatch();
               }}
             />
           </>

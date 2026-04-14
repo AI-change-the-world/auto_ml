@@ -10,13 +10,19 @@ import {
   BorderOutlined,
   StarOutlined,
   GatewayOutlined,
+  UndoOutlined,
+  RedoOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { LabelMode, AnnotationShape, AnnotationType } from '../../../types';
 
 const Toolbar: React.FC = () => {
-  const { mode, toggleMode, modified, annotationShape, setAnnotationShape } = useAnnotationStore();
+  const {
+    mode, toggleMode, modified, annotationShape, setAnnotationShape,
+    selectedUuid, deleteSelected, undo, redo, _history, _future,
+  } = useAnnotationStore();
   const { nextFile, prevFile, saveCurrentAnnotation, currentFileIndex, datasetFiles, loading, annotationProject } = useDatasetStore();
 
   const annotationType = annotationProject?.annotation_type ?? AnnotationType.Detection;
@@ -66,9 +72,8 @@ const Toolbar: React.FC = () => {
             type={mode === LabelMode.Add ? 'primary' : 'default'}
             icon={mode === LabelMode.Add ? <PlusSquareOutlined /> : <EditOutlined />}
             onClick={toggleMode}
-          >
-            {mode === LabelMode.Edit ? '编辑模式' : '添加模式'}
-          </Button>
+            size="small"
+          />
         </Tooltip>
 
         <Divider type="vertical" />
@@ -93,17 +98,53 @@ const Toolbar: React.FC = () => {
             onClick={saveCurrentAnnotation}
             disabled={!modified}
             type={modified ? 'primary' : 'default'}
+            size="small"
           >
             保存
           </Button>
         </Tooltip>
 
         {modified && <Tag color="warning">未保存</Tag>}
+
+        <Divider type="vertical" />
+
+        {/* 撤销 / 重做 */}
+        <Tooltip title="撤销 (Ctrl+Z)">
+          <Button
+            icon={<UndoOutlined />}
+            onClick={undo}
+            disabled={_history.length === 0}
+            size="small"
+          />
+        </Tooltip>
+        <Tooltip title="重做 (Ctrl+Shift+Z)">
+          <Button
+            icon={<RedoOutlined />}
+            onClick={redo}
+            disabled={_future.length === 0}
+            size="small"
+          />
+        </Tooltip>
+
+        <Divider type="vertical" />
+
+        {/* 删除选中 */}
+        <Tooltip title="删除选中 (D)">
+          <Button
+            icon={<DeleteOutlined />}
+            onClick={deleteSelected}
+            disabled={!selectedUuid}
+            size="small"
+            danger
+          />
+        </Tooltip>
       </Space>
 
       <Space size="small">
         {/* 当前工具提示 */}
         <Tag color="blue" style={{ margin: 0 }}>
+          {mode === LabelMode.Edit ? '编辑' : '添加'}
+          {' · '}
           {annotationShape === AnnotationShape.BBox && '矩形框'}
           {annotationShape === AnnotationShape.OBB && '旋转框'}
           {annotationShape === AnnotationShape.Polygon && '多边形'}
@@ -113,7 +154,7 @@ const Toolbar: React.FC = () => {
 
         {/* 缩放 */}
         <Tooltip title="适应窗口">
-          <Button icon={<ExpandOutlined />} onClick={handleFitToWindow} />
+          <Button icon={<ExpandOutlined />} onClick={handleFitToWindow} size="small" />
         </Tooltip>
 
         <Divider type="vertical" />
@@ -124,6 +165,7 @@ const Toolbar: React.FC = () => {
             icon={<LeftOutlined />}
             onClick={prevFile}
             disabled={currentFileIndex <= 0 || loading}
+            size="small"
           />
         </Tooltip>
 
@@ -136,6 +178,7 @@ const Toolbar: React.FC = () => {
             icon={<RightOutlined />}
             onClick={nextFile}
             disabled={currentFileIndex >= datasetFiles.length - 1 || loading}
+            size="small"
           />
         </Tooltip>
       </Space>
