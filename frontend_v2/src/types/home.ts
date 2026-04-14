@@ -12,4 +12,17 @@ export interface HomeStats {
     total: number;
     deployed: number;
   };
+  recent_annotations: {
+    id: number;
+    name: string;
+    annotation_type: number;
+    created_at: string | null;
+  }[];
+  recent_datasets: {
+    id: number;
+    name: string;
+    count: number;
+    data_type: number;
+    created_at: string | null;
+  }[];
 }

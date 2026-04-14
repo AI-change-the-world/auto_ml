@@ -10,11 +10,9 @@ import {
   ExperimentOutlined,
   CloudServerOutlined,
   CloudUploadOutlined,
-  CloudDownloadOutlined,
   PlusOutlined,
   ArrowRightOutlined,
   SyncOutlined,
-  LockOutlined,
 } from '@ant-design/icons';
 import { getHomeStats } from '../../api/home';
 import type { HomeStats } from '../../types/home';
@@ -104,9 +102,9 @@ const HomePage: React.FC = () => {
     { icon: <CloudServerOutlined style={{ fontSize: 16 }} />, value: stats?.models?.deployed ?? 0, label: t('deployments') },
   ];
 
-  const storageUsed = 5.3;
-  const storageTotal = 100;
-  const storagePercent = ((storageUsed / storageTotal) * 100).toFixed(1);
+  const recentDatasets = stats?.recent_datasets ?? [];
+  const recentAnnotations = stats?.recent_annotations ?? [];
+  const annotationTypeLabels: Record<number, string> = { 0: 'BBox', 1: 'OBB', 2: 'Polygon' };
 
   return (
     <div className="page-container">
@@ -196,83 +194,29 @@ const HomePage: React.FC = () => {
           </div>
           <p style={{ fontSize: 13, color: '#888', margin: '0 0 16px' }}>{t('uploadDesc')}</p>
 
-          {/* Drop zone */}
-          <div
-            style={{
-              border: '2px dashed #e5e5e5',
-              borderRadius: 12,
-              padding: '32px 16px',
-              textAlign: 'center',
-              marginBottom: 16,
-              cursor: 'pointer',
-              transition: 'border-color 0.2s',
-            }}
-            onClick={() => navigate('/datasets')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#bbb';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#e5e5e5';
-            }}
-          >
-            <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', display: 'block', marginBottom: 8 }} />
-            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropFiles')}</p>
-            <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>
-              {t('dropLimit')}
-            </p>
-          </div>
-
-          {/* Example dataset card */}
-          <div
-            style={{
-              borderRadius: 12,
-              overflow: 'hidden',
-              cursor: 'pointer',
-              position: 'relative',
-              background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #f97316 100%)',
-              display: 'flex',
-              gap: 4,
-              minHeight: 80,
-            }}
-            onClick={() => navigate('/example-dataset')}
-          >
-            {[1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                style={{
-                  flex: 1,
-                  background: `linear-gradient(${45 + n * 30}deg, rgba(255,255,255,0.15), rgba(0,0,0,0.1))`,
-                  minHeight: 80,
-                }}
-              />
-            ))}
-            {/* Overlay info */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                padding: '24px 14px 10px',
-                background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
-                color: '#fff',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 14 }}>
-                Example Dataset <LockOutlined style={{ fontSize: 12 }} />
-              </div>
-              <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span>8 imgs</span>
-                <span>80 cls</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }} />4
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#60a5fa' }} />4
-                </span>
-              </div>
+          {recentDatasets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 16px', border: '2px dashed #e5e5e5', borderRadius: 12, cursor: 'pointer' }} onClick={() => navigate('/datasets')}>
+              <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', display: 'block', marginBottom: 8 }} />
+              <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropFiles')}</p>
+              <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>{t('dropLimit')}</p>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {recentDatasets.map((ds) => (
+                <div key={ds.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1px solid #eee', borderRadius: 10, cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+                  onClick={() => navigate(`/datasets/${ds.id}`)}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <DatabaseOutlined style={{ fontSize: 18, color: '#f59e0b' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ds.name}</div>
+                    <div style={{ fontSize: 11, color: '#999' }}>{ds.count} {t('images')}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div style={{ flex: 1 }} />
           <div
@@ -319,82 +263,31 @@ const HomePage: React.FC = () => {
           </div>
           <p style={{ fontSize: 13, color: '#888', margin: '0 0 16px' }}>{t('projectDesc')}</p>
 
-          {/* Drop zone */}
-          <div
-            style={{
-              border: '2px dashed #e5e5e5',
-              borderRadius: 12,
-              padding: '32px 16px',
-              textAlign: 'center',
-              marginBottom: 16,
-              cursor: 'pointer',
-              transition: 'border-color 0.2s',
-            }}
-            onClick={() => navigate('/annotations')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#bbb';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#e5e5e5';
-            }}
-          >
-            <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', display: 'block', marginBottom: 8 }} />
-            <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropModel')}</p>
-            <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>{t('dropModelLimit')}</p>
-          </div>
-
-          {/* Example project card */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              padding: '14px 16px',
-              border: '1px solid #eee',
-              borderRadius: 12,
-              cursor: 'pointer',
-              transition: 'box-shadow 0.2s',
-            }}
-            onClick={() => navigate('/annotations')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 10,
-                background: '#ef4444',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: 16,
-                flexShrink: 0,
-              }}
-            >
-              E
+          {recentAnnotations.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 16px', border: '2px dashed #e5e5e5', borderRadius: 12, cursor: 'pointer' }} onClick={() => navigate('/annotations')}>
+              <CloudUploadOutlined style={{ fontSize: 28, color: '#ccc', display: 'block', marginBottom: 8 }} />
+              <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropModel')}</p>
+              <p style={{ fontSize: 11, color: '#bbb', margin: '6px 0 0' }}>{t('dropModelLimit')}</p>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t('exampleProject')}</span>
-                <LockOutlined style={{ fontSize: 12, color: '#ccc' }} />
-              </div>
-              <div style={{ fontSize: 12, color: '#999', display: 'flex', gap: 10, marginTop: 2 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <ExperimentOutlined style={{ fontSize: 11 }} /> {t('model1')}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <DatabaseOutlined style={{ fontSize: 11 }} /> 5.3 MB
-                </span>
-              </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {recentAnnotations.map((ann) => (
+                <div key={ann.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1px solid #eee', borderRadius: 10, cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+                  onClick={() => navigate(`/annotations/${ann.id}/label`)}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+                    {ann.name?.charAt(0)?.toUpperCase() || 'P'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ann.name}</div>
+                    <div style={{ fontSize: 11, color: '#999' }}>{annotationTypeLabels[ann.annotation_type] ?? 'BBox'}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
 
           <div style={{ flex: 1 }} />
           <div
@@ -419,7 +312,7 @@ const HomePage: React.FC = () => {
           </div>
         </Card>
 
-        {/* ── Storage ── */}
+        {/* ── 统计概览 ── */}
         <Card style={{ padding: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <h3
@@ -438,36 +331,11 @@ const HomePage: React.FC = () => {
             <SyncOutlined style={{ fontSize: 14, color: '#ccc', cursor: 'pointer' }} />
           </div>
           <p style={{ fontSize: 13, color: '#666', margin: '0 0 10px' }}>
-            {storageUsed} MB / {storageTotal} GB ({storagePercent}%)
+            {stats?.datasets ?? 0} {t('datasets')} · {stats?.images ?? 0} {t('images')} · {stats?.annotations ?? 0} {t('annotations')}
           </p>
 
           {/* Progress bar */}
-          <div style={{ width: '100%', background: '#f0f0f0', borderRadius: 999, height: 6, marginBottom: 24 }}>
-            <div
-              style={{
-                width: `${Math.max(Number(storagePercent), 1)}%`,
-                background: 'linear-gradient(90deg, #a855f7, #7c3aed)',
-                borderRadius: 999,
-                height: 6,
-                transition: 'width 0.3s',
-              }}
-            />
-          </div>
-
-          {/* By category */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: '#999', fontWeight: 600, marginBottom: 8, letterSpacing: 0.3 }}>
-              {t('byCategory')}
-            </div>
-            {/* Category bar */}
-            <div style={{ width: '100%', background: '#f0f0f0', borderRadius: 999, height: 8, marginBottom: 8, overflow: 'hidden' }}>
-              <div style={{ width: '100%', background: '#f59e0b', height: 8 }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#555' }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: '#f59e0b', flexShrink: 0 }} />
-              Models (5.3 MB)
-            </div>
-          </div>
+          <div style={{ width: '100%', background: '#f0f0f0', borderRadius: 999, height: 6, marginBottom: 24 }} />
 
           {/* Resources */}
           <div style={{ marginBottom: 16 }}>
@@ -475,11 +343,11 @@ const HomePage: React.FC = () => {
               {t('resources')}
             </div>
             {[
-              { icon: <FolderOutlined />, label: t('projects'), value: String(stats?.tasks?.total ?? 0) },
+              { icon: <FolderOutlined />, label: t('projects'), value: String(stats?.annotations ?? 0) },
               { icon: <DatabaseOutlined />, label: t('datasets'), value: String(stats?.datasets ?? 0) },
-              { icon: <ExperimentOutlined />, label: t('models'), value: `${stats?.models?.total ?? 0} / 100` },
+              { icon: <ExperimentOutlined />, label: t('models'), value: String(stats?.models?.total ?? 0) },
               { icon: <PictureOutlined />, label: t('images'), value: String(stats?.images ?? 0) },
-              { icon: <CloudServerOutlined />, label: t('deployments'), value: `${stats?.models?.deployed ?? 0} / 3` },
+              { icon: <CloudServerOutlined />, label: t('deployments'), value: String(stats?.models?.deployed ?? 0) },
             ].map((r, i) => (
               <div
                 key={i}
@@ -500,41 +368,25 @@ const HomePage: React.FC = () => {
             ))}
           </div>
 
-          {/* Largest items */}
-          <div>
-            <div style={{ fontSize: 12, color: '#999', fontWeight: 600, marginBottom: 8, letterSpacing: 0.3 }}>
-              {t('largestItems')}
+          {/* Largest datasets */}
+          {recentDatasets.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, color: '#999', fontWeight: 600, marginBottom: 8, letterSpacing: 0.3 }}>
+                {t('largestItems')}
+              </div>
+              {recentDatasets.slice(0, 3).map((ds) => (
+                <div key={ds.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '4px 0' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#666' }}>
+                    <DatabaseOutlined style={{ color: '#bbb', fontSize: 13 }} />
+                    {ds.name}
+                  </span>
+                  <span style={{ fontWeight: 500, color: '#111' }}>{ds.count} {t('images')}</span>
+                </div>
+              ))}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: 13,
-                padding: '4px 0',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#666' }}>
-                <ExperimentOutlined style={{ color: '#bbb', fontSize: 13 }} />
-                yolo26n
-              </span>
-              <span style={{ fontWeight: 500, color: '#111' }}>5.3 MB</span>
-            </div>
-          </div>
+          )}
         </Card>
       </div>
-
-      {/* ─── Recent Activity ─── */}
-      <Card style={{ padding: 24, marginTop: 24 }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#111', margin: '0 0 6px' }}>{t('recentActivity')}</h3>
-        <p style={{ fontSize: 13, color: '#888', margin: '0 0 20px' }}>
-          {t('recentDesc')}
-        </p>
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#e5e5e5' }}>
-          <CloudDownloadOutlined style={{ fontSize: 40, marginBottom: 10, display: 'block' }} />
-          <p style={{ fontSize: 13, color: '#bbb', margin: 0 }}>{t('noRecent')}</p>
-        </div>
-      </Card>
     </div>
   );
 };

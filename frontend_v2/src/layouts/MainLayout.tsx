@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -20,8 +20,11 @@ import {
   ToolOutlined,
   EditOutlined,
 } from '@ant-design/icons';
+import { driver } from 'driver.js';
+import 'driver.js/dist/driver.css';
 import { listAnnotations } from '../api/annotation';
-import type { AnnotationProject } from '../types';
+import { listTasks } from '../api/task';
+import type { AnnotationProject, TaskResponse } from '../types';
 
 /* ─── types ─── */
 interface NavItem {
@@ -40,11 +43,106 @@ const MainLayout: React.FC = () => {
 
   // 动态加载标注项目列表
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
+  // 动态加载训练任务列表
+  const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
   useEffect(() => {
     listAnnotations(1, 50).then((res) => {
       setAnnotationProjects(res.items || []);
     }).catch(() => { });
+    listTasks(1, 50).then((res) => {
+      setTaskProjects(res.items || []);
+    }).catch(() => { });
   }, [location.pathname]); // 路由变化时刷新（如新建项目后返回）
+
+  const startTour = useCallback(() => {
+    const driverObj = driver({
+      showProgress: true,
+      animate: true,
+      overlayColor: 'rgba(0,0,0,0.5)',
+      stagePadding: 8,
+      stageRadius: 10,
+      popoverClass: 'automl-tour-popover',
+      nextBtnText: '下一步 →',
+      prevBtnText: '← 上一步',
+      doneBtnText: '开始使用 ✔',
+      progressText: '{{current}} / {{total}}',
+      steps: [
+        {
+          element: '[data-tour="nav-home"]',
+          popover: {
+            title: '🏠 首页总览',
+            description: '这里显示平台概况：数据集、标注、模型等统计信息，快速了解项目状态',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="nav-browse"]',
+          popover: {
+            title: '📂 数据集管理',
+            description: '上传图片、视频或文本数据集，支持 ZIP/TAR 批量导入。数据集是一切工作的基础',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="nav-annotation"]',
+          popover: {
+            title: '🏷️ 图像标注',
+            description: '创建标注项目，支持 BBox、OBB旋转框和 Polygon 多边形标注。\n标注完成后可直接用于模型训练',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="nav-training"]',
+          popover: {
+            title: '🧪 模型训练',
+            description: '选择数据集和基础模型，一键启动训练任务。\n支持 YOLO 等主流目标检测模型',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="nav-deploy"]',
+          popover: {
+            title: '☁️ 模型部署',
+            description: '将训练好的模型部署为在线服务，提供 REST API 接口进行推理调用',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="nav-augment"]',
+          popover: {
+            title: '⚡ 数据增强',
+            description: '使用 CV 变换、GAN 生成、Stable Diffusion 等方式扩充训练数据，提升模型效果',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="nav-tools"]',
+          popover: {
+            title: '🛠 工具箱',
+            description: '内置实用工具：图片处理、格式转换、模型管理等',
+            side: 'right', align: 'start',
+          },
+        },
+        {
+          element: '[data-tour="lang-toggle"]',
+          popover: {
+            title: '🌐 语言切换',
+            description: '支持中文/English 双语切换，系统界面实时切换语言',
+            side: 'bottom', align: 'end',
+          },
+        },
+        {
+          element: '[data-tour="example-link"]',
+          popover: {
+            title: '💡 交互式示例',
+            description: '点击此处进入交互式标注演示，体验完整的目标检测标注工作流',
+            side: 'right', align: 'start',
+          },
+        },
+      ],
+    });
+    driverObj.drive();
+  }, []);
 
   const toggleLanguage = useCallback(() => {
     const next = i18n.language === 'en' ? 'zh' : 'en';
@@ -67,9 +165,11 @@ const MainLayout: React.FC = () => {
       key: '/tasks',
       icon: <ExperimentOutlined />,
       label: t('nav.training'),
-      children: [
-        { key: '/tasks/example', label: t('nav.exampleProject'), icon: <ExperimentOutlined style={{ color: '#ef4444' }} />, badge: '1' },
-      ],
+      children: taskProjects.map((task) => ({
+        key: `/tasks/${task.id}`,
+        label: `任务 #${task.id}`,
+        icon: <ExperimentOutlined style={{ color: '#ef4444' }} />,
+      })),
     },
     {
       key: '/deploy',
@@ -100,7 +200,7 @@ const MainLayout: React.FC = () => {
   const bottomItems = [
     { key: '/trash', icon: <DeleteOutlined />, label: t('nav.trash') },
     { key: '/settings', icon: <SettingOutlined />, label: t('nav.settings') },
-    { key: '/help', icon: <QuestionCircleOutlined />, label: t('nav.help') },
+    { key: '/example-dataset', icon: <QuestionCircleOutlined />, label: t('nav.help'), tour: 'example-link' },
   ];
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -243,13 +343,14 @@ const MainLayout: React.FC = () => {
         {/* Top nav */}
         <nav style={{ padding: '4px 8px', overflow: 'hidden' }}>
           {[
-            { key: '/', icon: <HomeOutlined />, label: t('nav.home') },
-            { key: '/datasets', icon: <SearchOutlined />, label: t('nav.browse') },
+            { key: '/', icon: <HomeOutlined />, label: t('nav.home'), tour: 'nav-home' },
+            { key: '/datasets', icon: <SearchOutlined />, label: t('nav.browse'), tour: 'nav-browse' },
           ].map((item) => {
             const active = isActive(item.key);
             return (
               <div
                 key={item.key}
+                data-tour={item.tour}
                 onClick={() => navigate(item.key)}
                 style={navItemStyle(active)}
                 onMouseEnter={(e) => {
@@ -285,8 +386,12 @@ const MainLayout: React.FC = () => {
             {myProjectsNav.map((group) => {
               const isExp = expanded[group.key] ?? false;
               const groupActive = isActive(group.key);
+              const tourMap: Record<string, string> = {
+                '/annotations': 'nav-annotation', '/tasks': 'nav-training',
+                '/deploy': 'nav-deploy', '/augment': 'nav-augment', '/tools': 'nav-tools',
+              };
               return (
-                <div key={group.key}>
+                <div key={group.key} data-tour={tourMap[group.key]}>
                   {/* Group header */}
                   <div
                     style={{
@@ -412,8 +517,9 @@ const MainLayout: React.FC = () => {
             return (
               <div
                 key={item.key}
+                data-tour={item.tour}
                 onClick={() => {
-                  if (item.key === '/settings') navigate(item.key);
+                  if (item.key === '/settings' || item.key === '/example-dataset') navigate(item.key);
                 }}
                 style={navItemStyle(active)}
                 onMouseEnter={(e) => {
@@ -522,28 +628,45 @@ const MainLayout: React.FC = () => {
             {location.pathname.startsWith('/tools') && t('nav.tools')}
             {location.pathname.startsWith('/settings') && t('nav.settings')}
           </span>
-          <button
-            onClick={toggleLanguage}
-            style={{
-              marginLeft: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '4px 12px',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              background: '#f9fafb',
-              color: '#374151',
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#4f6ef7'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
-          >
-            🌐 {i18n.language === 'en' ? '中文' : 'English'}
-          </button>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={startTour}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 32, height: 32, borderRadius: '50%',
+                border: '1px solid #e5e7eb', background: '#f9fafb',
+                color: '#666', fontSize: 14, cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#4f6ef7'; e.currentTarget.style.color = '#4f6ef7'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#666'; }}
+              title="新手引导"
+            >
+              <QuestionCircleOutlined />
+            </button>
+            <button
+              data-tour="lang-toggle"
+              onClick={toggleLanguage}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '4px 12px',
+                border: '1px solid #e5e7eb',
+                borderRadius: 6,
+                background: '#f9fafb',
+                color: '#374151',
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#4f6ef7'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+            >
+              🌐 {i18n.language === 'en' ? '中文' : 'English'}
+            </button>
+          </div>
         </header>
 
         <main style={{ flex: 1, overflow: 'auto', background: '#fafafa' }}>
