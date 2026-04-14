@@ -59,7 +59,6 @@ automl_server/
 │   │       ├── task.py             # Task, TaskLog, BaseModels
 │   │       ├── predict.py          # PredictTask, PredictData
 │   │       ├── deploy.py           # AvailableModel
-│   │       ├── aether.py           # Agent
 │   │       └── tool.py             # ToolModel
 │   │
 │   ├── modules/                    # 业务模块
@@ -99,27 +98,6 @@ automl_server/
 │   │   │   ├── service.py          # 与 model_deploy 通信
 │   │   │   ├── schemas.py
 │   │   │   └── crud.py
-│   │   │
-│   │   ├── aether/                 # Aether 工作流引擎
-│   │   │   ├── __init__.py
-│   │   │   ├── router.py
-│   │   │   ├── service.py
-│   │   │   ├── schemas.py
-│   │   │   ├── crud.py
-│   │   │   ├── client.py           # AI Platform HTTP 客户端
-│   │   │   └── workflow/           # 工作流引擎
-│   │   │       ├── __init__.py
-│   │   │       ├── engine.py       # WorkflowEngine
-│   │   │       ├── context.py      # WorkflowContext
-│   │   │       ├── parser.py       # PipelineParser
-│   │   │       └── actions/        # 工作流动作
-│   │   │           ├── __init__.py
-│   │   │           ├── base.py     # BaseAction 接口
-│   │   │           ├── label_image.py
-│   │   │           ├── batch_label.py
-│   │   │           ├── describe_image.py
-│   │   │           ├── find_similar.py
-│   │   │           └── save_annotation.py
 │   │   │
 │   │   ├── tool/                   # 工具模型模块
 │   │   │   ├── __init__.py
@@ -225,7 +203,6 @@ class DatasetFile(BaseEntity):
 - 标注项目 CRUD
 - 标注文件管理
 - 支持多种标注类型（检测、分类、分割）
-- 与 Aether 智能标注集成
 
 **实体**：
 ```python
@@ -368,48 +345,7 @@ class AvailableModel(BaseEntity):
 
 ---
 
-### 3.6 Aether 工作流引擎 (aether)
-
-**功能**：
-- Agent 管理（工作流配置）
-- 工作流解析和执行
-- 自动标注 Pipeline
-- 与 AI Platform 通信
-
-**实体**：
-```python
-class Agent(BaseEntity):
-    name: str               # Agent 名称
-    description: str        # 描述
-    pipeline_content: str   # 工作流 JSON
-```
-
-**工作流引擎架构**：
-```
-WorkflowEngine
-├── PipelineParser     # 解析工作流定义
-├── WorkflowContext    # 执行上下文
-└── Actions/           # 可执行动作
-    ├── LabelImageAction
-    ├── BatchLabelImageAction
-    ├── DescribeImageAction
-    ├── FindSimilarAction
-    ├── CheckAnnotationAction
-    ├── SaveAnnotationToS3Action
-    └── PostProcessAction
-```
-
-**API 端点**：
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /aether/agents | 获取 Agent 列表 |
-| POST | /aether/agent | 创建 Agent |
-| POST | /aether/execute | 执行工作流 |
-| POST | /aether/auto-label | 自动标注 |
-
----
-
-### 3.7 工具模型 (tool)
+### 3.6 工具模型 (tool)
 
 **功能**：
 - 工具模型注册和管理
@@ -426,7 +362,7 @@ class ToolModel(BaseEntity):
 
 ---
 
-### 3.8 数据增强与质量评估 (augment)
+### 3.7 数据增强与质量评估 (augment)
 
 **功能**：
 - 调用 auto_augment_pipeline 服务
@@ -441,7 +377,7 @@ class ToolModel(BaseEntity):
 
 ---
 
-### 3.9 首页统计 (home)
+### 3.8 首页统计 (home)
 
 **功能**：
 - 数据集统计
@@ -646,7 +582,6 @@ apscheduler>=3.10.0
 
 ### Phase 3: 高级功能
 - [ ] 预测模块 (含 SSE)
-- [ ] Aether 工作流引擎
 - [ ] 数据增强模块
 - [ ] 工具模型模块
 - [ ] 首页统计模块
@@ -708,5 +643,4 @@ apscheduler>=3.10.0
 | predict_task | 预测任务 |
 | predict_data | 预测数据 |
 | available_model | 可用模型 |
-| agent | Aether Agent |
 | tool_model | 工具模型 |
