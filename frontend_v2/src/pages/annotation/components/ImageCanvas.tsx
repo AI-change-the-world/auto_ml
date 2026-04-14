@@ -15,6 +15,101 @@ const MIN_BOX_SIZE = 5;
 const VERTEX_RADIUS = 4;
 const HANDLE_RADIUS = 4;
 
+type OBBResizeHandle = `vertex-${0 | 1 | 2 | 3}` | `edge-${0 | 1 | 2 | 3}`;
+
+type ResizeState =
+  | {
+    kind: 'bbox';
+    uuid: string;
+    handle: string;
+    startMouse: Point;
+    origRect: { x: number; y: number; w: number; h: number };
+  }
+  | {
+    kind: 'obb';
+    uuid: string;
+    handle: OBBResizeHandle;
+    origBox: Pick<OBBAnnotation, 'cx' | 'cy' | 'width' | 'height' | 'angle'>;
+  };
+
+const rotatePoint = (point: Point, angle: number): Point => {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: point.x * cos - point.y * sin,
+    y: point.x * sin + point.y * cos,
+  };
+};
+
+const toObbLocalPoint = (
+  point: Point,
+  obb: Pick<OBBAnnotation, 'cx' | 'cy' | 'angle'>,
+): Point => {
+  const dx = point.x - obb.cx;
+  const dy = point.y - obb.cy;
+  const cos = Math.cos(obb.angle);
+  const sin = Math.sin(obb.angle);
+  return {
+    x: dx * cos + dy * sin,
+    y: -dx * sin + dy * cos,
+  };
+};
+
+const resizeOBB = (
+  obb: Pick<OBBAnnotation, 'cx' | 'cy' | 'width' | 'height' | 'angle'>,
+  handle: OBBResizeHandle,
+  pointer: Point,
+): Partial<OBBAnnotation> => {
+  const local = toObbLocalPoint(pointer, obb);
+  let left = -obb.width / 2;
+  let right = obb.width / 2;
+  let top = -obb.height / 2;
+  let bottom = obb.height / 2;
+
+  switch (handle) {
+    case 'vertex-0':
+      left = Math.min(local.x, right - MIN_BOX_SIZE);
+      top = Math.min(local.y, bottom - MIN_BOX_SIZE);
+      break;
+    case 'vertex-1':
+      right = Math.max(local.x, left + MIN_BOX_SIZE);
+      top = Math.min(local.y, bottom - MIN_BOX_SIZE);
+      break;
+    case 'vertex-2':
+      right = Math.max(local.x, left + MIN_BOX_SIZE);
+      bottom = Math.max(local.y, top + MIN_BOX_SIZE);
+      break;
+    case 'vertex-3':
+      left = Math.min(local.x, right - MIN_BOX_SIZE);
+      bottom = Math.max(local.y, top + MIN_BOX_SIZE);
+      break;
+    case 'edge-0':
+      top = Math.min(local.y, bottom - MIN_BOX_SIZE);
+      break;
+    case 'edge-1':
+      right = Math.max(local.x, left + MIN_BOX_SIZE);
+      break;
+    case 'edge-2':
+      bottom = Math.max(local.y, top + MIN_BOX_SIZE);
+      break;
+    case 'edge-3':
+      left = Math.min(local.x, right - MIN_BOX_SIZE);
+      break;
+  }
+
+  const centerOffset = rotatePoint(
+    { x: (left + right) / 2, y: (top + bottom) / 2 },
+    obb.angle,
+  );
+
+  return {
+    cx: obb.cx + centerOffset.x,
+    cy: obb.cy + centerOffset.y,
+    width: right - left,
+    height: bottom - top,
+  };
+};
+
 const ImageCanvas: React.FC = () => {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,10 +129,7 @@ const ImageCanvas: React.FC = () => {
   const [polygonPreview, setPolygonPreview] = useState<Point | null>(null);
 
   // BBox/OBB 缩放/拖拽/旋转状态（统一用 Stage 鼠标事件驱动）
-  const [resizing, setResizing] = useState<{
-    uuid: string; handle: string;
-    startMouse: Point; origRect: { x: number; y: number; w: number; h: number };
-  } | null>(null);
+  const [resizing, setResizing] = useState<ResizeState | null>(null);
   const [draggingBox, setDraggingBox] = useState<{
     uuid: string; startMouse: Point; origX: number; origY: number;
   } | null>(null);
@@ -173,8 +265,16 @@ const ImageCanvas: React.FC = () => {
       return;
     }
 
-    // BBox 缩放
+    // BBox / OBB 缩放
     if (resizing && pos) {
+      if (resizing.kind === 'obb') {
+        updateAnnotation(
+          resizing.uuid,
+          resizeOBB(resizing.origBox, resizing.handle, pos) as Partial<OBBAnnotation>,
+        );
+        return;
+      }
+
       const dx = pos.x - resizing.startMouse.x;
       const dy = pos.y - resizing.startMouse.y;
       const { x: ox, y: oy, w: ow, h: oh } = resizing.origRect;
@@ -358,31 +458,37 @@ const ImageCanvas: React.FC = () => {
     }
   };
 
-  const renderLabel = (x: number, y: number, classId: number) => {
+  const renderLabel = (x: number, y: number, classId: number, rotation: number = 0) => {
     const label = classId >= 0 && classId < classes.length
       ? classes[classId]
       : `class_${classId}`;
     const color = getClassColor(classId);
+    const labelHeight = 18 / scale;
+    const labelPaddingX = 4 / scale;
+    const labelWidth = label.length * 8 / scale + 8 / scale;
     return (
-      <>
+      <Group
+        x={x}
+        y={y}
+        rotation={rotation}
+        listening={false}
+      >
         <Rect
-          x={x}
-          y={y - 18 / scale}
-          width={label.length * 8 / scale + 8 / scale}
-          height={18 / scale}
+          x={0}
+          y={-labelHeight}
+          width={labelWidth}
+          height={labelHeight}
           fill={color}
           cornerRadius={2 / scale}
-          listening={false}
         />
         <Text
-          x={x + 4 / scale}
-          y={y - 16 / scale}
+          x={labelPaddingX}
+          y={-labelHeight + 2 / scale}
           text={label}
           fontSize={12 / scale}
           fill="white"
-          listening={false}
         />
-      </>
+      </Group>
     );
   };
 
@@ -447,6 +553,7 @@ const ImageCanvas: React.FC = () => {
               const pos = getImagePos(e);
               if (!pos) return;
               setResizing({
+                kind: 'bbox',
                 uuid: a.uuid,
                 handle: h.name,
                 startMouse: pos,
@@ -505,9 +612,18 @@ const ImageCanvas: React.FC = () => {
     // 顶边外法线方向 = (sin(θ), -cos(θ))
     const rotX = topMidX + Math.sin(a.angle) * rotHandleDist;
     const rotY = topMidY - Math.cos(a.angle) * rotHandleDist;
+    const edgeHandles = vertices.map((start, i) => {
+      const end = vertices[(i + 1) % vertices.length];
+      return {
+        name: `edge-${i}` as OBBResizeHandle,
+        points: [start.x, start.y, end.x, end.y],
+        x: (start.x + end.x) / 2,
+        y: (start.y + end.y) / 2,
+      };
+    });
 
-    // 标签放在最靠上的顶点
-    const topVertex = vertices.reduce((best, v) => v.y < best.y ? v : best, vertices[0]);
+    // 标签挂在 OBB 固定的局部左上角顶点，并随框体一起旋转
+    const labelAnchor = vertices[0];
 
     return (
       <Group key={a.uuid}>
@@ -528,7 +644,76 @@ const ImageCanvas: React.FC = () => {
           }}
         />
         {/* 标签 */}
-        {renderLabel(topVertex.x, topVertex.y, a.classId)}
+        {renderLabel(labelAnchor.x, labelAnchor.y, a.classId, (a.angle * 180) / Math.PI)}
+        {/* 4条边手柄 */}
+        {editable && edgeHandles.map((edge) => (
+          <React.Fragment key={edge.name}>
+            <Line
+              points={edge.points}
+              stroke="rgba(0,0,0,0.01)"
+              strokeWidth={12 / scale}
+              lineCap="round"
+              onMouseEnter={(e) => {
+                const stage = e.target.getStage();
+                if (stage) stage.container().style.cursor = 'pointer';
+              }}
+              onMouseLeave={(e) => {
+                const stage = e.target.getStage();
+                if (stage) stage.container().style.cursor = 'default';
+              }}
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                const pos = getImagePos(e);
+                if (!pos) return;
+                setResizing({
+                  kind: 'obb',
+                  uuid: a.uuid,
+                  handle: edge.name,
+                  origBox: {
+                    cx: a.cx,
+                    cy: a.cy,
+                    width: a.width,
+                    height: a.height,
+                    angle: a.angle,
+                  },
+                });
+              }}
+            />
+            <Circle
+              x={edge.x}
+              y={edge.y}
+              radius={r * 0.9}
+              fill="#fff"
+              stroke={color}
+              strokeWidth={1.5 / scale}
+              onMouseEnter={(e) => {
+                const stage = e.target.getStage();
+                if (stage) stage.container().style.cursor = 'pointer';
+              }}
+              onMouseLeave={(e) => {
+                const stage = e.target.getStage();
+                if (stage) stage.container().style.cursor = 'default';
+              }}
+              onMouseDown={(e) => {
+                e.cancelBubble = true;
+                const pos = getImagePos(e);
+                if (!pos) return;
+                setResizing({
+                  kind: 'obb',
+                  uuid: a.uuid,
+                  handle: edge.name,
+                  origBox: {
+                    cx: a.cx,
+                    cy: a.cy,
+                    width: a.width,
+                    height: a.height,
+                    angle: a.angle,
+                  },
+                });
+              }}
+            />
+          </React.Fragment>
+        ))}
         {/* 4个顶点手柄 */}
         {editable && vertices.map((v, i) => (
           <Circle
@@ -539,6 +724,31 @@ const ImageCanvas: React.FC = () => {
             fill="#fff"
             stroke={color}
             strokeWidth={1.5 / scale}
+            onMouseEnter={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = 'pointer';
+            }}
+            onMouseLeave={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = 'default';
+            }}
+            onMouseDown={(e) => {
+              e.cancelBubble = true;
+              const pos = getImagePos(e);
+              if (!pos) return;
+              setResizing({
+                kind: 'obb',
+                uuid: a.uuid,
+                handle: `vertex-${i}` as OBBResizeHandle,
+                origBox: {
+                  cx: a.cx,
+                  cy: a.cy,
+                  width: a.width,
+                  height: a.height,
+                  angle: a.angle,
+                },
+              });
+            }}
           />
         ))}
         {/* 旋转手柄 */}
