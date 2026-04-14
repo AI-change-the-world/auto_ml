@@ -121,43 +121,6 @@ CREATE TABLE IF NOT EXISTS `available_model` (
   KEY `idx_available_model_task_id` (`task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='可用模型';
 
-CREATE TABLE IF NOT EXISTS `predict_task` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `task_type` VARCHAR(50) DEFAULT NULL COMMENT '任务类型',
-  `source` VARCHAR(512) DEFAULT NULL COMMENT '输入源',
-  `result` TEXT COMMENT '结果',
-  `status` INT DEFAULT 0 COMMENT '状态',
-  `model_id` BIGINT DEFAULT NULL COMMENT '使用的模型ID',
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
-  PRIMARY KEY (`id`),
-  KEY `idx_predict_task_model_id` (`model_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预测任务';
-
-CREATE TABLE IF NOT EXISTS `predict_data` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `predict_task_id` BIGINT NOT NULL COMMENT '预测任务ID',
-  `data` TEXT COMMENT '预测数据',
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
-  PRIMARY KEY (`id`),
-  KEY `idx_predict_data_task_id` (`predict_task_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预测数据';
-
-CREATE TABLE IF NOT EXISTS `tool_model` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `name` VARCHAR(255) NOT NULL COMMENT '模型名称',
-  `model_type` VARCHAR(50) DEFAULT NULL COMMENT '模型类型',
-  `endpoint` VARCHAR(512) DEFAULT NULL COMMENT '服务端点',
-  `config` TEXT COMMENT '配置 JSON',
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='工具模型';
-
 INSERT IGNORE INTO `base_models` (`name`, `model_type`, `description`, `save_path`)
 VALUES
   ('yolov8n.pt', 'detection', 'YOLOv8 nano detection baseline', 'yolov8n.pt'),

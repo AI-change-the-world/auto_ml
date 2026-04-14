@@ -69,7 +69,6 @@ class S3Delegate:
             "datasets": self.config.datasets_bucket,
             "models": self.config.models_bucket,
             "annotations": self.config.annotations_bucket,
-            "augmented": self.config.augmented_bucket,
         }
         return bucket_map.get(bucket_type, self.config.default_bucket)
 
@@ -82,7 +81,6 @@ class S3Delegate:
             self.config.datasets_bucket,
             self.config.models_bucket,
             self.config.annotations_bucket,
-            self.config.augmented_bucket,
         ]
         buckets = list(dict.fromkeys(all_buckets))  # 去重
 

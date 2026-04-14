@@ -160,7 +160,6 @@ services:
         mc mb myminio/auto-ml-datasets --ignore-existing;
         mc mb myminio/auto-ml-models --ignore-existing;
         mc mb myminio/auto-ml-annotations --ignore-existing;
-        mc mb myminio/auto-ml-augment --ignore-existing;
 
         echo "✅ MinIO init done";
 
@@ -334,7 +333,6 @@ services:
       S3_DATASETS_BUCKET: auto-ml-datasets
       S3_MODELS_BUCKET: auto-ml-models
       S3_ANNOTATIONS_BUCKET: auto-ml-annotations
-      S3_AUGMENTED_BUCKET: auto-ml-augment
       APP_HOST: 0.0.0.0
       APP_PORT: 45678
       DEBUG: "false"

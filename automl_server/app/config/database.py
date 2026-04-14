@@ -54,7 +54,7 @@ async def init_db():
         from app.db.models import (
             Dataset, DatasetFile, Annotation, AnnotationFile,
             Task, TaskLog, BaseModels,
-            AvailableModel, ToolModel
+            AvailableModel
         )
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)

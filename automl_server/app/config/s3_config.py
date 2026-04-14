@@ -3,7 +3,6 @@ S3/MinIO 配置
 """
 import os
 from functools import lru_cache
-from typing import Optional
 
 import yaml
 from pydantic import BaseModel
@@ -22,7 +21,6 @@ class S3Config(BaseModel):
     datasets_bucket: str = "automl-datasets"
     models_bucket: str = "automl-models"
     annotations_bucket: str = "automl-annotations"
-    augmented_bucket: str = "automl-augmented"
 
     # 预签名 URL 过期时间（秒）
     presigned_url_expires: int = 3600
@@ -53,14 +51,11 @@ def _load_s3_from_nacos() -> S3Config:
             "datasets_bucket_name": "datasets_bucket",
             "models_bucket_name": "models_bucket",
             "annotations_bucket_name": "annotations_bucket",
-            "augmented_bucket_name": "augmented_bucket",
         }
         for nacos_key, field_name in nacos_mapping.items():
             val = s3.get(nacos_key)
             if val:  # 只在非空时设置，否则用类默认值
                 kwargs[field_name] = val
-        if s3.get("augment_bucket_name") and "augmented_bucket" not in kwargs:
-            kwargs["augmented_bucket"] = s3["augment_bucket_name"]
         return S3Config(**kwargs)
     except Exception as e:
         logger.warning(f"Failed to load S3 config from Nacos: {e}")
@@ -79,7 +74,6 @@ def _load_s3_from_env() -> S3Config:
         "S3_DATASETS_BUCKET": "datasets_bucket",
         "S3_MODELS_BUCKET": "models_bucket",
         "S3_ANNOTATIONS_BUCKET": "annotations_bucket",
-        "S3_AUGMENTED_BUCKET": "augmented_bucket",
     }
     for env_key, field_name in env_mapping.items():
         val = os.getenv(env_key)

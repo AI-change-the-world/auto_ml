@@ -28,8 +28,6 @@ local-s3-config:
   datasets_bucket_name: auto-ml-datasets
   models_bucket_name: auto-ml-models
   annotations_bucket_name: auto-ml-annotations
-  augmented_bucket_name: auto-ml-augment
-  augment_bucket_name: auto-ml-augment
 
 rabbitmq:
   host: ${RABBITMQ_HOST}
