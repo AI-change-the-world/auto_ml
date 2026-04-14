@@ -43,7 +43,7 @@ def load_s3_config_from_nacos() -> S3Properties:
 
         client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
         config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str)
+        config = yaml.safe_load(config_str) or {}
 
         s3_config = config.get("local-s3-config", {})
         return S3Properties(
@@ -79,7 +79,7 @@ def load_deploy_config_from_nacos() -> DeployConfig:
 
         client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
         config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str)
+        config = yaml.safe_load(config_str) or {}
 
         deploy_config = config.get("model-deploy", {})
         return DeployConfig(

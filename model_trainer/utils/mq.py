@@ -110,6 +110,15 @@ class RabbitMQConfig(BaseModel):
     trainer_task_routing_key: str = "trainer.task.submit"
 
 
+def _get_mq_nested_value(mq: dict, section: str, key: str, flat_key: str, default):
+    section_value = mq.get(section, {})
+    if isinstance(section_value, dict) and section_value.get(key):
+        return section_value[key]
+    if mq.get(flat_key):
+        return mq[flat_key]
+    return default
+
+
 def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
     """从 Nacos 加载 RabbitMQ 配置"""
     try:
@@ -125,7 +134,7 @@ def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
 
         client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
         config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str)
+        config = yaml.safe_load(config_str) or {}
 
         mq_config = config.get("rabbitmq", {})
         return RabbitMQConfig(
@@ -135,8 +144,11 @@ def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
             password=mq_config.get("password", "guest"),
             virtual_host=mq_config.get("virtual_host", "/"),
             exchange_name=mq_config.get("exchange_name", "auto_ml_exchange"),
-            trainer_task_queue=mq_config.get("trainer_task_queue", "trainer.task.queue"),
-            trainer_task_routing_key=mq_config.get("trainer_task_routing_key", "trainer.task.submit"),
+            exchange_type=mq_config.get("exchange_type", "topic"),
+            trainer_task_queue=_get_mq_nested_value(
+                mq_config, "queues", "trainer_task", "trainer_task_queue", "trainer.task.queue"),
+            trainer_task_routing_key=_get_mq_nested_value(
+                mq_config, "routing_keys", "trainer_task", "trainer_task_routing_key", "trainer.task.submit"),
         )
     except Exception as e:
         logger.warning(f"Failed to load from Nacos, using env config: {e}")
@@ -152,6 +164,7 @@ def load_rabbitmq_config_from_env() -> RabbitMQConfig:
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         virtual_host=os.getenv("RABBITMQ_VHOST", "/"),
         exchange_name=os.getenv("RABBITMQ_EXCHANGE", "auto_ml_exchange"),
+        exchange_type=os.getenv("RABBITMQ_EXCHANGE_TYPE", "topic"),
         trainer_task_queue=os.getenv("TRAINER_TASK_QUEUE", "trainer.task.queue"),
         trainer_task_routing_key=os.getenv("TRAINER_TASK_ROUTING_KEY", "trainer.task.submit"),
     )

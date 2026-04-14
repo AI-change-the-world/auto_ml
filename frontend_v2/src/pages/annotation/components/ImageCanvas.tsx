@@ -138,7 +138,7 @@ const ImageCanvas: React.FC = () => {
   } | null>(null);
 
   const {
-    annotations, mode, selectedUuid, classes, annotationShape,
+    annotations, mode, selectedUuid, classes, annotationShape, defaultClassId,
     addAnnotation, selectAnnotation, clearSelection,
     updateAnnotation, setImageSize, changeMode,
   } = useAnnotationStore();
@@ -334,11 +334,11 @@ const ImageCanvas: React.FC = () => {
 
     if (drawRect.w > MIN_BOX_SIZE && drawRect.h > MIN_BOX_SIZE) {
       if (annotationShape === AnnotationShape.BBox) {
-        addAnnotation(createBBoxAnnotation(drawRect.x, drawRect.y, drawRect.w, drawRect.h, 0));
+        addAnnotation(createBBoxAnnotation(drawRect.x, drawRect.y, drawRect.w, drawRect.h, defaultClassId));
       } else if (annotationShape === AnnotationShape.OBB) {
         const cx = drawRect.x + drawRect.w / 2;
         const cy = drawRect.y + drawRect.h / 2;
-        addAnnotation(createOBBAnnotation(cx, cy, drawRect.w, drawRect.h, 0, 0));
+        addAnnotation(createOBBAnnotation(cx, cy, drawRect.w, drawRect.h, 0, defaultClassId));
       }
     }
 
@@ -354,7 +354,7 @@ const ImageCanvas: React.FC = () => {
         const first = polygonPoints[0];
         const dist = Math.sqrt((pos.x - first.x) ** 2 + (pos.y - first.y) ** 2);
         if (dist < 10 / scale) {
-          addAnnotation(createPolygonAnnotation([...polygonPoints], 0));
+          addAnnotation(createPolygonAnnotation([...polygonPoints], defaultClassId));
           setPolygonPoints([]);
           setPolygonPreview(null);
           return;
@@ -372,7 +372,7 @@ const ImageCanvas: React.FC = () => {
 
   const handleStageDblClick = useCallback(() => {
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon && polygonPoints.length >= 3) {
-      addAnnotation(createPolygonAnnotation([...polygonPoints], 0));
+      addAnnotation(createPolygonAnnotation([...polygonPoints], defaultClassId));
       setPolygonPoints([]);
       setPolygonPreview(null);
     }

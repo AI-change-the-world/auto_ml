@@ -39,6 +39,15 @@ class RabbitMQConfig(BaseModel):
     trainer_task_routing_key: str = "trainer.task.submit"
 
 
+def _get_mq_nested_value(mq: dict, section: str, key: str, flat_key: str, default):
+    section_value = mq.get(section, {})
+    if isinstance(section_value, dict) and section_value.get(key):
+        return section_value[key]
+    if mq.get(flat_key):
+        return mq[flat_key]
+    return default
+
+
 def _load_mq_from_nacos() -> RabbitMQConfig:
     """从 Nacos 加载 RabbitMQ 配置"""
     try:
@@ -54,7 +63,6 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
         config = yaml.safe_load(config_str) or {}
 
         mq = config.get("rabbitmq", {})
-        queues = mq.get("queues", {})
 
         return RabbitMQConfig(
             host=mq.get("host", "localhost"),
@@ -64,13 +72,32 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
             virtual_host=mq.get("virtual_host", "/"),
             exchange_name=mq.get("exchange_name", "auto_ml_exchange"),
             exchange_type=mq.get("exchange_type", "topic"),
-            task_status_queue=queues.get("task_status", "auto_ml.task.status"),
-            task_log_queue=queues.get("task_log", "auto_ml.task.log"),
-            model_registered_queue=queues.get(
-                "model_registered", "auto_ml.model.registered"),
-            model_deployed_queue=queues.get(
-                "model_deployed", "auto_ml.model.deployed"),
-            trainer_task_queue=queues.get("trainer_task", "trainer.task.queue"),
+            task_status_queue=_get_mq_nested_value(
+                mq, "queues", "task_status", "task_status_queue", "auto_ml.task.status"),
+            task_log_queue=_get_mq_nested_value(
+                mq, "queues", "task_log", "task_log_queue", "auto_ml.task.log"),
+            model_registered_queue=_get_mq_nested_value(
+                mq, "queues", "model_registered", "model_registered_queue", "auto_ml.model.registered"),
+            model_deployed_queue=_get_mq_nested_value(
+                mq, "queues", "model_deployed", "model_deployed_queue", "auto_ml.model.deployed"),
+            model_undeployed_queue=_get_mq_nested_value(
+                mq, "queues", "model_undeployed", "model_undeployed_queue", "auto_ml.model.undeployed"),
+            heartbeat_queue=_get_mq_nested_value(
+                mq, "queues", "heartbeat", "heartbeat_queue", "auto_ml.heartbeat"),
+            trainer_task_queue=_get_mq_nested_value(
+                mq, "queues", "trainer_task", "trainer_task_queue", "trainer.task.queue"),
+            task_status_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "task_status", "task_status_routing_key", "task.status.update"),
+            task_log_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "task_log", "task_log_routing_key", "task.log"),
+            model_registered_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "model_registered", "model_registered_routing_key", "model.registered"),
+            model_deployed_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "model_deployed", "model_deployed_routing_key", "model.deployed"),
+            model_undeployed_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "model_undeployed", "model_undeployed_routing_key", "model.undeployed"),
+            trainer_task_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "trainer_task", "trainer_task_routing_key", "trainer.task.submit"),
         )
     except Exception as e:
         logger.warning(f"Failed to load RabbitMQ config from Nacos: {e}")
@@ -86,7 +113,19 @@ def _load_mq_from_env() -> RabbitMQConfig:
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         virtual_host=os.getenv("RABBITMQ_VHOST", "/"),
         exchange_name=os.getenv("RABBITMQ_EXCHANGE", "auto_ml_exchange"),
+        exchange_type=os.getenv("RABBITMQ_EXCHANGE_TYPE", "topic"),
+        task_status_queue=os.getenv("TASK_STATUS_QUEUE", "auto_ml.task.status"),
+        task_log_queue=os.getenv("TASK_LOG_QUEUE", "auto_ml.task.log"),
+        model_registered_queue=os.getenv("MODEL_REGISTERED_QUEUE", "auto_ml.model.registered"),
+        model_deployed_queue=os.getenv("MODEL_DEPLOYED_QUEUE", "auto_ml.model.deployed"),
+        model_undeployed_queue=os.getenv("MODEL_UNDEPLOYED_QUEUE", "auto_ml.model.undeployed"),
+        heartbeat_queue=os.getenv("HEARTBEAT_QUEUE", "auto_ml.heartbeat"),
         trainer_task_queue=os.getenv("TRAINER_TASK_QUEUE", "trainer.task.queue"),
+        task_status_routing_key=os.getenv("TASK_STATUS_ROUTING_KEY", "task.status.update"),
+        task_log_routing_key=os.getenv("TASK_LOG_ROUTING_KEY", "task.log"),
+        model_registered_routing_key=os.getenv("MODEL_REGISTERED_ROUTING_KEY", "model.registered"),
+        model_deployed_routing_key=os.getenv("MODEL_DEPLOYED_ROUTING_KEY", "model.deployed"),
+        model_undeployed_routing_key=os.getenv("MODEL_UNDEPLOYED_ROUTING_KEY", "model.undeployed"),
         trainer_task_routing_key=os.getenv("TRAINER_TASK_ROUTING_KEY", "trainer.task.submit"),
     )
 

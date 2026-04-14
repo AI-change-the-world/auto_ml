@@ -1,9 +1,35 @@
-version: "3.8"
+x-nacos-env: &nacos-env
+  USE_NACOS: ${USE_NACOS:-true}
+  NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+  NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
+  NACOS_DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
+  NACOS_GROUP: ${NACOS_GROUP:-AUTO_ML}
+
+x-rabbitmq-env: &rabbitmq-env
+  RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+  RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+  RABBITMQ_USER: ${RABBITMQ_USER:-automl}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-automl123456}
+  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+  RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-auto_ml_exchange}
+  RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
+  TRAINER_TASK_QUEUE: ${TRAINER_TASK_QUEUE:-trainer.task.queue}
+  TRAINER_TASK_ROUTING_KEY: ${TRAINER_TASK_ROUTING_KEY:-trainer.task.submit}
+
+x-minio-env: &minio-env
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+  S3_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+
+x-service-env: &service-env
+  MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
+  MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
+  AI_PLATFORM_URL: ${AI_PLATFORM_URL:-http://host.docker.internal:45679}
 
 services:
 
   # =========================
-  # MySQL (主服务使用，trainer/deploy 不直接连接)
+  # MySQL
   # =========================
   mysql:
     image: mysql:8.0
@@ -26,13 +52,13 @@ services:
     networks:
       - auto-ml-network
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   # =========================
-  # Nacos (使用 rnacos)
+  # Nacos (rnacos)
   # =========================
   nacos:
     image: qingpan/rnacos:v0.7.4
@@ -61,7 +87,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-automl}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-automl123456}
-      RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -70,10 +96,10 @@ services:
     networks:
       - auto-ml-network
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   # =========================
   # MinIO
@@ -95,7 +121,7 @@ services:
     networks:
       - auto-ml-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 20s
       timeout: 10s
       retries: 5
@@ -107,7 +133,8 @@ services:
     image: minio/mc:RELEASE.2025-08-13T08-35-41Z
     container_name: automl-minio-init
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     volumes:
       - minio_shared:/shared
     networks:
@@ -117,7 +144,7 @@ services:
       - -c
       - |
         echo "⏳ waiting minio...";
-        sleep 30;
+        sleep 10;
 
         ACCESS_KEY=$$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 16);
         SECRET_KEY=$$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 32);
@@ -125,13 +152,14 @@ services:
         echo "ACCESS_KEY=$$ACCESS_KEY" > /shared/minio.env;
         echo "SECRET_KEY=$$SECRET_KEY" >> /shared/minio.env;
 
-        mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+        mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
 
         mc admin user add myminio $$ACCESS_KEY $$SECRET_KEY || true;
         mc admin policy attach myminio readwrite --user $$ACCESS_KEY || true;
 
         mc mb myminio/auto-ml-datasets --ignore-existing;
         mc mb myminio/auto-ml-models --ignore-existing;
+        mc mb myminio/auto-ml-annotations --ignore-existing;
         mc mb myminio/auto-ml-augment --ignore-existing;
 
         echo "✅ MinIO init done";
@@ -143,8 +171,10 @@ services:
     image: curlimages/curl:8.5.0
     container_name: automl-nacos-init
     depends_on:
-      - nacos
-      - minio-init
+      nacos:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
     volumes:
       - ./nacos/init-config.sh:/init-config.sh
       - ./nacos/automl-config.yaml:/config/automl-config.yaml
@@ -154,16 +184,33 @@ services:
     environment:
       NACOS_HOST: nacos
       NACOS_PORT: 8848
-      DATA_ID: AUTO_ML_CONFIG
-      GROUP: AUTO_ML
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
+      DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
+      GROUP: ${NACOS_GROUP:-AUTO_ML}
       CONFIG_FILE: /config/automl-config.yaml
       MINIO_ENV_FILE: /shared/minio.env
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-automl}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-automl123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-auto_ml}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-automl}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-automl123456}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-auto_ml_exchange}
+      RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      AI_PLATFORM_URL: ${AI_PLATFORM_URL:-http://host.docker.internal:45679}
+      MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
+      MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
     entrypoint:
       - /bin/sh
       - -c
       - |
         echo "⏳ waiting nacos...";
-        until curl -s http://nacos:8848; do sleep 3; done;
+        until curl -s http://nacos:8848 > /dev/null; do sleep 3; done;
         sh /init-config.sh
 
   # =========================
@@ -181,28 +228,12 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      nacos:
-        condition: service_started
+      nacos-init:
+        condition: service_completed_successfully
     environment:
-      # S3 配置
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      S3_ENDPOINT: http://minio:9000
+      <<: [*nacos-env, *rabbitmq-env, *minio-env]
       S3_DATASETS_BUCKET: auto-ml-datasets
       S3_MODELS_BUCKET: auto-ml-models
-      # RabbitMQ 配置
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: ${RABBITMQ_USER:-automl}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-automl123456}
-      RABBITMQ_VHOST: /
-      RABBITMQ_EXCHANGE: auto_ml_exchange
-      # Nacos 配置
-      USE_NACOS: "true"
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_DATA_ID: AUTO_ML_CONFIG
-      NACOS_GROUP: AUTO_ML
-      # 服务配置
       HOST: 0.0.0.0
       PORT: 8080
     ports:
@@ -213,10 +244,16 @@ services:
     networks:
       - auto-ml-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')",
+        ]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
 
   # =========================
   # Model Deploy Service
@@ -233,27 +270,11 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-      nacos:
-        condition: service_started
+      nacos-init:
+        condition: service_completed_successfully
     environment:
-      # S3 配置
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
-      S3_ENDPOINT: http://minio:9000
+      <<: [*nacos-env, *rabbitmq-env, *minio-env]
       S3_MODELS_BUCKET: auto-ml-models
-      # RabbitMQ 配置
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: ${RABBITMQ_USER:-automl}
-      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-automl123456}
-      RABBITMQ_VHOST: /
-      RABBITMQ_EXCHANGE: auto_ml_exchange
-      # Nacos 配置
-      USE_NACOS: "true"
-      NACOS_SERVER_ADDR: nacos:8848
-      NACOS_DATA_ID: AUTO_ML_CONFIG
-      NACOS_GROUP: AUTO_ML
-      # 部署配置
       RUNTIME_BASE_PORT: 9001
       RUNTIME_MAX_PORT: 9100
       MODEL_CACHE_DIR: /app/models
@@ -268,16 +289,77 @@ services:
     networks:
       - auto-ml-network
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')",
+        ]
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+
+  # =========================
+  # AutoML 主服务
+  # =========================
+  automl-server:
+    build:
+      context: ./automl_server
+      dockerfile: Dockerfile
+    image: automl-server:latest
+    container_name: automl-server
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      nacos-init:
+        condition: service_completed_successfully
+      model-trainer:
+        condition: service_healthy
+      model-deploy:
+        condition: service_healthy
+    environment:
+      <<: [*nacos-env, *rabbitmq-env, *minio-env, *service-env]
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USERNAME: ${MYSQL_USER:-automl}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-automl123456}
+      DB_NAME: ${MYSQL_DATABASE:-auto_ml}
+      S3_DEFAULT_BUCKET: auto-ml-datasets
+      S3_DATASETS_BUCKET: auto-ml-datasets
+      S3_MODELS_BUCKET: auto-ml-models
+      S3_ANNOTATIONS_BUCKET: auto-ml-annotations
+      S3_AUGMENTED_BUCKET: auto-ml-augment
+      APP_HOST: 0.0.0.0
+      APP_PORT: 45678
+      DEBUG: "false"
+    ports:
+      - "45678:45678"
+    volumes:
+      - ./logs/server:/app/logs
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:45678/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
 volumes:
   mysql_data:
   rabbitmq_data:
   minio_shared:
-
 
 networks:
   auto-ml-network:

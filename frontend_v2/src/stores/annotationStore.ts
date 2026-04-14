@@ -11,6 +11,9 @@ interface AnnotationStoreState {
   modified: boolean;
   classes: string[];
 
+  // 默认类别 ID（下次创建标注时使用）
+  defaultClassId: number;
+
   // 当前标注形状工具
   annotationShape: AnnotationShape;
 
@@ -39,6 +42,8 @@ interface AnnotationStoreState {
   setModified: (modified: boolean) => void;
   setClasses: (classes: string[]) => void;
   addOrGetClassId: (className: string) => number;
+  removeClassByIndex: (index: number) => void;
+  setDefaultClassId: (classId: number) => void;
   setImageSize: (width: number, height: number) => void;
   setAnnotationShape: (shape: AnnotationShape) => void;
   /** 开始一次连续操作（拖拽/缩放/旋转），先保存快照 */
@@ -65,6 +70,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
   mode: LabelMode.Edit,
   modified: false,
   classes: [],
+  defaultClassId: 0,
   annotationShape: AnnotationShape.BBox,
   imageWidth: 0,
   imageHeight: 0,
@@ -154,9 +160,17 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
     const idx = classes.indexOf(className);
     if (idx >= 0) return idx;
     const newClasses = [...classes, className];
-    set({ classes: newClasses });
+    set({ classes: newClasses, modified: true });
     return newClasses.length - 1;
   },
+
+  removeClassByIndex: (index: number) => {
+    const { classes } = get();
+    if (index < 0 || index >= classes.length) return;
+    set({ classes: classes.filter((_, i) => i !== index) });
+  },
+
+  setDefaultClassId: (classId: number) => set({ defaultClassId: classId }),
 
   setImageSize: (width, height) => set({ imageWidth: width, imageHeight: height }),
 

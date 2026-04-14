@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Input, Select } from 'antd';
+import { message, Spin, Modal, Input, Select, Tag } from 'antd';
 import {
   PlusOutlined, TagsOutlined, SearchOutlined, ClockCircleOutlined,
-  DeleteOutlined, EditOutlined,
+  DeleteOutlined, EditOutlined, SettingOutlined,
 } from '@ant-design/icons';
-import { listAnnotations, createAnnotation, deleteAnnotation } from '../../api/annotation';
+import { listAnnotations, createAnnotation, deleteAnnotation, updateAnnotation } from '../../api/annotation';
 import { listDatasets } from '../../api/dataset';
 import type { AnnotationProject, AnnotationCreate } from '../../types/annotation';
 import type { Dataset } from '../../types/dataset';
@@ -31,6 +31,58 @@ const AnnotationListPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [formData, setFormData] = useState<AnnotationCreate>({ name: '', annotation_type: 0 });
+
+  // ─── Classes 编辑 Modal ───
+  const [classesModalOpen, setClassesModalOpen] = useState(false);
+  const [classesEditId, setClassesEditId] = useState<number | null>(null);
+  const [classesEditList, setClassesEditList] = useState<string[]>([]);
+  const [classesImportText, setClassesImportText] = useState('');
+
+  const openClassesModal = (e: React.MouseEvent, ann: AnnotationProject) => {
+    e.stopPropagation();
+    setClassesEditId(ann.id);
+    // 解析已有 classes
+    let parsed: string[] = [];
+    if (ann.classes) {
+      try {
+        const arr = JSON.parse(ann.classes);
+        parsed = Array.isArray(arr) ? arr : [];
+      } catch {
+        parsed = ann.classes.split(/[;；,，]/).map((s: string) => s.trim()).filter(Boolean);
+      }
+    }
+    setClassesEditList(parsed);
+    setClassesImportText('');
+    setClassesModalOpen(true);
+  };
+
+  const handleClassesImport = () => {
+    const text = classesImportText.trim();
+    if (!text) return;
+    const items = text.split(/[;；,，\n]+/).map((s) => s.trim()).filter(Boolean);
+    const existing = new Set(classesEditList);
+    const merged = [...classesEditList];
+    for (const item of items) {
+      if (!existing.has(item)) {
+        merged.push(item);
+        existing.add(item);
+      }
+    }
+    setClassesEditList(merged);
+    setClassesImportText('');
+  };
+
+  const handleClassesSave = async () => {
+    if (classesEditId === null) return;
+    try {
+      await updateAnnotation(classesEditId, { classes: JSON.stringify(classesEditList) });
+      message.success('类别已保存');
+      setClassesModalOpen(false);
+      fetch(); // 刷新列表
+    } catch {
+      message.error('保存类别失败');
+    }
+  };
 
   const fetch = useCallback(async () => {
     setLoading(true);
@@ -108,7 +160,15 @@ const AnnotationListPage: React.FC = () => {
           {annotations.map((ann) => {
             const ck = AnnotationTypeColors[ann.annotation_type] || 'blue';
             const c = colorMap[ck] || colorMap.blue;
-            const classes = ann.classes ? ann.classes.split(',').filter(Boolean) : [];
+            const classes = (() => {
+              if (!ann.classes) return [];
+              try {
+                const parsed = JSON.parse(ann.classes);
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                return ann.classes.split(/[;；,，]/).map((s: string) => s.trim()).filter(Boolean);
+              }
+            })();
             return (
               <div key={ann.id}
                 onClick={() => navigate(`/annotations/${ann.id}/label`)}
@@ -118,11 +178,18 @@ const AnnotationListPage: React.FC = () => {
               >
                 <div style={{ height: 90, background: 'linear-gradient(135deg, #eef2ff, #e8dff5)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                   <EditOutlined style={{ fontSize: 28, color: '#a5b4fc' }} />
-                  <button onClick={(e) => handleDelete(e, ann.id)} style={{
-                    position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: 6,
-                    background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13,
-                  }}><DeleteOutlined /></button>
+                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+                    <button onClick={(e) => openClassesModal(e, ann)} style={{
+                      width: 28, height: 28, borderRadius: 6,
+                      background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: 13,
+                    }} title="编辑类别"><SettingOutlined /></button>
+                    <button onClick={(e) => handleDelete(e, ann.id)} style={{
+                      width: 28, height: 28, borderRadius: 6,
+                      background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13,
+                    }}><DeleteOutlined /></button>
+                  </div>
                 </div>
                 <div style={{ padding: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -151,6 +218,65 @@ const AnnotationListPage: React.FC = () => {
       )}
 
       <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalAnnotations', { count: total })}</div>
+
+      {/* ─── 编辑类别 Modal ─── */}
+      <Modal
+        title="编辑类别"
+        open={classesModalOpen}
+        onOk={handleClassesSave}
+        onCancel={() => setClassesModalOpen(false)}
+        okText="保存"
+        cancelText="取消"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+          {/* 批量导入 */}
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>批量导入</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Input.TextArea
+                rows={2}
+                placeholder="粘贴类别名，用 ; 或 , 或换行分隔&#10;如: person;car;bike"
+                value={classesImportText}
+                onChange={(e) => setClassesImportText(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <button
+                onClick={handleClassesImport}
+                style={{
+                  padding: '4px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
+                  background: '#4f6ef7', color: '#fff', border: 'none', alignSelf: 'flex-end',
+                }}
+              >
+                导入
+              </button>
+            </div>
+          </div>
+
+          {/* 已有类别列表 */}
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>当前类别 ({classesEditList.length})</label>
+            {classesEditList.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 0' }}>
+                {classesEditList.map((cls, idx) => (
+                  <Tag
+                    key={idx}
+                    closable
+                    onClose={(e) => {
+                      e.preventDefault();
+                      setClassesEditList(classesEditList.filter((_, i) => i !== idx));
+                    }}
+                    style={{ fontSize: 12 }}
+                  >
+                    {cls}
+                  </Tag>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '8px 0', fontSize: 12, color: '#bbb' }}>暂无类别，请导入或在标注时自动生成</div>
+            )}
+          </div>
+        </div>
+      </Modal>
 
       <Modal title={t('newAnnotation')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>

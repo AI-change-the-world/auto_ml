@@ -153,18 +153,6 @@ const HomePage: React.FC = () => {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <h2 style={{ fontSize: 20, fontWeight: 600, color: '#111', margin: 0 }}>{t('welcomeBack')}</h2>
-              <span
-                style={{
-                  fontSize: 11,
-                  padding: '2px 10px',
-                  background: '#f5f5f5',
-                  color: '#888',
-                  borderRadius: 999,
-                  fontWeight: 500,
-                }}
-              >
-                {t('free')}
-              </span>
             </div>
             <p style={{ fontSize: 13, color: '#999', margin: '2px 0 0' }}>admin · admin@automl.local</p>
           </div>

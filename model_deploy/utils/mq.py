@@ -122,8 +122,8 @@ def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
         
         client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
         config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str)
-        
+        config = yaml.safe_load(config_str) or {}
+
         mq_config = config.get("rabbitmq", {})
         return RabbitMQConfig(
             host=mq_config.get("host", "localhost"),
@@ -132,6 +132,7 @@ def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
             password=mq_config.get("password", "guest"),
             virtual_host=mq_config.get("virtual_host", "/"),
             exchange_name=mq_config.get("exchange_name", "auto_ml_exchange"),
+            exchange_type=mq_config.get("exchange_type", "topic"),
         )
     except Exception as e:
         logger.warning(f"Failed to load from Nacos, using env config: {e}")
@@ -147,6 +148,7 @@ def load_rabbitmq_config_from_env() -> RabbitMQConfig:
         password=os.getenv("RABBITMQ_PASSWORD", "guest"),
         virtual_host=os.getenv("RABBITMQ_VHOST", "/"),
         exchange_name=os.getenv("RABBITMQ_EXCHANGE", "auto_ml_exchange"),
+        exchange_type=os.getenv("RABBITMQ_EXCHANGE_TYPE", "topic"),
     )
 
 

@@ -18,7 +18,10 @@ import {
   AimOutlined,
   ThunderboltOutlined,
   ToolOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
+import { listAnnotations } from '../api/annotation';
+import type { AnnotationProject } from '../types';
 
 /* ─── types ─── */
 interface NavItem {
@@ -35,6 +38,14 @@ const MainLayout: React.FC = () => {
   const location = useLocation();
   const { t, i18n } = useTranslation('common');
 
+  // 动态加载标注项目列表
+  const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
+  useEffect(() => {
+    listAnnotations(1, 50).then((res) => {
+      setAnnotationProjects(res.items || []);
+    }).catch(() => { });
+  }, [location.pathname]); // 路由变化时刷新（如新建项目后返回）
+
   const toggleLanguage = useCallback(() => {
     const next = i18n.language === 'en' ? 'zh' : 'en';
     i18n.changeLanguage(next);
@@ -46,9 +57,11 @@ const MainLayout: React.FC = () => {
       key: '/annotations',
       icon: <TagsOutlined />,
       label: t('nav.annotation'),
-      children: [
-        { key: '/annotations/example', label: t('nav.exampleDataset'), icon: <DatabaseOutlined style={{ color: '#8b5cf6' }} />, badge: '8' },
-      ],
+      children: annotationProjects.map((p) => ({
+        key: `/annotations/${p.id}/label`,
+        label: p.name,
+        icon: <EditOutlined style={{ color: '#8b5cf6' }} />,
+      })),
     },
     {
       key: '/tasks',
@@ -327,7 +340,7 @@ const MainLayout: React.FC = () => {
                   {group.children && group.children.length > 0 && (
                     <div
                       className="sidebar-tree-children"
-                      style={{ maxHeight: isExp ? group.children.length * 40 : 0 }}
+                      style={{ maxHeight: isExp ? Math.min(group.children.length, 10) * 40 : 0 }}
                     >
                       {group.children.map((child) => (
                         <div
@@ -348,9 +361,7 @@ const MainLayout: React.FC = () => {
                           onMouseLeave={(e) => {
                             e.currentTarget.style.background = 'transparent';
                           }}
-                          onClick={() => navigate(
-                            group.key === '/annotations' ? '/example-dataset' : group.key
-                          )}
+                          onClick={() => navigate(child.key)}
                         >
                           <span style={{ fontSize: 13, display: 'flex', flexShrink: 0 }}>
                             {child.icon}

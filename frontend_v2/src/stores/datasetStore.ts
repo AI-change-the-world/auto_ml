@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AnnotationProject, AnnotationFile, DatasetFile } from '../types';
 import { getAnnotation, getAnnotationFiles, saveAnnotationFile } from '../api/annotation';
+import { updateAnnotation as updateAnnotationApi } from '../api/annotation';
 import { getDatasetFiles, previewFile } from '../api/dataset';
 import { toYoloFormat } from '../utils/yolo';
 import { useAnnotationStore } from './annotationStore';
@@ -158,6 +159,22 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
         file_name: labelFileName,
         content,
       });
+
+      // 同步 classes 到数据库
+      const classesJson = JSON.stringify(annotationStore.classes);
+      if (classesJson !== (annotationProject.classes ?? '[]')) {
+        try {
+          await updateAnnotationApi(annotationProject.id, { classes: classesJson });
+          set((state) => ({
+            annotationProject: state.annotationProject
+              ? { ...state.annotationProject, classes: classesJson }
+              : null,
+          }));
+        } catch (err) {
+          console.error('Failed to sync classes:', err);
+        }
+      }
+
       annotationStore.setModified(false);
       message.success('保存成功');
     } catch (err) {

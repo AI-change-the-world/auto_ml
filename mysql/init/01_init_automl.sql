@@ -1,84 +1,179 @@
 -- Auto ML 数据库初始化脚本
+-- 对齐 automl_server 当前 SQLAlchemy 模型
 
--- 创建 task 表
+SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `dataset` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT '数据集名称',
+  `storage_type` INT DEFAULT 1 COMMENT '存储类型: 0=本地, 1=S3, 2=WebDAV',
+  `data_type` INT DEFAULT 0 COMMENT '数据类型: 0=图像, 1=文本, 2=视频, 3=音频',
+  `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
+  `count` INT DEFAULT 0 COMMENT '文件数量',
+  `description` TEXT COMMENT '描述',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='数据集';
+
+CREATE TABLE IF NOT EXISTS `dataset_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `dataset_id` BIGINT NOT NULL COMMENT '数据集ID',
+  `file_name` VARCHAR(255) NOT NULL COMMENT '文件名',
+  `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_dataset_file_dataset_id` (`dataset_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='数据集文件';
+
+CREATE TABLE IF NOT EXISTS `annotation` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT '标注项目名称',
+  `annotation_type` INT DEFAULT 0 COMMENT '标注类型: 0=检测(BBox/OBB), 1=分类, 2=分割(Polygon), 3=MLLM',
+  `classes` TEXT COMMENT '分类项 JSON',
+  `storage_type` INT DEFAULT 1 COMMENT '存储类型: 0=本地, 1=S3, 2=WebDAV',
+  `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
+  `prompt` TEXT COMMENT 'AI 标注提示词',
+  `dataset_id` BIGINT DEFAULT NULL COMMENT '关联数据集ID',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_annotation_dataset_id` (`dataset_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标注项目';
+
+CREATE TABLE IF NOT EXISTS `annotation_file` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `annotation_id` BIGINT NOT NULL COMMENT '标注项目ID',
+  `file_name` VARCHAR(255) NOT NULL COMMENT '文件名',
+  `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
+  `content` TEXT COMMENT '标注内容',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_annotation_file_annotation_id` (`annotation_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='标注文件';
+
 CREATE TABLE IF NOT EXISTS `task` (
-    `task_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT 'task id',
-    `task_type` VARCHAR(50) DEFAULT '' COMMENT '0 train; 1 eval; 2 others',
-    `dataset_id` INT DEFAULT NULL COMMENT 'dataset id',
-    `annotation_id` INT DEFAULT NULL COMMENT 'annotation id',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_deleted` TINYINT DEFAULT 0 COMMENT '逻辑删除标记',
-    `status` TINYINT DEFAULT 0 COMMENT '任务状态, 0 pre task, 1 on task, 2 post task, 3 done, 4 error',
-    `task_config` TEXT COMMENT '任务配置JSON'
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '任务表';
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_type` INT DEFAULT 0 COMMENT '任务类型: 0=检测, 1=分类',
+  `dataset_id` BIGINT DEFAULT NULL COMMENT '数据集ID',
+  `annotation_id` BIGINT DEFAULT NULL COMMENT '标注ID',
+  `status` INT DEFAULT 0 COMMENT '状态: 0=待处理, 1=运行中, 2=后处理, 3=完成, 4=失败',
+  `config` TEXT COMMENT '配置 JSON',
+  `result` TEXT COMMENT '结果 JSON',
+  `error_message` TEXT COMMENT '错误信息',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_task_dataset_id` (`dataset_id`),
+  KEY `idx_task_annotation_id` (`annotation_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='训练任务';
 
--- 创建 task_log 表
 CREATE TABLE IF NOT EXISTS `task_log` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT 'log id',
-    `task_id` INT NOT NULL COMMENT 'task id',
-    `log_content` VARCHAR(1024) DEFAULT NULL COMMENT '日志内容',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    INDEX `idx_task_id` (`task_id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '任务日志表';
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_id` BIGINT NOT NULL COMMENT '任务ID',
+  `content` TEXT COMMENT '日志内容',
+  `log_level` VARCHAR(20) DEFAULT 'INFO' COMMENT '日志级别',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_task_log_task_id` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务日志';
 
--- 创建 available_models 表
-CREATE TABLE IF NOT EXISTS `available_models` (
-    `available_model_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键 ID',
-    `save_path` VARCHAR(500) DEFAULT NULL COMMENT '保存路径',
-    `base_model_name` VARCHAR(200) DEFAULT NULL COMMENT '基础模型名',
-    `loss` FLOAT DEFAULT NULL COMMENT 'loss 值',
-    `epoch` INT DEFAULT NULL COMMENT '训练轮数',
-    `dataset_id` INT DEFAULT NULL COMMENT '数据集 ID',
-    `annotation_id` INT DEFAULT NULL COMMENT '标注 ID',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_deleted` TINYINT DEFAULT 0 COMMENT '逻辑删除标志',
-    `model_type` VARCHAR(50) DEFAULT 'detection' COMMENT '模型类型'
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '可用模型表';
+CREATE TABLE IF NOT EXISTS `base_models` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT '模型名称',
+  `model_type` VARCHAR(50) DEFAULT NULL COMMENT '模型类型',
+  `description` TEXT COMMENT '描述',
+  `save_path` VARCHAR(512) DEFAULT NULL COMMENT '模型路径',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_base_models_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='基础模型';
 
--- 创建 deployments 表
-CREATE TABLE IF NOT EXISTS `deployments` (
-    `deployment_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '部署ID',
-    `model_id` INT NOT NULL COMMENT '模型ID',
-    `model_name` VARCHAR(200) DEFAULT NULL COMMENT '模型名称',
-    `version` VARCHAR(50) DEFAULT 'v1' COMMENT '版本',
-    `status` TINYINT DEFAULT 0 COMMENT '状态: 0-pending, 1-running, 2-stopped, 3-error',
-    `port` INT DEFAULT NULL COMMENT '服务端口号',
-    `pid` INT DEFAULT NULL COMMENT '进程ID',
-    `replicas` INT DEFAULT 1 COMMENT '实例数',
-    `device` VARCHAR(50) DEFAULT 'cpu' COMMENT '运行设备',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    INDEX `idx_model_id` (`model_id`),
-    INDEX `idx_status` (`status`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '模型部署记录表';
+CREATE TABLE IF NOT EXISTS `available_model` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(255) DEFAULT NULL COMMENT '模型名称',
+  `model_path` VARCHAR(512) DEFAULT NULL COMMENT '模型路径',
+  `model_type` VARCHAR(50) DEFAULT NULL COMMENT '模型类型',
+  `dataset_id` BIGINT DEFAULT NULL COMMENT '关联数据集ID',
+  `task_id` BIGINT DEFAULT NULL COMMENT '关联任务ID',
+  `loss` FLOAT DEFAULT NULL COMMENT '训练损失',
+  `is_deployed` TINYINT(1) DEFAULT 0 COMMENT '是否已部署',
+  `deployment_id` VARCHAR(100) DEFAULT NULL COMMENT '部署ID',
+  `deployment_port` INT DEFAULT NULL COMMENT '部署端口',
+  `deployment_version` VARCHAR(50) DEFAULT NULL COMMENT '部署版本',
+  `deployment_device` VARCHAR(50) DEFAULT NULL COMMENT '部署设备',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_available_model_dataset_id` (`dataset_id`),
+  KEY `idx_available_model_task_id` (`task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='可用模型';
 
--- 创建 datasets 表（如果需要）
-CREATE TABLE IF NOT EXISTS `datasets` (
-    `dataset_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '数据集 ID',
-    `dataset_name` VARCHAR(200) NOT NULL COMMENT '数据集名称',
-    `dataset_path` VARCHAR(500) DEFAULT NULL COMMENT '数据集路径',
-    `dataset_type` VARCHAR(50) DEFAULT NULL COMMENT '数据集类型',
-    `total_count` INT DEFAULT 0 COMMENT '总数量',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_deleted` TINYINT DEFAULT 0 COMMENT '逻辑删除标志'
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '数据集表';
+CREATE TABLE IF NOT EXISTS `predict_task` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `task_type` VARCHAR(50) DEFAULT NULL COMMENT '任务类型',
+  `source` VARCHAR(512) DEFAULT NULL COMMENT '输入源',
+  `result` TEXT COMMENT '结果',
+  `status` INT DEFAULT 0 COMMENT '状态',
+  `model_id` BIGINT DEFAULT NULL COMMENT '使用的模型ID',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_predict_task_model_id` (`model_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预测任务';
 
--- 创建 annotations 表（如果需要）
-CREATE TABLE IF NOT EXISTS `annotations` (
-    `annotation_id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '标注 ID',
-    `dataset_id` INT NOT NULL COMMENT '关联数据集 ID',
-    `annotation_name` VARCHAR(200) NOT NULL COMMENT '标注名称',
-    `annotation_path` VARCHAR(500) DEFAULT NULL COMMENT '标注文件路径',
-    `annotation_type` VARCHAR(50) DEFAULT NULL COMMENT '标注类型',
-    `total_count` INT DEFAULT 0 COMMENT '标注数量',
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_deleted` TINYINT DEFAULT 0 COMMENT '逻辑删除标志',
-    INDEX `idx_dataset_id` (`dataset_id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标注表';
+CREATE TABLE IF NOT EXISTS `predict_data` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `predict_task_id` BIGINT NOT NULL COMMENT '预测任务ID',
+  `data` TEXT COMMENT '预测数据',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_predict_data_task_id` (`predict_task_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='预测数据';
 
--- 初始化完成提示
+CREATE TABLE IF NOT EXISTS `tool_model` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `name` VARCHAR(255) NOT NULL COMMENT '模型名称',
+  `model_type` VARCHAR(50) DEFAULT NULL COMMENT '模型类型',
+  `endpoint` VARCHAR(512) DEFAULT NULL COMMENT '服务端点',
+  `config` TEXT COMMENT '配置 JSON',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `is_deleted` TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='工具模型';
+
+INSERT IGNORE INTO `base_models` (`name`, `model_type`, `description`, `save_path`)
+VALUES
+  ('yolov8n.pt', 'detection', 'YOLOv8 nano detection baseline', 'yolov8n.pt'),
+  ('yolov8s.pt', 'detection', 'YOLOv8 small detection baseline', 'yolov8s.pt'),
+  ('yolov8m.pt', 'detection', 'YOLOv8 medium detection baseline', 'yolov8m.pt'),
+  ('yolov8l.pt', 'detection', 'YOLOv8 large detection baseline', 'yolov8l.pt'),
+  ('yolov8x.pt', 'detection', 'YOLOv8 extra-large detection baseline', 'yolov8x.pt'),
+  ('yolo11n.pt', 'detection', 'YOLO11 nano detection baseline', 'yolo11n.pt'),
+  ('yolo11s.pt', 'detection', 'YOLO11 small detection baseline', 'yolo11s.pt'),
+  ('yolo11m.pt', 'detection', 'YOLO11 medium detection baseline', 'yolo11m.pt'),
+  ('yolo11l.pt', 'detection', 'YOLO11 large detection baseline', 'yolo11l.pt'),
+  ('yolo11x.pt', 'detection', 'YOLO11 extra-large detection baseline', 'yolo11x.pt'),
+  ('yolo11n-cls.pt', 'classification', 'YOLO11 nano classification baseline', 'yolo11n-cls.pt'),
+  ('yolo11s-cls.pt', 'classification', 'YOLO11 small classification baseline', 'yolo11s-cls.pt'),
+  ('yolo11m-cls.pt', 'classification', 'YOLO11 medium classification baseline', 'yolo11m-cls.pt'),
+  ('yolo11l-cls.pt', 'classification', 'YOLO11 large classification baseline', 'yolo11l-cls.pt'),
+  ('yolo11x-cls.pt', 'classification', 'YOLO11 extra-large classification baseline', 'yolo11x-cls.pt');
+
 SELECT 'Auto ML database initialized successfully!' AS message;

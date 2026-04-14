@@ -59,6 +59,8 @@ def _load_s3_from_nacos() -> S3Config:
             val = s3.get(nacos_key)
             if val:  # 只在非空时设置，否则用类默认值
                 kwargs[field_name] = val
+        if s3.get("augment_bucket_name") and "augmented_bucket" not in kwargs:
+            kwargs["augmented_bucket"] = s3["augment_bucket_name"]
         return S3Config(**kwargs)
     except Exception as e:
         logger.warning(f"Failed to load S3 config from Nacos: {e}")

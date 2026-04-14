@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Space, Tooltip, Tag, Divider, Segmented } from 'antd';
 import {
   EditOutlined,
@@ -13,12 +14,14 @@ import {
   UndoOutlined,
   RedoOutlined,
   DeleteOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { LabelMode, AnnotationShape, AnnotationType } from '../../../types';
 
 const Toolbar: React.FC = () => {
+  const navigate = useNavigate();
   const {
     mode, toggleMode, modified, annotationShape, setAnnotationShape,
     selectedUuid, deleteSelected, undo, redo, _history, _future,
@@ -66,6 +69,17 @@ const Toolbar: React.FC = () => {
       }}
     >
       <Space size="small">
+        {/* 返回主页面 */}
+        <Tooltip title="返回标注列表">
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate('/annotations')}
+            size="small"
+          />
+        </Tooltip>
+
+        <Divider type="vertical" />
+
         {/* 模式切换 */}
         <Tooltip title={`切换模式 (W) - 当前: ${mode === LabelMode.Edit ? '编辑' : '添加'}`}>
           <Button

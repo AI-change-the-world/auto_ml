@@ -3,6 +3,7 @@ from typing import List, Optional
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException
+from app.config.settings import get_settings
 from app.utils.http_client import HttpClient
 from . import crud
 from .schemas import DeployRequest, AvailableModelResponse, DeployStatusResponse
@@ -10,9 +11,12 @@ from .schemas import DeployRequest, AvailableModelResponse, DeployStatusResponse
 
 class DeployService:
     def __init__(self):
-        # model_deploy 服务地址
-        self.deploy_url = "http://model-deploy:45681"
-        self.http_client = HttpClient(base_url=self.deploy_url, timeout=60)
+        settings = get_settings()
+        self.deploy_url = settings.model_deploy.base_url
+        self.http_client = HttpClient(
+            base_url=self.deploy_url,
+            timeout=settings.model_deploy.timeout,
+        )
 
     async def list_models(self, db: AsyncSession, page: int = 1, page_size: int = 10, deployed_only: bool = None) -> tuple[List[AvailableModelResponse], int]:
         offset = (page - 1) * page_size

@@ -3,6 +3,7 @@
 优先从 Nacos 获取，回退到环境变量
 """
 import os
+import re
 from functools import lru_cache
 from typing import Optional
 
@@ -44,6 +45,12 @@ class ModelTrainerConfig(BaseModel):
     timeout: int = 30
 
 
+class ModelDeployConfig(BaseModel):
+    """Model Deploy 服务配置"""
+    base_url: str = "http://model-deploy:8080"
+    timeout: int = 60
+
+
 class Settings(BaseModel):
     """全局设置"""
     # 服务配置
@@ -58,6 +65,7 @@ class Settings(BaseModel):
     nacos: NacosConfig = NacosConfig()
     ai_platform: AIPlatformConfig = AIPlatformConfig()
     model_trainer: ModelTrainerConfig = ModelTrainerConfig()
+    model_deploy: ModelDeployConfig = ModelDeployConfig()
 
     # 心跳检查间隔（秒）
     heartbeat_interval: int = 300
@@ -82,6 +90,36 @@ def _load_from_nacos(nacos_config: NacosConfig) -> dict:
         return {}
 
 
+def _extract_db_config(nacos_data: dict) -> dict:
+    """兼容 db 与 spring.datasource 两种结构"""
+    db_config = nacos_data.get("db")
+    if isinstance(db_config, dict) and db_config:
+        return db_config
+
+    datasource = nacos_data.get("spring", {}).get("datasource", {})
+    if not isinstance(datasource, dict) or not datasource:
+        return {}
+
+    jdbc_url = datasource.get("url", "")
+    match = re.match(
+        r"^jdbc:mysql://(?P<host>[^:/?#]+)(?::(?P<port>\d+))?/(?P<database>[^?]+)",
+        jdbc_url,
+    )
+    parsed = {}
+    if match:
+        parsed = {
+            "host": match.group("host"),
+            "port": int(match.group("port") or 3306),
+            "database": match.group("database"),
+        }
+
+    if datasource.get("username"):
+        parsed["username"] = datasource["username"]
+    if datasource.get("password"):
+        parsed["password"] = datasource["password"]
+    return parsed
+
+
 def _load_settings() -> Settings:
     """加载配置"""
     # 1. 先从环境变量加载 Nacos 配置
@@ -101,7 +139,7 @@ def _load_settings() -> Settings:
 
     # 3. 合并配置：环境变量 > Nacos > DatabaseConfig 默认值
     _db_defaults = DatabaseConfig()
-    db_nacos = nacos_data.get("db", {})
+    db_nacos = _extract_db_config(nacos_data)
     database = DatabaseConfig(
         host=os.getenv("DB_HOST", db_nacos.get("host", _db_defaults.host)),
         port=int(os.getenv("DB_PORT", db_nacos.get("port", _db_defaults.port))),
@@ -133,6 +171,18 @@ def _load_settings() -> Settings:
         )),
     )
 
+    deploy_nacos = nacos_data.get("model-deploy", {})
+    model_deploy = ModelDeployConfig(
+        base_url=os.getenv(
+            "MODEL_DEPLOY_URL",
+            deploy_nacos.get("base_url", "http://model-deploy:8080"),
+        ),
+        timeout=int(os.getenv(
+            "MODEL_DEPLOY_TIMEOUT",
+            deploy_nacos.get("timeout", 60),
+        )),
+    )
+
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),
@@ -141,6 +191,11 @@ def _load_settings() -> Settings:
         nacos=nacos_config,
         ai_platform=ai_platform,
         model_trainer=model_trainer,
+        model_deploy=model_deploy,
+        heartbeat_interval=int(os.getenv(
+            "HEARTBEAT_INTERVAL",
+            nacos_data.get("heartbeat_interval", 300),
+        )),
     )
 
 
