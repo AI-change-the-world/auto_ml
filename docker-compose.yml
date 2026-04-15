@@ -24,7 +24,6 @@ x-minio-env: &minio-env
 x-service-env: &service-env
   MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
   MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
-  AI_PLATFORM_URL: ${AI_PLATFORM_URL:-http://host.docker.internal:45679}
 
 services:
 
@@ -201,7 +200,6 @@ services:
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-auto_ml_exchange}
       RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
-      AI_PLATFORM_URL: ${AI_PLATFORM_URL:-http://host.docker.internal:45679}
       MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
       MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
     entrypoint:

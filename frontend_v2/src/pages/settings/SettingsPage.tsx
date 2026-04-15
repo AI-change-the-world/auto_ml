@@ -24,7 +24,7 @@ const SettingsPage: React.FC = () => {
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('systemInfo')}</h3>
         {[
           { label: t('platformName'), value: 'AutoML Platform' },
-          { label: t('version'), value: 'v0.1.0' },
+          { label: t('version'), value: 'v2.0.0-dev' },
           { label: t('apiAddress'), value: `${window.location.origin}/api`, mono: true },
           { label: t('backendProxy'), value: 'http://localhost:8000', mono: true },
         ].map((item, i) => (

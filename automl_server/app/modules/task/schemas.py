@@ -59,3 +59,8 @@ class TrainerStatusResponse(BaseModel):
     active_tasks: int = 0
     queued_tasks: int = 0
     message: Optional[str] = None
+
+
+class TaskStreamEvent(BaseModel):
+    event: str
+    data: dict

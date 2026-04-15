@@ -28,7 +28,7 @@ export {
 export type { Dataset, DatasetFile, FilePreviewResponse, DatasetCreate, DatasetUpdate } from './dataset';
 export { DataTypeLabels, DataTypeIcons } from './dataset';
 export type { HomeStats } from './home';
-export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse } from './task';
+export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope } from './task';
 export { TaskStatus, TaskStatusLabels, TaskStatusColors } from './task';
 export type { DeployRequest, AvailableModelResponse, DeployStatusResponse } from './deploy';
 export type { AugmentCapability, AugmentRequest } from './augment';

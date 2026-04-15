@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   HomeOutlined,
   SearchOutlined,
-  DatabaseOutlined,
   TagsOutlined,
   ExperimentOutlined,
   CloudServerOutlined,

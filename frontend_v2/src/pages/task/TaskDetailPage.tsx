@@ -4,6 +4,7 @@ import { message, Spin } from 'antd';
 import { ArrowLeftOutlined, ReloadOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getTask, getTaskLogs } from '../../api/task';
+import { subscribeTaskStream } from '../../api/taskStream';
 import type { TaskResponse, TaskLogResponse } from '../../types/task';
 import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +26,6 @@ const TaskDetailPage: React.FC = () => {
   const [logs, setLogs] = useState<TaskLogResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const logRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchTask = useCallback(async () => {
     try { const r = await getTask(taskId); if (r) setTask(r); } catch { message.error(tc('msg.fetchFailed')); }
@@ -43,11 +43,40 @@ const TaskDetailPage: React.FC = () => {
   }, [fetchTask, fetchLogs]);
 
   useEffect(() => {
-    if (task && (task.status === 0 || task.status === 1 || task.status === 2)) {
-      timerRef.current = setInterval(() => { fetchTask(); fetchLogs(); }, 5000);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [task?.status, fetchTask, fetchLogs]);
+    if (!Number.isFinite(taskId)) return;
+
+    const stop = subscribeTaskStream({
+      onEvent: (payload) => {
+        if (payload.event === 'task_upsert' && payload.data.task) {
+          setTask(payload.data.task);
+        }
+        if (payload.event === 'task_log' && payload.data.log) {
+          const nextLog = payload.data.log;
+          setLogs((prev) => {
+            if (prev.some((item) => item.id === nextLog.id)) {
+              return prev;
+            }
+            const next = [...prev, nextLog];
+            next.sort((a, b) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf());
+            setTimeout(() => {
+              if (logRef.current) {
+                logRef.current.scrollTop = logRef.current.scrollHeight;
+              }
+            }, 50);
+            return next;
+          });
+        }
+      },
+      onError: () => {
+        fetchTask();
+        fetchLogs();
+      },
+    }, taskId);
+
+    return () => {
+      stop();
+    };
+  }, [taskId, fetchTask, fetchLogs]);
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}><Spin size="large" /></div>;
   if (!task) return (

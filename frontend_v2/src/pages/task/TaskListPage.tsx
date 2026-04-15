@@ -4,12 +4,13 @@ import { message, Spin, Modal, Select } from 'antd';
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createTrainTask, getBaseModels, getTrainerStatus } from '../../api/task';
+import { subscribeTaskStream } from '../../api/taskStream';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
-import type { TaskResponse, TaskCreate, BaseModelResponse, TrainerStatusResponse } from '../../types/task';
+import type { TaskResponse, TaskCreate, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope } from '../../types/task';
 import type { Dataset } from '../../types/dataset';
 import type { AnnotationProject } from '../../types/annotation';
-import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
+import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
 import { useTranslation } from 'react-i18next';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
@@ -56,12 +57,61 @@ const TaskListPage: React.FC = () => {
   useEffect(() => { fetchTasks(); fetchTrainer(); }, [fetchTasks, fetchTrainer]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      fetchTasks();
-      fetchTrainer();
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [fetchTasks, fetchTrainer]);
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) return;
+      refreshTimer = setTimeout(() => {
+        refreshTimer = null;
+        fetchTasks();
+      }, 300);
+    };
+
+    const stop = subscribeTaskStream({
+      onEvent: (payload: TaskStreamEnvelope) => {
+        if (payload.event === 'trainer_status' && payload.data.trainer_status) {
+          setTrainerStatus(payload.data.trainer_status);
+          return;
+        }
+
+        if (payload.event === 'task_upsert' && payload.data.task) {
+          const nextTask = payload.data.task;
+          setTasks((prev) => {
+            const matchedStatus = statusFilter === 'all' || Number(statusFilter) === nextTask.status;
+            const index = prev.findIndex((item) => item.id === nextTask.id);
+
+            if (!matchedStatus) {
+              if (index === -1) return prev;
+              return prev.filter((item) => item.id !== nextTask.id);
+            }
+
+            if (index === -1) {
+              scheduleRefresh();
+              return prev;
+            }
+
+            const next = [...prev];
+            next[index] = nextTask;
+            next.sort((a, b) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf());
+            return next;
+          });
+
+          if (nextTask.status === TaskStatus.Pending) {
+            scheduleRefresh();
+          }
+        }
+      },
+      onError: () => {
+        scheduleRefresh();
+        fetchTrainer();
+      },
+    });
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      stop();
+    };
+  }, [fetchTasks, fetchTrainer, statusFilter]);
 
   const openCreate = async () => {
     setCreateOpen(true);

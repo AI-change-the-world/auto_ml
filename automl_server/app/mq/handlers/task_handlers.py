@@ -1,13 +1,15 @@
 """
 任务相关消息处理器
 """
+from datetime import datetime
+
 from loguru import logger
 from sqlalchemy import update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import AsyncSessionLocal
 from app.db.models import Task, TaskLog
 from app.mq.messages import TaskStatusMessage, TaskLogMessage
+from app.modules.task.stream import StreamEvent, get_task_stream_hub
 
 
 async def handle_task_status_update(message: TaskStatusMessage):
@@ -41,6 +43,29 @@ async def handle_task_status_update(message: TaskStatusMessage):
             await session.execute(stmt)
             await session.commit()
 
+            task = await session.get(Task, message.task_id)
+            if task is not None:
+                await get_task_stream_hub().publish(
+                    StreamEvent(
+                        event="task_upsert",
+                        task_id=message.task_id,
+                        data={
+                            "task": {
+                                "id": task.id,
+                                "task_type": task.task_type,
+                                "dataset_id": task.dataset_id,
+                                "annotation_id": task.annotation_id,
+                                "status": task.status,
+                                "config": task.config,
+                                "result": task.result,
+                                "error_message": task.error_message,
+                                "created_at": task.created_at,
+                                "updated_at": task.updated_at,
+                            }
+                        },
+                    )
+                )
+
             logger.info(
                 f"Task {message.task_id} status updated to {message.status}")
 
@@ -67,6 +92,23 @@ async def handle_task_log(message: TaskLogMessage):
             )
             session.add(log_entry)
             await session.commit()
+            await session.refresh(log_entry)
+
+            await get_task_stream_hub().publish(
+                StreamEvent(
+                    event="task_log",
+                    task_id=message.task_id,
+                    data={
+                        "log": {
+                            "id": log_entry.id,
+                            "task_id": log_entry.task_id,
+                            "content": log_entry.content,
+                            "log_level": log_entry.log_level,
+                            "created_at": log_entry.created_at or datetime.utcnow(),
+                        }
+                    },
+                )
+            )
 
             logger.debug(f"Task log saved for task {message.task_id}")
 

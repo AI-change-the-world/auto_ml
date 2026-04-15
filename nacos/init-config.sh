@@ -30,7 +30,6 @@ fi
 : "${RABBITMQ_EXCHANGE_TYPE:=topic}"
 
 : "${MINIO_ENDPOINT:=http://minio:9000}"
-: "${AI_PLATFORM_URL:=http://host.docker.internal:45679}"
 : "${MODEL_TRAINER_URL:=http://model-trainer:8080}"
 : "${MODEL_DEPLOY_URL:=http://model-deploy:8080}"
 
@@ -65,7 +64,6 @@ replace_placeholder "RABBITMQ_VHOST" "$RABBITMQ_VHOST"
 replace_placeholder "RABBITMQ_EXCHANGE" "$RABBITMQ_EXCHANGE"
 replace_placeholder "RABBITMQ_EXCHANGE_TYPE" "$RABBITMQ_EXCHANGE_TYPE"
 replace_placeholder "MINIO_ENDPOINT" "$MINIO_ENDPOINT"
-replace_placeholder "AI_PLATFORM_URL" "$AI_PLATFORM_URL"
 replace_placeholder "MODEL_TRAINER_URL" "$MODEL_TRAINER_URL"
 replace_placeholder "MODEL_DEPLOY_URL" "$MODEL_DEPLOY_URL"
 

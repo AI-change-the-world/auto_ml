@@ -17,12 +17,29 @@ from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelRespons
 
 class TaskService:
     def __init__(self):
-        settings = get_settings()
-        self.publisher = get_publisher()
-        self.trainer_client = HttpClient(
-            base_url=settings.model_trainer.base_url,
-            timeout=settings.model_trainer.timeout,
-        )
+        self._publisher = None
+        self._trainer_client = None
+
+    @property
+    def publisher(self):
+        if self._publisher is None:
+            self._publisher = get_publisher()
+        return self._publisher
+
+    @property
+    def trainer_client(self) -> HttpClient:
+        if self._trainer_client is None:
+            settings = get_settings()
+            self._trainer_client = HttpClient(
+                base_url=settings.model_trainer.base_url,
+                timeout=settings.model_trainer.timeout,
+            )
+        return self._trainer_client
+
+    async def close(self):
+        if self._trainer_client is not None:
+            await self._trainer_client.close()
+            self._trainer_client = None
 
     async def create_task(self, db: AsyncSession, data: TaskCreate) -> TaskResponse:
         """创建训练任务并通过 RabbitMQ 通知 model_trainer"""
@@ -156,5 +173,9 @@ class TaskService:
         return [item.strip() for item in raw_classes.split(",") if item.strip()]
 
 
-def get_task_service() -> TaskService:
-    return TaskService()
+async def get_task_service():
+    service = TaskService()
+    try:
+        yield service
+    finally:
+        await service.close()

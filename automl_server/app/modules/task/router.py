@@ -1,10 +1,16 @@
 """任务 API 路由"""
+import asyncio
+from contextlib import suppress
+
 from fastapi import APIRouter, Depends, Query
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
 from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse
 from .service import get_task_service, TaskService
+from .stream import StreamEvent, get_task_stream_hub
+from .sse import create_sse_response
 
 router = APIRouter(prefix="/task", tags=["任务管理"])
 
@@ -48,6 +54,53 @@ async def get_trainer_status(
     return Result.ok(status)
 
 
+@router.get("/stream", summary="任务 SSE 事件流")
+async def task_stream(
+    request: Request,
+    task_id: int | None = Query(default=None, description="任务ID，不传则订阅全局任务事件"),
+    service: TaskService = Depends(get_task_service),
+):
+    hub = get_task_stream_hub()
+    subscriber_id, queue = await hub.subscribe(task_id=task_id)
+
+    async def trainer_probe():
+        last_payload = None
+        while True:
+            try:
+                payload = (await service.get_trainer_status()).model_dump(mode="json")
+                if payload != last_payload:
+                    last_payload = payload
+                    with suppress(asyncio.QueueFull):
+                        queue.put_nowait(
+                            StreamEvent(event="trainer_status", task_id=None, data={"trainer_status": payload})
+                        )
+            except Exception:
+                pass
+            await asyncio.sleep(5)
+
+    async def event_generator():
+        probe_task = None
+        if task_id is None:
+            probe_task = asyncio.create_task(trainer_probe())
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=5)
+                except asyncio.TimeoutError:
+                    continue
+                yield event.to_sse_payload()
+        finally:
+            if probe_task is not None:
+                probe_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await probe_task
+            await hub.unsubscribe(subscriber_id, task_id=task_id)
+
+    return create_sse_response(event_generator())
+
+
 @router.get("/{task_id}", response_model=Result[TaskResponse], summary="获取任务详情")
 async def get_task(
     task_id: int,
@@ -68,3 +121,4 @@ async def get_task_logs(
 ):
     logs, total = await service.get_task_logs(db, task_id, page, page_size)
     return Result.ok(PageResult.create(logs, total, page, page_size))
+

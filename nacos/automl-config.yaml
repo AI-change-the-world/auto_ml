@@ -52,10 +52,6 @@ rabbitmq:
     model_undeployed: model.undeployed
     trainer_task: trainer.task.submit
 
-ai-platform:
-  base_url: ${AI_PLATFORM_URL}
-  timeout: 1800
-
 model-trainer:
   base_url: ${MODEL_TRAINER_URL}
   timeout: 30
@@ -74,5 +70,3 @@ model-deploy:
 logging:
   level: INFO
   path: /app/logs
-
-heartbeat_interval: 300

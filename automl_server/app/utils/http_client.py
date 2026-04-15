@@ -6,16 +6,15 @@ from typing import Any, Dict, Optional
 import httpx
 from loguru import logger
 
-from app.config.settings import get_settings
-
 
 class HttpClient:
     """异步 HTTP 客户端"""
 
-    def __init__(self, base_url: str = None, timeout: int = None):
-        settings = get_settings()
-        self.base_url = base_url or settings.ai_platform.base_url
-        self.timeout = timeout or settings.ai_platform.timeout
+    def __init__(self, base_url: str, timeout: int = 30):
+        if not base_url:
+            raise ValueError("HttpClient requires an explicit base_url")
+        self.base_url = base_url
+        self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -94,14 +93,3 @@ class HttpClient:
         except Exception as e:
             logger.warning(f"Health check failed: {e}")
             return False
-
-
-_http_client: Optional[HttpClient] = None
-
-
-def get_http_client() -> HttpClient:
-    """获取 HTTP 客户端单例"""
-    global _http_client
-    if _http_client is None:
-        _http_client = HttpClient()
-    return _http_client

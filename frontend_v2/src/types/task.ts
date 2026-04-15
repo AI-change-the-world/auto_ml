@@ -74,3 +74,12 @@ export interface TrainerStatusResponse {
   queued_tasks: number;
   message: string | null;
 }
+
+export interface TaskStreamEnvelope {
+  event: 'task_upsert' | 'task_log' | 'trainer_status';
+  data: {
+    task?: TaskResponse;
+    log?: TaskLogResponse;
+    trainer_status?: TrainerStatusResponse;
+  };
+}

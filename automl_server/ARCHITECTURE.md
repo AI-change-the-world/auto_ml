@@ -2,7 +2,7 @@
 
 ## 1. 项目概述
 
-将原有 Java Spring Boot 主服务迁移到 Python FastAPI 实现，保持与现有微服务（model_trainer、model_deploy、ai_platform）的兼容性。
+将原有 Java Spring Boot 主服务迁移到 Python FastAPI 实现，保持与现有微服务（model_trainer、model_deploy）的兼容性。
 
 ### 1.1 技术栈
 
@@ -606,7 +606,7 @@ apscheduler>=3.10.0
             │                              │                              │
             ▼                              ▼                              ▼
    ┌─────────────────┐           ┌─────────────────┐           ┌─────────────────┐
-   │  model_trainer  │           │  model_deploy   │           │   ai_platform   │
+   │  model_trainer  │           │  model_deploy   │           │     │
    │    (Python)     │           │    (Python)     │           │    (Python)     │
    └────────┬────────┘           └────────┬────────┘           └─────────────────┘
             │                              │                              

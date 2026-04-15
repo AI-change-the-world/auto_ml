@@ -6,11 +6,12 @@ import os
 import re
 from typing import Optional
 
-import yaml
 from pydantic import BaseModel
 from loguru import logger
 
 from .nacos_config_center import get_config_center
+
+_last_nacos_log_keys: Optional[tuple[str, ...]] = None
 
 
 class DatabaseConfig(BaseModel):
@@ -32,12 +33,6 @@ class NacosConfig(BaseModel):
     namespace: str = "public"
     data_id: str = "AUTO_ML_CONFIG"
     group: str = "AUTO_ML"
-
-
-class AIPlatformConfig(BaseModel):
-    """AI Platform 服务配置"""
-    base_url: str = "http://localhost:45679"
-    timeout: int = 1800
 
 
 class ModelTrainerConfig(BaseModel):
@@ -64,12 +59,8 @@ class Settings(BaseModel):
     # 子配置
     database: DatabaseConfig = DatabaseConfig()
     nacos: NacosConfig = NacosConfig()
-    ai_platform: AIPlatformConfig = AIPlatformConfig()
     model_trainer: ModelTrainerConfig = ModelTrainerConfig()
     model_deploy: ModelDeployConfig = ModelDeployConfig()
-
-    # 心跳检查间隔（秒）
-    heartbeat_interval: int = 300
 
 
 def _load_from_nacos(nacos_config: NacosConfig) -> dict:
@@ -127,7 +118,11 @@ def _load_settings() -> Settings:
     nacos_data = {}
     if use_nacos:
         nacos_data = _load_from_nacos(nacos_config)
-        logger.info(f"Loaded config from Nacos: {list(nacos_data.keys())}")
+        global _last_nacos_log_keys
+        keys = tuple(sorted(str(key) for key in nacos_data.keys()))
+        if keys and keys != _last_nacos_log_keys:
+            logger.info(f"Loaded config from Nacos: {list(keys)}")
+        _last_nacos_log_keys = keys
 
     # 3. 合并配置：环境变量 > Nacos > DatabaseConfig 默认值
     _db_defaults = DatabaseConfig()
@@ -141,14 +136,6 @@ def _load_settings() -> Settings:
             "password", _db_defaults.password)),
         database=os.getenv("DB_NAME", db_nacos.get(
             "database", _db_defaults.database)),
-    )
-
-    ai_nacos = nacos_data.get("ai-platform", {})
-    ai_platform = AIPlatformConfig(
-        base_url=os.getenv("AI_PLATFORM_URL", ai_nacos.get(
-            "base_url", "http://localhost:45679")),
-        timeout=int(os.getenv("AI_PLATFORM_TIMEOUT",
-                    ai_nacos.get("timeout", 1800))),
     )
 
     trainer_nacos = nacos_data.get("model-trainer", {})
@@ -181,13 +168,8 @@ def _load_settings() -> Settings:
         debug=os.getenv("DEBUG", "false").lower() == "true",
         database=database,
         nacos=nacos_config,
-        ai_platform=ai_platform,
         model_trainer=model_trainer,
         model_deploy=model_deploy,
-        heartbeat_interval=int(os.getenv(
-            "HEARTBEAT_INTERVAL",
-            nacos_data.get("heartbeat_interval", 300),
-        )),
     )
 
 

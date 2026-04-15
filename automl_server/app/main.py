@@ -127,10 +127,6 @@ async def lifespan(app: FastAPI):
         get_config_center().stop()
         raise
 
-    # 启动定时任务
-    from app.scheduler.heartbeat import start_scheduler
-    start_scheduler()
-
     yield
 
     # 关闭

@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="Auto Augment Pipeline",
-        version="0.1.0",
+        version="2.0.0-dev",
         lifespan=lifespan,
     )
 
