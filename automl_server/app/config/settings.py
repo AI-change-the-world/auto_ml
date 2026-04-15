@@ -47,6 +47,13 @@ class ModelDeployConfig(BaseModel):
     timeout: int = 60
 
 
+class AutoAugmentPipelineConfig(BaseModel):
+    """Auto Augment Pipeline 服务配置"""
+    base_url: str = "http://auto-augment-pipeline:8010"
+    timeout: int = 120
+    default_profile: str = "assist_default"
+
+
 class Settings(BaseModel):
     """全局设置"""
     # 服务配置
@@ -61,6 +68,7 @@ class Settings(BaseModel):
     nacos: NacosConfig = NacosConfig()
     model_trainer: ModelTrainerConfig = ModelTrainerConfig()
     model_deploy: ModelDeployConfig = ModelDeployConfig()
+    auto_augment_pipeline: AutoAugmentPipelineConfig = AutoAugmentPipelineConfig()
 
 
 def _load_from_nacos(nacos_config: NacosConfig) -> dict:
@@ -162,6 +170,22 @@ def _load_settings() -> Settings:
         )),
     )
 
+    augment_nacos = nacos_data.get("auto-augment-pipeline", {})
+    auto_augment_pipeline = AutoAugmentPipelineConfig(
+        base_url=os.getenv(
+            "AUTO_AUGMENT_PIPELINE_URL",
+            augment_nacos.get("base_url", "http://auto-augment-pipeline:8010"),
+        ),
+        timeout=int(os.getenv(
+            "AUTO_AUGMENT_PIPELINE_TIMEOUT",
+            augment_nacos.get("timeout", 120),
+        )),
+        default_profile=os.getenv(
+            "AUTO_AUGMENT_PIPELINE_DEFAULT_PROFILE",
+            augment_nacos.get("default_profile", "assist_default"),
+        ),
+    )
+
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),
@@ -170,6 +194,7 @@ def _load_settings() -> Settings:
         nacos=nacos_config,
         model_trainer=model_trainer,
         model_deploy=model_deploy,
+        auto_augment_pipeline=auto_augment_pipeline,
     )
 
 

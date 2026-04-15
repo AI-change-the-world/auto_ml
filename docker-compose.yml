@@ -24,6 +24,7 @@ x-minio-env: &minio-env
 x-service-env: &service-env
   MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
   MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
+  AUTO_AUGMENT_PIPELINE_URL: ${AUTO_AUGMENT_PIPELINE_URL:-http://auto-augment-pipeline:8010}
 
 services:
 
@@ -176,6 +177,7 @@ services:
     volumes:
       - ./nacos/init-config.sh:/init-config.sh
       - ./nacos/automl-config.yaml:/config/automl-config.yaml
+      - ./nacos/auto-augment-config.yaml:/config/auto-augment-config.yaml
       - minio_shared:/shared
     networks:
       - auto-ml-network
@@ -184,8 +186,10 @@ services:
       NACOS_PORT: 8848
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
       DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
+      AUGMENT_DATA_ID: AUTO_AUGMENT_PIPELINE
       GROUP: ${NACOS_GROUP:-AUTO_ML}
       CONFIG_FILE: /config/automl-config.yaml
+      AUGMENT_CONFIG_FILE: /config/auto-augment-config.yaml
       MINIO_ENV_FILE: /shared/minio.env
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -202,6 +206,13 @@ services:
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
       MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
+      AUTO_AUGMENT_PIPELINE_URL: ${AUTO_AUGMENT_PIPELINE_URL:-http://auto-augment-pipeline:8010}
+      NANO_BANANA_BASE_URL: ${NANO_BANANA_BASE_URL:-}
+      NANO_BANANA_API_KEY: ${NANO_BANANA_API_KEY:-}
+      NANO_BANANA_MODEL: ${NANO_BANANA_MODEL:-}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      QWEN_MODEL: ${QWEN_MODEL:-}
     entrypoint:
       - /bin/sh
       - -c
@@ -297,6 +308,39 @@ services:
       timeout: 10s
       retries: 5
 
+  auto-augment-pipeline:
+    build:
+      context: .
+      dockerfile: auto_augment_pipeline/Dockerfile
+    image: auto-augment-pipeline:latest
+    container_name: auto-augment-pipeline
+    restart: unless-stopped
+    depends_on:
+      nacos-init:
+        condition: service_completed_successfully
+    environment:
+      AUTO_AUGMENT_USE_NACOS: "true"
+      AUTO_AUGMENT_WATCH_NACOS: "true"
+      NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
+      NACOS_DATA_ID: AUTO_AUGMENT_PIPELINE
+      NACOS_GROUP: ${NACOS_GROUP:-AUTO_ML}
+    ports:
+      - "8010:8010"
+    networks:
+      - auto-ml-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # =========================
   # AutoML 主服务
   # =========================
@@ -319,6 +363,8 @@ services:
       model-trainer:
         condition: service_healthy
       model-deploy:
+        condition: service_healthy
+      auto-augment-pipeline:
         condition: service_healthy
     environment:
       <<: [*nacos-env, *rabbitmq-env, *minio-env, *service-env]

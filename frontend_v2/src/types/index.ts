@@ -9,6 +9,9 @@ export type {
   AnnotationProject,
   AnnotationFile,
   AnnotationFileSaveRequest,
+  AnnotationAssistRequest,
+  AnnotationAssistResponse,
+  AnnotationAssistItem,
   AnnotationCreate,
 } from './annotation';
 export {

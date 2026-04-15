@@ -51,3 +51,26 @@ class AnnotationFileResponse(BaseModel):
 class AnnotationFileSave(BaseModel):
     file_name: str
     content: str
+
+
+class AnnotationAssistRequest(BaseModel):
+    file_name: str
+    profile: Optional[str] = None
+    replace_existing: bool = False
+
+
+class AnnotationAssistItem(BaseModel):
+    label: str
+    bbox: dict[str, int]
+    confidence: Optional[float] = None
+    source: Optional[str] = None
+
+
+class AnnotationAssistResponse(BaseModel):
+    file_name: str
+    image_width: int
+    image_height: int
+    annotations: List[AnnotationAssistItem]
+    profile: str
+    replace_existing: bool
+    debug: Optional[dict] = None

@@ -200,6 +200,29 @@ export interface AnnotationFileSaveRequest {
   content: string;
 }
 
+export interface AnnotationAssistRequest {
+  file_name: string;
+  profile?: string;
+  replace_existing?: boolean;
+}
+
+export interface AnnotationAssistItem {
+  label: string;
+  bbox: { x1: number; y1: number; x2: number; y2: number };
+  confidence?: number | null;
+  source?: string | null;
+}
+
+export interface AnnotationAssistResponse {
+  file_name: string;
+  image_width: number;
+  image_height: number;
+  annotations: AnnotationAssistItem[];
+  profile: string;
+  replace_existing: boolean;
+  debug?: Record<string, unknown> | null;
+}
+
 /** 标注类型枚举 */
 export enum AnnotationType {
   Detection = 0,

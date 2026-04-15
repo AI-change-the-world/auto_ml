@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Space, Tooltip, Tag, Divider, Segmented } from 'antd';
+import { Button, Space, Tooltip, Tag, Divider, Segmented, message } from 'antd';
 import {
   EditOutlined,
   PlusSquareOutlined,
@@ -15,16 +15,20 @@ import {
   RedoOutlined,
   DeleteOutlined,
   ArrowLeftOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
+import { assistCurrentAnnotation } from '../../../api/annotation';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { LabelMode, AnnotationShape, AnnotationType } from '../../../types';
+import { createBBoxAnnotation } from '../../../types';
 
 const Toolbar: React.FC = () => {
   const navigate = useNavigate();
   const {
     mode, toggleMode, modified, annotationShape, setAnnotationShape,
     selectedUuid, deleteSelected, undo, redo, _history, _future,
+    classes, setAnnotations, addAnnotation, addOrGetClassId,
   } = useAnnotationStore();
   const { nextFile, prevFile, saveCurrentAnnotation, currentFileIndex, datasetFiles, loading, annotationProject } = useDatasetStore();
 
@@ -56,6 +60,53 @@ const Toolbar: React.FC = () => {
       setAnnotationShape(validValues[0]);
     }
   }, [shapeOptions, annotationShape, setAnnotationShape]);
+
+  const handleAssist = async () => {
+    if (!annotationProject?.id) {
+      message.warning('未加载标注项目');
+      return;
+    }
+    if (currentFileIndex < 0 || currentFileIndex >= datasetFiles.length) {
+      message.warning('未选择图片');
+      return;
+    }
+    if ((classes || []).length === 0) {
+      message.warning('请先为标注项目配置类别');
+      return;
+    }
+
+    const currentFile = datasetFiles[currentFileIndex];
+    try {
+      const result = await assistCurrentAnnotation(annotationProject.id, {
+        file_name: currentFile.file_name,
+        replace_existing: false,
+      });
+
+      const nextAnnotations = result.annotations
+        .filter((item) => item.label && item.bbox)
+        .map((item) => {
+          const classId = addOrGetClassId(item.label);
+          return createBBoxAnnotation(
+            item.bbox.x1,
+            item.bbox.y1,
+            Math.max(0, item.bbox.x2 - item.bbox.x1),
+            Math.max(0, item.bbox.y2 - item.bbox.y1),
+            classId,
+          );
+        });
+
+      if (result.replace_existing) {
+        setAnnotations(nextAnnotations);
+      } else {
+        nextAnnotations.forEach((item) => addAnnotation(item));
+      }
+
+      message.success(`辅助标注完成，返回 ${nextAnnotations.length} 个框`);
+    } catch (error) {
+      console.error('assist annotation failed', error);
+      message.error('辅助标注失败');
+    }
+  };
 
   return (
     <div
@@ -119,6 +170,19 @@ const Toolbar: React.FC = () => {
         </Tooltip>
 
         {modified && <Tag color="warning">未保存</Tag>}
+
+        <Divider type="vertical" />
+
+        <Tooltip title="辅助标注当前图片">
+          <Button
+            icon={<RobotOutlined />}
+            onClick={handleAssist}
+            disabled={loading || !annotationProject || annotationType !== AnnotationType.Detection}
+            size="small"
+          >
+            辅助标注
+          </Button>
+        </Tooltip>
 
         <Divider type="vertical" />
 

@@ -1,17 +1,47 @@
 """标注服务"""
+import json
+import mimetypes
+from typing import Any
 import uuid
 from typing import List, Optional
 from loguru import logger
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.common.exceptions import NotFoundException
+from app.common.exceptions import NotFoundException, BadRequestException
+from app.config.settings import get_settings
+from app.db.models import DatasetFile
 from app.utils.s3_delegate import get_s3_delegate
+from app.utils.http_client import HttpClient
 from . import crud
-from .schemas import AnnotationCreate, AnnotationUpdate, AnnotationResponse, AnnotationFileSave
+from .schemas import (
+    AnnotationAssistRequest,
+    AnnotationAssistResponse,
+    AnnotationCreate,
+    AnnotationUpdate,
+    AnnotationResponse,
+    AnnotationFileSave,
+)
 
 
 class AnnotationService:
     def __init__(self):
         self.s3 = get_s3_delegate()
+        self._augment_client = None
+
+    @property
+    def augment_client(self) -> HttpClient:
+        if self._augment_client is None:
+            settings = get_settings()
+            self._augment_client = HttpClient(
+                base_url=settings.auto_augment_pipeline.base_url,
+                timeout=settings.auto_augment_pipeline.timeout,
+            )
+        return self._augment_client
+
+    async def close(self):
+        if self._augment_client is not None:
+            await self._augment_client.close()
+            self._augment_client = None
 
     async def create_annotation(self, db: AsyncSession, data: AnnotationCreate) -> AnnotationResponse:
         ann_uuid = str(uuid.uuid4())
@@ -90,6 +120,129 @@ class AnnotationService:
         offset = (page - 1) * page_size
         return await crud.get_annotation_files(db, annotation_id, offset, page_size)
 
+    async def assist_current_file(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        data: AnnotationAssistRequest,
+    ) -> AnnotationAssistResponse:
+        ann = await crud.get_annotation_by_id(db, annotation_id)
+        if not ann:
+            raise NotFoundException(f"Annotation {annotation_id} not found")
+        if ann.annotation_type != 0:
+            raise BadRequestException("annotation assist currently only supports detection projects")
+        if not ann.dataset_id or not ann.classes:
+            raise BadRequestException("annotation assist requires dataset_id and non-empty classes")
 
-def get_annotation_service() -> AnnotationService:
-    return AnnotationService()
+        classes = self._parse_classes(ann.classes)
+        if not classes:
+            raise BadRequestException("annotation assist requires non-empty classes")
+
+        dataset_file = await db.scalar(
+            select(DatasetFile).where(
+                DatasetFile.dataset_id == ann.dataset_id,
+                DatasetFile.file_name == data.file_name,
+                DatasetFile.is_deleted == False,
+            )
+        )
+        if not dataset_file or not dataset_file.save_path:
+            raise NotFoundException(f"Dataset file {data.file_name} not found")
+
+        image_bytes = await self.s3.get_file(dataset_file.save_path, bucket_type="datasets")
+        mime_type = mimetypes.guess_type(data.file_name)[0] or "image/jpeg"
+        image_base64 = self._to_data_url(image_bytes, mime_type)
+
+        settings = get_settings()
+        profile = data.profile or settings.auto_augment_pipeline.default_profile
+        request_payload = {
+            "profile": profile,
+            "input": {
+                "image": {
+                    "base64_data": image_base64,
+                    "mime_type": mime_type,
+                },
+                "classes": classes,
+                "prompt": ann.prompt,
+                "metadata": {
+                    "annotation_id": annotation_id,
+                    "dataset_id": ann.dataset_id,
+                    "file_name": data.file_name,
+                },
+            },
+            "params": {},
+        }
+
+        try:
+            response = await self.augment_client.post(
+                "/v1/capabilities/assist_annotation/run",
+                json=request_payload,
+            )
+        except Exception as exc:
+            logger.error(f"Failed to call auto_augment_pipeline: {exc}")
+            raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
+
+        if response.status_code != 200:
+            detail = response.text
+            try:
+                detail = response.json().get("detail", detail)
+            except Exception:
+                pass
+            raise BadRequestException(f"annotation assist failed: {detail}")
+
+        result = response.json()
+        raw_annotations = result.get("annotations", [])
+        items = []
+        for item in raw_annotations:
+            if not isinstance(item, dict):
+                continue
+            label = str(item.get("label", "")).strip()
+            bbox = item.get("bbox") or {}
+            if not label or not {"x1", "y1", "x2", "y2"} <= set(bbox.keys()):
+                continue
+            items.append(
+                {
+                    "label": label,
+                    "bbox": {
+                        "x1": int(bbox["x1"]),
+                        "y1": int(bbox["y1"]),
+                        "x2": int(bbox["x2"]),
+                        "y2": int(bbox["y2"]),
+                    },
+                    "confidence": item.get("confidence"),
+                    "source": item.get("source"),
+                }
+            )
+
+        return AnnotationAssistResponse(
+            file_name=data.file_name,
+            image_width=int(result.get("image_width", 0) or 0),
+            image_height=int(result.get("image_height", 0) or 0),
+            annotations=items,
+            profile=profile,
+            replace_existing=data.replace_existing,
+            debug=result.get("raw") if isinstance(result.get("raw"), dict) else None,
+        )
+
+    def _parse_classes(self, raw_classes: Optional[str]) -> List[str]:
+        if not raw_classes:
+            return []
+        try:
+            parsed = json.loads(raw_classes)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except Exception:
+            pass
+        return [item.strip() for item in raw_classes.split(",") if item.strip()]
+
+    def _to_data_url(self, data: bytes, mime_type: str) -> str:
+        import base64
+        encoded = base64.b64encode(data).decode("utf-8")
+        return f"data:{mime_type};base64,{encoded}"
+
+
+async def get_annotation_service():
+    service = AnnotationService()
+    try:
+        yield service
+    finally:
+        await service.close()

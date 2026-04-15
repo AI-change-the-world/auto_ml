@@ -73,6 +73,8 @@ class CapabilityDescriptor(BaseModel):
 
 class ExecuteCapabilityRequest(BaseModel):
     provider: str | None = None
+    profile: str | None = None
+    provider_overrides: dict[str, str] = Field(default_factory=dict)
     input: TaskPayload
     params: dict[str, Any] = Field(default_factory=dict)
 

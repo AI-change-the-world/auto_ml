@@ -67,6 +67,11 @@ model-deploy:
   model_cache_dir: /app/models
   health_check_interval: 30
 
+auto-augment-pipeline:
+  base_url: ${AUTO_AUGMENT_PIPELINE_URL}
+  timeout: 120
+  default_profile: assist_default
+
 logging:
   level: INFO
   path: /app/logs

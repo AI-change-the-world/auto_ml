@@ -49,45 +49,6 @@ profiles:
       assist_min_labeled_ratio: 0.5
 
 pipelines:
-  vision_label_bundle:
-    name: vision_label_bundle
-    description: Use the same input image to produce a scene summary and an annotation draft.
-    steps:
-      - name: describe_scene
-        capability: describe_image
-        input_key: input
-        output_key: scene_description
-      - name: draft_boxes
-        capability: draft_annotation
-        input_key: input
-        output_key: draft_annotations
-        params:
-          score_threshold: 0.2
-
-  overlay_extract:
-    name: overlay_extract
-    description: Extract white boxes from an overlay image and assign OCR text to the nearest box.
-    steps:
-      - name: extract_overlay
-        capability: extract_white_annotations
-        input_key: input
-        output_key: overlay_annotations
-        params:
-          infer_labels: true
-          class_match_score: 0.6
-          min_area: 250
-
-  overlay_understand_mllm:
-    name: overlay_understand_mllm
-    description: Let a multimodal model recover structured labels from a white-box overlay image.
-    steps:
-      - name: understand_overlay
-        capability: understand_white_annotations
-        input_key: input
-        output_key: overlay_annotations
-        params:
-          class_match_score: 0.72
-
   render_then_extract_overlay:
     name: render_then_extract_overlay
     description: Use an image editing model to render pure white overlays, then extract them with OpenCV and OCR.

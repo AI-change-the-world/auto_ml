@@ -3,7 +3,15 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
-from .schemas import AnnotationCreate, AnnotationUpdate, AnnotationResponse, AnnotationFileResponse, AnnotationFileSave
+from .schemas import (
+    AnnotationAssistRequest,
+    AnnotationAssistResponse,
+    AnnotationCreate,
+    AnnotationUpdate,
+    AnnotationResponse,
+    AnnotationFileResponse,
+    AnnotationFileSave,
+)
 from .service import get_annotation_service, AnnotationService
 
 router = APIRouter(prefix="/annotation", tags=["标注管理"])
@@ -71,6 +79,17 @@ async def save_annotation_file(
 ):
     file_id = await service.save_annotation_file(db, annotation_id, data)
     return Result.ok(file_id, "Annotation file saved")
+
+
+@router.post("/{annotation_id}/assist/current", response_model=Result[AnnotationAssistResponse], summary="辅助标注当前图片")
+async def assist_current_annotation(
+    annotation_id: int,
+    data: AnnotationAssistRequest,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.assist_current_file(db, annotation_id, data)
+    return Result.ok(result)
 
 
 @router.get("/{annotation_id}/files", response_model=Result[PageResult[AnnotationFileResponse]], summary="获取标注文件列表")

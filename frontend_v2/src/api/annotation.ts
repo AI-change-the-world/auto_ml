@@ -1,5 +1,14 @@
 import apiClient from './client';
-import type { Result, PageResult, AnnotationProject, AnnotationFile, AnnotationFileSaveRequest, AnnotationCreate } from '../types';
+import type {
+  Result,
+  PageResult,
+  AnnotationProject,
+  AnnotationFile,
+  AnnotationFileSaveRequest,
+  AnnotationAssistRequest,
+  AnnotationAssistResponse,
+  AnnotationCreate,
+} from '../types';
 
 /** 创建标注项目 */
 export async function createAnnotation(data: AnnotationCreate) {
@@ -44,5 +53,11 @@ export async function getAnnotationFiles(annotationId: number, page = 1, pageSiz
 /** 保存标注文件 */
 export async function saveAnnotationFile(annotationId: number, data: AnnotationFileSaveRequest) {
   const res = await apiClient.post<Result<number>>(`/annotation/${annotationId}/file`, data);
+  return res.data.data;
+}
+
+/** 辅助标注当前图片 */
+export async function assistCurrentAnnotation(annotationId: number, data: AnnotationAssistRequest) {
+  const res = await apiClient.post<Result<AnnotationAssistResponse>>(`/annotation/${annotationId}/assist/current`, data);
   return res.data.data;
 }
