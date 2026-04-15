@@ -126,6 +126,7 @@ class RuntimeManager:
 
     def _allocate_port(self) -> Optional[int]:
         """分配可用端口"""
+        self._init_port_pool()
         for port in self.port_pool:
             if not self._is_port_in_use(port):
                 return port

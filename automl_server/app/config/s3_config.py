@@ -2,11 +2,12 @@
 S3/MinIO 配置
 """
 import os
-from functools import lru_cache
 
 import yaml
 from pydantic import BaseModel
 from loguru import logger
+
+from .nacos_config_center import get_config_center
 
 
 class S3Config(BaseModel):
@@ -29,16 +30,9 @@ class S3Config(BaseModel):
 def _load_s3_from_nacos() -> S3Config:
     """从 Nacos 加载 S3 配置"""
     try:
-        import nacos
-
-        nacos_addr = os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
-        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
-        data_id = os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG")
-        group = os.getenv("NACOS_GROUP", "AUTO_ML")
-
-        client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
-        config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str) or {}
+        config = get_config_center().get_config_data()
+        if not config:
+            return _load_s3_from_env()
 
         s3 = config.get("local-s3-config", {})
         kwargs = {}
@@ -82,7 +76,6 @@ def _load_s3_from_env() -> S3Config:
     return S3Config(**kwargs)
 
 
-@lru_cache(maxsize=1)
 def get_s3_config() -> S3Config:
     """获取 S3 配置"""
     use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"

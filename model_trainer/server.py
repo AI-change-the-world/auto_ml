@@ -6,15 +6,18 @@ import json
 import os
 import queue
 import threading
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional
 
+import pika
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 from core.trainer import run_classification_task, run_detection_task
+from utils.config_center import get_config_center
 from utils.logger import logger
 from utils.mq import (
     TaskStatus,
@@ -26,6 +29,12 @@ from utils.mq import (
 
 SERVICE_NAME = "model-trainer"
 task_dispatcher: Optional["TrainingDispatcher"] = None
+consumer_stop_event = threading.Event()
+consumer_connection_lock = threading.RLock()
+consumer_connection: Optional[pika.BlockingConnection] = None
+consumer_channel: Optional[pika.adapters.blocking_connection.BlockingChannel] = None
+consumer_ready_event = threading.Event()
+consumer_last_error: Optional[Exception] = None
 
 
 class TrainingTask(BaseModel):
@@ -181,13 +190,22 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("Model Trainer Service starting...")
     global task_dispatcher
+    get_config_center().register_callback(
+        "model_trainer_mq_consumer",
+        _on_config_update,
+    )
+    get_config_center().start()
+    consumer_stop_event.clear()
+    consumer_ready_event.clear()
 
     # 初始化 MQ 连接
     try:
-        get_mq_client()
+        wait_for_mq_ready()
         logger.info("RabbitMQ connection established")
     except Exception as e:
         logger.error(f"Failed to connect to RabbitMQ: {e}")
+        get_config_center().stop()
+        raise
 
     max_concurrent = int(os.getenv("TRAINER_MAX_CONCURRENT", "1"))
     task_dispatcher = TrainingDispatcher(max_concurrent=max_concurrent)
@@ -199,6 +217,7 @@ async def lifespan(app: FastAPI):
         daemon=True,
     )
     consumer_thread.start()
+    wait_for_consumer_ready()
     logger.info("MQ consumer started")
 
     logger.info("Model Trainer Service started")
@@ -210,10 +229,14 @@ async def lifespan(app: FastAPI):
             task_dispatcher.stop()
     except Exception:
         pass
+    consumer_stop_event.set()
+    close_consumer_connection()
+    get_config_center().unregister_callback("model_trainer_mq_consumer")
     try:
         get_mq_client().close()
     except Exception:
         pass
+    get_config_center().stop()
 
     logger.info("Model Trainer Service stopped")
 
@@ -273,60 +296,148 @@ def start_mq_consumer():
         "task_config": {...}
     }
     """
-    import pika
+    global consumer_connection, consumer_channel, consumer_last_error
 
-    config = get_mq_config()
     if task_dispatcher is None:
         raise RuntimeError("Training dispatcher is not initialized")
+    retries = max(1, int(os.getenv("MQ_STARTUP_RETRIES", "12")))
+    interval = max(1, int(os.getenv("MQ_STARTUP_RETRY_INTERVAL", "5")))
+    attempts = 0
 
-    try:
-        credentials = pika.PlainCredentials(config.username, config.password)
-        parameters = pika.ConnectionParameters(
-            host=config.host,
-            port=config.port,
-            virtual_host=config.virtual_host,
-            credentials=credentials,
-        )
-        connection = pika.BlockingConnection(parameters)
-        channel = connection.channel()
+    while not consumer_stop_event.is_set():
+        config = get_mq_config()
+        try:
+            credentials = pika.PlainCredentials(config.username, config.password)
+            parameters = pika.ConnectionParameters(
+                host=config.host,
+                port=config.port,
+                virtual_host=config.virtual_host,
+                credentials=credentials,
+                heartbeat=60,
+                blocked_connection_timeout=300,
+            )
+            connection = pika.BlockingConnection(parameters)
+            channel = connection.channel()
 
-        # 声明队列
-        queue_name = config.trainer_task_queue
-        channel.queue_declare(queue=queue_name, durable=True)
+            with consumer_connection_lock:
+                consumer_connection = connection
+                consumer_channel = channel
+                consumer_last_error = None
 
-        # 绑定到交换机
-        channel.queue_bind(
-            queue=queue_name,
-            exchange=config.exchange_name,
-            routing_key=config.trainer_task_routing_key,
-        )
+            queue_name = config.trainer_task_queue
+            channel.queue_declare(queue=queue_name, durable=True)
+            channel.queue_bind(
+                queue=queue_name,
+                exchange=config.exchange_name,
+                routing_key=config.trainer_task_routing_key,
+            )
 
-        logger.info(f"MQ consumer listening on queue: {queue_name}")
+            logger.info(f"MQ consumer listening on queue: {queue_name}")
+            consumer_ready_event.set()
 
-        def callback(ch, method, properties, body):
-            try:
-                data = json.loads(body)
-                task_type = data.get("task_type", "detection")
-                task_id = data["task_id"]
+            def callback(ch, method, properties, body):
+                try:
+                    data = json.loads(body)
+                    task_type = data.get("task_type", "detection")
+                    task_id = data["task_id"]
 
-                logger.info(
-                    f"Received task from MQ: task_id={task_id}, type={task_type}")
-                ack = partial(
-                    connection.add_callback_threadsafe,
-                    partial(ch.basic_ack, delivery_tag=method.delivery_tag),
+                    logger.info(
+                        f"Received task from MQ: task_id={task_id}, type={task_type}"
+                    )
+                    ack = partial(
+                        connection.add_callback_threadsafe,
+                        partial(ch.basic_ack, delivery_tag=method.delivery_tag),
+                    )
+                    task_dispatcher.submit(data, ack=ack)
+
+                except Exception as e:
+                    logger.error(f"Failed to process MQ message: {e}")
+                    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+            channel.basic_qos(prefetch_count=max(1, task_dispatcher.max_concurrent))
+            channel.basic_consume(queue=queue_name, on_message_callback=callback)
+
+            attempts = 0
+            while not consumer_stop_event.is_set():
+                connection.process_data_events(time_limit=1)
+        except Exception as e:
+            attempts += 1
+            logger.error(f"MQ consumer error: {e}")
+            consumer_last_error = e
+            consumer_ready_event.clear()
+            close_consumer_connection()
+            if attempts >= retries:
+                logger.error(
+                    f"MQ consumer exceeded retry limit: {attempts}/{retries}"
                 )
-                task_dispatcher.submit(data, ack=ack)
+                break
+            if not consumer_stop_event.wait(interval):
+                continue
+        finally:
+            close_consumer_connection()
 
-            except Exception as e:
-                logger.error(f"Failed to process MQ message: {e}")
-                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
-        channel.basic_qos(prefetch_count=max(1, task_dispatcher.max_concurrent))
-        channel.basic_consume(queue=queue_name, on_message_callback=callback)
-        channel.start_consuming()
+def close_consumer_connection():
+    global consumer_connection, consumer_channel
+    with consumer_connection_lock:
+        if consumer_channel and not consumer_channel.is_closed:
+            try:
+                consumer_channel.close()
+            except Exception:
+                pass
+        if consumer_connection and not consumer_connection.is_closed:
+            try:
+                consumer_connection.close()
+            except Exception:
+                pass
+        consumer_channel = None
+        consumer_connection = None
+        consumer_ready_event.clear()
 
-    except Exception as e:
-        logger.error(f"MQ consumer error: {e}")
+
+def _on_config_update(old_config: dict, new_config: dict):
+    old_mq = (old_config or {}).get("rabbitmq", {})
+    new_mq = (new_config or {}).get("rabbitmq", {})
+    if old_mq == new_mq:
+        return
+
+    logger.info("RabbitMQ config changed, trainer consumer will reconnect")
+    close_consumer_connection()
+
+
+def wait_for_mq_ready():
+    retries = max(1, int(os.getenv("MQ_STARTUP_RETRIES", "12")))
+    interval = max(1, int(os.getenv("MQ_STARTUP_RETRY_INTERVAL", "5")))
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            client = get_mq_client()
+            if client.connection is not None and not client.connection.is_closed:
+                logger.info(f"RabbitMQ ready on attempt {attempt}/{retries}")
+                return
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"RabbitMQ startup attempt {attempt}/{retries} failed: {e}"
+            )
+        if attempt < retries:
+            time.sleep(interval)
+
+    raise RuntimeError(
+        f"Failed to connect to RabbitMQ after {retries} attempts: {last_error}"
+    )
+
+
+def wait_for_consumer_ready():
+    retries = max(1, int(os.getenv("MQ_STARTUP_RETRIES", "12")))
+    interval = max(1, int(os.getenv("MQ_STARTUP_RETRY_INTERVAL", "5")))
+    timeout = retries * interval + 5
+    if consumer_ready_event.wait(timeout=timeout):
+        return
+    raise RuntimeError(
+        f"Failed to start MQ consumer within {timeout}s: {consumer_last_error}"
+    )
 
 
 if __name__ == "__main__":

@@ -5,13 +5,13 @@ RabbitMQ 消息消费者
 import asyncio
 import json
 import threading
-from functools import lru_cache
 from typing import Callable, Dict, Optional
 
 import pika
 from pika.adapters.blocking_connection import BlockingChannel
 from loguru import logger
 
+from app.config.nacos_config_center import get_config_center
 from app.config.rabbitmq_config import get_mq_config, RabbitMQConfig
 from .messages import (
     MessageType, TaskStatusMessage, TaskLogMessage,
@@ -34,10 +34,19 @@ class MessageConsumer:
         self._handlers: Dict[str, Callable] = {}
         self._async_handlers: Dict[str, Callable] = {}
         self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._config_lock = threading.RLock()
+        self._ready_event = threading.Event()
+        self._last_error: Optional[Exception] = None
+        get_config_center().register_callback(
+            "automl_server_mq_consumer",
+            self._on_config_update,
+        )
 
     def _connect(self):
         """建立连接"""
         try:
+            with self._config_lock:
+                self.config = get_mq_config()
             credentials = pika.PlainCredentials(
                 self.config.username,
                 self.config.password
@@ -62,12 +71,40 @@ class MessageConsumer:
 
             # 声明并绑定队列
             self._setup_queues()
+            self._last_error = None
+            self._ready_event.set()
 
             logger.info(
                 f"Consumer connected to RabbitMQ: {self.config.host}:{self.config.port}")
         except Exception as e:
+            self._last_error = e
+            self._ready_event.clear()
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             raise
+
+    def _on_config_update(self, old_config: dict, new_config: dict):
+        old_mq = (old_config or {}).get("rabbitmq", {})
+        new_mq = (new_config or {}).get("rabbitmq", {})
+        if old_mq == new_mq:
+            return
+
+        logger.info("RabbitMQ config changed, consumer will reconnect")
+        self._close_connection()
+
+    def _close_connection(self):
+        if self.channel and not self.channel.is_closed:
+            try:
+                self.channel.close()
+            except Exception:
+                pass
+        if self.connection and not self.connection.is_closed:
+            try:
+                self.connection.close()
+            except Exception:
+                pass
+        self.channel = None
+        self.connection = None
+        self._ready_event.clear()
 
     def _setup_queues(self):
         """设置队列和绑定"""
@@ -199,23 +236,23 @@ class MessageConsumer:
 
         self._running = True
         self._loop = event_loop
+        self._ready_event.clear()
         self._thread = threading.Thread(target=self._consume_loop, daemon=True)
         self._thread.start()
         logger.info("Message consumer started in background thread")
 
+    def wait_until_ready(self, timeout: float) -> bool:
+        return self._ready_event.wait(timeout=timeout)
+
+    @property
+    def last_error(self) -> Optional[Exception]:
+        return self._last_error
+
     def stop(self):
         """停止消费者"""
         self._running = False
-        if self.channel and not self.channel.is_closed:
-            try:
-                self.channel.close()
-            except Exception:
-                pass
-        if self.connection and not self.connection.is_closed:
-            try:
-                self.connection.close()
-            except Exception:
-                pass
+        get_config_center().unregister_callback("automl_server_mq_consumer")
+        self._close_connection()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
         logger.info("Message consumer stopped")

@@ -7,13 +7,12 @@ import os
 import threading
 from datetime import datetime
 from enum import Enum
-from functools import lru_cache
 from typing import Any, Callable, Dict, Optional
 
 import pika
-import yaml
 from pydantic import BaseModel
 
+from utils.config_center import get_config_center
 from utils.logger import logger
 
 
@@ -111,18 +110,9 @@ class RabbitMQConfig(BaseModel):
 def load_rabbitmq_config_from_nacos() -> RabbitMQConfig:
     """从 Nacos 加载 RabbitMQ 配置"""
     try:
-        import nacos
-        
-        nacos_addr = os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
-        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
-        data_id = os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG")
-        group = os.getenv("NACOS_GROUP", "AUTO_ML")
-        
-        logger.info(f"Loading RabbitMQ config from Nacos: {nacos_addr}, {data_id}, {group}")
-        
-        client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
-        config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str) or {}
+        config = get_config_center().get_config_data()
+        if not config:
+            return load_rabbitmq_config_from_env()
 
         mq_config = config.get("rabbitmq", {})
         return RabbitMQConfig(
@@ -152,7 +142,6 @@ def load_rabbitmq_config_from_env() -> RabbitMQConfig:
     )
 
 
-@lru_cache(maxsize=1)
 def get_mq_config() -> RabbitMQConfig:
     """获取 MQ 配置（优先从 Nacos）"""
     use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"
@@ -184,12 +173,19 @@ class RabbitMQClient:
         self.config = get_mq_config()
         self.connection: Optional[pika.BlockingConnection] = None
         self.channel: Optional[pika.channel.Channel] = None
+        self._config_lock = threading.RLock()
+        get_config_center().register_callback(
+            "model_deploy_mq_client",
+            self._on_config_update,
+        )
         self._connect()
         self._initialized = True
     
     def _connect(self):
         """建立连接"""
         try:
+            with self._config_lock:
+                self.config = get_mq_config()
             credentials = pika.PlainCredentials(
                 self.config.username, 
                 self.config.password
@@ -216,6 +212,15 @@ class RabbitMQClient:
         except Exception as e:
             logger.error(f"Failed to connect to RabbitMQ: {e}")
             raise
+
+    def _on_config_update(self, old_config: dict, new_config: dict):
+        old_mq = (old_config or {}).get("rabbitmq", {})
+        new_mq = (new_config or {}).get("rabbitmq", {})
+        if old_mq == new_mq:
+            return
+
+        logger.info("RabbitMQ config changed, MQ client will reconnect")
+        self.close()
     
     def _ensure_connection(self):
         """确保连接可用"""
@@ -255,6 +260,8 @@ class RabbitMQClient:
                 self.channel.close()
             if self.connection and not self.connection.is_closed:
                 self.connection.close()
+            self.channel = None
+            self.connection = None
             logger.info("RabbitMQ connection closed")
         except Exception as e:
             logger.error(f"Error closing RabbitMQ connection: {e}")

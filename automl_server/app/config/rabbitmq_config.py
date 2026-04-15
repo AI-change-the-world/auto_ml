@@ -2,11 +2,12 @@
 RabbitMQ 配置
 """
 import os
-from functools import lru_cache
 
 import yaml
 from pydantic import BaseModel
 from loguru import logger
+
+from .nacos_config_center import get_config_center
 
 
 class RabbitMQConfig(BaseModel):
@@ -51,16 +52,9 @@ def _get_mq_nested_value(mq: dict, section: str, key: str, flat_key: str, defaul
 def _load_mq_from_nacos() -> RabbitMQConfig:
     """从 Nacos 加载 RabbitMQ 配置"""
     try:
-        import nacos
-
-        nacos_addr = os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
-        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
-        data_id = os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG")
-        group = os.getenv("NACOS_GROUP", "AUTO_ML")
-
-        client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
-        config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str) or {}
+        config = get_config_center().get_config_data()
+        if not config:
+            return _load_mq_from_env()
 
         mq = config.get("rabbitmq", {})
 
@@ -130,7 +124,6 @@ def _load_mq_from_env() -> RabbitMQConfig:
     )
 
 
-@lru_cache(maxsize=1)
 def get_mq_config() -> RabbitMQConfig:
     """获取 RabbitMQ 配置"""
     use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"

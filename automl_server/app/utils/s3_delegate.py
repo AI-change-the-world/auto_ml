@@ -6,7 +6,6 @@ import hashlib
 import hmac
 import urllib.parse
 from datetime import datetime, timedelta
-from functools import lru_cache
 from typing import Dict, List, Optional
 
 import opendal
@@ -306,7 +305,6 @@ class S3Delegate:
             f"Copied {src_bucket_type}:{src_key} to {dst_bucket_type}:{dst_key}")
 
 
-@lru_cache(maxsize=1)
 def get_s3_delegate() -> S3Delegate:
     """获取 S3 操作委托单例"""
     return S3Delegate()

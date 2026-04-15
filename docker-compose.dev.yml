@@ -1,0 +1,177 @@
+name: auto-ml-dev
+
+x-dev-config: &dev-config
+  MYSQL_HOST: ${DEV_MYSQL_HOST:-127.0.0.1}
+  MYSQL_PORT: ${DEV_MYSQL_PORT:-3306}
+  MYSQL_USER: ${MYSQL_USER:-automl}
+  MYSQL_PASSWORD: ${MYSQL_PASSWORD:-automl123456}
+  MYSQL_DATABASE: ${MYSQL_DATABASE:-auto_ml}
+  RABBITMQ_HOST: ${DEV_RABBITMQ_HOST:-127.0.0.1}
+  RABBITMQ_PORT: ${DEV_RABBITMQ_PORT:-5672}
+  RABBITMQ_USER: ${RABBITMQ_USER:-automl}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-automl123456}
+  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+  RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-auto_ml_exchange}
+  RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
+  MINIO_ENDPOINT: ${DEV_MINIO_ENDPOINT:-http://127.0.0.1:9000}
+  AI_PLATFORM_URL: ${AI_PLATFORM_URL:-http://127.0.0.1:45679}
+  MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://127.0.0.1:8081}
+  MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://127.0.0.1:8082}
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: automl-dev-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-auto_ml}
+      MYSQL_USER: ${MYSQL_USER:-automl}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-automl123456}
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    networks:
+      - auto-ml-dev-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  nacos:
+    image: qingpan/rnacos:v0.7.4
+    container_name: automl-dev-nacos
+    restart: unless-stopped
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+      - "10848:10848"
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+    volumes:
+      - ./nacos/data:/home/nacos/data
+      - ./nacos/logs:/home/nacos/logs
+    networks:
+      - auto-ml-dev-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: automl-dev-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-automl}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-automl123456}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_dev_data:/var/lib/rabbitmq
+    networks:
+      - auto-ml-dev-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-03T14-56-28Z
+    container_name: automl-dev-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "9000:9000"
+      - "9010:9001"
+    volumes:
+      - ./minio/data:/data
+      - minio_dev_shared:/shared
+    networks:
+      - auto-ml-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: automl-dev-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - minio_dev_shared:/shared
+    networks:
+      - auto-ml-dev-network
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "waiting for minio";
+        sleep 10;
+
+        echo "ACCESS_KEY=${S3_ACCESS_KEY:-automlminio}" > /shared/minio.env;
+        echo "SECRET_KEY=${S3_SECRET_KEY:-automlminio123456}" >> /shared/minio.env;
+
+        mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123};
+
+        mc admin user add myminio ${S3_ACCESS_KEY:-automlminio} ${S3_SECRET_KEY:-automlminio123456} || true;
+        mc admin policy attach myminio readwrite --user ${S3_ACCESS_KEY:-automlminio} || true;
+
+        mc mb myminio/auto-ml-datasets --ignore-existing;
+        mc mb myminio/auto-ml-models --ignore-existing;
+        mc mb myminio/auto-ml-annotations --ignore-existing;
+
+        echo "minio init done";
+
+  nacos-init:
+    image: curlimages/curl:8.5.0
+    container_name: automl-dev-nacos-init
+    depends_on:
+      nacos:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./nacos/init-config.sh:/init-config.sh
+      - ./nacos/automl-config.yaml:/config/automl-config.yaml
+      - minio_dev_shared:/shared
+    networks:
+      - auto-ml-dev-network
+    environment:
+      NACOS_HOST: nacos
+      NACOS_PORT: 8848
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
+      DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
+      GROUP: ${NACOS_GROUP:-AUTO_ML}
+      CONFIG_FILE: /config/automl-config.yaml
+      MINIO_ENV_FILE: /shared/minio.env
+      <<: *dev-config
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "waiting for nacos";
+        until curl -s http://nacos:8848 > /dev/null; do sleep 3; done;
+        sh /init-config.sh
+
+volumes:
+  mysql_dev_data:
+  rabbitmq_dev_data:
+  minio_dev_shared:
+
+networks:
+  auto-ml-dev-network:
+    driver: bridge

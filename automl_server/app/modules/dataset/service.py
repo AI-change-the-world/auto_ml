@@ -398,13 +398,6 @@ class DatasetService:
         return deleted
 
 
-# 服务单例
-_service: Optional[DatasetService] = None
-
-
 def get_dataset_service() -> DatasetService:
     """获取数据集服务"""
-    global _service
-    if _service is None:
-        _service = DatasetService()
-    return _service
+    return DatasetService()

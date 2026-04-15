@@ -1,7 +1,6 @@
 """
 异步 HTTP 客户端
 """
-from functools import lru_cache
 from typing import Any, Dict, Optional
 
 import httpx
@@ -97,7 +96,12 @@ class HttpClient:
             return False
 
 
-@lru_cache(maxsize=1)
+_http_client: Optional[HttpClient] = None
+
+
 def get_http_client() -> HttpClient:
     """获取 HTTP 客户端单例"""
-    return HttpClient()
+    global _http_client
+    if _http_client is None:
+        _http_client = HttpClient()
+    return _http_client

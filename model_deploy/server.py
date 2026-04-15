@@ -3,6 +3,7 @@ Model Deploy Service
 轻量级模型部署服务，使用 RabbitMQ 发送状态
 """
 import os
+import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
@@ -12,23 +13,51 @@ from pydantic import BaseModel
 from core.deploy_service import deploy_service
 from core.runtime_manager import runtime_manager
 from utils.config import get_deploy_config
+from utils.config_center import get_config_center
 from utils.logger import logger
 from utils.mq import get_mq_client
 
 SERVICE_NAME = "model-deploy"
 
 
+def wait_for_mq_ready():
+    retries = max(1, int(os.getenv("MQ_STARTUP_RETRIES", "12")))
+    interval = max(1, int(os.getenv("MQ_STARTUP_RETRY_INTERVAL", "5")))
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            mq_client = get_mq_client()
+            if mq_client.connection is not None and not mq_client.connection.is_closed:
+                logger.info(f"RabbitMQ ready on attempt {attempt}/{retries}")
+                return
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"RabbitMQ startup attempt {attempt}/{retries} failed: {e}"
+            )
+        if attempt < retries:
+            time.sleep(interval)
+
+    raise RuntimeError(
+        f"Failed to connect to RabbitMQ after {retries} attempts: {last_error}"
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("Model Deploy Service starting...")
+    get_config_center().start()
 
     # 初始化 MQ 连接
     try:
-        mq_client = get_mq_client()
+        wait_for_mq_ready()
         logger.info("RabbitMQ connection established")
     except Exception as e:
         logger.error(f"Failed to connect to RabbitMQ: {e}")
+        get_config_center().stop()
+        raise
 
     # 确保模型缓存目录存在
     config = get_deploy_config()
@@ -46,6 +75,7 @@ async def lifespan(app: FastAPI):
         get_mq_client().close()
     except Exception:
         pass
+    get_config_center().stop()
 
     logger.info("Model Deploy Service stopped")
 

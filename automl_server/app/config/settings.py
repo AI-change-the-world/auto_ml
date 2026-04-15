@@ -4,12 +4,13 @@
 """
 import os
 import re
-from functools import lru_cache
 from typing import Optional
 
 import yaml
 from pydantic import BaseModel
 from loguru import logger
+
+from .nacos_config_center import get_config_center
 
 
 class DatabaseConfig(BaseModel):
@@ -74,17 +75,8 @@ class Settings(BaseModel):
 def _load_from_nacos(nacos_config: NacosConfig) -> dict:
     """从 Nacos 加载配置"""
     try:
-        import nacos
-
-        client = nacos.NacosClient(
-            nacos_config.server_addr,
-            namespace=nacos_config.namespace
-        )
-        config_str = client.get_config(
-            nacos_config.data_id, nacos_config.group)
-        if config_str:
-            return yaml.safe_load(config_str) or {}
-        return {}
+        config = get_config_center().get_config_data()
+        return config or {}
     except Exception as e:
         logger.warning(f"Failed to load config from Nacos: {e}")
         return {}
@@ -199,7 +191,6 @@ def _load_settings() -> Settings:
     )
 
 
-@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """获取全局配置（单例）"""
     return _load_settings()

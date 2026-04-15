@@ -7,7 +7,6 @@ from loguru import logger
 from app.config.settings import get_settings
 from app.utils.http_client import get_http_client
 
-settings = get_settings()
 scheduler = AsyncIOScheduler()
 
 
@@ -29,6 +28,7 @@ async def check_ai_platform_health():
 
 def start_scheduler():
     """启动定时任务调度器"""
+    settings = get_settings()
     # 添加心跳检查任务
     scheduler.add_job(
         check_ai_platform_health,

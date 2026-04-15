@@ -156,11 +156,5 @@ class TaskService:
         return [item.strip() for item in raw_classes.split(",") if item.strip()]
 
 
-_service: Optional[TaskService] = None
-
-
 def get_task_service() -> TaskService:
-    global _service
-    if _service is None:
-        _service = TaskService()
-    return _service
+    return TaskService()

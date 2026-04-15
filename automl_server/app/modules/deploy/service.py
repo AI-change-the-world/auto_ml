@@ -110,11 +110,5 @@ class DeployService:
         )
 
 
-_service: Optional[DeployService] = None
-
-
 def get_deploy_service() -> DeployService:
-    global _service
-    if _service is None:
-        _service = DeployService()
-    return _service
+    return DeployService()

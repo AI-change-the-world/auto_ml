@@ -21,9 +21,13 @@ _deployment_counter = 0
 class DeployService:
     """部署服务"""
 
-    def __init__(self):
-        self.config = get_deploy_config()
-        self.s3_config = get_s3_config()
+    @property
+    def config(self):
+        return get_deploy_config()
+
+    @property
+    def s3_config(self):
+        return get_s3_config()
 
     def deploy(
         self,

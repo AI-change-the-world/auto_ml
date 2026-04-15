@@ -4,12 +4,12 @@ RabbitMQ 消息发布器
 """
 import json
 import threading
-from functools import lru_cache
 from typing import Any, Dict, Optional
 
 import pika
 from loguru import logger
 
+from app.config.nacos_config_center import get_config_center
 from app.config.rabbitmq_config import RabbitMQConfig, get_mq_config
 
 
@@ -21,31 +21,47 @@ class MessagePublisher:
         self.connection: Optional[pika.BlockingConnection] = None
         self.channel: Optional[pika.channel.Channel] = None
         self._lock = threading.Lock()
+        self._config_lock = threading.RLock()
+        get_config_center().register_callback(
+            "automl_server_mq_publisher",
+            self._on_config_update,
+        )
         self._connect()
 
     def _connect(self):
-        credentials = pika.PlainCredentials(
-            self.config.username,
-            self.config.password,
-        )
-        parameters = pika.ConnectionParameters(
-            host=self.config.host,
-            port=self.config.port,
-            virtual_host=self.config.virtual_host,
-            credentials=credentials,
-            heartbeat=60,
-            blocked_connection_timeout=300,
-        )
-        self.connection = pika.BlockingConnection(parameters)
-        self.channel = self.connection.channel()
-        self.channel.exchange_declare(
-            exchange=self.config.exchange_name,
-            exchange_type=self.config.exchange_type,
-            durable=True,
-        )
-        logger.info(
-            f"Publisher connected to RabbitMQ: {self.config.host}:{self.config.port}"
-        )
+        with self._config_lock:
+            self.config = get_mq_config()
+            credentials = pika.PlainCredentials(
+                self.config.username,
+                self.config.password,
+            )
+            parameters = pika.ConnectionParameters(
+                host=self.config.host,
+                port=self.config.port,
+                virtual_host=self.config.virtual_host,
+                credentials=credentials,
+                heartbeat=60,
+                blocked_connection_timeout=300,
+            )
+            self.connection = pika.BlockingConnection(parameters)
+            self.channel = self.connection.channel()
+            self.channel.exchange_declare(
+                exchange=self.config.exchange_name,
+                exchange_type=self.config.exchange_type,
+                durable=True,
+            )
+            logger.info(
+                f"Publisher connected to RabbitMQ: {self.config.host}:{self.config.port}"
+            )
+
+    def _on_config_update(self, old_config: dict, new_config: dict):
+        old_mq = (old_config or {}).get("rabbitmq", {})
+        new_mq = (new_config or {}).get("rabbitmq", {})
+        if old_mq == new_mq:
+            return
+
+        logger.info("RabbitMQ config changed, publisher will reconnect")
+        self.close()
 
     def _ensure_connection(self):
         if self.connection is None or self.connection.is_closed:
@@ -77,10 +93,17 @@ class MessagePublisher:
                 self.channel.close()
             if self.connection and not self.connection.is_closed:
                 self.connection.close()
+            self.channel = None
+            self.connection = None
         except Exception as e:
             logger.error(f"Error closing publisher: {e}")
 
 
-@lru_cache(maxsize=1)
+_publisher: Optional[MessagePublisher] = None
+
+
 def get_publisher() -> MessagePublisher:
-    return MessagePublisher()
+    global _publisher
+    if _publisher is None:
+        _publisher = MessagePublisher()
+    return _publisher

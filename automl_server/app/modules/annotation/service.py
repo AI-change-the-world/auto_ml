@@ -91,11 +91,5 @@ class AnnotationService:
         return await crud.get_annotation_files(db, annotation_id, offset, page_size)
 
 
-_service: Optional[AnnotationService] = None
-
-
 def get_annotation_service() -> AnnotationService:
-    global _service
-    if _service is None:
-        _service = AnnotationService()
-    return _service
+    return AnnotationService()

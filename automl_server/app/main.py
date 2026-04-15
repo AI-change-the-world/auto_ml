@@ -1,6 +1,8 @@
 """
 AutoML Server - FastAPI 主入口
 """
+import os
+import time
 from app.modules.home import router as home_router
 from app.modules.deploy import router as deploy_router
 from app.modules.task import router as task_router
@@ -16,6 +18,7 @@ from loguru import logger
 
 from app.common import Result
 from app.common.exceptions import AppException
+from app.config.nacos_config_center import get_config_center
 from app.config.settings import get_settings
 from app.mq.consumer import get_consumer
 from app.mq.publisher import get_publisher
@@ -31,10 +34,73 @@ from app.mq.handlers import (
 settings = get_settings()
 
 
+def _init_mq_with_retry(loop: asyncio.AbstractEventLoop):
+    retries = max(1, int(os.getenv("MQ_STARTUP_RETRIES", "12")))
+    interval = max(1, int(os.getenv("MQ_STARTUP_RETRY_INTERVAL", "5")))
+    ready_timeout = max(1, int(os.getenv("MQ_STARTUP_READY_TIMEOUT", "5")))
+    last_error = None
+
+    for attempt in range(1, retries + 1):
+        try:
+            consumer = get_consumer()
+
+            consumer.register_handler(
+                MessageType.TASK_STATUS_UPDATE.value,
+                handle_task_status_update,
+                is_async=True
+            )
+            consumer.register_handler(
+                MessageType.TASK_LOG.value,
+                handle_task_log,
+                is_async=True
+            )
+            consumer.register_handler(
+                MessageType.MODEL_REGISTERED.value,
+                handle_model_registered,
+                is_async=True
+            )
+            consumer.register_handler(
+                MessageType.MODEL_DEPLOYED.value,
+                handle_model_deployed,
+                is_async=True
+            )
+            consumer.register_handler(
+                MessageType.MODEL_UNDEPLOYED.value,
+                handle_model_undeployed,
+                is_async=True
+            )
+
+            consumer.start(event_loop=loop)
+            if not consumer.wait_until_ready(timeout=ready_timeout):
+                raise RuntimeError(
+                    consumer.last_error
+                    or f"consumer not ready within {ready_timeout}s"
+                )
+            publisher = get_publisher()
+            if publisher.connection is None or publisher.connection.is_closed:
+                raise RuntimeError("publisher connection is not ready")
+            logger.info(
+                f"RabbitMQ startup completed on attempt {attempt}/{retries}"
+            )
+            return
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"RabbitMQ startup attempt {attempt}/{retries} failed: {e}"
+            )
+            if attempt < retries:
+                time.sleep(interval)
+
+    raise RuntimeError(
+        f"Failed to start MQ after {retries} attempts: {last_error}"
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    get_config_center().start()
 
     # 初始化数据库（自动建表）
     from app.config.database import init_db
@@ -53,43 +119,13 @@ async def lifespan(app: FastAPI):
 
     # 启动消息消费者
     try:
-        consumer = get_consumer()
-
-        # 注册消息处理器
-        consumer.register_handler(
-            MessageType.TASK_STATUS_UPDATE.value,
-            handle_task_status_update,
-            is_async=True
-        )
-        consumer.register_handler(
-            MessageType.TASK_LOG.value,
-            handle_task_log,
-            is_async=True
-        )
-        consumer.register_handler(
-            MessageType.MODEL_REGISTERED.value,
-            handle_model_registered,
-            is_async=True
-        )
-        consumer.register_handler(
-            MessageType.MODEL_DEPLOYED.value,
-            handle_model_deployed,
-            is_async=True
-        )
-        consumer.register_handler(
-            MessageType.MODEL_UNDEPLOYED.value,
-            handle_model_undeployed,
-            is_async=True
-        )
-
-        # 启动消费者
         loop = asyncio.get_event_loop()
-        consumer.start(event_loop=loop)
+        _init_mq_with_retry(loop)
         logger.info("RabbitMQ consumer started")
-        get_publisher()
-
     except Exception as e:
         logger.error(f"Failed to start MQ consumer: {e}")
+        get_config_center().stop()
+        raise
 
     # 启动定时任务
     from app.scheduler.heartbeat import start_scheduler
@@ -109,6 +145,7 @@ async def lifespan(app: FastAPI):
         publisher.close()
     except Exception:
         pass
+    get_config_center().stop()
 
 
 # 创建 FastAPI 应用

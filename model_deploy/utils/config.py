@@ -3,13 +3,12 @@
 从 Nacos 或环境变量获取 S3 配置
 """
 import os
-from functools import lru_cache
 from typing import Optional
 
 import opendal
-import yaml
 from pydantic import BaseModel
 
+from utils.config_center import get_config_center
 from utils.logger import logger
 
 
@@ -31,19 +30,9 @@ class DeployConfig(BaseModel):
 def load_s3_config_from_nacos() -> S3Properties:
     """从 Nacos 加载 S3 配置"""
     try:
-        import nacos
-
-        nacos_addr = os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
-        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
-        data_id = os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG")
-        group = os.getenv("NACOS_GROUP", "AUTO_ML")
-
-        logger.info(
-            f"Loading S3 config from Nacos: {nacos_addr}, {data_id}, {group}")
-
-        client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
-        config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str) or {}
+        config = get_config_center().get_config_data()
+        if not config:
+            return load_s3_config_from_env()
 
         s3_config = config.get("local-s3-config", {})
         return S3Properties(
@@ -70,16 +59,9 @@ def load_s3_config_from_env() -> S3Properties:
 def load_deploy_config_from_nacos() -> DeployConfig:
     """从 Nacos 加载部署配置"""
     try:
-        import nacos
-
-        nacos_addr = os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848")
-        nacos_namespace = os.getenv("NACOS_NAMESPACE", "public")
-        data_id = os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG")
-        group = os.getenv("NACOS_GROUP", "AUTO_ML")
-
-        client = nacos.NacosClient(nacos_addr, namespace=nacos_namespace)
-        config_str = client.get_config(data_id, group)
-        config = yaml.safe_load(config_str) or {}
+        config = get_config_center().get_config_data()
+        if not config:
+            return load_deploy_config_from_env()
 
         deploy_config = config.get("model-deploy", {})
         return DeployConfig(
@@ -103,7 +85,6 @@ def load_deploy_config_from_env() -> DeployConfig:
     return config
 
 
-@lru_cache(maxsize=1)
 def get_s3_config() -> S3Properties:
     """获取 S3 配置（优先从 Nacos）"""
     use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"
@@ -112,7 +93,6 @@ def get_s3_config() -> S3Properties:
     return load_s3_config_from_env()
 
 
-@lru_cache(maxsize=1)
 def get_deploy_config() -> DeployConfig:
     """获取部署配置"""
     use_nacos = os.getenv("USE_NACOS", "true").lower() == "true"
@@ -121,7 +101,6 @@ def get_deploy_config() -> DeployConfig:
     return load_deploy_config_from_env()
 
 
-@lru_cache(maxsize=10)
 def get_s3_operator(bucket_name: Optional[str] = None) -> opendal.Operator:
     """获取 S3 操作器"""
     cfg = get_s3_config()
