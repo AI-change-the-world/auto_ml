@@ -77,7 +77,7 @@ def _init_mq_with_retry(loop: asyncio.AbstractEventLoop):
                     or f"consumer not ready within {ready_timeout}s"
                 )
             publisher = get_publisher()
-            if publisher.connection is None or publisher.connection.is_closed:
+            if not publisher.wait_until_ready(timeout=ready_timeout):
                 raise RuntimeError("publisher connection is not ready")
             logger.info(
                 f"RabbitMQ startup completed on attempt {attempt}/{retries}"

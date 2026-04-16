@@ -6,7 +6,7 @@ from typing import List, Optional
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.common.exceptions import NotFoundException, BadRequestException
+from app.common.exceptions import NotFoundException, BadRequestException, AppException
 from app.common.constants import TaskStatus, TaskType
 from app.config.settings import get_settings
 from app.db.models import Dataset, Annotation
@@ -129,6 +129,11 @@ class TaskService:
             db.add(task)
             await db.commit()
             await db.refresh(task)
+            raise AppException(
+                code=503,
+                message=f"Failed to queue training task: {e}",
+                data=self._serialize_task(task).model_dump(mode="json"),
+            )
 
         return self._serialize_task(task)
 
