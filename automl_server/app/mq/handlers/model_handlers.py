@@ -26,7 +26,7 @@ async def handle_model_registered(message: ModelRegisteredMessage):
                 name=model_info.get("base_model_name", ""),
                 model_path=model_info.get("save_path", ""),
                 onnx_model_path=model_info.get("onnx_save_path"),
-                model_type=model_info.get("model_type", ""),
+                model_type=model_info.get("task_kind") or model_info.get("model_type", ""),
                 dataset_id=model_info.get("dataset_id"),
                 task_id=message.task_id,
                 loss=model_info.get("loss"),

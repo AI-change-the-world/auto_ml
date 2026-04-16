@@ -33,11 +33,19 @@ class DeployService:
             raise BadRequestException(
                 f"Model {data.model_id} is already deployed")
 
+        if not model.onnx_model_path:
+            raise BadRequestException(
+                f"Model {data.model_id} has no ONNX artifact; enable ONNX export before deployment"
+            )
+
         # 调用 model_deploy 服务
         try:
             deploy_request = {
                 "model_id": data.model_id,
-                "model_path": model.model_path,
+                "model_path": model.onnx_model_path,
+                "model_format": "onnx",
+                "task_kind": self._normalize_task_kind(model.model_type),
+                "backend": "onnxruntime",
                 "device": data.device,
                 "version": data.version,
             }
@@ -93,6 +101,13 @@ class DeployService:
             version=model.deployment_version,
             device=model.deployment_device,
         )
+
+    def _normalize_task_kind(self, model_type: str | None) -> str:
+        if model_type in {"detection_obb", "classification", "segmentation"}:
+            return model_type
+        if model_type in {"detection", "detection_bbox", None, ""}:
+            return "detection_bbox"
+        return str(model_type)
 
     async def get_deploy_status(self, db: AsyncSession, model_id: int) -> DeployStatusResponse:
         """获取部署状态"""

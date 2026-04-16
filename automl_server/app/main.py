@@ -5,6 +5,7 @@ import os
 import time
 from app.modules.home import router as home_router
 from app.modules.deploy import router as deploy_router
+from app.modules.inference import router as inference_router
 from app.modules.task import router as task_router
 from app.modules.annotation import router as annotation_router
 from app.modules.dataset import router as dataset_router
@@ -196,6 +197,7 @@ app.include_router(dataset_router)
 app.include_router(annotation_router)
 app.include_router(task_router)
 app.include_router(deploy_router)
+app.include_router(inference_router)
 app.include_router(home_router)
 
 

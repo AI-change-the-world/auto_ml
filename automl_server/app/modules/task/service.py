@@ -165,6 +165,8 @@ class TaskService:
         task = await crud.get_task_by_id(db, task_id)
         if not task:
             raise NotFoundException(f"Task {task_id} not found")
+        if task.status in {TaskStatus.PENDING.value, TaskStatus.RUNNING.value, TaskStatus.POST_PROCESS.value}:
+            await self._cancel_trainer_task(task_id)
         deleted = await crud.delete_task(db, task_id)
         await db.commit()
         return deleted
@@ -207,6 +209,21 @@ class TaskService:
         except Exception:
             pass
         return [item.strip() for item in raw_classes.split(",") if item.strip()]
+
+    async def _cancel_trainer_task(self, task_id: int):
+        try:
+            client = await self._get_trainer_client()
+            response = await client.post(f"/tasks/{task_id}/cancel")
+            if response.status_code != 200:
+                raise BadRequestException(
+                    f"Failed to cancel trainer task {task_id}: {response.text}"
+                )
+            logger.info(f"Trainer task cancellation requested: task_id={task_id}")
+        except BadRequestException:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to cancel trainer task {task_id}: {e}")
+            raise BadRequestException(f"Trainer cancel unavailable: {e}")
 
     def _serialize_task(self, task) -> TaskResponse:
         payload = TaskResponse.model_validate(task).model_dump()

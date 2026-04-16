@@ -11,6 +11,12 @@
     "deployFailed": "Deploy failed",
     "undeploySuccess": "Undeployed successfully",
     "undeployFailed": "Undeploy failed",
+    "testInference": "Test Inference",
+    "testing": "Running",
+    "testSuccess": "Inference succeeded",
+    "testFailed": "Inference failed",
+    "testResultTitle": "Inference Results ({{count}} detections)",
+    "testResultError": "Inference error",
     "port": "Port",
     "device": "Device"
 }

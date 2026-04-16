@@ -33,6 +33,10 @@ SERVICE_NAME = "model-trainer"
 DEFAULT_BASE_MODEL_DIR = "./base_model"
 
 
+class TaskCancelledError(RuntimeError):
+    """Raised when a training task is cancelled by the control plane."""
+
+
 def _resolve_base_model(model_name: str) -> tuple[str, str]:
     """Resolve base model name to a local cached file when available."""
     base_model_dir = os.getenv("BASE_MODEL_DIR", DEFAULT_BASE_MODEL_DIR)
@@ -101,6 +105,10 @@ def _should_export_onnx(task_config: Dict[str, Any]) -> bool:
     return bool(value)
 
 
+def _detection_task_kind(label_format: str) -> str:
+    return "detection_obb" if label_format == "obb" else "detection_bbox"
+
+
 def _export_onnx_model(
     task_id: int,
     best_pt_path: str,
@@ -134,11 +142,17 @@ def _export_onnx_model(
 class TrainingCallback:
     """训练回调管理器 - 通过 MQ 发送消息"""
 
-    def __init__(self, task_id: int):
+    def __init__(self, task_id: int, cancel_event: Optional[threading.Event] = None):
         self.task_id = task_id
+        self.cancel_event = cancel_event
+
+    def _ensure_not_cancelled(self):
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            raise TaskCancelledError("Training cancelled by user")
 
     def on_train_epoch_end(self, trainer: BaseTrainer):
         """每个 epoch 结束时触发"""
+        self._ensure_not_cancelled()
         task_info = {
             "type": "epoch",
             "epoch": trainer.epoch,
@@ -158,6 +172,10 @@ class TrainingCallback:
         """训练结束时触发"""
         logger.info(f"Task {self.task_id} - Training completed")
 
+    def on_train_batch_end(self, trainer: BaseTrainer):
+        """每个 batch 结束时检查取消信号，缩短停止延迟。"""
+        self._ensure_not_cancelled()
+
 
 def _train_detection_model(
     task_id: int,
@@ -165,6 +183,7 @@ def _train_detection_model(
     annotation_path: str,
     classes: List[str],
     task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
 ):
     """内部函数：训练目标检测模型"""
     temp_folder = None
@@ -218,7 +237,7 @@ def _train_detection_model(
         )
 
         # 创建回调
-        callback = TrainingCallback(task_id)
+        callback = TrainingCallback(task_id, cancel_event)
 
         # 加载模型并开始训练
         epochs = task_config.get("epoch", 10)
@@ -233,6 +252,7 @@ def _train_detection_model(
         # 添加回调
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
         model.add_callback("on_train_end", callback.on_train_end)
+        model.add_callback("on_train_batch_end", callback.on_train_batch_end)
 
         publish_task_log(
             task_id, f"[train] Starting: epochs={epochs}, imgsz={imgsz}, batch={batch}", SERVICE_NAME)
@@ -284,7 +304,9 @@ def _train_detection_model(
             "base_model_name": model_name,
             "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
             "epoch": epochs,
-            "model_type": "detection",
+            "model_type": _detection_task_kind(prepared_dataset.label_format),
+            "task_kind": _detection_task_kind(prepared_dataset.label_format),
+            "label_format": prepared_dataset.label_format,
         }
         publish_model_registered(task_id, model_info, SERVICE_NAME)
 
@@ -294,6 +316,11 @@ def _train_detection_model(
         publish_task_log(
             task_id, f"[post-train] Training completed. Model: {pt_name}", SERVICE_NAME)
 
+    except TaskCancelledError as e:
+        logger.warning(f"Training cancelled for task {task_id}: {e}")
+        publish_task_status(task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
+        publish_task_log(
+            task_id, f"[cancel] {str(e)}", SERVICE_NAME, "WARNING")
     except Exception as e:
         logger.error(f"Training failed for task {task_id}: {e}")
         publish_task_status(task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
@@ -312,6 +339,7 @@ def _train_classification_model(
     dataset_path: str,
     annotation_path: str,
     task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
 ):
     """内部函数：训练分类模型"""
     temp_folder = None
@@ -350,7 +378,7 @@ def _train_classification_model(
         )
 
         # 创建回调
-        callback = TrainingCallback(task_id)
+        callback = TrainingCallback(task_id, cancel_event)
 
         # 加载模型并开始训练
         model_name = task_config.get("name", "yolo11n-cls.pt")
@@ -366,6 +394,7 @@ def _train_classification_model(
         # 添加回调
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
         model.add_callback("on_train_end", callback.on_train_end)
+        model.add_callback("on_train_batch_end", callback.on_train_batch_end)
 
         publish_task_log(
             task_id, f"[train] Starting: epochs={epochs}, imgsz={imgsz}, batch={batch}", SERVICE_NAME)
@@ -418,6 +447,7 @@ def _train_classification_model(
             "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
             "epoch": epochs,
             "model_type": "classification",
+            "task_kind": "classification",
         }
         publish_model_registered(task_id, model_info, SERVICE_NAME)
 
@@ -427,6 +457,11 @@ def _train_classification_model(
         publish_task_log(
             task_id, f"[post-train] Training completed. Model: {pt_name}", SERVICE_NAME)
 
+    except TaskCancelledError as e:
+        logger.warning(f"Classification training cancelled for task {task_id}: {e}")
+        publish_task_status(task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
+        publish_task_log(
+            task_id, f"[cancel] {str(e)}", SERVICE_NAME, "WARNING")
     except Exception as e:
         logger.error(f"Classification training failed for task {task_id}: {e}")
         publish_task_status(task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
@@ -446,6 +481,7 @@ def train_detection(
     annotation_path: str,
     classes: List[str],
     task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
 ):
     """启动目标检测模型训练（异步）"""
     thread = threading.Thread(
@@ -456,6 +492,7 @@ def train_detection(
             "annotation_path": annotation_path,
             "classes": classes,
             "task_config": task_config,
+            "cancel_event": cancel_event,
         },
         daemon=True,
     )
@@ -468,6 +505,7 @@ def train_classification(
     dataset_path: str,
     annotation_path: str,
     task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
 ):
     """启动分类模型训练（异步）"""
     thread = threading.Thread(
@@ -477,6 +515,7 @@ def train_classification(
             "dataset_path": dataset_path,
             "annotation_path": annotation_path,
             "task_config": task_config,
+            "cancel_event": cancel_event,
         },
         daemon=True,
     )
@@ -490,6 +529,7 @@ def run_detection_task(
     annotation_path: str,
     classes: List[str],
     task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
 ):
     """同步执行目标检测训练任务"""
     _train_detection_model(
@@ -498,6 +538,7 @@ def run_detection_task(
         annotation_path=annotation_path,
         classes=classes,
         task_config=task_config,
+        cancel_event=cancel_event,
     )
 
 
@@ -506,6 +547,7 @@ def run_classification_task(
     dataset_path: str,
     annotation_path: str,
     task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
 ):
     """同步执行分类训练任务"""
     _train_classification_model(
@@ -513,4 +555,5 @@ def run_classification_task(
         dataset_path=dataset_path,
         annotation_path=annotation_path,
         task_config=task_config,
+        cancel_event=cancel_event,
     )

@@ -33,3 +33,53 @@ export interface DeployStatusResponse {
   version: string | null;
   device: string | null;
 }
+
+export interface InferenceBox {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+export interface InferenceDetectionResult {
+  type: 'bbox' | 'obb' | 'classification' | string;
+  class_id: number;
+  class_name: string;
+  confidence: number;
+  box?: InferenceBox | null;
+  obb?: {
+    cx: number;
+    cy: number;
+    w: number;
+    h: number;
+    angle: number;
+  } | null;
+  points?: Array<{ x: number; y: number }> | null;
+}
+
+export interface InferencePredictResponse {
+  success: boolean;
+  model_id: number | null;
+  model_name: string | null;
+  task_kind: string | null;
+  backend: string | null;
+  device: string | null;
+  results: InferenceDetectionResult[];
+  image_width: number | null;
+  image_height: number | null;
+  error: string | null;
+  raw?: Record<string, unknown> | null;
+}
+
+export interface InferenceHealthResponse {
+  model_id: number;
+  model_name: string | null;
+  task_kind: string | null;
+  backend: string | null;
+  is_deployed: boolean;
+  backend_healthy: boolean;
+  deployment_port: number | null;
+  deployment_device: string | null;
+  deployment_version: string | null;
+  detail?: Record<string, unknown> | null;
+}

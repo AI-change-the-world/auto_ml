@@ -33,7 +33,15 @@ export { DataTypeLabels, DataTypeIcons } from './dataset';
 export type { HomeStats } from './home';
 export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope, TrainingConfigPayload } from './task';
 export { TaskStatus, TaskStatusLabels, TaskStatusColors } from './task';
-export type { DeployRequest, AvailableModelResponse, DeployStatusResponse } from './deploy';
+export type {
+  DeployRequest,
+  AvailableModelResponse,
+  DeployStatusResponse,
+  InferenceBox,
+  InferenceDetectionResult,
+  InferencePredictResponse,
+  InferenceHealthResponse,
+} from './deploy';
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
 export type { ToolModelCreate, ToolModelResponse } from './tool';

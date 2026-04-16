@@ -93,6 +93,9 @@ app = FastAPI(
 class DeployRequest(BaseModel):
     model_id: int
     model_path: str  # S3 路径
+    model_format: str = "onnx"
+    task_kind: str = "detection_bbox"
+    backend: str = "onnxruntime"
     device: str = "cpu"
     version: str = "v1"
 
@@ -101,6 +104,9 @@ class DeployResponse(BaseModel):
     success: bool
     deployment_id: Optional[int] = None
     port: Optional[int] = None
+    model_format: Optional[str] = None
+    task_kind: Optional[str] = None
+    backend: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -113,6 +119,9 @@ class DeploymentInfo(BaseModel):
     deployment_id: int
     model_id: int
     model_path: Optional[str] = None
+    model_format: Optional[str] = None
+    task_kind: Optional[str] = None
+    backend: Optional[str] = None
     version: str
     status: str
     port: Optional[int] = None
@@ -121,6 +130,11 @@ class DeploymentInfo(BaseModel):
 
 class PredictResponse(BaseModel):
     success: bool
+    task_kind: Optional[str] = None
+    backend: Optional[str] = None
+    device: Optional[str] = None
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
     results: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
 
@@ -137,6 +151,9 @@ class DeploymentHealthResponse(BaseModel):
     port: Optional[int] = None
     pid: Optional[int] = None
     status: Optional[str] = None
+    task_kind: Optional[str] = None
+    backend: Optional[str] = None
+    device: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -177,6 +194,9 @@ async def deploy_model(request: DeployRequest):
         result = deploy_service.deploy(
             model_id=request.model_id,
             model_path=request.model_path,
+            model_format=request.model_format,
+            task_kind=request.task_kind,
+            backend=request.backend,
             device=request.device,
             version=request.version
         )
@@ -185,7 +205,10 @@ async def deploy_model(request: DeployRequest):
             return DeployResponse(
                 success=True,
                 deployment_id=result.get("deployment_id"),
-                port=result.get("port")
+                port=result.get("port"),
+                model_format=result.get("model_format"),
+                task_kind=result.get("task_kind"),
+                backend=result.get("backend"),
             )
         else:
             return DeployResponse(
@@ -243,7 +266,12 @@ async def predict(model_id: int, file: UploadFile = File(...)):
         if result.get("success"):
             return PredictResponse(
                 success=True,
-                results=result.get("results", [])
+                task_kind=result.get("task_kind"),
+                backend=result.get("backend"),
+                device=result.get("device"),
+                image_width=result.get("image_width"),
+                image_height=result.get("image_height"),
+                results=result.get("results", []),
             )
         else:
             return PredictResponse(
@@ -274,7 +302,12 @@ async def predict_base64(model_id: int, data: dict):
         if result.get("success"):
             return PredictResponse(
                 success=True,
-                results=result.get("results", [])
+                task_kind=result.get("task_kind"),
+                backend=result.get("backend"),
+                device=result.get("device"),
+                image_width=result.get("image_width"),
+                image_height=result.get("image_height"),
+                results=result.get("results", []),
             )
         else:
             return PredictResponse(

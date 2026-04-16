@@ -60,6 +60,9 @@ class TrainingDispatcher:
         self._running = False
         self._lock = threading.Lock()
         self._active_tasks = 0
+        self._queued_task_ids: set[int] = set()
+        self._running_task_cancellations: Dict[int, threading.Event] = {}
+        self._cancelled_task_ids: set[int] = set()
 
     @property
     def active_tasks(self) -> int:
@@ -68,7 +71,8 @@ class TrainingDispatcher:
 
     @property
     def queued_tasks(self) -> int:
-        return self._queue.qsize()
+        with self._lock:
+            return len(self._queued_task_ids)
 
     def start(self):
         if self._running:
@@ -100,7 +104,14 @@ class TrainingDispatcher:
 
     def submit(self, payload: Dict[str, Any]) -> TrainingTask:
         task = TrainingTask(**payload)
-        self._queue.put(TrainingEnvelope(task=task))
+        with self._lock:
+            if task.task_id in self._cancelled_task_ids:
+                logger.info(
+                    f"Skip enqueue for cancelled task: task_id={task.task_id}, type={task.task_type}"
+                )
+                return task
+            self._queue.put(TrainingEnvelope(task=task))
+            self._queued_task_ids.add(task.task_id)
         try:
             publish_task_log(
                 task.task_id,
@@ -119,6 +130,32 @@ class TrainingDispatcher:
             )
         return task
 
+    def cancel(self, task_id: int) -> Dict[str, Any]:
+        with self._lock:
+            self._cancelled_task_ids.add(task_id)
+            was_queued = task_id in self._queued_task_ids
+            if was_queued:
+                self._queued_task_ids.discard(task_id)
+
+            cancel_event = self._running_task_cancellations.get(task_id)
+            was_running = cancel_event is not None
+            if cancel_event is not None:
+                cancel_event.set()
+
+            if was_running:
+                state = "running"
+            elif was_queued:
+                state = "queued"
+            else:
+                state = "pending_delivery"
+
+            return {
+                "task_id": task_id,
+                "state": state,
+                "active_tasks": self._active_tasks,
+                "queued_tasks": len(self._queued_task_ids),
+            }
+
     def _worker_loop(self, worker_id: int):
         while True:
             envelope = self._queue.get()
@@ -128,9 +165,27 @@ class TrainingDispatcher:
             task = envelope.task
 
             with self._lock:
-                self._active_tasks += 1
-                active = self._active_tasks
-                queued = self._queue.qsize()
+                self._queued_task_ids.discard(task.task_id)
+                if task.task_id in self._cancelled_task_ids:
+                    self._cancelled_task_ids.discard(task.task_id)
+                    skip_task = True
+                    active = self._active_tasks
+                    queued = len(self._queued_task_ids)
+                    cancel_event = None
+                else:
+                    skip_task = False
+                    cancel_event = threading.Event()
+                    self._running_task_cancellations[task.task_id] = cancel_event
+                    self._active_tasks += 1
+                    active = self._active_tasks
+                    queued = len(self._queued_task_ids)
+
+            if skip_task:
+                logger.info(
+                    f"Skipped cancelled training task before execution: task_id={task.task_id}, worker={worker_id}"
+                )
+                self._queue.task_done()
+                continue
 
             try:
                 publish_task_log(
@@ -149,7 +204,7 @@ class TrainingDispatcher:
                 )
 
             try:
-                self._run_task(task)
+                self._run_task(task, cancel_event)
             except Exception as e:
                 logger.error(f"Unhandled dispatcher error for task {task.task_id}: {e}")
                 publish_task_status(task.task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
@@ -161,10 +216,12 @@ class TrainingDispatcher:
                 )
             finally:
                 with self._lock:
+                    self._running_task_cancellations.pop(task.task_id, None)
+                    self._cancelled_task_ids.discard(task.task_id)
                     self._active_tasks -= 1
                 self._queue.task_done()
 
-    def _run_task(self, task: TrainingTask):
+    def _run_task(self, task: TrainingTask, cancel_event: Optional[threading.Event] = None):
         if task.task_type == "detection":
             if not task.classes:
                 raise ValueError("classes is required for detection task")
@@ -174,6 +231,7 @@ class TrainingDispatcher:
                 annotation_path=task.annotation_path,
                 classes=task.classes,
                 task_config=task.task_config,
+                cancel_event=cancel_event,
             )
             return
 
@@ -183,6 +241,7 @@ class TrainingDispatcher:
                 dataset_path=task.dataset_path,
                 annotation_path=task.annotation_path,
                 task_config=task.task_config,
+                cancel_event=cancel_event,
             )
             return
 
@@ -264,6 +323,14 @@ class HealthResponse(BaseModel):
     queued_tasks: int
 
 
+class CancelTaskResponse(BaseModel):
+    success: bool
+    task_id: int
+    state: str
+    active_tasks: int
+    queued_tasks: int
+
+
 # ============ API 端点 ============
 
 @app.get("/health", response_model=HealthResponse)
@@ -295,6 +362,26 @@ async def health_check():
         active_tasks=task_dispatcher.active_tasks if task_dispatcher else 0,
         queued_tasks=task_dispatcher.queued_tasks if task_dispatcher else 0,
     )
+
+
+@app.post("/tasks/{task_id}/cancel", response_model=CancelTaskResponse)
+async def cancel_task(task_id: int):
+    """取消训练任务，支持未消费 MQ、队列中和运行中的任务。"""
+    if task_dispatcher is None:
+        raise HTTPException(status_code=503, detail="Training dispatcher is not initialized")
+
+    result = task_dispatcher.cancel(task_id)
+    try:
+        publish_task_log(
+            task_id,
+            f"[cancel] Cancellation requested: state={result['state']}",
+            SERVICE_NAME,
+            "WARNING",
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to publish cancellation log for task {task_id}: {exc}")
+
+    return CancelTaskResponse(success=True, **result)
 
 
 # ============ MQ 消费者 ============

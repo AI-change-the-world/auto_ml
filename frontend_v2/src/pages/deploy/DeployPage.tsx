@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Spin, Modal, Select } from 'antd';
-import { CloudServerOutlined, ReloadOutlined, CloudUploadOutlined, CloudDownloadOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { message, Spin, Modal, Select, Upload } from 'antd';
+import type { UploadProps } from 'antd';
+import { CloudServerOutlined, ReloadOutlined, CloudUploadOutlined, CloudDownloadOutlined, CheckCircleOutlined, ExperimentOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listModels, deployModel, undeployModel } from '../../api/deploy';
-import type { AvailableModelResponse } from '../../types/deploy';
+import { listModels, deployModel, undeployModel, predictModel } from '../../api/deploy';
+import type { AvailableModelResponse, InferencePredictResponse } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
 
 const DeployPage: React.FC = () => {
@@ -13,7 +14,9 @@ const DeployPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [deployingId, setDeployingId] = useState<number | null>(null);
+  const [testingId, setTestingId] = useState<number | null>(null);
   const [deviceMap, setDeviceMap] = useState<Record<number, string>>({});
+  const [testResultMap, setTestResultMap] = useState<Record<number, InferencePredictResponse | null>>({});
 
   const fetchModels = useCallback(async () => {
     setLoading(true);
@@ -42,6 +45,46 @@ const DeployPage: React.FC = () => {
     });
   };
 
+  const handleTestInference = async (modelId: number, file: File) => {
+    setTestingId(modelId);
+    try {
+      const result = await predictModel(modelId, file);
+      setTestResultMap((prev) => ({ ...prev, [modelId]: result }));
+      message.success(t('testSuccess'));
+    }
+    catch (error) {
+      setTestResultMap((prev) => ({
+        ...prev,
+        [modelId]: {
+          success: false,
+          model_id: modelId,
+          model_name: null,
+          task_kind: null,
+          backend: null,
+          device: null,
+          results: [],
+          image_width: null,
+          image_height: null,
+          error: error instanceof Error ? error.message : t('testFailed'),
+          raw: null,
+        },
+      }));
+      message.error(t('testFailed'));
+    }
+    finally {
+      setTestingId(null);
+    }
+  };
+
+  const uploadProps = (modelId: number): UploadProps => ({
+    accept: 'image/*',
+    showUploadList: false,
+    beforeUpload: (file) => {
+      void handleTestInference(modelId, file);
+      return false;
+    },
+  });
+
   return (
     <div className="page-container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -57,43 +100,82 @@ const DeployPage: React.FC = () => {
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {models.map((m) => (
-                <div key={m.id} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #faf5ff, #eef2ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}><CloudServerOutlined /></div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.name || `Model #${m.id}`}</span>
-                        {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
-                        {m.onnx_model_path && <span style={{ padding: '1px 8px', background: '#eff6ff', color: '#2563eb', fontSize: 11, borderRadius: 999 }}>ONNX</span>}
-                        {m.is_deployed
-                          ? <span style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}><CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}</span>
-                          : <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', fontSize: 11, borderRadius: 999 }}>{tc('status.notDeployed')}</span>
-                        }
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999', marginTop: 2 }}>
-                        {m.loss != null && <span>Loss: {m.loss.toFixed(4)}</span>}
-                        {m.deployment_port && <span>{t('port')}: {m.deployment_port}</span>}
-                        {m.deployment_device && <span>{t('device')}: {m.deployment_device}</span>}
-                        <span>{dayjs(m.created_at).format('YYYY-MM-DD')}</span>
+                <div key={m.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #faf5ff, #eef2ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}><CloudServerOutlined /></div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.name || `Model #${m.id}`}</span>
+                          {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
+                          {m.onnx_model_path && <span style={{ padding: '1px 8px', background: '#eff6ff', color: '#2563eb', fontSize: 11, borderRadius: 999 }}>ONNX</span>}
+                          {m.is_deployed
+                            ? <span style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}><CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}</span>
+                            : <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', fontSize: 11, borderRadius: 999 }}>{tc('status.notDeployed')}</span>
+                          }
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999', marginTop: 2 }}>
+                          {m.loss != null && <span>Loss: {m.loss.toFixed(4)}</span>}
+                          {m.deployment_port && <span>{t('port')}: {m.deployment_port}</span>}
+                          {m.deployment_device && <span>{t('device')}: {m.deployment_device}</span>}
+                          <span>{dayjs(m.created_at).format('YYYY-MM-DD')}</span>
+                        </div>
                       </div>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {m.is_deployed ? (
+                        <>
+                          <Upload {...uploadProps(m.id)}>
+                            <button disabled={testingId === m.id} style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px',
+                              border: '1px solid #dbeafe', borderRadius: 8, fontSize: 13, background: '#eff6ff', color: '#2563eb', cursor: 'pointer',
+                            }}><ExperimentOutlined /> {testingId === m.id ? t('testing') : t('testInference')}</button>
+                          </Upload>
+                          <button onClick={() => handleUndeploy(m.id)} disabled={deployingId === m.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px',
+                            border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, background: '#fff', color: '#dc2626', cursor: 'pointer',
+                          }}><CloudDownloadOutlined /> {t('undeploy')}</button>
+                        </>
+                      ) : (
+                        <>
+                          <Select size="small" value={deviceMap[m.id] || 'cpu'} onChange={(v) => setDeviceMap((p) => ({ ...p, [m.id]: v }))} style={{ width: 80 }} options={[{ label: 'CPU', value: 'cpu' }, { label: 'CUDA', value: 'cuda' }]} />
+                          <button onClick={() => handleDeploy(m.id)} disabled={deployingId === m.id} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px',
+                            background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                          }}><CloudUploadOutlined /> {t('deploy')}</button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {m.is_deployed ? (
-                      <button onClick={() => handleUndeploy(m.id)} disabled={deployingId === m.id} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px',
-                        border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, background: '#fff', color: '#dc2626', cursor: 'pointer',
-                      }}><CloudDownloadOutlined /> {t('undeploy')}</button>
-                    ) : (
-                      <>
-                        <Select size="small" value={deviceMap[m.id] || 'cpu'} onChange={(v) => setDeviceMap((p) => ({ ...p, [m.id]: v }))} style={{ width: 80 }} options={[{ label: 'CPU', value: 'cpu' }, { label: 'CUDA', value: 'cuda' }]} />
-                        <button onClick={() => handleDeploy(m.id)} disabled={deployingId === m.id} style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px',
-                          background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer',
-                        }}><CloudUploadOutlined /> {t('deploy')}</button>
-                      </>
-                    )}
-                  </div>
+                  {testResultMap[m.id] && (
+                    <div style={{ padding: '12px 16px', borderRadius: 12, border: '1px solid #eef2f7', background: '#fafcff' }}>
+                      {testResultMap[m.id]?.success ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
+                            {t('testResultTitle', { count: testResultMap[m.id]?.results.length || 0 })}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#999' }}>
+                            {testResultMap[m.id]?.task_kind || m.model_type || 'unknown'} · {testResultMap[m.id]?.backend || 'backend'} · {testResultMap[m.id]?.device || m.deployment_device || '-'}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#666', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {(testResultMap[m.id]?.results || []).slice(0, 5).map((item, index) => (
+                              <div key={`${m.id}-${index}`}>
+                                [{item.type}] {item.class_name || `class_${item.class_id}`} · {(item.confidence * 100).toFixed(1)}%
+                                {item.box
+                                  ? ` · [${item.box.x1.toFixed(1)}, ${item.box.y1.toFixed(1)}, ${item.box.x2.toFixed(1)}, ${item.box.y2.toFixed(1)}]`
+                                  : ''
+                                }
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: '#dc2626' }}>
+                          {t('testResultError')}: {testResultMap[m.id]?.error || tc('msg.loadFailed')}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

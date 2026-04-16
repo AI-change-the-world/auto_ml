@@ -3,6 +3,7 @@
 使用 RabbitMQ 发送状态更新，不直接写数据库
 """
 import os
+from pathlib import PurePosixPath
 from typing import Any, Dict, List, Optional
 
 from core.runtime_manager import RuntimeInstance, runtime_manager
@@ -34,7 +35,10 @@ class DeployService:
         model_id: int,
         model_path: str,  # S3 路径
         device: str = "cpu",
-        version: str = "v1"
+        version: str = "v1",
+        model_format: str = "onnx",
+        task_kind: str = "detection_bbox",
+        backend: str = "onnxruntime",
     ) -> Dict[str, Any]:
         """
         部署模型
@@ -61,18 +65,26 @@ class DeployService:
                     "port": existing.get("port")
                 }
 
+            model_format = self._normalize_model_format(model_format, model_path)
+            task_kind = self._normalize_task_kind(task_kind)
+            backend = backend or "onnxruntime"
+            if model_format != "onnx":
+                return {"success": False, "error": f"Unsupported model_format: {model_format}"}
+            if backend != "onnxruntime":
+                return {"success": False, "error": f"Unsupported backend: {backend}"}
+
             # 下载模型到本地
-            local_model_path = os.path.join(
-                self.config.model_cache_dir, f"model_{model_id}.pt")
+            local_model_path = self._local_model_path(model_id, model_path, model_format)
             if not os.path.exists(local_model_path):
                 logger.info(
                     f"Downloading model {model_id} from S3: {model_path}")
+                os.makedirs(os.path.dirname(local_model_path), exist_ok=True)
                 download_from_s3(model_path, local_model_path,
                                  self.s3_config.models_bucket_name)
 
             # 启动运行时
             instance = runtime_manager.deploy_model(
-                model_id, local_model_path, device)
+                model_id, local_model_path, device, task_kind, backend)
             if not instance:
                 return {"success": False, "error": "Failed to start runtime"}
 
@@ -90,6 +102,9 @@ class DeployService:
                 "port": instance.port,
                 "pid": instance.pid,
                 "device": device,
+                "model_format": model_format,
+                "task_kind": task_kind,
+                "backend": backend,
             }
             _deployments[model_id] = deployment_info
 
@@ -101,12 +116,34 @@ class DeployService:
                 "deployment_id": deployment_id,
                 "model_id": model_id,
                 "port": instance.port,
-                "status": "running"
+                "status": "running",
+                "model_format": model_format,
+                "task_kind": task_kind,
+                "backend": backend,
             }
 
         except Exception as e:
             logger.error(f"Deploy failed: {e}")
             return {"success": False, "error": str(e)}
+
+    def _normalize_model_format(self, model_format: str, model_path: str) -> str:
+        value = (model_format or "").strip().lower()
+        if value:
+            return value
+        suffix = PurePosixPath(model_path).suffix.lower().lstrip(".")
+        return suffix or "onnx"
+
+    def _normalize_task_kind(self, task_kind: str) -> str:
+        value = (task_kind or "detection_bbox").strip().lower()
+        if value == "detection":
+            return "detection_bbox"
+        return value
+
+    def _local_model_path(self, model_id: int, model_path: str, model_format: str) -> str:
+        suffix = PurePosixPath(model_path).suffix.lower()
+        if not suffix:
+            suffix = f".{model_format}"
+        return os.path.join(self.config.model_cache_dir, f"model_{model_id}{suffix}")
 
     def _get_running_deployment(self, model_id: int) -> Optional[Dict[str, Any]]:
         """获取正在运行的部署"""
@@ -180,6 +217,9 @@ class DeployService:
                 "status": "running" if is_running else "stopped",
                 "port": deployment.get("port"),
                 "device": deployment.get("device"),
+                "model_format": deployment.get("model_format"),
+                "task_kind": deployment.get("task_kind"),
+                "backend": deployment.get("backend"),
             })
 
         return result
@@ -222,6 +262,9 @@ class DeployService:
 
             with urllib.request.urlopen(req, timeout=30) as response:
                 result = json.loads(response.read().decode())
+                result.setdefault("task_kind", instance.task_kind)
+                result.setdefault("backend", instance.backend)
+                result.setdefault("device", instance.device)
                 return result
 
         except Exception as e:
@@ -252,6 +295,9 @@ class DeployService:
 
             with urllib.request.urlopen(req, timeout=30) as response:
                 result = json.loads(response.read().decode())
+                result.setdefault("task_kind", instance.task_kind)
+                result.setdefault("backend", instance.backend)
+                result.setdefault("device", instance.device)
                 return result
 
         except Exception as e:
@@ -270,7 +316,10 @@ class DeployService:
             "model_id": model_id,
             "port": instance.port,
             "pid": instance.pid,
-            "status": instance.status
+            "status": instance.status,
+            "task_kind": instance.task_kind,
+            "backend": instance.backend,
+            "device": instance.device,
         }
 
 

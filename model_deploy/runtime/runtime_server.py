@@ -26,6 +26,7 @@ class Box(BaseModel):
 
 
 class DetectionResult(BaseModel):
+    type: str = "bbox"
     class_id: int
     class_name: str
     confidence: float
@@ -33,6 +34,7 @@ class DetectionResult(BaseModel):
 
 
 class ClassificationResult(BaseModel):
+    type: str = "classification"
     class_id: int
     class_name: str
     confidence: float
@@ -40,6 +42,9 @@ class ClassificationResult(BaseModel):
 
 class PredictResponse(BaseModel):
     success: bool
+    task_kind: str
+    backend: str
+    device: str
     results: List[DetectionResult]
     image_width: int
     image_height: int
@@ -54,6 +59,8 @@ class HealthResponse(BaseModel):
     status: str
     model_path: str
     device: str
+    task_kind: str
+    backend: str
 
 
 # ============ 模型推理类 ============
@@ -61,9 +68,17 @@ class HealthResponse(BaseModel):
 class ONNXRuntime:
     """ONNX 运行时封装"""
 
-    def __init__(self, model_path: str, device: str = "cpu"):
+    def __init__(
+        self,
+        model_path: str,
+        device: str = "cpu",
+        task_kind: str = "detection_bbox",
+        backend: str = "onnxruntime",
+    ):
         self.model_path = model_path
         self.device = device
+        self.task_kind = task_kind
+        self.backend = backend
         self.session = None
         self.input_name = None
         self.input_shape = None
@@ -158,6 +173,7 @@ class ONNXRuntime:
                 self.class_names) else f"class_{class_id}"
 
             results.append(DetectionResult(
+                type="obb" if self.task_kind == "detection_obb" else "bbox",
                 class_id=class_id,
                 class_name=class_name,
                 confidence=confidence * class_conf,
@@ -223,6 +239,8 @@ app = FastAPI(title="Model Runtime Service")
 runtime: Optional[ONNXRuntime] = None
 model_path: str = ""
 device: str = "cpu"
+task_kind: str = "detection_bbox"
+backend: str = "onnxruntime"
 
 
 @app.on_event("startup")
@@ -235,14 +253,18 @@ async def startup_event():
     parser.add_argument("--model", required=True, help="Path to ONNX model")
     parser.add_argument("--port", type=int, default=9001, help="Service port")
     parser.add_argument("--device", default="cpu", help="Device to run on")
+    parser.add_argument("--task-kind", default="detection_bbox", help="Task kind")
+    parser.add_argument("--backend", default="onnxruntime", help="Runtime backend")
     args, _ = parser.parse_known_args()
 
-    global model_path, device
+    global model_path, device, task_kind, backend
     model_path = args.model
     device = args.device
+    task_kind = args.task_kind
+    backend = args.backend
 
     try:
-        runtime = ONNXRuntime(model_path, device)
+        runtime = ONNXRuntime(model_path, device, task_kind, backend)
         logger.info(f"Runtime service started with model: {model_path}")
     except Exception as e:
         logger.error(f"Failed to start runtime: {e}")
@@ -255,7 +277,9 @@ async def health_check():
     return HealthResponse(
         status="healthy" if runtime else "unhealthy",
         model_path=model_path,
-        device=device
+        device=device,
+        task_kind=task_kind,
+        backend=backend,
     )
 
 
@@ -279,6 +303,9 @@ async def predict(file: UploadFile = File(...)):
 
         return PredictResponse(
             success=True,
+            task_kind=task_kind,
+            backend=backend,
+            device=device,
             results=results,
             image_width=image.width,
             image_height=image.height
@@ -308,6 +335,9 @@ async def predict_base64(data: dict):
 
         return PredictResponse(
             success=True,
+            task_kind=task_kind,
+            backend=backend,
+            device=device,
             results=results,
             image_width=image.width,
             image_height=image.height
@@ -324,6 +354,8 @@ if __name__ == "__main__":
     parser.add_argument("--model", required=True, help="Path to ONNX model")
     parser.add_argument("--port", type=int, default=9001, help="Service port")
     parser.add_argument("--device", default="cpu", help="Device to run on")
+    parser.add_argument("--task-kind", default="detection_bbox", help="Task kind")
+    parser.add_argument("--backend", default="onnxruntime", help="Runtime backend")
     args = parser.parse_args()
 
     uvicorn.run(app, host="0.0.0.0", port=args.port)

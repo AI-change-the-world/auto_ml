@@ -16,11 +16,21 @@ from utils.logger import logger
 class RuntimeInstance:
     """运行时实例"""
 
-    def __init__(self, model_id: int, model_path: str, port: int, device: str = "cpu"):
+    def __init__(
+        self,
+        model_id: int,
+        model_path: str,
+        port: int,
+        device: str = "cpu",
+        task_kind: str = "detection_bbox",
+        backend: str = "onnxruntime",
+    ):
         self.model_id = model_id
         self.model_path = model_path
         self.port = port
         self.device = device
+        self.task_kind = task_kind
+        self.backend = backend
         self.pid: Optional[int] = None
         self.process: Optional[subprocess.Popen] = None
         self.status = "stopped"
@@ -34,6 +44,8 @@ class RuntimeInstance:
                 f"--model={self.model_path}",
                 f"--port={self.port}",
                 f"--device={self.device}",
+                f"--task-kind={self.task_kind}",
+                f"--backend={self.backend}",
             ]
 
             # 启动子进程
@@ -145,7 +157,9 @@ class RuntimeManager:
         self,
         model_id: int,
         model_path: str,
-        device: str = "cpu"
+        device: str = "cpu",
+        task_kind: str = "detection_bbox",
+        backend: str = "onnxruntime",
     ) -> Optional[RuntimeInstance]:
         """
         部署模型
@@ -176,7 +190,7 @@ class RuntimeManager:
             return None
 
         # 创建并启动实例
-        instance = RuntimeInstance(model_id, model_path, port, device)
+        instance = RuntimeInstance(model_id, model_path, port, device, task_kind, backend)
         if instance.start():
             self.instances[model_id] = instance
             return instance
@@ -231,12 +245,14 @@ class RuntimeManager:
         model_path = instance.model_path
         device = instance.device
         port = instance.port
+        task_kind = instance.task_kind
+        backend = instance.backend
 
         # 停止旧实例
         instance.stop()
 
         # 创建新实例
-        new_instance = RuntimeInstance(model_id, model_path, port, device)
+        new_instance = RuntimeInstance(model_id, model_path, port, device, task_kind, backend)
         if new_instance.start():
             self.instances[model_id] = new_instance
             return True

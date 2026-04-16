@@ -11,6 +11,12 @@
     "deployFailed": "部署失败",
     "undeploySuccess": "卸载成功",
     "undeployFailed": "卸载失败",
+    "testInference": "测试推理",
+    "testing": "推理中",
+    "testSuccess": "推理成功",
+    "testFailed": "推理失败",
+    "testResultTitle": "推理结果（{{count}} 个目标）",
+    "testResultError": "推理错误",
     "port": "端口",
     "device": "设备"
 }
