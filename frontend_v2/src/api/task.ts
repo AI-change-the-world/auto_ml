@@ -40,3 +40,9 @@ export async function getTrainerStatus() {
   const res = await apiClient.get<Result<TrainerStatusResponse>>('/task/trainer/status');
   return res.data.data;
 }
+
+/** 删除任务 */
+export async function deleteTask(taskId: number) {
+  const res = await apiClient.delete<Result<null>>(`/task/${taskId}`);
+  return res.data.data;
+}

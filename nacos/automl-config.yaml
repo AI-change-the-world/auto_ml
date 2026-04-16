@@ -72,6 +72,8 @@ auto-augment-pipeline:
   timeout: 120
   default_profile: assist_default
 
+task_stale_timeout_seconds: ${TASK_STALE_TIMEOUT_SECONDS}
+
 logging:
   level: INFO
   path: /app/logs

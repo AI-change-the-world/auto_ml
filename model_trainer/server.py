@@ -9,8 +9,7 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import pika
 from fastapi import FastAPI
@@ -49,7 +48,6 @@ class TrainingTask(BaseModel):
 @dataclass
 class TrainingEnvelope:
     task: TrainingTask
-    ack: Callable[[], None]
 
 
 class TrainingDispatcher:
@@ -100,20 +98,25 @@ class TrainingDispatcher:
         self._workers = []
         logger.info("Training dispatcher stopped")
 
-    def submit(self, payload: Dict[str, Any], ack: Callable[[], None]) -> TrainingTask:
+    def submit(self, payload: Dict[str, Any]) -> TrainingTask:
         task = TrainingTask(**payload)
-        self._queue.put(TrainingEnvelope(task=task, ack=ack))
-        publish_task_log(
-            task.task_id,
-            (
-                "[queue] Training task queued: "
-                f"type={task.task_type}, "
-                f"active={self.active_tasks}, "
-                f"queued={self.queued_tasks}, "
-                f"max_concurrent={self.max_concurrent}"
-            ),
-            SERVICE_NAME,
-        )
+        self._queue.put(TrainingEnvelope(task=task))
+        try:
+            publish_task_log(
+                task.task_id,
+                (
+                    "[queue] Training task queued: "
+                    f"type={task.task_type}, "
+                    f"active={self.active_tasks}, "
+                    f"queued={self.queued_tasks}, "
+                    f"max_concurrent={self.max_concurrent}"
+                ),
+                SERVICE_NAME,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Training task {task.task_id} queued but failed to publish queue log: {e}"
+            )
         return task
 
     def _worker_loop(self, worker_id: int):
@@ -129,16 +132,21 @@ class TrainingDispatcher:
                 active = self._active_tasks
                 queued = self._queue.qsize()
 
-            publish_task_log(
-                task.task_id,
-                (
-                    "[queue] Training task dequeued: "
-                    f"worker={worker_id}, "
-                    f"active={active}, "
-                    f"queued={queued}"
-                ),
-                SERVICE_NAME,
-            )
+            try:
+                publish_task_log(
+                    task.task_id,
+                    (
+                        "[queue] Training task dequeued: "
+                        f"worker={worker_id}, "
+                        f"active={active}, "
+                        f"queued={queued}"
+                    ),
+                    SERVICE_NAME,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Task {task.task_id} dequeued but failed to publish queue log: {e}"
+                )
 
             try:
                 self._run_task(task)
@@ -154,10 +162,6 @@ class TrainingDispatcher:
             finally:
                 with self._lock:
                     self._active_tasks -= 1
-                try:
-                    envelope.ack()
-                except Exception as e:
-                    logger.error(f"Failed to ack MQ message for task {task.task_id}: {e}")
                 self._queue.task_done()
 
     def _run_task(self, task: TrainingTask):
@@ -268,9 +272,7 @@ async def health_check():
     mq_publish_connected = False
     try:
         client = get_mq_client()
-        mq_publish_connected = (
-            client.connection is not None and not client.connection.is_closed
-        )
+        mq_publish_connected = client.is_ready()
     except Exception:
         pass
 
@@ -359,11 +361,8 @@ def start_mq_consumer():
                     logger.info(
                         f"Received task from MQ: task_id={task_id}, type={task_type}"
                     )
-                    ack = partial(
-                        connection.add_callback_threadsafe,
-                        partial(ch.basic_ack, delivery_tag=method.delivery_tag),
-                    )
-                    task_dispatcher.submit(data, ack=ack)
+                    task_dispatcher.submit(data)
+                    ch.basic_ack(delivery_tag=method.delivery_tag)
 
                 except Exception as e:
                     logger.error(f"Failed to process MQ message: {e}")
@@ -428,7 +427,7 @@ def wait_for_mq_ready():
     for attempt in range(1, retries + 1):
         try:
             client = get_mq_client()
-            if client.connection is not None and not client.connection.is_closed:
+            if client.is_ready():
                 logger.info(f"RabbitMQ ready on attempt {attempt}/{retries}")
                 return
         except Exception as e:

@@ -122,3 +122,12 @@ async def get_task_logs(
     logs, total = await service.get_task_logs(db, task_id, page, page_size)
     return Result.ok(PageResult.create(logs, total, page, page_size))
 
+
+@router.delete("/{task_id}", response_model=Result, summary="删除任务")
+async def delete_task(
+    task_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    await service.delete_task(db, task_id)
+    return Result.ok(message="Task deleted")

@@ -22,8 +22,8 @@ x-minio-env: &minio-env
   S3_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
 
 x-service-env: &service-env
-  MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
-  MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
+  MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8081}
+  MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8082}
   AUTO_AUGMENT_PIPELINE_URL: ${AUTO_AUGMENT_PIPELINE_URL:-http://auto-augment-pipeline:8010}
 
 services:
@@ -204,9 +204,10 @@ services:
       RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-auto_ml_exchange}
       RABBITMQ_EXCHANGE_TYPE: ${RABBITMQ_EXCHANGE_TYPE:-topic}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
-      MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8080}
-      MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8080}
+      MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8081}
+      MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8082}
       AUTO_AUGMENT_PIPELINE_URL: ${AUTO_AUGMENT_PIPELINE_URL:-http://auto-augment-pipeline:8010}
+      TASK_STALE_TIMEOUT_SECONDS: ${TASK_STALE_TIMEOUT_SECONDS:-7200}
       NANO_BANANA_BASE_URL: ${NANO_BANANA_BASE_URL:-}
       NANO_BANANA_API_KEY: ${NANO_BANANA_API_KEY:-}
       NANO_BANANA_MODEL: ${NANO_BANANA_MODEL:-}
@@ -242,13 +243,16 @@ services:
       <<: [*nacos-env, *rabbitmq-env, *minio-env]
       S3_DATASETS_BUCKET: auto-ml-datasets
       S3_MODELS_BUCKET: auto-ml-models
+      S3_ANNOTATIONS_BUCKET: auto-ml-annotations
+      BASE_MODEL_DIR: /app/base_model
       HOST: 0.0.0.0
-      PORT: 8080
+      PORT: ${MODEL_TRAINER_PORT:-8081}
     ports:
-      - "8081:8080"
+      - "${MODEL_TRAINER_PORT:-8081}:${MODEL_TRAINER_PORT:-8081}"
     volumes:
       - ./runs:/app/runs
       - ./logs/trainer:/app/logs
+      - ./model_trainer/base_model:/app/base_model
     networks:
       - auto-ml-network
     healthcheck:
@@ -257,7 +261,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')",
+          "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.getenv('PORT', '8081')}/health\")",
         ]
       interval: 30s
       timeout: 10s
@@ -287,9 +291,9 @@ services:
       RUNTIME_MAX_PORT: 9100
       MODEL_CACHE_DIR: /app/models
       HOST: 0.0.0.0
-      PORT: 8080
+      PORT: ${MODEL_DEPLOY_PORT:-8082}
     ports:
-      - "8082:8080"
+      - "${MODEL_DEPLOY_PORT:-8082}:${MODEL_DEPLOY_PORT:-8082}"
       - "9001-9020:9001-9020"
     volumes:
       - ./models:/app/models
@@ -302,7 +306,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')",
+          "import os, urllib.request; urllib.request.urlopen(f\"http://127.0.0.1:{os.getenv('PORT', '8082')}/health\")",
         ]
       interval: 30s
       timeout: 10s
@@ -326,7 +330,7 @@ services:
       NACOS_DATA_ID: AUTO_AUGMENT_PIPELINE
       NACOS_GROUP: ${NACOS_GROUP:-AUTO_ML}
     ports:
-      - "8010:8010"
+      - "${AUTO_AUGMENT_PIPELINE_PORT:-8010}:${AUTO_AUGMENT_PIPELINE_PORT:-8010}"
     networks:
       - auto-ml-network
     healthcheck:
@@ -381,7 +385,7 @@ services:
       APP_PORT: 45678
       DEBUG: "false"
     ports:
-      - "45678:45678"
+      - "${AUTOML_SERVER_PORT:-45678}:45678"
     volumes:
       - ./logs/server:/app/logs
     networks:

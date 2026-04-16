@@ -18,6 +18,7 @@ class AvailableModelResponse(BaseModel):
     id: int
     name: Optional[str]
     model_path: Optional[str]
+    onnx_model_path: Optional[str]
     model_type: Optional[str]
     dataset_id: Optional[int]
     task_id: Optional[int]

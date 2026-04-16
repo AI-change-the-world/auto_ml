@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Select } from 'antd';
-import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined } from '@ant-design/icons';
+import { message, Spin, Modal, Select, InputNumber, Switch } from 'antd';
+import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listTasks, createTrainTask, getBaseModels, getTrainerStatus } from '../../api/task';
+import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask } from '../../api/task';
 import { subscribeTaskStream } from '../../api/taskStream';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
-import type { TaskResponse, TaskCreate, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope } from '../../types/task';
+import type { TaskResponse, TaskCreate, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope, TrainingConfigPayload } from '../../types/task';
 import type { Dataset } from '../../types/dataset';
 import type { AnnotationProject } from '../../types/annotation';
 import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
@@ -19,6 +19,20 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
   error: { bg: '#fef2f2', fg: '#dc2626' },
   success: { bg: '#f0fdf4', fg: '#16a34a' },
 };
+
+type DetectionMode = 'bbox' | 'obb';
+
+const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
+  name: '',
+  epoch: 100,
+  size: 640,
+  batch: 8,
+  device: 'cpu',
+  label_format: 'bbox',
+  export_onnx: false,
+};
+
+const getStaleMinutes = (seconds?: number | null) => Math.max(1, Math.floor((seconds || 0) / 60));
 
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,9 +47,19 @@ const TaskListPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
-  const [_bm, setBm] = useState<BaseModelResponse[]>([]);
+  const [baseModels, setBaseModels] = useState<BaseModelResponse[]>([]);
   const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
-  const [form, setForm] = useState<{ task_type: number; dataset_id?: number; annotation_id?: number }>({ task_type: 0 });
+  const [form, setForm] = useState<{
+    task_type: number;
+    dataset_id?: number;
+    annotation_id?: number;
+    detection_mode: DetectionMode;
+    train_config: TrainingConfigPayload;
+  }>({
+    task_type: 0,
+    detection_mode: 'bbox',
+    train_config: DEFAULT_TRAIN_CONFIG,
+  });
   const [streamVersion, setStreamVersion] = useState(0);
 
   const fetchTasks = useCallback(async () => {
@@ -130,29 +154,108 @@ const TaskListPage: React.FC = () => {
       const [d, a, b] = await Promise.all([listDatasets(1, 100), listAnnotations(1, 100), getBaseModels()]);
       if (d) setDatasets(d.items);
       if (a) setAnnotations(a.items);
-      if (b) setBm(Array.isArray(b) ? b : []);
+      if (b) setBaseModels(Array.isArray(b) ? b : []);
     } catch { }
   };
 
   const handleCreate = async () => {
     if (!form.dataset_id) { message.warning(t('pleaseSelectDataset')); return; }
+    if (!form.annotation_id) { message.warning(t('pleaseSelectAnnotation')); return; }
+    if (!form.train_config.name) { message.warning(t('pleaseSelectBaseModel')); return; }
     setCreating(true);
     try {
-      const data: TaskCreate = { task_type: form.task_type, dataset_id: form.dataset_id, annotation_id: form.annotation_id };
+      const trainConfig: TrainingConfigPayload = {
+        ...form.train_config,
+        label_format: form.task_type === 0 ? form.detection_mode : undefined,
+      };
+      const data: TaskCreate = {
+        task_type: form.task_type,
+        dataset_id: form.dataset_id,
+        annotation_id: form.annotation_id,
+        config: JSON.stringify(trainConfig),
+      };
       await createTrainTask(data);
       message.success(tc('msg.createSuccess'));
       setCreateOpen(false);
-      setForm({ task_type: 0 });
+      setForm({
+        task_type: 0,
+        detection_mode: 'bbox',
+        train_config: DEFAULT_TRAIN_CONFIG,
+      });
       fetchTasks();
     } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
+  };
+
+  const handleDeleteTask = (event: React.MouseEvent, taskId: number) => {
+    event.stopPropagation();
+    Modal.confirm({
+      title: t('deleteTitle'),
+      content: tc('msg.confirmDelete'),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await deleteTask(taskId);
+        message.success(tc('msg.deleted'));
+        fetchTasks();
+      },
+    });
   };
 
   const tabs = [
     { key: 'all', label: tc('label.all') }, { key: '0', label: tc('status.queued') },
     { key: '1', label: tc('status.running') }, { key: '2', label: '后处理' }, { key: '3', label: tc('status.completed') }, { key: '4', label: tc('status.failed') },
   ];
-  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification'), 2: t('segmentation') };
+  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification') };
+  const currentAnnotation = annotations.find((item) => item.id === form.annotation_id);
+  const annotationTypeHint = currentAnnotation?.annotation_type === 0
+    ? t('detection')
+    : currentAnnotation?.annotation_type === 1
+      ? t('classification')
+      : currentAnnotation?.annotation_type === 2
+        ? t('segmentationUnsupported')
+        : undefined;
+  const availableBaseModels = baseModels.filter((model) => {
+    if (form.task_type === 1) {
+      return model.model_type === 'classification';
+    }
+    return form.detection_mode === 'obb'
+      ? model.model_type === 'detection_obb'
+      : model.model_type === 'detection';
+  });
+
+  const updateTrainConfig = <K extends keyof TrainingConfigPayload>(key: K, value: TrainingConfigPayload[K]) => {
+    setForm((prev) => ({
+      ...prev,
+      train_config: {
+        ...prev.train_config,
+        [key]: value,
+      },
+    }));
+  };
+
+  const handleTaskTypeChange = (taskType: number) => {
+    setForm((prev) => ({
+      ...prev,
+      task_type: taskType,
+      train_config: {
+        ...prev.train_config,
+        name: '',
+        label_format: taskType === 0 ? prev.detection_mode : undefined,
+      },
+    }));
+  };
+
+  const handleDetectionModeChange = (mode: DetectionMode) => {
+    setForm((prev) => ({
+      ...prev,
+      detection_mode: mode,
+      train_config: {
+        ...prev.train_config,
+        name: '',
+        label_format: mode,
+      },
+    }));
+  };
 
   return (
     <div className="page-container">
@@ -227,15 +330,45 @@ const TaskListPage: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `${t('taskType')}${task.task_type}`} {t('training')}</span>
                           <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || tc('status.unknown')}</span>
+                          {task.is_stale && (
+                            <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: '#fff7ed', color: '#c2410c' }}>
+                              {t('staleBadge')}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
                           <span>{t('datasetId', { id: task.dataset_id ?? '-' })}</span>
                           {task.annotation_id && <span>{t('annotationId', { id: task.annotation_id })}</span>}
                           <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
+                          {task.is_stale && (
+                            <span style={{ color: '#c2410c' }}>
+                              {t('staleSeconds', { minutes: getStaleMinutes(task.stale_seconds) })}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
-                    <RightOutlined style={{ color: '#ddd' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <button
+                        onClick={(event) => handleDeleteTask(event, task.id)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 8,
+                          border: '1px solid #eee',
+                          background: '#fff',
+                          color: '#999',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        title={t('deleteTask')}
+                      >
+                        <DeleteOutlined />
+                      </button>
+                      <RightOutlined style={{ color: '#ddd' }} />
+                    </div>
                   </div>
                 );
               })}
@@ -250,7 +383,7 @@ const TaskListPage: React.FC = () => {
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('taskType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {Object.entries(typeLabels).map(([k, v]) => (
-                <button key={k} onClick={() => setForm({ ...form, task_type: Number(k) })} style={{
+                <button key={k} onClick={() => handleTaskTypeChange(Number(k))} style={{
                   padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
                   border: form.task_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                   background: form.task_type === Number(k) ? '#eef2ff' : '#fff',
@@ -265,7 +398,81 @@ const TaskListPage: React.FC = () => {
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationOptional')}</label>
-            <Select style={{ width: '100%' }} placeholder={t('selectAnnotation')} allowClear value={form.annotation_id} onChange={(v) => setForm({ ...form, annotation_id: v })} options={annotations.map((a) => ({ label: a.name, value: a.id }))} showSearch optionFilterProp="label" />
+            <Select style={{ width: '100%' }} placeholder={t('selectAnnotation')} value={form.annotation_id} onChange={(v) => setForm({ ...form, annotation_id: v })} options={annotations.map((a) => ({ label: a.name, value: a.id }))} showSearch optionFilterProp="label" />
+          </div>
+          {form.task_type === 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('detectionMode')}</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { key: 'bbox', label: t('bboxDetection') },
+                  { key: 'obb', label: t('obbDetection') },
+                ].map((item) => (
+                  <button key={item.key} onClick={() => handleDetectionModeChange(item.key as DetectionMode)} style={{
+                    padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
+                    border: form.detection_mode === item.key ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                    background: form.detection_mode === item.key ? '#eef2ff' : '#fff',
+                    color: form.detection_mode === item.key ? '#4f6ef7' : '#666',
+                  }}>{item.label}</button>
+                ))}
+              </div>
+              {annotationTypeHint && (
+                <div style={{ marginTop: 6, fontSize: 12, color: '#999' }}>
+                  {t('annotationTypeHint', { type: annotationTypeHint })}
+                </div>
+              )}
+            </div>
+          )}
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('baseModel')}</label>
+            <Select
+              style={{ width: '100%' }}
+              placeholder={t('selectBaseModel')}
+              value={form.train_config.name || undefined}
+              onChange={(value) => updateTrainConfig('name', value)}
+              options={availableBaseModels.map((model) => ({
+                label: `${model.name}${model.description ? ` · ${model.description}` : ''}`,
+                value: model.save_path || model.name,
+              }))}
+              showSearch
+              optionFilterProp="label"
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('epochs')}</label>
+              <InputNumber min={1} max={10000} value={form.train_config.epoch} onChange={(value) => updateTrainConfig('epoch', Number(value || 1))} style={{ width: '100%' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('batchSize')}</label>
+              <InputNumber min={1} max={1024} value={form.train_config.batch} onChange={(value) => updateTrainConfig('batch', Number(value || 1))} style={{ width: '100%' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('imageSize')}</label>
+              <InputNumber min={32} max={4096} step={32} value={form.train_config.size} onChange={(value) => updateTrainConfig('size', Number(value || 640))} style={{ width: '100%' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('device')}</label>
+              <Select
+                style={{ width: '100%' }}
+                value={form.train_config.device}
+                onChange={(value) => updateTrainConfig('device', value)}
+                options={[
+                  { label: 'CPU', value: 'cpu' },
+                  { label: 'CUDA', value: 'cuda' },
+                ]}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', border: '1px solid #eee', borderRadius: 8 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500, color: '#555' }}>{t('exportOnnx')}</div>
+              <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{t('exportOnnxHint')}</div>
+            </div>
+            <Switch
+              checked={Boolean(form.train_config.export_onnx)}
+              onChange={(checked) => updateTrainConfig('export_onnx', checked)}
+            />
           </div>
         </div>
       </Modal>

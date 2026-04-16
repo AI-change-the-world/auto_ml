@@ -12,6 +12,7 @@ class AvailableModel(BaseEntity):
 
     name = Column(String(255), nullable=True, comment="模型名称")
     model_path = Column(String(512), nullable=True, comment="模型路径")
+    onnx_model_path = Column(String(512), nullable=True, comment="ONNX模型路径")
     model_type = Column(String(50), nullable=True, comment="模型类型")
     dataset_id = Column(BigInteger, nullable=True,
                         index=True, comment="关联数据集ID")

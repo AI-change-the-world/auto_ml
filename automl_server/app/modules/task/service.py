@@ -1,5 +1,6 @@
 """任务服务 - 与 model_trainer 通信"""
 import asyncio
+from datetime import datetime
 import json
 from typing import List, Optional
 from loguru import logger
@@ -13,6 +14,9 @@ from app.mq.publisher import get_publisher
 from app.utils.http_client import HttpClient
 from . import crud
 from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse
+
+STALE_TASK_STATUSES = {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.POST_PROCESS}
+DEFAULT_STALE_TIMEOUT_SECONDS = 2 * 60 * 60
 
 
 class TaskService:
@@ -59,6 +63,8 @@ class TaskService:
         """创建训练任务并通过 RabbitMQ 通知 model_trainer"""
         if data.annotation_id is None:
             raise BadRequestException("annotation_id is required for training")
+        if data.task_type not in {TaskType.DETECTION, TaskType.CLASSIFICATION}:
+            raise BadRequestException(f"unsupported task_type: {data.task_type}")
 
         dataset = await db.scalar(
             select(Dataset).where(
@@ -90,12 +96,14 @@ class TaskService:
             dataset_id=data.dataset_id,
             annotation_id=data.annotation_id,
             config=data.config,
-            status=TaskStatus.PENDING,
+            status=TaskStatus.PENDING.value,
         )
         await db.commit()
         await db.refresh(task)
 
         config = json.loads(data.config) if data.config else {}
+        if not isinstance(config, dict):
+            raise BadRequestException("config must be a JSON object")
         classes = self._parse_classes(annotation.classes)
         train_request = {
             "task_id": task.id,
@@ -116,24 +124,24 @@ class TaskService:
             logger.info(f"Training task {task.id} queued by MQ")
         except Exception as e:
             logger.error(f"Failed to publish trainer task: {e}")
-            task.status = TaskStatus.FAILED
+            task.status = TaskStatus.FAILED.value
             task.error_message = str(e)
             db.add(task)
             await db.commit()
             await db.refresh(task)
 
-        return TaskResponse.model_validate(task)
+        return self._serialize_task(task)
 
     async def get_task(self, db: AsyncSession, task_id: int) -> TaskResponse:
         task = await crud.get_task_by_id(db, task_id)
         if not task:
             raise NotFoundException(f"Task {task_id} not found")
-        return TaskResponse.model_validate(task)
+        return self._serialize_task(task)
 
     async def list_tasks(self, db: AsyncSession, page: int = 1, page_size: int = 10, status: int = None) -> tuple[List[TaskResponse], int]:
         offset = (page - 1) * page_size
         items, total = await crud.get_tasks(db, offset, page_size, status)
-        return [TaskResponse.model_validate(item) for item in items], total
+        return [self._serialize_task(item) for item in items], total
 
     async def get_task_logs(self, db: AsyncSession, task_id: int, page: int = 1, page_size: int = 100) -> tuple[List[TaskLogResponse], int]:
         task = await crud.get_task_by_id(db, task_id)
@@ -147,6 +155,14 @@ class TaskService:
     async def get_base_models(self, db: AsyncSession) -> List[BaseModelResponse]:
         models = await crud.get_base_models(db)
         return [BaseModelResponse.model_validate(m) for m in models]
+
+    async def delete_task(self, db: AsyncSession, task_id: int) -> bool:
+        task = await crud.get_task_by_id(db, task_id)
+        if not task:
+            raise NotFoundException(f"Task {task_id} not found")
+        deleted = await crud.delete_task(db, task_id)
+        await db.commit()
+        return deleted
 
     async def get_trainer_status(self) -> TrainerStatusResponse:
         try:
@@ -186,6 +202,22 @@ class TaskService:
         except Exception:
             pass
         return [item.strip() for item in raw_classes.split(",") if item.strip()]
+
+    def _serialize_task(self, task) -> TaskResponse:
+        payload = TaskResponse.model_validate(task).model_dump()
+        stale_seconds = self._calc_stale_seconds(task.status, task.updated_at)
+        payload["stale_seconds"] = stale_seconds
+        payload["is_stale"] = stale_seconds is not None
+        return TaskResponse(**payload)
+
+    def _calc_stale_seconds(self, status: int, updated_at: Optional[datetime]) -> Optional[int]:
+        if status not in STALE_TASK_STATUSES or updated_at is None:
+            return None
+        timeout = int(getattr(get_settings(), "task_stale_timeout_seconds", DEFAULT_STALE_TIMEOUT_SECONDS))
+        now = datetime.now(updated_at.tzinfo) if updated_at.tzinfo else datetime.now()
+        current = updated_at
+        seconds = max(0, int((now - current).total_seconds()))
+        return seconds if seconds >= timeout else None
 
 
 async def get_task_service():

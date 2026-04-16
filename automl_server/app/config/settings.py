@@ -62,6 +62,7 @@ class Settings(BaseModel):
     host: str = "0.0.0.0"
     port: int = 45678
     debug: bool = False
+    task_stale_timeout_seconds: int = 7200
 
     # 子配置
     database: DatabaseConfig = DatabaseConfig()
@@ -186,10 +187,18 @@ def _load_settings() -> Settings:
         ),
     )
 
+    task_stale_timeout_seconds = int(
+        os.getenv(
+            "TASK_STALE_TIMEOUT_SECONDS",
+            nacos_data.get("task_stale_timeout_seconds", 7200),
+        )
+    )
+
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),
         debug=os.getenv("DEBUG", "false").lower() == "true",
+        task_stale_timeout_seconds=task_stale_timeout_seconds,
         database=database,
         nacos=nacos_config,
         model_trainer=model_trainer,

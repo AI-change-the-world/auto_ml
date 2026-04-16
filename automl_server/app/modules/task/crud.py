@@ -58,3 +58,13 @@ async def get_base_models(db: AsyncSession) -> List[BaseModels]:
         BaseModels.is_deleted == False).order_by(BaseModels.name)
     result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def delete_task(db: AsyncSession, task_id: int) -> bool:
+    stmt = (
+        update(Task)
+        .where(Task.id == task_id, Task.is_deleted == False)
+        .values(is_deleted=True)
+    )
+    result = await db.execute(stmt)
+    return result.rowcount > 0

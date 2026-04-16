@@ -16,6 +16,8 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
   success: { bg: '#f0fdf4', fg: '#16a34a' },
 };
 
+const getStaleMinutes = (seconds?: number | null) => Math.max(1, Math.floor((seconds || 0) / 60));
+
 const TaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -93,7 +95,7 @@ const TaskDetailPage: React.FC = () => {
     </div>
   );
 
-  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification'), 2: t('segmentation') };
+  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification') };
   const ck = TaskStatusColors[task.status] || 'default';
   const s = statusStyles[ck] || statusStyles.default;
 
@@ -104,12 +106,25 @@ const TaskDetailPage: React.FC = () => {
           <button onClick={() => navigate('/tasks')} style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #eee', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}><ArrowLeftOutlined /></button>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111', margin: 0 }}>{t('taskId', { id: task.id })}</h1>
           <span style={{ padding: '2px 10px', fontSize: 12, borderRadius: 999, background: s.bg, color: s.fg, fontWeight: 500 }}>{TaskStatusLabels[task.status]}</span>
+          {task.is_stale && (
+            <span style={{ padding: '2px 10px', fontSize: 12, borderRadius: 999, background: '#fff7ed', color: '#c2410c', fontWeight: 500 }}>
+              {t('staleBadge')}
+            </span>
+          )}
         </div>
         <button onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
       </div>
 
       {/* Info */}
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        {task.is_stale && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fff7ed', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: '#c2410c', marginBottom: 2 }}>{t('staleBadge')}</div>
+            <div style={{ fontSize: 13, color: '#9a3412' }}>
+              {t('staleHint', { minutes: getStaleMinutes(task.stale_seconds) })}
+            </div>
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
           {[
             { label: t('taskTypeLabel'), value: typeLabels[task.task_type] ?? task.task_type },

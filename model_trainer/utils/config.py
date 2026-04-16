@@ -19,6 +19,7 @@ class S3Properties(BaseModel):
     endpoint: str
     datasets_bucket_name: str
     models_bucket_name: str
+    annotations_bucket_name: str
 
 
 def load_s3_config_from_nacos() -> S3Properties:
@@ -35,6 +36,7 @@ def load_s3_config_from_nacos() -> S3Properties:
             endpoint=s3_config.get("endpoint", ""),
             datasets_bucket_name=s3_config.get("datasets_bucket_name", ""),
             models_bucket_name=s3_config.get("models_bucket_name", ""),
+            annotations_bucket_name=s3_config.get("annotations_bucket_name", ""),
         )
     except Exception as e:
         logger.warning(f"Failed to load from Nacos, using env config: {e}")
@@ -49,6 +51,7 @@ def load_s3_config_from_env() -> S3Properties:
         endpoint=os.getenv("S3_ENDPOINT", ""),
         datasets_bucket_name=os.getenv("S3_DATASETS_BUCKET", ""),
         models_bucket_name=os.getenv("S3_MODELS_BUCKET", ""),
+        annotations_bucket_name=os.getenv("S3_ANNOTATIONS_BUCKET", ""),
     )
 
 

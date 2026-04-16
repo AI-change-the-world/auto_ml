@@ -10,6 +10,7 @@ export interface AvailableModelResponse {
   id: number;
   name: string | null;
   model_path: string | null;
+  onnx_model_path: string | null;
   model_type: string | null;
   dataset_id: number | null;
   task_id: number | null;

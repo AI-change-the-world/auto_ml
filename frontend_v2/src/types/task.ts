@@ -6,6 +6,16 @@ export interface TaskCreate {
   config?: string;
 }
 
+export interface TrainingConfigPayload {
+  name: string;
+  epoch: number;
+  size: number;
+  batch: number;
+  device: string;
+  label_format?: 'auto' | 'bbox' | 'obb';
+  export_onnx?: boolean;
+}
+
 /** 训练任务响应 */
 export interface TaskResponse {
   id: number;
@@ -18,6 +28,8 @@ export interface TaskResponse {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  is_stale?: boolean;
+  stale_seconds?: number | null;
 }
 
 /** 任务状态枚举 */

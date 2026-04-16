@@ -30,9 +30,10 @@ fi
 : "${RABBITMQ_EXCHANGE_TYPE:=topic}"
 
 : "${MINIO_ENDPOINT:=http://minio:9000}"
-: "${MODEL_TRAINER_URL:=http://model-trainer:8080}"
-: "${MODEL_DEPLOY_URL:=http://model-deploy:8080}"
+: "${MODEL_TRAINER_URL:=http://model-trainer:8081}"
+: "${MODEL_DEPLOY_URL:=http://model-deploy:8082}"
 : "${AUTO_AUGMENT_PIPELINE_URL:=http://auto-augment-pipeline:8010}"
+: "${TASK_STALE_TIMEOUT_SECONDS:=7200}"
 
 replace_placeholder() {
   var_name="$1"
@@ -71,6 +72,7 @@ publish_config() {
   replace_placeholder "MODEL_TRAINER_URL" "$MODEL_TRAINER_URL"
   replace_placeholder "MODEL_DEPLOY_URL" "$MODEL_DEPLOY_URL"
   replace_placeholder "AUTO_AUGMENT_PIPELINE_URL" "$AUTO_AUGMENT_PIPELINE_URL"
+  replace_placeholder "TASK_STALE_TIMEOUT_SECONDS" "$TASK_STALE_TIMEOUT_SECONDS"
   replace_placeholder "NANO_BANANA_BASE_URL" "${NANO_BANANA_BASE_URL:-}"
   replace_placeholder "NANO_BANANA_API_KEY" "${NANO_BANANA_API_KEY:-}"
   replace_placeholder "NANO_BANANA_MODEL" "${NANO_BANANA_MODEL:-}"

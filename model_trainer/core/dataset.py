@@ -151,12 +151,18 @@ def download_dataset_from_s3(
     os.makedirs(temp_dataset_path, exist_ok=True)
     os.makedirs(temp_annotation_path, exist_ok=True)
 
+    dataset_prefix = dataset_path.rstrip("/") + "/"
+    annotation_prefix = annotation_path.rstrip("/") + "/"
+
     try:
         # 下载数据集
         from utils.config import get_s3_operator
-        op = get_s3_operator(cfg.datasets_bucket_name)
+        dataset_op = get_s3_operator(cfg.datasets_bucket_name)
+        annotation_op = get_s3_operator(cfg.annotations_bucket_name)
+        downloaded_dataset_files = 0
+        downloaded_annotation_files = 0
 
-        for item in op.list(dataset_path):
+        for item in dataset_op.list(dataset_prefix):
             if Path(item.path).suffix != "":
                 file_name = Path(item.path).name
                 download_from_s3(
@@ -164,16 +170,24 @@ def download_dataset_from_s3(
                     os.path.join(temp_dataset_path, file_name),
                     cfg.datasets_bucket_name
                 )
+                downloaded_dataset_files += 1
 
         # 下载标注文件
-        for item in op.list(annotation_path):
+        for item in annotation_op.list(annotation_prefix):
             if Path(item.path).suffix != "":
                 file_name = Path(item.path).name
                 download_from_s3(
                     item.path,
                     os.path.join(temp_annotation_path, file_name),
-                    cfg.datasets_bucket_name
+                    cfg.annotations_bucket_name
                 )
+                downloaded_annotation_files += 1
+
+        logger.info(
+            "Downloaded training assets from S3: "
+            f"dataset_bucket={cfg.datasets_bucket_name}, dataset_prefix={dataset_prefix}, files={downloaded_dataset_files}; "
+            f"annotation_bucket={cfg.annotations_bucket_name}, annotation_prefix={annotation_prefix}, files={downloaded_annotation_files}"
+        )
 
         return temp_folder
     except Exception as e:
@@ -211,7 +225,22 @@ def prepare_detection_dataset(
 
     total = len(all_image_files)
     if total == 0:
-        raise ValueError("No valid image-label pairs found.")
+        image_candidates = sorted(
+            f for f in os.listdir(all_images_dir)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        )
+        label_candidates = sorted(
+            f for f in os.listdir(all_labels_dir)
+            if f.lower().endswith(".txt")
+        )
+        sample_images = image_candidates[:5]
+        sample_labels = label_candidates[:5]
+        raise ValueError(
+            "No valid image-label pairs found. "
+            f"images={len(image_candidates)}, labels={len(label_candidates)}, "
+            f"sample_images={sample_images}, sample_labels={sample_labels}. "
+            "Expected each image to have a same-stem .txt label file."
+        )
     stats.images = total
 
     random.shuffle(all_image_files)

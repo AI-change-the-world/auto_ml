@@ -22,8 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制代码
 COPY . .
 
-# 创建日志目录
-RUN mkdir -p logs
+# 创建日志和基础模型缓存目录
+RUN mkdir -p logs base_model
 
 # 暴露端口
 EXPOSE 8080

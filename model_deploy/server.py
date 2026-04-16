@@ -28,7 +28,7 @@ def wait_for_mq_ready():
     for attempt in range(1, retries + 1):
         try:
             mq_client = get_mq_client()
-            if mq_client.connection is not None and not mq_client.connection.is_closed:
+            if mq_client.is_ready():
                 logger.info(f"RabbitMQ ready on attempt {attempt}/{retries}")
                 return
         except Exception as e:
@@ -148,7 +148,7 @@ async def health_check():
     mq_connected = False
     try:
         client = get_mq_client()
-        mq_connected = client.connection is not None and not client.connection.is_closed
+        mq_connected = client.is_ready()
     except Exception:
         pass
 

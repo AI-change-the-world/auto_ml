@@ -2,13 +2,16 @@
 任务相关消息处理器
 """
 from datetime import datetime
+import json
 
 from loguru import logger
 from sqlalchemy import update
 
+from app.common.constants import TaskStatus
 from app.config.database import AsyncSessionLocal
 from app.db.models import Task, TaskLog
 from app.mq.messages import TaskStatusMessage, TaskLogMessage
+from app.modules.task.service import TaskService
 from app.modules.task.stream import StreamEvent, get_task_stream_hub
 
 
@@ -23,13 +26,14 @@ async def handle_task_status_update(message: TaskStatusMessage):
     async with AsyncSessionLocal() as session:
         try:
             # 构建更新数据
-            update_data = {"status": message.status}
+            update_data = {"status": message.status, "updated_at": datetime.now()}
 
-            if message.message:
+            if message.status == TaskStatus.FAILED.value and message.message:
                 update_data["error_message"] = message.message
+            elif message.status != TaskStatus.FAILED.value:
+                update_data["error_message"] = None
 
             if message.extra_data:
-                import json
                 # 合并到 result 字段
                 update_data["result"] = json.dumps(message.extra_data)
 
@@ -45,23 +49,13 @@ async def handle_task_status_update(message: TaskStatusMessage):
 
             task = await session.get(Task, message.task_id)
             if task is not None:
+                task_payload = TaskService()._serialize_task(task).model_dump(mode="json")
                 await get_task_stream_hub().publish(
                     StreamEvent(
                         event="task_upsert",
                         task_id=message.task_id,
                         data={
-                            "task": {
-                                "id": task.id,
-                                "task_type": task.task_type,
-                                "dataset_id": task.dataset_id,
-                                "annotation_id": task.annotation_id,
-                                "status": task.status,
-                                "config": task.config,
-                                "result": task.result,
-                                "error_message": task.error_message,
-                                "created_at": task.created_at,
-                                "updated_at": task.updated_at,
-                            }
+                            "task": task_payload
                         },
                     )
                 )

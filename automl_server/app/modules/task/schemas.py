@@ -22,6 +22,8 @@ class TaskResponse(BaseModel):
     error_message: Optional[str]
     created_at: datetime
     updated_at: datetime
+    is_stale: bool = False
+    stale_seconds: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -48,6 +50,16 @@ class BaseModelResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TaskConfigPayload(BaseModel):
+    name: str
+    epoch: int = Field(default=10, ge=1, le=10000)
+    size: int = Field(default=640, ge=32, le=4096)
+    batch: int = Field(default=8, ge=1, le=1024)
+    device: str = Field(default="cpu")
+    label_format: Optional[str] = Field(default=None, description="auto|bbox|obb")
+    export_onnx: bool = False
 
 
 class TrainerStatusResponse(BaseModel):

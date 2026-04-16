@@ -64,6 +64,7 @@ const DeployPage: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.name || `Model #${m.id}`}</span>
                         {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
+                        {m.onnx_model_path && <span style={{ padding: '1px 8px', background: '#eff6ff', color: '#2563eb', fontSize: 11, borderRadius: 999 }}>ONNX</span>}
                         {m.is_deployed
                           ? <span style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}><CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}</span>
                           : <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', fontSize: 11, borderRadius: 999 }}>{tc('status.notDeployed')}</span>

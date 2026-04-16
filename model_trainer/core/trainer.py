@@ -7,6 +7,8 @@ import os
 import shutil
 import threading
 import uuid
+import zipfile
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ultralytics import YOLO
@@ -28,6 +30,105 @@ from utils.mq import (
 )
 
 SERVICE_NAME = "model-trainer"
+DEFAULT_BASE_MODEL_DIR = "./base_model"
+
+
+def _resolve_base_model(model_name: str) -> tuple[str, str]:
+    """Resolve base model name to a local cached file when available."""
+    base_model_dir = os.getenv("BASE_MODEL_DIR", DEFAULT_BASE_MODEL_DIR)
+    model_path = Path(model_name)
+
+    if model_path.is_absolute() or model_path.parent != Path("."):
+        if model_path.exists():
+            return str(model_path), "path"
+        return model_name, "remote"
+
+    cached_path = Path(base_model_dir) / model_name
+    if cached_path.exists():
+        return str(cached_path), "base_model"
+
+    return model_name, "remote"
+
+
+def _load_yolo_model(model_name: str) -> YOLO:
+    """Load a YOLO model and recover once from an interrupted local weight download."""
+    model_ref, model_source = _resolve_base_model(model_name)
+    logger.info(f"Resolved base model: requested={model_name}, source={model_source}, ref={model_ref}")
+    try:
+        return YOLO(model_ref)
+    except RuntimeError as exc:
+        if not _looks_like_corrupt_torch_archive(exc):
+            raise
+        if model_source != "remote":
+            raise RuntimeError(
+                f"Local base model appears corrupt: {model_ref}. "
+                "Please replace the file in base_model and retry."
+            ) from exc
+        if not _remove_local_weight_if_present(model_ref):
+            raise
+        logger.warning(f"Removed corrupt local model weight and retrying download: {model_ref}")
+        return YOLO(model_ref)
+
+
+def _looks_like_corrupt_torch_archive(exc: Exception) -> bool:
+    message = str(exc)
+    return (
+        "PytorchStreamReader failed reading zip archive" in message
+        or "failed finding central directory" in message
+        or "failed finding central directory" in repr(exc)
+    )
+
+
+def _remove_local_weight_if_present(model_name: str) -> bool:
+    if not model_name.endswith(".pt") or os.path.isabs(model_name):
+        return False
+    candidates = [
+        os.path.abspath(model_name),
+        os.path.abspath(os.path.join(os.getcwd(), model_name)),
+    ]
+    removed = False
+    for path in dict.fromkeys(candidates):
+        if os.path.exists(path):
+            os.remove(path)
+            removed = True
+    return removed
+
+
+def _should_export_onnx(task_config: Dict[str, Any]) -> bool:
+    value = task_config.get("export_onnx", False)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
+def _export_onnx_model(
+    task_id: int,
+    best_pt_path: str,
+    task_config: Dict[str, Any],
+) -> Optional[str]:
+    if not _should_export_onnx(task_config):
+        return None
+
+    publish_task_log(task_id, "[post-train] Exporting ONNX model...", SERVICE_NAME)
+    export_kwargs = {
+        "format": "onnx",
+        "dynamic": bool(task_config.get("onnx_dynamic", False)),
+        "simplify": bool(task_config.get("onnx_simplify", False)),
+    }
+    imgsz = task_config.get("size")
+    if imgsz:
+        export_kwargs["imgsz"] = imgsz
+
+    export_model = YOLO(best_pt_path)
+    exported = export_model.export(**export_kwargs)
+    exported_path = str(exported) if exported else os.path.splitext(best_pt_path)[0] + ".onnx"
+    if not os.path.exists(exported_path):
+        fallback_path = os.path.splitext(best_pt_path)[0] + ".onnx"
+        if os.path.exists(fallback_path):
+            exported_path = fallback_path
+        else:
+            raise FileNotFoundError(f"ONNX export file not found: {exported_path}")
+    return exported_path
 
 
 class TrainingCallback:
@@ -127,7 +228,7 @@ def _train_detection_model(
 
         publish_task_log(
             task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
-        model = YOLO(model_name)
+        model = _load_yolo_model(model_name)
 
         # 添加回调
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
@@ -159,17 +260,27 @@ def _train_detection_model(
             SERVICE_NAME,
             "Uploading model artifacts and registering model",
         )
+        onnx_model_path = _export_onnx_model(
+            task_id=task_id,
+            best_pt_path=best_pt_path,
+            task_config=task_config,
+        )
         publish_task_log(
             task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
         pt_name = f"{uuid.uuid4()}.pt"
         upload_to_s3(best_pt_path, pt_name, s3_config.models_bucket_name)
+        onnx_name = None
+        if onnx_model_path:
+            onnx_name = f"{uuid.uuid4()}.onnx"
+            upload_to_s3(onnx_model_path, onnx_name, s3_config.models_bucket_name)
 
         # 通过 MQ 发送模型注册消息（让主服务写入数据库）
         model_info = {
             "dataset_id": task_config.get("dataset_id"),
             "annotation_id": task_config.get("annotation_id"),
             "save_path": pt_name,
+            "onnx_save_path": onnx_name,
             "base_model_name": model_name,
             "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
             "epoch": epochs,
@@ -250,7 +361,7 @@ def _train_classification_model(
 
         publish_task_log(
             task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
-        model = YOLO(model_name)
+        model = _load_yolo_model(model_name)
 
         # 添加回调
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
@@ -282,17 +393,27 @@ def _train_classification_model(
             SERVICE_NAME,
             "Uploading model artifacts and registering model",
         )
+        onnx_model_path = _export_onnx_model(
+            task_id=task_id,
+            best_pt_path=best_pt_path,
+            task_config=task_config,
+        )
         publish_task_log(
             task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
         pt_name = f"{uuid.uuid4()}.pt"
         upload_to_s3(best_pt_path, pt_name, s3_config.models_bucket_name)
+        onnx_name = None
+        if onnx_model_path:
+            onnx_name = f"{uuid.uuid4()}.onnx"
+            upload_to_s3(onnx_model_path, onnx_name, s3_config.models_bucket_name)
 
         # 通过 MQ 发送模型注册消息
         model_info = {
             "dataset_id": task_config.get("dataset_id"),
             "annotation_id": task_config.get("annotation_id"),
             "save_path": pt_name,
+            "onnx_save_path": onnx_name,
             "base_model_name": model_name,
             "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
             "epoch": epochs,
