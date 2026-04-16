@@ -64,7 +64,6 @@ model-deploy:
   timeout: 60
   runtime_base_port: 9001
   runtime_max_port: 9100
-  model_cache_dir: /app/models
   health_check_interval: 30
 
 auto-augment-pipeline:

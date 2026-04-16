@@ -64,11 +64,13 @@ def load_deploy_config_from_nacos() -> DeployConfig:
             return load_deploy_config_from_env()
 
         deploy_config = config.get("model-deploy", {})
-        return DeployConfig(
+        config = DeployConfig(
             runtime_base_port=deploy_config.get("runtime_base_port", 9001),
             runtime_max_port=deploy_config.get("runtime_max_port", 9100),
-            model_cache_dir=deploy_config.get("model_cache_dir", "./models"),
+            model_cache_dir="./models",
         )
+        os.makedirs(config.model_cache_dir, exist_ok=True)
+        return config
     except Exception as e:
         logger.warning(f"Failed to load deploy config from Nacos: {e}")
         return load_deploy_config_from_env()
@@ -79,7 +81,7 @@ def load_deploy_config_from_env() -> DeployConfig:
     config = DeployConfig(
         runtime_base_port=int(os.getenv("RUNTIME_BASE_PORT", "9001")),
         runtime_max_port=int(os.getenv("RUNTIME_MAX_PORT", "9100")),
-        model_cache_dir=os.getenv("MODEL_CACHE_DIR", "./models"),
+        model_cache_dir="./models",
     )
     os.makedirs(config.model_cache_dir, exist_ok=True)
     return config

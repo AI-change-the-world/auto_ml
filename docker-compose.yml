@@ -289,7 +289,6 @@ services:
       S3_MODELS_BUCKET: auto-ml-models
       RUNTIME_BASE_PORT: 9001
       RUNTIME_MAX_PORT: 9100
-      MODEL_CACHE_DIR: /app/models
       HOST: 0.0.0.0
       PORT: ${MODEL_DEPLOY_PORT:-8082}
     ports:
