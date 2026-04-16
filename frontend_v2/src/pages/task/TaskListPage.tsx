@@ -36,6 +36,7 @@ const TaskListPage: React.FC = () => {
   const [_bm, setBm] = useState<BaseModelResponse[]>([]);
   const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
   const [form, setForm] = useState<{ task_type: number; dataset_id?: number; annotation_id?: number }>({ task_type: 0 });
+  const [streamVersion, setStreamVersion] = useState(0);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -53,6 +54,16 @@ const TaskListPage: React.FC = () => {
       if (r) setTrainerStatus(r);
     } catch { }
   }, []);
+
+  const resetStream = useCallback(() => {
+    setStreamVersion((prev) => prev + 1);
+  }, []);
+
+  const handleManualRefresh = useCallback(() => {
+    resetStream();
+    fetchTasks();
+    fetchTrainer();
+  }, [fetchTasks, fetchTrainer, resetStream]);
 
   useEffect(() => { fetchTasks(); fetchTrainer(); }, [fetchTasks, fetchTrainer]);
 
@@ -111,7 +122,7 @@ const TaskListPage: React.FC = () => {
       if (refreshTimer) clearTimeout(refreshTimer);
       stop();
     };
-  }, [fetchTasks, fetchTrainer, statusFilter]);
+  }, [fetchTasks, fetchTrainer, statusFilter, streamVersion]);
 
   const openCreate = async () => {
     setCreateOpen(true);
@@ -151,7 +162,7 @@ const TaskListPage: React.FC = () => {
           <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => { fetchTasks(); fetchTrainer(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
+          <button onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
           <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
         </div>
       </div>
@@ -231,7 +242,7 @@ const TaskListPage: React.FC = () => {
             </div>
           )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalTasks', { count: total })}</div>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalTasks', { count: total })}</div>
 
       <Modal title={t('createTitle')} open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>

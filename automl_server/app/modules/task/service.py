@@ -19,6 +19,8 @@ class TaskService:
     def __init__(self):
         self._publisher = None
         self._trainer_client = None
+        self._trainer_client_base_url = None
+        self._trainer_client_timeout = None
 
     @property
     def publisher(self):
@@ -26,20 +28,32 @@ class TaskService:
             self._publisher = get_publisher()
         return self._publisher
 
-    @property
-    def trainer_client(self) -> HttpClient:
-        if self._trainer_client is None:
-            settings = get_settings()
+    async def _get_trainer_client(self) -> HttpClient:
+        settings = get_settings()
+        base_url = settings.model_trainer.base_url
+        timeout = settings.model_trainer.timeout
+
+        if (
+            self._trainer_client is None
+            or self._trainer_client_base_url != base_url
+            or self._trainer_client_timeout != timeout
+        ):
+            if self._trainer_client is not None:
+                await self._trainer_client.close()
             self._trainer_client = HttpClient(
-                base_url=settings.model_trainer.base_url,
-                timeout=settings.model_trainer.timeout,
+                base_url=base_url,
+                timeout=timeout,
             )
+            self._trainer_client_base_url = base_url
+            self._trainer_client_timeout = timeout
         return self._trainer_client
 
     async def close(self):
         if self._trainer_client is not None:
             await self._trainer_client.close()
             self._trainer_client = None
+            self._trainer_client_base_url = None
+            self._trainer_client_timeout = None
 
     async def create_task(self, db: AsyncSession, data: TaskCreate) -> TaskResponse:
         """创建训练任务并通过 RabbitMQ 通知 model_trainer"""
@@ -136,7 +150,8 @@ class TaskService:
 
     async def get_trainer_status(self) -> TrainerStatusResponse:
         try:
-            response = await self.trainer_client.get("/health")
+            client = await self._get_trainer_client()
+            response = await client.get("/health")
             if response.status_code != 200:
                 return TrainerStatusResponse(
                     reachable=False,

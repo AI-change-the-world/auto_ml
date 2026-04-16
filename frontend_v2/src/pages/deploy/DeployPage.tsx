@@ -97,7 +97,7 @@ const DeployPage: React.FC = () => {
               ))}
             </div>
           )}
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalModels', { count: total })}</div>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalModels', { count: total })}</div>
     </div>
   );
 };

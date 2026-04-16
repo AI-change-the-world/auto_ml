@@ -182,8 +182,8 @@ docker-compose logs -f
 #### 1. 启动基础设施
 
 ```bash
-# 仅启动数据库、消息队列、对象存储等基础服务
-docker-compose up -d mysql rabbitmq minio nacos
+# 启动数据库、消息队列、对象存储、Nacos 以及 Nacos 初始化
+docker-compose -f docker-compose.dev.yml up -d mysql rabbitmq minio nacos nacos-init
 ```
 
 #### 2. 启动前端
@@ -224,13 +224,27 @@ python run.py
 # 模型训练服务
 cd model_trainer
 pip install -r requirements.txt
+export PORT=8081
 python server.py
 
 # 模型部署服务
 cd model_deploy
 pip install -r requirements.txt
+export PORT=8082
 python server.py
+
+# Auto augment pipeline
+cd auto_augment_pipeline
+pip install -r requirements.txt
+export PORT=8010
+python -m auto_augment_pipeline.app
 ```
+
+本机直跑时请固定使用以下端口，并确保 Nacos 里的服务地址与之保持一致：
+
+- `model_trainer`: `127.0.0.1:8081`
+- `model_deploy`: `127.0.0.1:8082`
+- `auto_augment_pipeline`: `127.0.0.1:8010`
 
 ---
 

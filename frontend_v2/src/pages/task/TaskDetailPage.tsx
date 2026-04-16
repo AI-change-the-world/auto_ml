@@ -25,6 +25,7 @@ const TaskDetailPage: React.FC = () => {
   const [task, setTask] = useState<TaskResponse | null>(null);
   const [logs, setLogs] = useState<TaskLogResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [streamVersion, setStreamVersion] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
 
   const fetchTask = useCallback(async () => {
@@ -37,6 +38,12 @@ const TaskDetailPage: React.FC = () => {
       if (r) { setLogs(r.items); setTimeout(() => { logRef.current && (logRef.current.scrollTop = logRef.current.scrollHeight); }, 50); }
     } catch { }
   }, [taskId]);
+
+  const handleManualRefresh = useCallback(() => {
+    setStreamVersion((prev) => prev + 1);
+    fetchTask();
+    fetchLogs();
+  }, [fetchTask, fetchLogs]);
 
   useEffect(() => {
     (async () => { setLoading(true); await Promise.all([fetchTask(), fetchLogs()]); setLoading(false); })();
@@ -76,7 +83,7 @@ const TaskDetailPage: React.FC = () => {
     return () => {
       stop();
     };
-  }, [taskId, fetchTask, fetchLogs]);
+  }, [taskId, fetchTask, fetchLogs, streamVersion]);
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}><Spin size="large" /></div>;
   if (!task) return (
@@ -98,7 +105,7 @@ const TaskDetailPage: React.FC = () => {
           <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111', margin: 0 }}>{t('taskId', { id: task.id })}</h1>
           <span style={{ padding: '2px 10px', fontSize: 12, borderRadius: 999, background: s.bg, color: s.fg, fontWeight: 500 }}>{TaskStatusLabels[task.status]}</span>
         </div>
-        <button onClick={() => { fetchTask(); fetchLogs(); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
+        <button onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
       </div>
 
       {/* Info */}

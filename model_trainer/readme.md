@@ -33,6 +33,7 @@ export S3_MODELS_BUCKET="auto-ml-models"
 export S3_DATASETS_BUCKET="auto-ml-datasets"
 
 # 启动服务
+export PORT=8081
 python server.py
 ```
 
@@ -153,4 +154,4 @@ model_trainer/
 | TRAINER_TASK_QUEUE | 训练任务队列名 | trainer.task.queue |
 | TRAINER_TASK_ROUTING_KEY | 训练任务路由键 | trainer.task.submit |
 | HOST | 服务监听地址 | 0.0.0.0 |
-| PORT | 服务端口 | 8080 |
+| PORT | 服务端口 | 8081 |

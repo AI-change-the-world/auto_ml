@@ -217,7 +217,7 @@ const AnnotationListPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb' }}>{t('totalAnnotations', { count: total })}</div>
+      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalAnnotations', { count: total })}</div>
 
       {/* ─── 编辑类别 Modal ─── */}
       <Modal

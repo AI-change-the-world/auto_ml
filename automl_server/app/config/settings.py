@@ -37,13 +37,13 @@ class NacosConfig(BaseModel):
 
 class ModelTrainerConfig(BaseModel):
     """Model Trainer 服务配置"""
-    base_url: str = "http://model-trainer:8080"
+    base_url: str = "http://127.0.0.1:8081"
     timeout: int = 30
 
 
 class ModelDeployConfig(BaseModel):
     """Model Deploy 服务配置"""
-    base_url: str = "http://model-deploy:8080"
+    base_url: str = "http://127.0.0.1:8082"
     timeout: int = 60
 
 
@@ -150,7 +150,7 @@ def _load_settings() -> Settings:
     model_trainer = ModelTrainerConfig(
         base_url=os.getenv(
             "MODEL_TRAINER_URL",
-            trainer_nacos.get("base_url", "http://model-trainer:8080"),
+            trainer_nacos.get("base_url", "http://127.0.0.1:8081"),
         ),
         timeout=int(os.getenv(
             "MODEL_TRAINER_TIMEOUT",
@@ -162,7 +162,7 @@ def _load_settings() -> Settings:
     model_deploy = ModelDeployConfig(
         base_url=os.getenv(
             "MODEL_DEPLOY_URL",
-            deploy_nacos.get("base_url", "http://model-deploy:8080"),
+            deploy_nacos.get("base_url", "http://127.0.0.1:8082"),
         ),
         timeout=int(os.getenv(
             "MODEL_DEPLOY_TIMEOUT",

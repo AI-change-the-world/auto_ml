@@ -253,6 +253,8 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     mq_connected: bool
+    mq_publish_connected: bool = False
+    mq_consumer_connected: bool = False
     max_concurrent: int
     active_tasks: int
     queued_tasks: int
@@ -263,17 +265,30 @@ class HealthResponse(BaseModel):
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """健康检查"""
-    mq_connected = False
+    mq_publish_connected = False
     try:
         client = get_mq_client()
-        mq_connected = client.connection is not None and not client.connection.is_closed
+        mq_publish_connected = (
+            client.connection is not None and not client.connection.is_closed
+        )
     except Exception:
         pass
+
+    with consumer_connection_lock:
+        mq_consumer_connected = (
+            consumer_ready_event.is_set()
+            and consumer_connection is not None
+            and not consumer_connection.is_closed
+            and consumer_channel is not None
+            and not consumer_channel.is_closed
+        )
 
     return HealthResponse(
         status="healthy",
         version="2.0.0",
-        mq_connected=mq_connected,
+        mq_connected=mq_consumer_connected,
+        mq_publish_connected=mq_publish_connected,
+        mq_consumer_connected=mq_consumer_connected,
         max_concurrent=task_dispatcher.max_concurrent if task_dispatcher else 0,
         active_tasks=task_dispatcher.active_tasks if task_dispatcher else 0,
         queued_tasks=task_dispatcher.queued_tasks if task_dispatcher else 0,
@@ -446,6 +461,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "server:app",
         host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", 8080)),
+        port=int(os.getenv("PORT", 8081)),
         reload=os.getenv("RELOAD", "false").lower() == "true",
     )

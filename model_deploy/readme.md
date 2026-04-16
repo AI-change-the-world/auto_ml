@@ -73,6 +73,7 @@ export RUNTIME_BASE_PORT=9001
 export RUNTIME_MAX_PORT=9100
 
 # 启动服务
+export PORT=8082
 python server.py
 ```
 
@@ -244,7 +245,7 @@ model_deploy/
 | RUNTIME_MAX_PORT | 运行时最大端口 | 9100 |
 | MODEL_CACHE_DIR | 模型缓存目录 | ./models |
 | HOST | 服务监听地址 | 0.0.0.0 |
-| PORT | 服务端口 | 8080 |
+| PORT | 服务端口 | 8082 |
 
 ## 模型格式
 
