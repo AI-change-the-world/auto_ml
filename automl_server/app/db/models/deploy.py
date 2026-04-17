@@ -14,6 +14,7 @@ class AvailableModel(BaseEntity):
     model_path = Column(String(512), nullable=True, comment="模型路径")
     onnx_model_path = Column(String(512), nullable=True, comment="ONNX模型路径")
     model_type = Column(String(50), nullable=True, comment="模型类型")
+    class_names = Column(Text, nullable=True, comment="类别名称 JSON")
     dataset_id = Column(BigInteger, nullable=True,
                         index=True, comment="关联数据集ID")
     task_id = Column(BigInteger, nullable=True, index=True, comment="关联任务ID")

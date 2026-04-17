@@ -85,6 +85,32 @@ async def _ensure_schema_compatibility(conn):
                 "AFTER model_path"
             )
         )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'available_model' "
+            "AND COLUMN_NAME = 'class_names'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE available_model "
+                "ADD COLUMN class_names TEXT DEFAULT NULL COMMENT '类别名称 JSON' "
+                "AFTER model_type"
+            )
+        )
+    await conn.execute(
+        text(
+            "UPDATE available_model am "
+            "JOIN task t ON am.task_id = t.id AND t.is_deleted = 0 "
+            "JOIN annotation a ON t.annotation_id = a.id AND a.is_deleted = 0 "
+            "SET am.class_names = a.classes "
+            "WHERE (am.class_names IS NULL OR am.class_names = '') "
+            "AND a.classes IS NOT NULL AND a.classes <> ''"
+        )
+    )
 
 
 BASE_MODEL_SEEDS = [

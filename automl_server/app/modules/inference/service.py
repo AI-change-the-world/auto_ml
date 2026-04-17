@@ -1,12 +1,15 @@
 """推理服务 - 统一代理到 model_deploy"""
+import json
 from typing import Optional
 
 from loguru import logger
 from requests import Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import BadRequestException, NotFoundException
 from app.config.settings import get_settings
+from app.db.models import Annotation, Task
 from app.utils.http_client import HttpClient
 from app.modules.deploy import crud as deploy_crud
 
@@ -48,7 +51,12 @@ class InferenceService:
             },
         )
         payload = self._parse_backend_response(response, "predict")
-        return self._build_predict_response(payload, model)
+        class_names = await self._load_class_names(
+            db,
+            model.task_id,
+            getattr(model, "class_names", None),
+        )
+        return self._build_predict_response(payload, model, class_names)
 
     async def predict_base64(
         self,
@@ -62,7 +70,12 @@ class InferenceService:
             json={"image": image_base64},
         )
         payload = self._parse_backend_response(response, "predict/base64")
-        return self._build_predict_response(payload, model)
+        class_names = await self._load_class_names(
+            db,
+            model.task_id,
+            getattr(model, "class_names", None),
+        )
+        return self._build_predict_response(payload, model, class_names)
 
     async def get_health(
         self,
@@ -133,11 +146,56 @@ class InferenceService:
             )
         return payload
 
-    def _build_predict_response(self, payload: dict, model) -> InferencePredictResponse:
+    async def _load_class_names(
+        self,
+        db: AsyncSession,
+        task_id: int | None,
+        stored_class_names: Optional[str] = None,
+    ) -> list[str]:
+        parsed_stored = self._parse_classes(stored_class_names)
+        if parsed_stored:
+            return parsed_stored
+
+        if not task_id:
+            return []
+
+        task = await db.scalar(
+            select(Task).where(
+                Task.id == task_id,
+                Task.is_deleted == False,
+            )
+        )
+        if not task or not task.annotation_id:
+            return []
+
+        annotation = await db.scalar(
+            select(Annotation).where(
+                Annotation.id == task.annotation_id,
+                Annotation.is_deleted == False,
+            )
+        )
+        if not annotation or not annotation.classes:
+            return []
+
+        return self._parse_classes(annotation.classes)
+
+    def _parse_classes(self, raw_classes: Optional[str]) -> list[str]:
+        if not raw_classes:
+            return []
+        try:
+            parsed = json.loads(raw_classes)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except Exception:
+            pass
+        return [item.strip() for item in raw_classes.split(",") if item.strip()]
+
+    def _build_predict_response(self, payload: dict, model, class_names: list[str]) -> InferencePredictResponse:
         success = bool(payload.get("success"))
         error = payload.get("error")
         raw = None if success else payload
         task_kind = payload.get("task_kind") or self._normalize_task_kind(model.model_type)
+        results = self._hydrate_class_names(payload.get("results") or [], class_names)
         return InferencePredictResponse(
             success=success,
             model_id=model.id,
@@ -145,12 +203,30 @@ class InferenceService:
             task_kind=task_kind,
             backend=payload.get("backend"),
             device=payload.get("device") or model.deployment_device,
-            results=payload.get("results") or [],
+            results=results,
             image_width=payload.get("image_width"),
             image_height=payload.get("image_height"),
             error=error,
             raw=raw,
         )
+
+    def _hydrate_class_names(self, results: list[dict], class_names: list[str]) -> list[dict]:
+        if not class_names:
+            return results
+
+        hydrated: list[dict] = []
+        for item in results:
+            if not isinstance(item, dict):
+                hydrated.append(item)
+                continue
+            class_id = item.get("class_id")
+            if isinstance(class_id, int) and 0 <= class_id < len(class_names):
+                updated = dict(item)
+                updated["class_name"] = class_names[class_id]
+                hydrated.append(updated)
+            else:
+                hydrated.append(item)
+        return hydrated
 
     def _normalize_task_kind(self, model_type: str | None) -> str:
         if model_type == "detection":

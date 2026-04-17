@@ -8,12 +8,12 @@ import io
 from typing import List, Optional
 
 import numpy as np
-import onnxruntime as ort
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from PIL import Image
 from pydantic import BaseModel
 
 from utils.logger import logger
+from utils.runtime_env import ensure_runtime_dependencies
 
 
 # ============ 请求/响应模型 ============
@@ -89,6 +89,9 @@ class ONNXRuntime:
     def _load_model(self):
         """加载 ONNX 模型"""
         try:
+            ensure_runtime_dependencies()
+            import onnxruntime as ort
+
             # 配置运行时会话
             providers = ["CUDAExecutionProvider"] if self.device == "cuda" else [
                 "CPUExecutionProvider"]

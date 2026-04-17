@@ -86,7 +86,10 @@ class DeployService:
             instance = runtime_manager.deploy_model(
                 model_id, local_model_path, device, task_kind, backend)
             if not instance:
-                return {"success": False, "error": "Failed to start runtime"}
+                return {
+                    "success": False,
+                    "error": runtime_manager.last_error or "Failed to start runtime",
+                }
 
             # 生成本地部署 ID
             _deployment_counter += 1
@@ -170,18 +173,17 @@ class DeployService:
         global _deployments
 
         try:
-            deployment = _deployments.get(model_id)
-            if not deployment:
-                return {"success": False, "error": f"Model {model_id} not deployed"}
+            deployment = _deployments.pop(model_id, None)
+            instance = runtime_manager.get_instance(model_id)
+            deployment_id = (deployment or {}).get("deployment_id") or 0
 
-            deployment_id = deployment.get("deployment_id")
-
-            # 停止运行时
+            # 卸载内存中的模型会话
             success = runtime_manager.undeploy_model(model_id)
 
-            # 清理本地记录
-            if model_id in _deployments:
-                del _deployments[model_id]
+            if not deployment and not instance:
+                logger.warning(
+                    f"Model {model_id} has no local deployment state; clearing remote deploy status only"
+                )
 
             # 通过 MQ 发送卸载消息
             publish_model_undeployed(model_id, deployment_id, SERVICE_NAME)
@@ -189,7 +191,11 @@ class DeployService:
             return {
                 "success": success,
                 "deployment_id": deployment_id,
-                "message": "Deployment stopped" if success else "Failed to stop deployment"
+                "message": (
+                    "Deployment stopped"
+                    if deployment or instance
+                    else "Deployment state cleared"
+                ) if success else "Failed to stop deployment"
             }
 
         except Exception as e:
@@ -226,11 +232,8 @@ class DeployService:
 
     def predict(self, model_id: int, image_data: bytes) -> Dict[str, Any]:
         """
-        路由推理请求到对应的运行时实例
+        路由推理请求到对应的内存会话
         """
-        import urllib.request
-        import json
-
         instance = runtime_manager.get_instance(model_id)
         if not instance:
             return {"success": False, "error": f"Model {model_id} not deployed"}
@@ -239,43 +242,13 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            url = f"http://localhost:{instance.port}/predict"
-
-            # 构建 multipart 请求
-            boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
-            body = []
-            body.append(f'--{boundary}'.encode())
-            body.append(
-                b'Content-Disposition: form-data; name="file"; filename="image.jpg"')
-            body.append(b'Content-Type: image/jpeg')
-            body.append(b'')
-            body.append(image_data)
-            body.append(f'--{boundary}--'.encode())
-
-            req = urllib.request.Request(
-                url,
-                data=b'\r\n'.join(body),
-                headers={
-                    'Content-Type': f'multipart/form-data; boundary={boundary}'},
-                method='POST'
-            )
-
-            with urllib.request.urlopen(req, timeout=30) as response:
-                result = json.loads(response.read().decode())
-                result.setdefault("task_kind", instance.task_kind)
-                result.setdefault("backend", instance.backend)
-                result.setdefault("device", instance.device)
-                return result
-
+            return instance.predict(image_data)
         except Exception as e:
-            logger.error(f"Prediction routing failed: {e}")
+            logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}
 
     def predict_base64(self, model_id: int, image_base64: str) -> Dict[str, Any]:
         """使用 base64 图像进行推理"""
-        import urllib.request
-        import json
-
         instance = runtime_manager.get_instance(model_id)
         if not instance:
             return {"success": False, "error": f"Model {model_id} not deployed"}
@@ -284,24 +257,9 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            url = f"http://localhost:{instance.port}/predict/base64"
-
-            req = urllib.request.Request(
-                url,
-                data=json.dumps({"image": image_base64}).encode(),
-                headers={'Content-Type': 'application/json'},
-                method='POST'
-            )
-
-            with urllib.request.urlopen(req, timeout=30) as response:
-                result = json.loads(response.read().decode())
-                result.setdefault("task_kind", instance.task_kind)
-                result.setdefault("backend", instance.backend)
-                result.setdefault("device", instance.device)
-                return result
-
+            return instance.predict_base64(image_base64)
         except Exception as e:
-            logger.error(f"Prediction routing failed: {e}")
+            logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}
 
     def health_check(self, model_id: int) -> Dict[str, Any]:
@@ -320,6 +278,7 @@ class DeployService:
             "task_kind": instance.task_kind,
             "backend": instance.backend,
             "device": instance.device,
+            "error": None if is_healthy else instance.last_error,
         }
 
 

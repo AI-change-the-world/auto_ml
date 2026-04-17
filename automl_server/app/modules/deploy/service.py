@@ -54,6 +54,11 @@ class DeployService:
             if response.status_code != 200:
                 raise BadRequestException(
                     f"Failed to deploy model: {response.text}")
+            payload = response.json()
+            if not payload.get("success", False):
+                raise BadRequestException(
+                    payload.get("error") or f"Failed to deploy model {data.model_id}"
+                )
 
             logger.info(f"Deploy request sent for model {data.model_id}")
 
@@ -86,6 +91,11 @@ class DeployService:
             if response.status_code != 200:
                 raise BadRequestException(
                     f"Failed to undeploy model: {response.text}")
+            payload = response.json()
+            if not payload.get("success", False):
+                raise BadRequestException(
+                    payload.get("error") or f"Failed to undeploy model {model_id}"
+                )
 
             logger.info(f"Undeploy request sent for model {model_id}")
 

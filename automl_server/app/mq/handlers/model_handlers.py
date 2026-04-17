@@ -1,6 +1,8 @@
 """
 模型相关消息处理器
 """
+import json
+
 from loguru import logger
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,10 +25,16 @@ async def handle_model_registered(message: ModelRegisteredMessage):
         try:
             # 创建可用模型记录
             model = AvailableModel(
-                name=model_info.get("base_model_name", ""),
+                name=(
+                    model_info.get("trained_model_name")
+                    or model_info.get("onnx_save_path")
+                    or model_info.get("save_path")
+                    or model_info.get("base_model_name", "")
+                ),
                 model_path=model_info.get("save_path", ""),
                 onnx_model_path=model_info.get("onnx_save_path"),
                 model_type=model_info.get("task_kind") or model_info.get("model_type", ""),
+                class_names=_serialize_class_names(model_info.get("class_names")),
                 dataset_id=model_info.get("dataset_id"),
                 task_id=message.task_id,
                 loss=model_info.get("loss"),
@@ -41,6 +49,15 @@ async def handle_model_registered(message: ModelRegisteredMessage):
             logger.error(f"Failed to register model: {e}")
             await session.rollback()
             raise
+
+
+def _serialize_class_names(value) -> str | None:
+    if isinstance(value, list):
+        names = [str(item).strip() for item in value if str(item).strip()]
+        return json.dumps(names, ensure_ascii=False) if names else None
+    if isinstance(value, str) and value.strip():
+        return value
+    return None
 
 
 async def handle_model_deployed(message: ModelDeployedMessage):

@@ -2,6 +2,7 @@
 Model Deploy Service
 轻量级模型部署服务，使用 RabbitMQ 发送状态
 """
+import asyncio
 import os
 import time
 from contextlib import asynccontextmanager
@@ -16,6 +17,7 @@ from utils.config import get_deploy_config
 from utils.config_center import get_config_center
 from utils.logger import logger
 from utils.mq import get_mq_client
+from utils.runtime_env import ensure_runtime_dependencies, runtime_dependency_status
 
 SERVICE_NAME = "model-deploy"
 
@@ -48,6 +50,14 @@ def wait_for_mq_ready():
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info("Model Deploy Service starting...")
+
+    try:
+        message = ensure_runtime_dependencies()
+        logger.info(f"Runtime dependency preflight passed: {message}")
+    except Exception as e:
+        logger.error(f"Runtime dependency preflight failed: {e}")
+        raise
+
     get_config_center().start()
 
     # 初始化 MQ 连接
@@ -66,9 +76,13 @@ async def lifespan(app: FastAPI):
     logger.info("Model Deploy Service started")
     yield
 
-    # 清理所有运行时实例
+    # 清理所有运行时实例，并尽量同步主服务中的部署状态
     for model_id in list(runtime_manager.get_all_instances().keys()):
-        runtime_manager.undeploy_model(model_id)
+        try:
+            deploy_service.undeploy(model_id)
+        except Exception as e:
+            logger.error(f"Failed to publish undeploy on shutdown: model_id={model_id}, error={e}")
+            runtime_manager.undeploy_model(model_id)
 
     # 关闭 MQ 连接
     try:
@@ -143,6 +157,8 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     mq_connected: bool
+    runtime_dependencies_ok: bool
+    runtime_dependencies_error: Optional[str] = None
 
 
 class DeploymentHealthResponse(BaseModel):
@@ -163,16 +179,22 @@ class DeploymentHealthResponse(BaseModel):
 async def health_check():
     """健康检查"""
     mq_connected = False
+    deps_ok = False
+    deps_message = None
     try:
         client = get_mq_client()
         mq_connected = client.is_ready()
     except Exception:
         pass
 
+    deps_ok, deps_message = runtime_dependency_status()
+
     return HealthResponse(
-        status="healthy",
+        status="healthy" if deps_ok else "unhealthy",
         version="2.0.0",
-        mq_connected=mq_connected
+        mq_connected=mq_connected,
+        runtime_dependencies_ok=deps_ok,
+        runtime_dependencies_error=None if deps_ok else deps_message,
     )
 
 
@@ -191,14 +213,15 @@ async def deploy_model(request: DeployRequest):
     try:
         logger.info(
             f"Deploying model {request.model_id} from {request.model_path}")
-        result = deploy_service.deploy(
+        result = await asyncio.to_thread(
+            deploy_service.deploy,
             model_id=request.model_id,
             model_path=request.model_path,
             model_format=request.model_format,
             task_kind=request.task_kind,
             backend=request.backend,
             device=request.device,
-            version=request.version
+            version=request.version,
         )
 
         if result["success"]:
@@ -229,7 +252,7 @@ async def undeploy_model(model_id: int):
     """
     try:
         logger.info(f"Undeploying model {model_id}")
-        result = deploy_service.undeploy(model_id)
+        result = await asyncio.to_thread(deploy_service.undeploy, model_id)
 
         return UndeployResponse(
             success=result["success"],
@@ -244,7 +267,7 @@ async def undeploy_model(model_id: int):
 async def list_deployments():
     """获取所有部署列表（本地维护的状态）"""
     try:
-        deployments = deploy_service.get_deployments()
+        deployments = await asyncio.to_thread(deploy_service.get_deployments)
         return [DeploymentInfo(**dep) for dep in deployments]
     except Exception as e:
         logger.error(f"List deployments failed: {e}")
@@ -261,7 +284,7 @@ async def predict(model_id: int, file: UploadFile = File(...)):
     """
     try:
         image_data = await file.read()
-        result = deploy_service.predict(model_id, image_data)
+        result = await asyncio.to_thread(deploy_service.predict, model_id, image_data)
 
         if result.get("success"):
             return PredictResponse(
@@ -297,7 +320,11 @@ async def predict_base64(model_id: int, data: dict):
             raise HTTPException(
                 status_code=400, detail="image field is required")
 
-        result = deploy_service.predict_base64(model_id, image_base64)
+        result = await asyncio.to_thread(
+            deploy_service.predict_base64,
+            model_id,
+            image_base64,
+        )
 
         if result.get("success"):
             return PredictResponse(
@@ -329,7 +356,7 @@ async def deployment_health(model_id: int):
     - **model_id**: 模型业务ID
     """
     try:
-        result = deploy_service.health_check(model_id)
+        result = await asyncio.to_thread(deploy_service.health_check, model_id)
         return DeploymentHealthResponse(**result)
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -344,7 +371,7 @@ async def restart_runtime(model_id: int):
     - **model_id**: 模型业务ID
     """
     try:
-        success = runtime_manager.restart_instance(model_id)
+        success = await asyncio.to_thread(runtime_manager.restart_instance, model_id)
         return {"success": success, "message": "Runtime restarted" if success else "Failed to restart runtime"}
     except Exception as e:
         logger.error(f"Restart failed: {e}")

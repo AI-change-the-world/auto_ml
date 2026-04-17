@@ -109,6 +109,10 @@ def _detection_task_kind(label_format: str) -> str:
     return "detection_obb" if label_format == "obb" else "detection_bbox"
 
 
+def _trained_model_name(model_name: str, task_kind: str, task_id: int) -> str:
+    return f"{Path(model_name).stem}-{task_kind}-task-{task_id}"
+
+
 def _export_onnx_model(
     task_id: int,
     best_pt_path: str,
@@ -301,7 +305,13 @@ def _train_detection_model(
             "annotation_id": task_config.get("annotation_id"),
             "save_path": pt_name,
             "onnx_save_path": onnx_name,
+            "class_names": classes,
             "base_model_name": model_name,
+            "trained_model_name": _trained_model_name(
+                model_name,
+                _detection_task_kind(prepared_dataset.label_format),
+                task_id,
+            ),
             "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
             "epoch": epochs,
             "model_type": _detection_task_kind(prepared_dataset.label_format),
@@ -443,7 +453,13 @@ def _train_classification_model(
             "annotation_id": task_config.get("annotation_id"),
             "save_path": pt_name,
             "onnx_save_path": onnx_name,
+            "class_names": classes,
             "base_model_name": model_name,
+            "trained_model_name": _trained_model_name(
+                model_name,
+                "classification",
+                task_id,
+            ),
             "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
             "epoch": epochs,
             "model_type": "classification",
