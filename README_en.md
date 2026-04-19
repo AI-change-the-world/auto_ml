@@ -32,6 +32,7 @@ AutoML is an open-source end-to-end computer vision platform that provides a com
 - 💾 **Object Storage Integration**: Supports MinIO/S3 storage for efficient management of large-scale datasets and models
 - 🌐 **Modern Frontend**: React 19 + TypeScript + Ant Design 6, smooth user experience
 - 🔌 **Plugin Design**: Independent training and deployment services, flexible extensibility
+- 🤖 **AI-Assisted Annotation**: Integrated Auto Augment Pipeline for intelligent annotation generation and extraction
 
 ---
 
@@ -50,6 +51,14 @@ AutoML is an open-source end-to-end computer vision platform that provides a com
 - Annotation project management with custom classes
 - High-performance rendering engine based on Konva
 - Efficient annotation experience with undo/redo and keyboard shortcuts
+- Interactive annotation tutorial (Example Dataset)
+
+### 🤖 AI-Assisted Annotation
+- **Smart Annotation Generation**: Auto annotation drafts based on multimodal large models
+- **White Box Extraction**: OpenCV + RapidOCR intelligent extraction of overlay annotations
+- **Multimodal Understanding**: MLLM image understanding and annotation restoration
+- **Composable Capabilities**: Independent AI capability modules for flexible invocation
+- **Pipeline Orchestration**: Lightweight serial orchestration for multi-step processing
 
 ### 🧪 Model Training
 - Support for mainstream object detection models like YOLO
@@ -102,7 +111,7 @@ AutoML is an open-source end-to-end computer vision platform that provides a com
           ┌─────────▼─────────┐      ┌─────────▼─────────┐
           │  Model Trainer    │      │  Model Deploy     │
           │  Port: 8081       │      │  Port: 8082       │
-          │                   │      │  Runtime: 9001+   │
+          │                   │      │                   │
           └───────────────────┘      └───────────────────┘
 ```
 
@@ -134,6 +143,7 @@ AutoML is an open-source end-to-end computer vision platform that provides a com
 **Microservices**
 - Model Trainer Service
 - Model Deploy Service
+- Auto Augment Pipeline (AI-Assisted Annotation Service)
 
 ---
 
@@ -278,7 +288,13 @@ auto_ml/
 │   ├── utils/               # Utilities
 │   └── server.py            # Service entry
 │
-├── auto_augment_pipeline/   # Data Augmentation Pipeline (Optional)
+├── auto_augment_pipeline/   # AI-Assisted Annotation Service
+│   ├── capabilities.py      # Reusable AI capabilities (image description, annotation generation, white box extraction, etc.)
+│   ├── providers.py         # Model provider wrappers (OpenAI Compatible, Mock)
+│   ├── ocr.py               # RapidOCR integration and text normalization
+│   ├── pipeline.py          # Lightweight Pipeline orchestrator
+│   ├── config.py            # YAML/Nacos configuration management
+│   └── app.py               # FastAPI service entry
 │
 ├── docker-compose.yml       # Docker Compose configuration
 ├── mysql/init/              # Database initialization scripts
