@@ -101,6 +101,38 @@ async def _ensure_schema_compatibility(conn):
                 "AFTER model_type"
             )
         )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'dataset' "
+            "AND COLUMN_NAME = 'scenario_type'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE dataset "
+                "ADD COLUMN scenario_type INT DEFAULT 0 COMMENT '场景类型: 0=普通, 1=无人机航拍/拼接' "
+                "AFTER data_type"
+            )
+        )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'dataset' "
+            "AND COLUMN_NAME = 'scenario_config'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE dataset "
+                "ADD COLUMN scenario_config TEXT DEFAULT NULL COMMENT '场景配置 JSON' "
+                "AFTER scenario_type"
+            )
+        )
     await conn.execute(
         text(
             "UPDATE available_model am "

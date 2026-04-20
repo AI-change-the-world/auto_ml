@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Input } from 'antd';
+import { message, Spin, Modal, Input, Select } from 'antd';
 import {
   PlusOutlined,
   DatabaseOutlined,
@@ -8,11 +8,24 @@ import {
   PictureOutlined,
   ClockCircleOutlined,
   DeleteOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { listDatasets, createDataset, deleteDataset } from '../../api/dataset';
 import type { Dataset, DatasetCreate } from '../../types';
-import { DataTypeLabels } from '../../types';
+import {
+  DataTypeLabels,
+  DatasetScenarioLabels,
+  DatasetScenarioType,
+  createDefaultAerialScenarioConfig,
+} from '../../types';
 import { useTranslation } from 'react-i18next';
+
+const createInitialFormData = (): DatasetCreate => ({
+  name: '',
+  data_type: 0,
+  scenario_type: DatasetScenarioType.Normal,
+  scenario_config: null,
+});
 
 const DatasetListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -24,7 +37,7 @@ const DatasetListPage: React.FC = () => {
   const [keyword, setKeyword] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [formData, setFormData] = useState<DatasetCreate>({ name: '', data_type: 0 });
+  const [formData, setFormData] = useState<DatasetCreate>(createInitialFormData());
 
   const fetchDatasets = useCallback(async () => {
     setLoading(true);
@@ -44,7 +57,7 @@ const DatasetListPage: React.FC = () => {
       const res = await createDataset(formData);
       message.success(tc('msg.createSuccess'));
       setCreateOpen(false);
-      setFormData({ name: '', data_type: 0 });
+      setFormData(createInitialFormData());
       fetchDatasets();
       if (res) navigate(`/datasets/${res.id}`);
     } catch { message.error(tc('msg.createFailed')); }
@@ -152,11 +165,43 @@ const DatasetListPage: React.FC = () => {
 
       <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalDatasets', { count: total })}</div>
 
-      <Modal title={t('newDataset')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', data_type: 0 }); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
+      <Modal title={t('newDataset')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData(createInitialFormData()); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.name')}</label>
             <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('scenarioType')}</label>
+            <Select
+              style={{ width: '100%' }}
+              value={formData.scenario_type ?? DatasetScenarioType.Normal}
+              onChange={(value) => setFormData({
+                ...formData,
+                data_type: 0,
+                scenario_type: value,
+                scenario_config: value === DatasetScenarioType.AerialStitch ? createDefaultAerialScenarioConfig() : null,
+              })}
+              options={[
+                {
+                  label: DatasetScenarioLabels[DatasetScenarioType.Normal],
+                  value: DatasetScenarioType.Normal,
+                },
+                {
+                  label: DatasetScenarioLabels[DatasetScenarioType.AerialStitch],
+                  value: DatasetScenarioType.AerialStitch,
+                },
+              ]}
+            />
+            {formData.scenario_type === DatasetScenarioType.AerialStitch && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, lineHeight: 1.7 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#0f766e', fontWeight: 600, marginBottom: 2 }}>
+                  <ApartmentOutlined /> {t('aerialScenarioTitle')}
+                </div>
+                <div>{t('aerialScenarioDesc')}</div>
+                <div style={{ marginTop: 4, color: '#94a3b8' }}>{t('aerialNamingExample')}</div>
+              </div>
+            )}
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataType')}</label>

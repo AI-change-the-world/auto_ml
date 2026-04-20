@@ -1,16 +1,19 @@
 import { create } from 'zustand';
-import type { AnnotationProject, AnnotationFile, DatasetFile } from '../types';
+import type { AnnotationProject, AnnotationFile, DatasetFile, Dataset } from '../types';
 import { getAnnotation, getAnnotationFiles, saveAnnotationFile } from '../api/annotation';
 import { updateAnnotation as updateAnnotationApi } from '../api/annotation';
-import { getDatasetFiles, previewFile } from '../api/dataset';
+import { getDataset, getDatasetFiles, previewFile } from '../api/dataset';
 import { AnnotationType, createClassificationAnnotation } from '../types';
 import { toYoloFormat } from '../utils/yolo';
+import { isImageFileName } from '../utils/file';
 import { useAnnotationStore } from './annotationStore';
 import { message } from 'antd';
 
 interface DatasetStoreState {
   // 当前标注项目
   annotationProject: AnnotationProject | null;
+  // 当前关联数据集
+  dataset: Dataset | null;
   // 数据集文件列表 (图像文件)
   datasetFiles: DatasetFile[];
   // 标注文件列表
@@ -25,6 +28,7 @@ interface DatasetStoreState {
   // Actions
   loadAnnotationProject: (annotationId: number) => Promise<void>;
   loadFileAtIndex: (index: number) => Promise<void>;
+  loadFileByName: (fileName: string) => Promise<void>;
   nextFile: () => Promise<void>;
   prevFile: () => Promise<void>;
   saveCurrentAnnotation: () => Promise<void>;
@@ -32,6 +36,7 @@ interface DatasetStoreState {
 
 export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
   annotationProject: null,
+  dataset: null,
   datasetFiles: [],
   annotationFiles: [],
   currentFileIndex: -1,
@@ -43,7 +48,7 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
     try {
       // 1. 获取标注项目
       const project = await getAnnotation(annotationId);
-      set({ annotationProject: project });
+      set({ annotationProject: project, dataset: null });
 
       // 2. 设置 classes
       const annotationStore = useAnnotationStore.getState();
@@ -59,9 +64,12 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
       // 3. 获取数据集文件列表
       if (project.dataset_id) {
-        const datasetResult = await getDatasetFiles(project.dataset_id);
-        const files = datasetResult.items || [];
-        set({ datasetFiles: files });
+        const [dataset, datasetResult] = await Promise.all([
+          getDataset(project.dataset_id),
+          getDatasetFiles(project.dataset_id),
+        ]);
+        const files = (datasetResult.items || []).filter((file) => isImageFileName(file.file_name));
+        set({ dataset, datasetFiles: files });
 
         // 4. 获取标注文件列表
         const annotationResult = await getAnnotationFiles(annotationId, 1, 500);
@@ -115,6 +123,14 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
     } catch (err) {
       console.error('Failed to load file:', err);
       set({ loading: false });
+    }
+  },
+
+  loadFileByName: async (fileName: string) => {
+    const { datasetFiles } = get();
+    const index = datasetFiles.findIndex((file) => file.file_name === fileName);
+    if (index >= 0) {
+      await get().loadFileAtIndex(index);
     }
   },
 

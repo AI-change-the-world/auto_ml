@@ -2,16 +2,18 @@
 数据集业务逻辑
 """
 import io
+import json
 import os
 import uuid
 import zipfile
 import tarfile
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import UploadFile
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.constants import DatasetScenarioType
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
@@ -24,6 +26,31 @@ ARCHIVE_EXTENSIONS = {'.zip', '.tar', '.tar.gz',
 SKIP_PREFIXES = ('__MACOSX/', '.', '._')
 
 
+DEFAULT_AERIAL_STITCH_CONFIG: Dict[str, Any] = {
+    "grouping": {
+        "strategy": "filename_prefix",
+        "pattern_hint": "{scene}_{rows}x{cols}_r{row}_c{col}.jpg",
+        "sequence_order": "row_major",
+    },
+    "stitching": {
+        "enabled": True,
+        "allow_missing_tiles": True,
+        "skip_invalid_files": True,
+        "default_overlap_ratio": 0.2,
+        "manual_alignment_required": False,
+    },
+    "annotation": {
+        "coordinate_source": "global",
+        "support_tile_annotation": True,
+        "support_mosaic_annotation": True,
+    },
+    "training": {
+        "default_views": ["tile", "mosaic"],
+        "allow_view_specific_models": True,
+    },
+}
+
+
 class DatasetService:
     """数据集服务"""
 
@@ -32,6 +59,11 @@ class DatasetService:
 
     async def create_dataset(self, db: AsyncSession, data: DatasetCreate) -> DatasetResponse:
         """创建数据集"""
+        scenario_config = self._prepare_scenario_config(
+            data.scenario_type,
+            data.scenario_config,
+        )
+
         # 生成 S3 存储路径
         dataset_uuid = str(uuid.uuid4())
         save_path = f"datasets/{dataset_uuid}"
@@ -50,20 +82,22 @@ class DatasetService:
             name=data.name,
             storage_type=data.storage_type,
             data_type=data.data_type,
+            scenario_type=data.scenario_type,
+            scenario_config=self._dump_scenario_config(scenario_config),
             save_path=save_path,
             description=data.description,
             count=0,
         )
 
         logger.info(f"Dataset created: {dataset.name}, path={save_path}")
-        return DatasetResponse.model_validate(dataset)
+        return self._to_response(dataset)
 
     async def get_dataset(self, db: AsyncSession, dataset_id: int) -> DatasetResponse:
         """获取数据集"""
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
-        return DatasetResponse.model_validate(dataset)
+        return self._to_response(dataset)
 
     async def list_datasets(
         self,
@@ -75,7 +109,7 @@ class DatasetService:
         """分页查询数据集"""
         offset = (page - 1) * page_size
         items, total = await crud.get_datasets(db, offset, page_size, keyword)
-        return [DatasetResponse.model_validate(item) for item in items], total
+        return [self._to_response(item) for item in items], total
 
     async def update_dataset(
         self,
@@ -85,10 +119,25 @@ class DatasetService:
     ) -> DatasetResponse:
         """更新数据集"""
         update_data = data.model_dump(exclude_unset=True)
+        if "scenario_type" in update_data or "scenario_config" in update_data:
+            scenario_type = update_data.get("scenario_type")
+            if scenario_type is None:
+                dataset = await crud.get_dataset_by_id(db, dataset_id)
+                if not dataset:
+                    raise NotFoundException(f"Dataset {dataset_id} not found")
+                scenario_type = dataset.scenario_type
+
+            scenario_config = self._prepare_scenario_config(
+                scenario_type,
+                update_data.get("scenario_config"),
+            )
+            update_data["scenario_config"] = self._dump_scenario_config(
+                scenario_config)
+
         dataset = await crud.update_dataset(db, dataset_id, **update_data)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
-        return DatasetResponse.model_validate(dataset)
+        return self._to_response(dataset)
 
     async def delete_dataset(self, db: AsyncSession, dataset_id: int) -> bool:
         """删除数据集"""
@@ -160,6 +209,63 @@ class DatasetService:
             if lower.endswith(ext):
                 return True
         return False
+
+    def _prepare_scenario_config(
+        self,
+        scenario_type: int,
+        config: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Normalize scenario config before storing it as JSON."""
+        if scenario_type == DatasetScenarioType.NORMAL:
+            return config
+
+        if scenario_type != DatasetScenarioType.AERIAL_STITCH:
+            raise BadRequestException(
+                f"Unsupported dataset scenario_type: {scenario_type}")
+
+        if not config:
+            return DEFAULT_AERIAL_STITCH_CONFIG
+
+        normalized = json.loads(json.dumps(DEFAULT_AERIAL_STITCH_CONFIG))
+        for key, value in config.items():
+            if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                normalized[key].update(value)
+            else:
+                normalized[key] = value
+        return normalized
+
+    def _dump_scenario_config(self, config: Optional[Dict[str, Any]]) -> Optional[str]:
+        if config is None:
+            return None
+        return json.dumps(config, ensure_ascii=False)
+
+    def _load_scenario_config(self, raw_config) -> Optional[Dict[str, Any]]:
+        if not raw_config:
+            return None
+        if isinstance(raw_config, dict):
+            return raw_config
+        try:
+            parsed = json.loads(raw_config)
+        except (TypeError, json.JSONDecodeError):
+            logger.warning(
+                "Invalid dataset scenario_config JSON, returning empty config")
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    def _to_response(self, dataset) -> DatasetResponse:
+        return DatasetResponse(
+            id=dataset.id,
+            name=dataset.name,
+            storage_type=dataset.storage_type,
+            data_type=dataset.data_type,
+            scenario_type=dataset.scenario_type or DatasetScenarioType.NORMAL,
+            scenario_config=self._load_scenario_config(dataset.scenario_config),
+            save_path=dataset.save_path,
+            count=dataset.count or 0,
+            description=dataset.description,
+            created_at=dataset.created_at,
+            updated_at=dataset.updated_at,
+        )
 
     async def _extract_and_upload(
         self,

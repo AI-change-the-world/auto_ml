@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS `dataset` (
   `name` VARCHAR(255) NOT NULL COMMENT '数据集名称',
   `storage_type` INT DEFAULT 1 COMMENT '存储类型: 0=本地, 1=S3, 2=WebDAV',
   `data_type` INT DEFAULT 0 COMMENT '数据类型: 0=图像, 1=文本, 2=视频, 3=音频',
+  `scenario_type` INT DEFAULT 0 COMMENT '场景类型: 0=普通, 1=无人机航拍/拼接',
+  `scenario_config` TEXT COMMENT '场景配置 JSON',
   `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
   `count` INT DEFAULT 0 COMMENT '文件数量',
   `description` TEXT COMMENT '描述',

@@ -13,6 +13,9 @@ import DatasetListPage from './pages/dataset/DatasetListPage';
 import DatasetDetailPage from './pages/dataset/DatasetDetailPage';
 import AnnotationListPage from './pages/annotation/AnnotationListPage';
 import AnnotationPage from './pages/annotation/AnnotationPage';
+import AnnotationWorkbenchRouter from './pages/annotation/AnnotationWorkbenchRouter';
+import AerialAnnotationPage from './pages/annotation/aerial/AerialAnnotationPage';
+import WorkbenchPlaceholderPage from './pages/annotation/WorkbenchPlaceholderPage';
 import TaskListPage from './pages/task/TaskListPage';
 import TaskDetailPage from './pages/task/TaskDetailPage';
 import DeployPage from './pages/deploy/DeployPage';
@@ -50,7 +53,13 @@ const App: React.FC = () => {
 
           {/* 标注工具独立全屏布局 */}
           <Route element={<AnnotationLayout />}>
-            <Route path="/annotations/:annotationId/label" element={<AnnotationPage />} />
+            <Route path="/annotations/:annotationId/label" element={<AnnotationWorkbenchRouter />} />
+            <Route path="/annotations/:annotationId/label/image" element={<AnnotationPage />} />
+            <Route path="/annotations/:annotationId/label/aerial" element={<AerialAnnotationPage />} />
+            <Route
+              path="/annotations/:annotationId/label/mllm"
+              element={<WorkbenchPlaceholderPage title="MLLM 标注工作台待实现" subtitle="该标注类型将使用独立工作台，避免与图像/航拍标注页面冲突。" />}
+            />
           </Route>
 
           {/* 兼容旧路由 */}

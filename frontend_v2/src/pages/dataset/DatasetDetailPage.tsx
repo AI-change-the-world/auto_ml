@@ -8,6 +8,7 @@ import {
   InboxOutlined,
   ClockCircleOutlined,
   TagOutlined,
+  ApartmentOutlined,
   CloudUploadOutlined,
   FileOutlined,
   FileZipOutlined,
@@ -19,8 +20,9 @@ import {
 } from '@ant-design/icons';
 import { getDataset, getDatasetFiles, uploadDatasetFiles, previewFile, deleteDataset, deleteDatasetFile, batchDeleteDatasetFiles } from '../../api/dataset';
 import type { Dataset, DatasetFile } from '../../types';
-import { DataTypeLabels } from '../../types';
+import { DataTypeLabels, DatasetScenarioLabels, DatasetScenarioType } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { isImageFileName } from '../../utils/file';
 
 /** 获取文件图标 */
 const getFileIcon = (fileName: string) => {
@@ -36,11 +38,6 @@ const getFileIcon = (fileName: string) => {
   if (['txt', 'md', 'csv', 'json', 'xml', 'yaml', 'yml', 'log'].includes(ext))
     return <FileTextOutlined style={{ color: '#16a34a' }} />;
   return <FileOutlined style={{ color: '#999' }} />;
-};
-
-const isImageFile = (fileName: string) => {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  return ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'].includes(ext);
 };
 
 const DatasetDetailPage: React.FC = () => {
@@ -76,7 +73,7 @@ const DatasetDetailPage: React.FC = () => {
   useEffect(() => {
     files.forEach(async (f) => {
       if (previewUrls[f.file_name]) return;
-      if (!isImageFile(f.file_name)) return;
+      if (!isImageFileName(f.file_name)) return;
       try {
         const res = await previewFile(datasetId, f.file_name);
         if (res?.presigned_url) setPreviewUrls((prev) => ({ ...prev, [f.file_name]: res.presigned_url }));
@@ -170,8 +167,10 @@ const DatasetDetailPage: React.FC = () => {
     </div>
   );
 
-  const imageFiles = files.filter((f) => isImageFile(f.file_name));
+  const imageFiles = files.filter((f) => isImageFileName(f.file_name));
   const displayedFiles = activeTab === 'images' ? imageFiles : files;
+  const isAerialDataset = dataset.scenario_type === DatasetScenarioType.AerialStitch;
+  const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
 
   const tabs = [
     { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: files.length },
@@ -205,6 +204,9 @@ const DatasetDetailPage: React.FC = () => {
             <span style={{ padding: '2px 10px', background: '#eef2ff', color: '#4f6ef7', fontSize: 12, borderRadius: 999 }}>
               {DataTypeLabels[dataset.data_type] ?? tc('status.unknown')}
             </span>
+            <span style={{ padding: '2px 10px', background: isAerialDataset ? '#ecfdf5' : '#f8fafc', color: isAerialDataset ? '#0f766e' : '#64748b', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ApartmentOutlined /> {DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal]}
+            </span>
             <span style={{ padding: '2px 10px', background: '#f0fdf4', color: '#16a34a', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 5, height: 5, borderRadius: 999, background: '#16a34a' }} /> {tc('status.ready')}
             </span>
@@ -230,6 +232,31 @@ const DatasetDetailPage: React.FC = () => {
       </div>
 
       {dataset.description && <p style={{ fontSize: 13, color: '#666', margin: '8px 0 0' }}>{dataset.description}</p>}
+
+      {isAerialDataset && (
+        <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'linear-gradient(135deg, #ecfeff, #f8fafc)', border: '1px solid #ccfbf1', color: '#334155' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#0f766e', marginBottom: 6 }}>
+            <ApartmentOutlined /> {t('aerialScenarioTitle')}
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.7 }}>{t('aerialDetailDesc')}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            <span style={{ padding: '3px 8px', borderRadius: 999, background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', fontSize: 12 }}>
+              {t('aerialRulePrefix')}
+            </span>
+            <span style={{ padding: '3px 8px', borderRadius: 999, background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', fontSize: 12 }}>
+              {t('aerialRuleGrid')}
+            </span>
+            <span style={{ padding: '3px 8px', borderRadius: 999, background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', fontSize: 12 }}>
+              {t('aerialRuleSkipInvalid')}
+            </span>
+            {typeof overlapRatio === 'number' && (
+              <span style={{ padding: '3px 8px', borderRadius: 999, background: '#fff', border: '1px solid #dbeafe', color: '#2563eb', fontSize: 12 }}>
+                {t('aerialOverlap', { value: `${Math.round(overlapRatio * 100)}%` })}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #eee', marginTop: 20, marginBottom: 20 }}>
@@ -476,11 +503,16 @@ const DatasetDetailPage: React.FC = () => {
             {[
               { label: tc('label.name'), value: dataset.name },
               { label: tc('label.type'), value: DataTypeLabels[dataset.data_type] ?? tc('status.unknown') },
+              { label: t('scenarioType'), value: DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal] },
               { label: tc('label.files'), value: t('fileCount', { count: files.length }) },
               { label: t('storageLocal'), value: dataset.storage_type === 0 ? t('storageLocal') : t('storageS3') },
               { label: tc('label.createdAt'), value: new Date(dataset.created_at).toLocaleString() },
               { label: tc('label.updatedAt'), value: new Date(dataset.updated_at).toLocaleString() },
               { label: t('path'), value: dataset.save_path || '-' },
+              ...(isAerialDataset ? [
+                { label: t('aerialNamingPattern'), value: dataset.scenario_config?.grouping?.pattern_hint || '-' },
+                { label: t('aerialSequenceOrder'), value: dataset.scenario_config?.grouping?.sequence_order || '-' },
+              ] : []),
               { label: tc('label.description'), value: dataset.description || '-' },
             ].map((item, i) => (
               <div key={i}>

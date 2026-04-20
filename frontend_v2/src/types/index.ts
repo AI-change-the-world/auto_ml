@@ -30,8 +30,22 @@ export {
   AnnotationTypeLabels,
   AnnotationTypeColors,
 } from './annotation';
-export type { Dataset, DatasetFile, FilePreviewResponse, DatasetCreate, DatasetUpdate } from './dataset';
-export { DataTypeLabels, DataTypeIcons } from './dataset';
+export type {
+  Dataset,
+  DatasetFile,
+  FilePreviewResponse,
+  DatasetCreate,
+  DatasetUpdate,
+  DatasetScenarioConfig,
+  DatasetScenarioTypeValue,
+} from './dataset';
+export {
+  DataTypeLabels,
+  DataTypeIcons,
+  DatasetScenarioType,
+  DatasetScenarioLabels,
+  createDefaultAerialScenarioConfig,
+} from './dataset';
 export type { HomeStats } from './home';
 export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope, TrainingConfigPayload } from './task';
 export { TaskStatus, TaskStatusLabels, TaskStatusColors } from './task';

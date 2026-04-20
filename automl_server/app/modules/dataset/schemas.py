@@ -2,7 +2,7 @@
 数据集 Pydantic Schema
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -16,12 +16,18 @@ class DatasetCreate(BaseModel):
         default=1, description="存储类型: 0=本地, 1=S3, 2=WebDAV")
     data_type: int = Field(
         default=0, description="数据类型: 0=图像, 1=文本, 2=视频, 3=音频")
+    scenario_type: int = Field(
+        default=0, description="场景类型: 0=普通, 1=无人机航拍/拼接")
+    scenario_config: Optional[Dict[str, Any]] = Field(
+        default=None, description="场景配置 JSON")
     description: Optional[str] = Field(default=None, description="描述")
 
 
 class DatasetUpdate(BaseModel):
     """更新数据集请求"""
     name: Optional[str] = Field(default=None, max_length=255)
+    scenario_type: Optional[int] = None
+    scenario_config: Optional[Dict[str, Any]] = None
     description: Optional[str] = None
 
 
@@ -33,6 +39,8 @@ class DatasetResponse(BaseModel):
     name: str
     storage_type: int
     data_type: int
+    scenario_type: int = 0
+    scenario_config: Optional[Dict[str, Any]] = None
     save_path: Optional[str]
     count: int
     description: Optional[str]

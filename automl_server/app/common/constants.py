@@ -19,6 +19,12 @@ class DataType(IntEnum):
     AUDIO = 3
 
 
+class DatasetScenarioType(IntEnum):
+    """数据集场景类型"""
+    NORMAL = 0
+    AERIAL_STITCH = 1
+
+
 class AnnotationType(IntEnum):
     """标注类型"""
     DETECTION = 0   # 检测
