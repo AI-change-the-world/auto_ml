@@ -44,6 +44,7 @@ interface AnnotationStoreState {
   addOrGetClassId: (className: string) => number;
   removeClassByIndex: (index: number) => void;
   setDefaultClassId: (classId: number) => void;
+  setSelectedClassId: (classId: number) => void;
   setImageSize: (width: number, height: number) => void;
   setAnnotationShape: (shape: AnnotationShape) => void;
   /** 开始一次连续操作（拖拽/缩放/旋转），先保存快照 */
@@ -171,6 +172,27 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
   },
 
   setDefaultClassId: (classId: number) => set({ defaultClassId: classId }),
+
+  setSelectedClassId: (classId: number) =>
+    set((state) => {
+      const existing = state.annotations[0];
+      const nextAnnotation = existing
+        ? { ...existing, classId, selected: true } as Annotation
+        : {
+          uuid: uuidv4(),
+          shape: AnnotationShape.Classification,
+          classId,
+          visible: true,
+          selected: true,
+        } as Annotation;
+      return {
+        ...pushHistory(state),
+        annotations: [nextAnnotation],
+        selectedUuid: nextAnnotation.uuid,
+        defaultClassId: classId,
+        modified: true,
+      };
+    }),
 
   setImageSize: (width, height) => set({ imageWidth: width, imageHeight: height }),
 

@@ -54,7 +54,7 @@ async def init_db():
         # 导入所有模型以确保它们被注册
         from app.db.models import (
             Dataset, DatasetFile, Annotation, AnnotationFile,
-            Task, TaskLog, BaseModels,
+            Task, TaskLog, TaskSource, BaseModels,
             AvailableModel
         )
         # 创建所有表
@@ -111,6 +111,33 @@ async def _ensure_schema_compatibility(conn):
             "AND a.classes IS NOT NULL AND a.classes <> ''"
         )
     )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'task_source'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "CREATE TABLE task_source ("
+                "id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID', "
+                "task_id BIGINT NOT NULL COMMENT '任务ID', "
+                "dataset_id BIGINT NOT NULL COMMENT '数据集ID', "
+                "annotation_id BIGINT NOT NULL COMMENT '标注ID', "
+                "source_order INT DEFAULT 0 COMMENT '来源顺序', "
+                "source_name VARCHAR(255) DEFAULT NULL COMMENT '来源名称快照', "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', "
+                "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', "
+                "is_deleted TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记', "
+                "PRIMARY KEY (id), "
+                "KEY idx_task_source_task_id (task_id), "
+                "KEY idx_task_source_dataset_id (dataset_id), "
+                "KEY idx_task_source_annotation_id (annotation_id)"
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务训练数据源'"
+            )
+        )
 
 
 BASE_MODEL_SEEDS = [
@@ -144,6 +171,16 @@ BASE_MODEL_SEEDS = [
     ("yolo11m-cls.pt", "classification", "YOLO11 medium classification baseline", "yolo11m-cls.pt"),
     ("yolo11l-cls.pt", "classification", "YOLO11 large classification baseline", "yolo11l-cls.pt"),
     ("yolo11x-cls.pt", "classification", "YOLO11 extra-large classification baseline", "yolo11x-cls.pt"),
+    ("yolov8n-seg.pt", "segmentation", "YOLOv8 nano segmentation baseline", "yolov8n-seg.pt"),
+    ("yolov8s-seg.pt", "segmentation", "YOLOv8 small segmentation baseline", "yolov8s-seg.pt"),
+    ("yolov8m-seg.pt", "segmentation", "YOLOv8 medium segmentation baseline", "yolov8m-seg.pt"),
+    ("yolov8l-seg.pt", "segmentation", "YOLOv8 large segmentation baseline", "yolov8l-seg.pt"),
+    ("yolov8x-seg.pt", "segmentation", "YOLOv8 extra-large segmentation baseline", "yolov8x-seg.pt"),
+    ("yolo11n-seg.pt", "segmentation", "YOLO11 nano segmentation baseline", "yolo11n-seg.pt"),
+    ("yolo11s-seg.pt", "segmentation", "YOLO11 small segmentation baseline", "yolo11s-seg.pt"),
+    ("yolo11m-seg.pt", "segmentation", "YOLO11 medium segmentation baseline", "yolo11m-seg.pt"),
+    ("yolo11l-seg.pt", "segmentation", "YOLO11 large segmentation baseline", "yolo11l-seg.pt"),
+    ("yolo11x-seg.pt", "segmentation", "YOLO11 extra-large segmentation baseline", "yolo11x-seg.pt"),
 ]
 
 

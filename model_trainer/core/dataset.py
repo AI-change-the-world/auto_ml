@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import shutil
@@ -24,6 +25,23 @@ class PreparedDetectionDataset:
     root_dir: str
     label_format: str
     stats: DetectionDatasetStats
+
+
+@dataclass
+class PreparedSegmentationDataset:
+    root_dir: str
+    images: int = 0
+
+
+@dataclass
+class DownloadedTrainingSource:
+    dataset_id: int
+    annotation_id: int
+    dataset_path: str
+    annotation_path: str
+    local_root: str
+    source_order: int = 0
+    source_name: Optional[str] = None
 
 
 def _clamp01(value: float) -> float:
@@ -198,6 +216,191 @@ def download_dataset_from_s3(
         raise
 
 
+def download_training_sources_from_s3(
+    sources: List[Dict[str, object]],
+    temp_root: str = "./runs",
+) -> List[DownloadedTrainingSource]:
+    downloaded: List[DownloadedTrainingSource] = []
+    try:
+        for index, source in enumerate(sources):
+            dataset_path = str(source.get("dataset_path") or "").strip()
+            annotation_path = str(source.get("annotation_path") or "").strip()
+            local_root = download_dataset_from_s3(dataset_path, annotation_path, temp_root=temp_root)
+            if not local_root:
+                raise ValueError(
+                    f"Failed to download training source: dataset_path={dataset_path}, annotation_path={annotation_path}"
+                )
+            downloaded.append(
+                DownloadedTrainingSource(
+                    dataset_id=int(source.get("dataset_id") or 0),
+                    annotation_id=int(source.get("annotation_id") or 0),
+                    dataset_path=dataset_path,
+                    annotation_path=annotation_path,
+                    local_root=local_root,
+                    source_order=int(source.get("source_order") or index),
+                    source_name=str(source.get("source_name") or f"source_{index}"),
+                )
+            )
+        return downloaded
+    except Exception:
+        for item in downloaded:
+            cleanup_temp_dir(item.local_root)
+        raise
+
+
+def merge_detection_sources(
+    sources: List[DownloadedTrainingSource],
+    temp_root: str = "./runs",
+) -> str:
+    merged_root = os.path.abspath(tempfile.mkdtemp(prefix="merge_det_", dir=temp_root))
+    images_dir = os.path.join(merged_root, "dataset")
+    labels_dir = os.path.join(merged_root, "annotations")
+    os.makedirs(images_dir, exist_ok=True)
+    os.makedirs(labels_dir, exist_ok=True)
+
+    pair_count = 0
+    for source in sources:
+        source_images_dir = os.path.join(source.local_root, "dataset")
+        source_labels_dir = os.path.join(source.local_root, "annotations")
+        if not os.path.isdir(source_images_dir) or not os.path.isdir(source_labels_dir):
+            raise ValueError(
+                f"Invalid downloaded detection source: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
+            )
+
+        for fname in sorted(os.listdir(source_images_dir)):
+            if not fname.lower().endswith((".jpg", ".jpeg", ".png")):
+                continue
+            stem = Path(fname).stem
+            label_name = stem + ".txt"
+            source_label_path = os.path.join(source_labels_dir, label_name)
+            if not os.path.exists(source_label_path):
+                continue
+            merged_stem = f"s{source.source_order}_d{source.dataset_id}_a{source.annotation_id}_{stem}"
+            image_ext = Path(fname).suffix
+            merged_image_name = merged_stem + image_ext
+            merged_label_name = merged_stem + ".txt"
+            shutil.copy(
+                os.path.join(source_images_dir, fname),
+                os.path.join(images_dir, merged_image_name),
+            )
+            shutil.copy(
+                source_label_path,
+                os.path.join(labels_dir, merged_label_name),
+            )
+            pair_count += 1
+
+    if pair_count == 0:
+        cleanup_temp_dir(merged_root)
+        raise ValueError("No valid image-label pairs found after merging detection sources")
+
+    logger.info(
+        f"Merged detection sources: source_count={len(sources)}, pairs={pair_count}, root={merged_root}"
+    )
+    return merged_root
+
+
+def merge_classification_sources(
+    sources: List[DownloadedTrainingSource],
+    temp_root: str = "./runs",
+) -> tuple[str, Dict[str, str]]:
+    merged_root = os.path.abspath(tempfile.mkdtemp(prefix="merge_cls_", dir=temp_root))
+    images_dir = os.path.join(merged_root, "dataset")
+    os.makedirs(images_dir, exist_ok=True)
+    merged_class_info: Dict[str, str] = {}
+
+    image_count = 0
+    for source in sources:
+        source_images_dir = os.path.join(source.local_root, "dataset")
+        source_annotations_dir = os.path.join(source.local_root, "annotations")
+        classes_json_path = os.path.join(source_annotations_dir, "classes.json")
+        if not os.path.isdir(source_images_dir):
+            raise ValueError(
+                f"Invalid downloaded classification source: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
+            )
+        if not os.path.exists(classes_json_path):
+            raise FileNotFoundError(
+                f"classification source missing classes.json: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
+            )
+
+        with open(classes_json_path, "r", encoding="utf-8") as f:
+            class_info = json.load(f)
+        if not isinstance(class_info, dict):
+            raise ValueError(
+                f"classification classes.json must be a mapping: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
+            )
+
+        for fname, class_name in class_info.items():
+            source_path = os.path.join(source_images_dir, fname)
+            if not os.path.exists(source_path):
+                continue
+            stem = Path(fname).stem
+            image_ext = Path(fname).suffix
+            merged_name = f"s{source.source_order}_d{source.dataset_id}_a{source.annotation_id}_{stem}{image_ext}"
+            shutil.copy(source_path, os.path.join(images_dir, merged_name))
+            merged_class_info[merged_name] = str(class_name)
+            image_count += 1
+
+    if image_count == 0:
+        cleanup_temp_dir(merged_root)
+        raise ValueError("No valid classified images found after merging classification sources")
+
+    logger.info(
+        f"Merged classification sources: source_count={len(sources)}, images={image_count}, root={merged_root}"
+    )
+    return merged_root, merged_class_info
+
+
+def merge_segmentation_sources(
+    sources: List[DownloadedTrainingSource],
+    temp_root: str = "./runs",
+) -> str:
+    merged_root = os.path.abspath(tempfile.mkdtemp(prefix="merge_seg_", dir=temp_root))
+    images_dir = os.path.join(merged_root, "dataset")
+    labels_dir = os.path.join(merged_root, "annotations")
+    os.makedirs(images_dir, exist_ok=True)
+    os.makedirs(labels_dir, exist_ok=True)
+
+    pair_count = 0
+    for source in sources:
+      source_images_dir = os.path.join(source.local_root, "dataset")
+      source_labels_dir = os.path.join(source.local_root, "annotations")
+      if not os.path.isdir(source_images_dir) or not os.path.isdir(source_labels_dir):
+          raise ValueError(
+              f"Invalid downloaded segmentation source: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
+          )
+
+      for fname in sorted(os.listdir(source_images_dir)):
+          if not fname.lower().endswith((".jpg", ".jpeg", ".png")):
+              continue
+          stem = Path(fname).stem
+          label_name = stem + ".txt"
+          source_label_path = os.path.join(source_labels_dir, label_name)
+          if not os.path.exists(source_label_path):
+              continue
+          merged_stem = f"s{source.source_order}_d{source.dataset_id}_a{source.annotation_id}_{stem}"
+          image_ext = Path(fname).suffix
+          merged_image_name = merged_stem + image_ext
+          merged_label_name = merged_stem + ".txt"
+          shutil.copy(
+              os.path.join(source_images_dir, fname),
+              os.path.join(images_dir, merged_image_name),
+          )
+          shutil.copy(
+              source_label_path,
+              os.path.join(labels_dir, merged_label_name),
+          )
+          pair_count += 1
+
+    if pair_count == 0:
+        cleanup_temp_dir(merged_root)
+        raise ValueError("No valid image-label pairs found after merging segmentation sources")
+
+    logger.info(
+        f"Merged segmentation sources: source_count={len(sources)}, pairs={pair_count}, root={merged_root}"
+    )
+    return merged_root
+
+
 def prepare_detection_dataset(
     all_images_dir: str,
     all_labels_dir: str,
@@ -343,6 +546,66 @@ def prepare_classification_dataset(
     copy_cls_images(val_files, "val")
 
     return temp_dir
+
+
+def prepare_segmentation_dataset(
+    all_images_dir: str,
+    all_labels_dir: str,
+    class_names: List[str],
+    val_split: float = 0.2,
+    min_total: int = 10,
+    min_val: int = 1,
+    tmp_root: str = "./runs",
+) -> PreparedSegmentationDataset:
+    temp_dir = os.path.abspath(tempfile.mkdtemp(prefix="yolo_seg_", dir=tmp_root))
+    all_image_files = [
+        f for f in os.listdir(all_images_dir)
+        if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        and os.path.exists(os.path.join(all_labels_dir, Path(f).stem + ".txt"))
+    ]
+    total = len(all_image_files)
+    if total == 0:
+        raise ValueError("No valid image-label pairs found for segmentation training")
+
+    random.shuffle(all_image_files)
+    if total >= min_total and val_split > 0:
+        val_count = max(int(total * val_split), min_val)
+        val_count = min(val_count, total - 1)
+        val_files = set(all_image_files[:val_count])
+        train_files = set(all_image_files[val_count:])
+    else:
+        train_files = set(all_image_files)
+        val_files = set(all_image_files)
+
+    def copy_files(file_set, mode):
+        img_dst = os.path.join(temp_dir, "images", mode)
+        lbl_dst = os.path.join(temp_dir, "labels", mode)
+        os.makedirs(img_dst, exist_ok=True)
+        os.makedirs(lbl_dst, exist_ok=True)
+
+        for fname in file_set:
+            stem = Path(fname).stem
+            shutil.copy(
+                os.path.join(all_images_dir, fname),
+                os.path.join(img_dst, fname),
+            )
+            shutil.copy(
+                os.path.join(all_labels_dir, stem + ".txt"),
+                os.path.join(lbl_dst, stem + ".txt"),
+            )
+
+    copy_files(train_files, "train")
+    copy_files(val_files, "val")
+
+    with open(os.path.join(temp_dir, "data.yaml"), "w", encoding="utf-8") as f:
+        f.write(f"""path: {temp_dir}
+train: images/train
+val: images/val
+nc: {len(class_names)}
+names: {class_names}
+""")
+
+    return PreparedSegmentationDataset(root_dir=temp_dir, images=total)
 
 
 def cleanup_temp_dir(temp_dir: str):

@@ -7,9 +7,17 @@ import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask
 import { subscribeTaskStream } from '../../api/taskStream';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
-import type { TaskResponse, TaskCreate, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope, TrainingConfigPayload } from '../../types/task';
+import type {
+  TaskResponse,
+  TaskCreate,
+  BaseModelResponse,
+  TrainerStatusResponse,
+  TaskStreamEnvelope,
+  TrainingConfigPayload,
+  TaskSourceItem,
+} from '../../types/task';
 import type { Dataset } from '../../types/dataset';
-import type { AnnotationProject } from '../../types/annotation';
+import { AnnotationType, type AnnotationProject } from '../../types/annotation';
 import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
 import { useTranslation } from 'react-i18next';
 
@@ -34,6 +42,16 @@ const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
 
 const getStaleMinutes = (seconds?: number | null) => Math.max(1, Math.floor((seconds || 0) / 60));
 
+const getExpectedAnnotationType = (taskType: number) => (
+  taskType === 1
+    ? AnnotationType.Classification
+    : taskType === 2
+      ? AnnotationType.Segmentation
+      : taskType === 3
+        ? AnnotationType.Pose
+        : AnnotationType.Detection
+);
+
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('task');
@@ -51,12 +69,12 @@ const TaskListPage: React.FC = () => {
   const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
   const [form, setForm] = useState<{
     task_type: number;
-    dataset_id?: number;
-    annotation_id?: number;
+    sources: TaskSourceItem[];
     detection_mode: DetectionMode;
     train_config: TrainingConfigPayload;
   }>({
     task_type: 0,
+    sources: [{ dataset_id: 0, annotation_id: 0 }],
     detection_mode: 'bbox',
     train_config: DEFAULT_TRAIN_CONFIG,
   });
@@ -159,8 +177,9 @@ const TaskListPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!form.dataset_id) { message.warning(t('pleaseSelectDataset')); return; }
-    if (!form.annotation_id) { message.warning(t('pleaseSelectAnnotation')); return; }
+    if (form.sources.length === 0) { message.warning(t('pleaseAddSource')); return; }
+    if (form.sources.some((source) => !source.dataset_id)) { message.warning(t('pleaseSelectDataset')); return; }
+    if (form.sources.some((source) => !source.annotation_id)) { message.warning(t('pleaseSelectAnnotation')); return; }
     if (!form.train_config.name) { message.warning(t('pleaseSelectBaseModel')); return; }
     setCreating(true);
     try {
@@ -168,10 +187,12 @@ const TaskListPage: React.FC = () => {
         ...form.train_config,
         label_format: form.task_type === 0 ? form.detection_mode : undefined,
       };
+      const [firstSource] = form.sources;
       const data: TaskCreate = {
         task_type: form.task_type,
-        dataset_id: form.dataset_id,
-        annotation_id: form.annotation_id,
+        dataset_id: firstSource?.dataset_id,
+        annotation_id: firstSource?.annotation_id,
+        sources: form.sources,
         config: JSON.stringify(trainConfig),
       };
       await createTrainTask(data);
@@ -179,6 +200,7 @@ const TaskListPage: React.FC = () => {
       setCreateOpen(false);
       setForm({
         task_type: 0,
+        sources: [{ dataset_id: 0, annotation_id: 0 }],
         detection_mode: 'bbox',
         train_config: DEFAULT_TRAIN_CONFIG,
       });
@@ -205,8 +227,13 @@ const TaskListPage: React.FC = () => {
     { key: 'all', label: tc('label.all') }, { key: '0', label: tc('status.queued') },
     { key: '1', label: tc('status.running') }, { key: '2', label: '后处理' }, { key: '3', label: tc('status.completed') }, { key: '4', label: tc('status.failed') },
   ];
-  const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification') };
-  const currentAnnotation = annotations.find((item) => item.id === form.annotation_id);
+  const typeLabels: Record<number, string> = {
+    0: t('detection'),
+    1: t('classification'),
+    2: t('segmentation'),
+    3: t('pose'),
+  };
+  const currentAnnotation = annotations.find((item) => item.id === form.sources[0]?.annotation_id);
   const annotationTypeHint = currentAnnotation?.annotation_type === 0
     ? t('detection')
     : currentAnnotation?.annotation_type === 1
@@ -217,6 +244,12 @@ const TaskListPage: React.FC = () => {
   const availableBaseModels = baseModels.filter((model) => {
     if (form.task_type === 1) {
       return model.model_type === 'classification';
+    }
+    if (form.task_type === 2) {
+      return model.model_type === 'segmentation';
+    }
+    if (form.task_type === 3) {
+      return model.model_type === 'pose';
     }
     return form.detection_mode === 'obb'
       ? model.model_type === 'detection_obb'
@@ -237,6 +270,7 @@ const TaskListPage: React.FC = () => {
     setForm((prev) => ({
       ...prev,
       task_type: taskType,
+      sources: prev.sources.map((source) => ({ ...source, annotation_id: 0 })),
       train_config: {
         ...prev.train_config,
         name: '',
@@ -256,6 +290,46 @@ const TaskListPage: React.FC = () => {
       },
     }));
   };
+
+  const addSource = () => {
+    setForm((prev) => ({
+      ...prev,
+      sources: [...prev.sources, { dataset_id: 0, annotation_id: 0 }],
+    }));
+  };
+
+  const removeSource = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      sources: prev.sources.length === 1
+        ? [{ dataset_id: 0, annotation_id: 0 }]
+        : prev.sources.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const updateSource = (index: number, key: keyof TaskSourceItem, value: number) => {
+    setForm((prev) => ({
+      ...prev,
+      sources: prev.sources.map((source, idx) => (
+        idx === index
+          ? {
+            ...source,
+            [key]: value,
+            ...(key === 'dataset_id' ? { annotation_id: 0 } : {}),
+          }
+          : source
+      )),
+    }));
+  };
+
+  const getAnnotationOptions = (datasetId?: number) => (
+    annotations
+      .filter((annotation) => (
+        (!datasetId || annotation.dataset_id === datasetId)
+        && annotation.annotation_type === getExpectedAnnotationType(form.task_type)
+      ))
+      .map((annotation) => ({ label: annotation.name, value: annotation.id }))
+  );
 
   return (
     <div className="page-container">
@@ -339,6 +413,7 @@ const TaskListPage: React.FC = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
                           <span>{t('datasetId', { id: task.dataset_id ?? '-' })}</span>
                           {task.annotation_id && <span>{t('annotationId', { id: task.annotation_id })}</span>}
+                          <span>{t('sourceCount', { count: task.sources?.length ?? 0 })}</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
                           {task.is_stale && (
                             <span style={{ color: '#c2410c' }}>
@@ -388,17 +463,75 @@ const TaskListPage: React.FC = () => {
                   border: form.task_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                   background: form.task_type === Number(k) ? '#eef2ff' : '#fff',
                   color: form.task_type === Number(k) ? '#4f6ef7' : '#666',
-                }}>{v}</button>
+                }} disabled={Number(k) === 3}>{Number(k) === 3 ? `${v} (${t('comingSoon')})` : v}</button>
               ))}
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataset')}</label>
-            <Select style={{ width: '100%' }} placeholder={t('selectDataset')} value={form.dataset_id} onChange={(v) => setForm({ ...form, dataset_id: v })} options={datasets.map((d) => ({ label: d.name, value: d.id }))} showSearch optionFilterProp="label" />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationOptional')}</label>
-            <Select style={{ width: '100%' }} placeholder={t('selectAnnotation')} value={form.annotation_id} onChange={(v) => setForm({ ...form, annotation_id: v })} options={annotations.map((a) => ({ label: a.name, value: a.id }))} showSearch optionFilterProp="label" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555' }}>{t('sources')}</label>
+              <button
+                type="button"
+                onClick={addSource}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  border: '1px solid #e5e5e5',
+                  background: '#fff',
+                  color: '#666',
+                }}
+              >
+                <PlusOutlined /> {t('addSource')}
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {form.sources.map((source, index) => (
+                <div key={`source-${index}`} style={{ border: '1px solid #eee', borderRadius: 10, padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#777', marginBottom: 4 }}>{t('dataset')}</label>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder={t('selectDataset')}
+                      value={source.dataset_id || undefined}
+                      onChange={(value) => updateSource(index, 'dataset_id', value)}
+                      options={datasets.map((d) => ({ label: d.name, value: d.id }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, color: '#777', marginBottom: 4 }}>{t('annotationOptional')}</label>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder={t('selectAnnotation')}
+                      value={source.annotation_id || undefined}
+                      onChange={(value) => updateSource(index, 'annotation_id', value)}
+                      options={getAnnotationOptions(source.dataset_id)}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeSource(index)}
+                    style={{
+                      height: 32,
+                      padding: '0 10px',
+                      fontSize: 12,
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      border: '1px solid #f0f0f0',
+                      background: '#fff',
+                      color: '#999',
+                    }}
+                  >
+                    {t('removeSource')}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
           {form.task_type === 0 && (
             <div>
@@ -422,6 +555,9 @@ const TaskListPage: React.FC = () => {
                 </div>
               )}
             </div>
+          )}
+          {form.task_type === 3 && (
+            <div style={{ fontSize: 12, color: '#999' }}>{t('posePlaceholder')}</div>
           )}
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('baseModel')}</label>

@@ -1,8 +1,23 @@
+export interface TaskSourceItem {
+  dataset_id: number;
+  annotation_id: number;
+}
+
+export interface TaskSourceResponse {
+  id: number;
+  task_id: number;
+  dataset_id: number;
+  annotation_id: number;
+  source_order: number;
+  source_name: string | null;
+}
+
 /** 训练任务创建请求 */
 export interface TaskCreate {
   task_type: number;
-  dataset_id: number;
+  dataset_id?: number;
   annotation_id?: number;
+  sources?: TaskSourceItem[];
   config?: string;
 }
 
@@ -30,6 +45,7 @@ export interface TaskResponse {
   updated_at: string;
   is_stale?: boolean;
   stale_seconds?: number | null;
+  sources?: TaskSourceResponse[];
 }
 
 /** 任务状态枚举 */
@@ -39,6 +55,13 @@ export enum TaskStatus {
   PostProcess = 2,
   Completed = 3,
   Failed = 4,
+}
+
+export enum TaskType {
+  Detection = 0,
+  Classification = 1,
+  Segmentation = 2,
+  Pose = 3,
 }
 
 export const TaskStatusLabels: Record<number, string> = {

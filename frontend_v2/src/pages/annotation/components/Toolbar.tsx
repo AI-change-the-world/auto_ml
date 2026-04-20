@@ -16,6 +16,7 @@ import {
   DeleteOutlined,
   ArrowLeftOutlined,
   RobotOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
 import { assistCurrentAnnotation } from '../../../api/annotation';
 import { useAnnotationStore } from '../../../stores/annotationStore';
@@ -33,6 +34,8 @@ const Toolbar: React.FC = () => {
   const { nextFile, prevFile, saveCurrentAnnotation, currentFileIndex, datasetFiles, loading, annotationProject } = useDatasetStore();
 
   const annotationType = annotationProject?.annotation_type ?? AnnotationType.Detection;
+  const isClassification = annotationType === AnnotationType.Classification;
+  const isPose = annotationType === AnnotationType.Pose;
 
   const handleFitToWindow = () => {
     const fn = (window as unknown as Record<string, unknown>).__canvasFitToWindow;
@@ -41,10 +44,16 @@ const Toolbar: React.FC = () => {
 
   // 根据 annotation_type 确定可用的标注工具
   const shapeOptions = React.useMemo(() => {
+    if (annotationType === AnnotationType.Classification) {
+      return [];
+    }
     if (annotationType === AnnotationType.Segmentation) {
       return [
         { label: <Tooltip title="多边形"><GatewayOutlined /></Tooltip>, value: AnnotationShape.Polygon },
       ];
+    }
+    if (annotationType === AnnotationType.Pose) {
+      return [];
     }
     // 检测模式：BBox + OBB
     return [
@@ -132,16 +141,20 @@ const Toolbar: React.FC = () => {
         <Divider type="vertical" />
 
         {/* 模式切换 */}
-        <Tooltip title={`切换模式 (W) - 当前: ${mode === LabelMode.Edit ? '编辑' : '添加'}`}>
-          <Button
-            type={mode === LabelMode.Add ? 'primary' : 'default'}
-            icon={mode === LabelMode.Add ? <PlusSquareOutlined /> : <EditOutlined />}
-            onClick={toggleMode}
-            size="small"
-          />
-        </Tooltip>
+        {!isClassification && !isPose && (
+          <>
+            <Tooltip title={`切换模式 (W) - 当前: ${mode === LabelMode.Edit ? '编辑' : '添加'}`}>
+              <Button
+                type={mode === LabelMode.Add ? 'primary' : 'default'}
+                icon={mode === LabelMode.Add ? <PlusSquareOutlined /> : <EditOutlined />}
+                onClick={toggleMode}
+                size="small"
+              />
+            </Tooltip>
 
-        <Divider type="vertical" />
+            <Divider type="vertical" />
+          </>
+        )}
 
         {/* 标注工具切换 */}
         {shapeOptions.length > 1 && (
@@ -221,11 +234,17 @@ const Toolbar: React.FC = () => {
       <Space size="small">
         {/* 当前工具提示 */}
         <Tag color="blue" style={{ margin: 0 }}>
-          {mode === LabelMode.Edit ? '编辑' : '添加'}
-          {' · '}
-          {annotationShape === AnnotationShape.BBox && '矩形框'}
-          {annotationShape === AnnotationShape.OBB && '旋转框'}
-          {annotationShape === AnnotationShape.Polygon && '多边形'}
+          {isClassification && <><PictureOutlined /> 整图分类</>}
+          {isPose && '姿态标注（占位）'}
+          {!isClassification && !isPose && (
+            <>
+              {mode === LabelMode.Edit ? '编辑' : '添加'}
+              {' · '}
+              {annotationShape === AnnotationShape.BBox && '矩形框'}
+              {annotationShape === AnnotationShape.OBB && '旋转框'}
+              {annotationShape === AnnotationShape.Polygon && '多边形'}
+            </>
+          )}
         </Tag>
 
         <Divider type="vertical" />

@@ -130,6 +130,7 @@ const TaskDetailPage: React.FC = () => {
             { label: t('taskTypeLabel'), value: typeLabels[task.task_type] ?? task.task_type },
             { label: t('dataset'), value: task.dataset_id ?? '-' },
             { label: tc('nav.annotation', { ns: 'common' }), value: task.annotation_id ?? '-' },
+            { label: t('sources'), value: task.sources?.length ?? 0 },
             { label: tc('label.status'), value: TaskStatusLabels[task.status] },
             { label: tc('label.createdAt'), value: dayjs(task.created_at).format('YYYY-MM-DD HH:mm:ss') },
             { label: tc('label.updatedAt'), value: dayjs(task.updated_at).format('YYYY-MM-DD HH:mm:ss') },
@@ -140,6 +141,22 @@ const TaskDetailPage: React.FC = () => {
             </div>
           ))}
         </div>
+        {(task.sources?.length ?? 0) > 0 && (
+          <div style={{ marginTop: 16, padding: 12, background: '#f8fafc', borderRadius: 8 }}>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>{t('sources')}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(task.sources || []).map((source, index) => (
+                <div key={source.id} style={{ fontSize: 13, color: '#334155' }}>
+                  {t('sourceItem', {
+                    index: index + 1,
+                    datasetId: source.dataset_id,
+                    annotationId: source.annotation_id,
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {task.error_message && (
           <div style={{ marginTop: 16, padding: 12, background: '#fef2f2', borderRadius: 8 }}>
             <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 2 }}>{t('errorMessage')}</div>

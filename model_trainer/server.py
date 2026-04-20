@@ -15,7 +15,7 @@ import pika
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-from core.trainer import run_classification_task, run_detection_task
+from core.trainer import run_classification_task, run_detection_task, run_segmentation_task
 from utils.config_center import get_config_center
 from utils.logger import logger
 from utils.mq import (
@@ -37,10 +37,19 @@ consumer_last_error: Optional[Exception] = None
 
 
 class TrainingTask(BaseModel):
+    class TrainingSource(BaseModel):
+        dataset_id: int
+        annotation_id: int
+        dataset_path: str
+        annotation_path: str
+        source_order: int = 0
+        source_name: Optional[str] = None
+
     task_id: int
     task_type: str
     dataset_path: str
     annotation_path: str
+    sources: List[TrainingSource] = Field(default_factory=list)
     classes: Optional[List[str]] = None
     task_config: Dict[str, Any] = Field(default_factory=dict)
 
@@ -229,6 +238,7 @@ class TrainingDispatcher:
                 task_id=task.task_id,
                 dataset_path=task.dataset_path,
                 annotation_path=task.annotation_path,
+                sources=[source.model_dump() for source in task.sources],
                 classes=task.classes,
                 task_config=task.task_config,
                 cancel_event=cancel_event,
@@ -240,6 +250,21 @@ class TrainingDispatcher:
                 task_id=task.task_id,
                 dataset_path=task.dataset_path,
                 annotation_path=task.annotation_path,
+                sources=[source.model_dump() for source in task.sources],
+                task_config=task.task_config,
+                cancel_event=cancel_event,
+            )
+            return
+
+        if task.task_type == "segmentation":
+            if not task.classes:
+                raise ValueError("classes is required for segmentation task")
+            run_segmentation_task(
+                task_id=task.task_id,
+                dataset_path=task.dataset_path,
+                annotation_path=task.annotation_path,
+                sources=[source.model_dump() for source in task.sources],
+                classes=task.classes,
                 task_config=task.task_config,
                 cancel_event=cancel_event,
             )
@@ -396,6 +421,16 @@ def start_mq_consumer():
         "task_id": 1,
         "dataset_path": "...",
         "annotation_path": "...",
+        "sources": [
+            {
+                "dataset_id": 1,
+                "annotation_id": 1,
+                "dataset_path": "...",
+                "annotation_path": "...",
+                "source_order": 0,
+                "source_name": "..."
+            }
+        ],
         "classes": [...],  // detection only
         "task_config": {...}
     }

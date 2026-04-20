@@ -3,6 +3,7 @@ import type { AnnotationProject, AnnotationFile, DatasetFile } from '../types';
 import { getAnnotation, getAnnotationFiles, saveAnnotationFile } from '../api/annotation';
 import { updateAnnotation as updateAnnotationApi } from '../api/annotation';
 import { getDatasetFiles, previewFile } from '../api/dataset';
+import { AnnotationType, createClassificationAnnotation } from '../types';
 import { toYoloFormat } from '../utils/yolo';
 import { useAnnotationStore } from './annotationStore';
 import { message } from 'antd';
@@ -98,10 +99,14 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
       const annotationFile = annotationFiles.find((f) => f.file_name === labelFileName);
 
       if (annotationFile?.content) {
-        // 需要等待图像加载完成才能获取尺寸，先设置空标注
-        // 实际解析在 ImageCanvas 图像加载后进行
-        annotationStore.setAnnotations([]);
-        // 存储原始内容用于后续解析
+        if (annotationProject.annotation_type === AnnotationType.Classification) {
+          const classId = parseInt(annotationFile.content.trim(), 10);
+          annotationStore.setAnnotations(Number.isNaN(classId) ? [] : [createClassificationAnnotation(classId)]);
+        } else {
+          // 需要等待图像加载完成才能获取尺寸，先设置空标注
+          // 实际解析在 ImageCanvas 图像加载后进行
+          annotationStore.setAnnotations([]);
+        }
         set({ loading: false });
       } else {
         annotationStore.setAnnotations([]);
@@ -148,11 +153,13 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
     const annotationStore = useAnnotationStore.getState();
     const file = datasetFiles[currentFileIndex];
     const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
-    const content = toYoloFormat(
-      annotationStore.annotations,
-      annotationStore.imageWidth,
-      annotationStore.imageHeight,
-    );
+    const content = annotationProject.annotation_type === AnnotationType.Classification
+      ? String(annotationStore.annotations[0]?.classId ?? '').trim()
+      : toYoloFormat(
+        annotationStore.annotations,
+        annotationStore.imageWidth,
+        annotationStore.imageHeight,
+      );
 
     try {
       await saveAnnotationFile(annotationProject.id, {

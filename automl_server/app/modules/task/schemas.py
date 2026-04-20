@@ -4,10 +4,28 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
-class TaskCreate(BaseModel):
-    task_type: int = Field(default=0, description="0=检测, 1=分类")
+class TaskSourceItem(BaseModel):
     dataset_id: int
+    annotation_id: int
+
+
+class TaskSourceResponse(BaseModel):
+    id: int
+    task_id: int
+    dataset_id: int
+    annotation_id: int
+    source_order: int
+    source_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TaskCreate(BaseModel):
+    task_type: int = Field(default=0, description="0=检测, 1=分类, 2=分割, 3=姿态")
+    dataset_id: Optional[int] = None
     annotation_id: Optional[int] = None
+    sources: Optional[List[TaskSourceItem]] = None
     config: Optional[str] = Field(default=None, description="配置 JSON")
 
 
@@ -24,6 +42,7 @@ class TaskResponse(BaseModel):
     updated_at: datetime
     is_stale: bool = False
     stale_seconds: Optional[int] = None
+    sources: List[TaskSourceResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

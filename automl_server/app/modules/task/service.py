@@ -2,18 +2,25 @@
 import asyncio
 from datetime import datetime
 import json
-from typing import List, Optional
+from typing import Any, List, Optional
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException, AppException
-from app.common.constants import TaskStatus, TaskType
+from app.common.constants import TaskStatus, TaskType, AnnotationType
 from app.config.settings import get_settings
 from app.db.models import Dataset, Annotation
 from app.mq.publisher import get_publisher
 from app.utils.http_client import HttpClient
 from . import crud
-from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse
+from .schemas import (
+    TaskCreate,
+    TaskResponse,
+    TaskLogResponse,
+    BaseModelResponse,
+    TrainerStatusResponse,
+    TaskSourceResponse,
+)
 
 STALE_TASK_STATUSES = {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.POST_PROCESS}
 DEFAULT_STALE_TIMEOUT_SECONDS = 2 * 60 * 60
@@ -61,42 +68,34 @@ class TaskService:
 
     async def create_task(self, db: AsyncSession, data: TaskCreate) -> TaskResponse:
         """创建训练任务并通过 RabbitMQ 通知 model_trainer"""
-        if data.annotation_id is None:
-            raise BadRequestException("annotation_id is required for training")
-        if data.task_type not in {TaskType.DETECTION, TaskType.CLASSIFICATION}:
+        if data.task_type == TaskType.POSE:
+            raise BadRequestException("pose task is not supported yet")
+        if data.task_type not in {TaskType.DETECTION, TaskType.CLASSIFICATION, TaskType.SEGMENTATION}:
             raise BadRequestException(f"unsupported task_type: {data.task_type}")
-
-        dataset = await db.scalar(
-            select(Dataset).where(
-                Dataset.id == data.dataset_id,
-                Dataset.is_deleted == False,
-            )
-        )
-        if not dataset:
-            raise NotFoundException(f"Dataset {data.dataset_id} not found")
-
-        annotation = await db.scalar(
-            select(Annotation).where(
-                Annotation.id == data.annotation_id,
-                Annotation.is_deleted == False,
-            )
-        )
-        if not annotation:
-            raise NotFoundException(f"Annotation {data.annotation_id} not found")
-
-        if not dataset.save_path:
-            raise BadRequestException("dataset save_path is empty")
-        if not annotation.save_path:
-            raise BadRequestException("annotation save_path is empty")
+        resolved_sources = await self._resolve_and_validate_sources(db, data)
+        primary_source = resolved_sources[0]
 
         # 保存任务到数据库
         task = await crud.create_task(
             db,
             task_type=data.task_type,
-            dataset_id=data.dataset_id,
-            annotation_id=data.annotation_id,
+            dataset_id=primary_source["dataset_id"],
+            annotation_id=primary_source["annotation_id"],
             config=data.config,
             status=TaskStatus.PENDING.value,
+        )
+        await crud.create_task_sources(
+            db,
+            task_id=task.id,
+            sources=[
+                {
+                    "dataset_id": source["dataset_id"],
+                    "annotation_id": source["annotation_id"],
+                    "source_order": source["source_order"],
+                    "source_name": source["source_name"],
+                }
+                for source in resolved_sources
+            ],
         )
         await db.commit()
         await db.refresh(task)
@@ -104,17 +103,37 @@ class TaskService:
         config = json.loads(data.config) if data.config else {}
         if not isinstance(config, dict):
             raise BadRequestException("config must be a JSON object")
-        classes = self._parse_classes(annotation.classes)
+        classes = primary_source["classes"]
+        serialized_sources = [
+            {
+                "dataset_id": source["dataset_id"],
+                "annotation_id": source["annotation_id"],
+                "dataset_path": source["dataset_path"],
+                "annotation_path": source["annotation_path"],
+                "source_order": source["source_order"],
+                "source_name": source["source_name"],
+            }
+            for source in resolved_sources
+        ]
         train_request = {
             "task_id": task.id,
-            "task_type": "detection" if data.task_type == TaskType.DETECTION else "classification",
-            "dataset_path": dataset.save_path,
-            "annotation_path": annotation.save_path,
+            "task_type": (
+                "detection"
+                if data.task_type == TaskType.DETECTION
+                else "classification"
+                if data.task_type == TaskType.CLASSIFICATION
+                else "segmentation"
+            ),
+            "dataset_path": primary_source["dataset_path"],
+            "annotation_path": primary_source["annotation_path"],
+            "sources": serialized_sources,
             "classes": classes,
             "task_config": {
                 **config,
-                "dataset_id": data.dataset_id,
-                "annotation_id": data.annotation_id,
+                "dataset_id": primary_source["dataset_id"],
+                "annotation_id": primary_source["annotation_id"],
+                "source_count": len(serialized_sources),
+                "classes": classes,
             },
         }
 
@@ -132,21 +151,26 @@ class TaskService:
             raise AppException(
                 code=503,
                 message=f"Failed to queue training task: {e}",
-                data=self._serialize_task(task).model_dump(mode="json"),
+                data=(await self._serialize_task(db, task)).model_dump(mode="json"),
             )
 
-        return self._serialize_task(task)
+        return await self._serialize_task(db, task)
 
     async def get_task(self, db: AsyncSession, task_id: int) -> TaskResponse:
         task = await crud.get_task_by_id(db, task_id)
         if not task:
             raise NotFoundException(f"Task {task_id} not found")
-        return self._serialize_task(task)
+        return await self._serialize_task(db, task)
 
     async def list_tasks(self, db: AsyncSession, page: int = 1, page_size: int = 10, status: int = None) -> tuple[List[TaskResponse], int]:
         offset = (page - 1) * page_size
         items, total = await crud.get_tasks(db, offset, page_size, status)
-        return [self._serialize_task(item) for item in items], total
+        sources_map = await crud.get_task_sources_by_task_ids(db, [item.id for item in items])
+        serialized = [
+            self._serialize_task_from_sources(item, sources_map.get(item.id, []))
+            for item in items
+        ]
+        return serialized, total
 
     async def get_task_logs(self, db: AsyncSession, task_id: int, page: int = 1, page_size: int = 100) -> tuple[List[TaskLogResponse], int]:
         task = await crud.get_task_by_id(db, task_id)
@@ -210,6 +234,79 @@ class TaskService:
             pass
         return [item.strip() for item in raw_classes.split(",") if item.strip()]
 
+    async def _resolve_and_validate_sources(self, db: AsyncSession, data: TaskCreate) -> list[dict[str, Any]]:
+        raw_sources = data.sources or []
+        if not raw_sources:
+            if data.dataset_id is None or data.annotation_id is None:
+                raise BadRequestException("dataset_id and annotation_id are required when sources is empty")
+            raw_sources = [{
+                "dataset_id": data.dataset_id,
+                "annotation_id": data.annotation_id,
+            }]
+
+        resolved_sources: list[dict[str, Any]] = []
+        normalized_classes: Optional[List[str]] = None
+        expected_annotation_type = (
+            AnnotationType.DETECTION
+            if data.task_type == TaskType.DETECTION
+            else AnnotationType.CLASSIFICATION
+            if data.task_type == TaskType.CLASSIFICATION
+            else AnnotationType.SEGMENTATION
+        )
+
+        for index, item in enumerate(raw_sources):
+            dataset_id = item.dataset_id if hasattr(item, "dataset_id") else item["dataset_id"]
+            annotation_id = item.annotation_id if hasattr(item, "annotation_id") else item["annotation_id"]
+
+            dataset = await db.scalar(
+                select(Dataset).where(
+                    Dataset.id == dataset_id,
+                    Dataset.is_deleted == False,
+                )
+            )
+            if not dataset:
+                raise NotFoundException(f"Dataset {dataset_id} not found")
+
+            annotation = await db.scalar(
+                select(Annotation).where(
+                    Annotation.id == annotation_id,
+                    Annotation.is_deleted == False,
+                )
+            )
+            if not annotation:
+                raise NotFoundException(f"Annotation {annotation_id} not found")
+
+            if not dataset.save_path:
+                raise BadRequestException(f"dataset save_path is empty: dataset_id={dataset_id}")
+            if not annotation.save_path:
+                raise BadRequestException(f"annotation save_path is empty: annotation_id={annotation_id}")
+            if annotation.annotation_type != expected_annotation_type:
+                raise BadRequestException(
+                    f"annotation {annotation_id} type mismatch: expected {int(expected_annotation_type)}, got {annotation.annotation_type}"
+                )
+
+            classes = self._parse_classes(annotation.classes)
+            if data.task_type in {TaskType.DETECTION, TaskType.SEGMENTATION} and not classes:
+                raise BadRequestException(f"annotation {annotation_id} classes is empty")
+            if normalized_classes is None:
+                normalized_classes = classes
+            elif classes != normalized_classes:
+                raise BadRequestException("all sources must share the same normalized classes")
+
+            resolved_sources.append({
+                "dataset_id": dataset_id,
+                "annotation_id": annotation_id,
+                "dataset_path": dataset.save_path,
+                "annotation_path": annotation.save_path,
+                "classes": classes,
+                "source_order": index,
+                "source_name": f"{dataset.name} / {annotation.name}",
+            })
+
+        if not resolved_sources:
+            raise BadRequestException("at least one training source is required")
+        return resolved_sources
+
     async def _cancel_trainer_task(self, task_id: int):
         try:
             client = await self._get_trainer_client()
@@ -225,11 +322,16 @@ class TaskService:
             logger.error(f"Failed to cancel trainer task {task_id}: {e}")
             raise BadRequestException(f"Trainer cancel unavailable: {e}")
 
-    def _serialize_task(self, task) -> TaskResponse:
+    async def _serialize_task(self, db: AsyncSession, task) -> TaskResponse:
+        sources = await crud.get_task_sources(db, task.id)
+        return self._serialize_task_from_sources(task, sources)
+
+    def _serialize_task_from_sources(self, task, sources) -> TaskResponse:
         payload = TaskResponse.model_validate(task).model_dump()
         stale_seconds = self._calc_stale_seconds(task.status, task.updated_at)
         payload["stale_seconds"] = stale_seconds
         payload["is_stale"] = stale_seconds is not None
+        payload["sources"] = [TaskSourceResponse.model_validate(source).model_dump() for source in sources]
         return TaskResponse(**payload)
 
     def _calc_stale_seconds(self, status: int, updated_at: Optional[datetime]) -> Optional[int]:

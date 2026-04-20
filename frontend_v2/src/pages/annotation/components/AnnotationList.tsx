@@ -5,8 +5,9 @@ import {
   BorderOutlined, StarOutlined, GatewayOutlined,
 } from '@ant-design/icons';
 import { useAnnotationStore } from '../../../stores/annotationStore';
-import { getClassColor, AnnotationShape } from '../../../types';
+import { createClassificationAnnotation, getClassColor, AnnotationShape, AnnotationType } from '../../../types';
 import type { Annotation, PolygonAnnotation, OBBAnnotation } from '../../../types';
+import { useDatasetStore } from '../../../stores/datasetStore';
 
 const ShapeIcon: React.FC<{ shape: AnnotationShape }> = ({ shape }) => {
   switch (shape) {
@@ -38,8 +39,10 @@ const AnnotationList: React.FC = () => {
   const {
     annotations, selectedUuid, classes,
     selectAnnotation, toggleVisibility, deleteAnnotation, updateAnnotation,
-    addOrGetClassId, setDefaultClassId,
+    addOrGetClassId, setDefaultClassId, addAnnotation,
   } = useAnnotationStore();
+  const annotationType = useDatasetStore((s) => s.annotationProject?.annotation_type ?? AnnotationType.Detection);
+  const isClassification = annotationType === AnnotationType.Classification;
 
   const [editingUuid, setEditingUuid] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -72,6 +75,76 @@ const AnnotationList: React.FC = () => {
       .map((c, _i) => ({ value: c, label: c }))
       .filter((o) => !search || o.value.toLowerCase().includes(search));
   };
+
+  const setClassification = (className: string) => {
+    const text = className.trim();
+    if (!text) return;
+    const classId = addOrGetClassId(text);
+    if (annotations[0]) {
+      updateAnnotation(annotations[0].uuid, { classId, selected: true });
+      selectAnnotation(annotations[0].uuid);
+    } else {
+      addAnnotation(createClassificationAnnotation(classId));
+    }
+    setDefaultClassId(classId);
+  };
+
+  if (isClassification) {
+    const current = annotations[0];
+    return (
+      <div style={{ width: 240, display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 600 }}>分类标签</span>
+          <Badge count={current ? 1 : 0} showZero style={{ backgroundColor: '#1890ff' }} />
+        </div>
+        <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <AutoComplete
+            style={{ width: '100%' }}
+            value={editingText}
+            options={getFilteredOptions()}
+            onChange={(value) => setEditingText(value)}
+            onSelect={(value) => {
+              setEditingText(value);
+              setClassification(value);
+            }}
+          >
+            <Input
+              placeholder="输入类别名或选择"
+              onPressEnter={() => {
+                setClassification(editingText);
+              }}
+            />
+          </AutoComplete>
+
+          {current ? (
+            <Tag color={getClassColor(current.classId)} style={{ margin: 0, width: 'fit-content' }}>
+              当前类别: {getLabel(current.classId)}
+            </Tag>
+          ) : (
+            <Empty description="未设置分类标签" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          )}
+
+          {classes.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {classes.map((className) => (
+                <Tag
+                  key={className}
+                  color={current && getLabel(current.classId) === className ? getClassColor(current.classId) : 'default'}
+                  style={{ cursor: 'pointer', margin: 0 }}
+                  onClick={() => {
+                    setEditingText(className);
+                    setClassification(className);
+                  }}
+                >
+                  {className}
+                </Tag>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: 240, display: 'flex', flexDirection: 'column', height: '100%' }}>

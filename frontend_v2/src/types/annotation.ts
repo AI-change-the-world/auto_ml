@@ -11,6 +11,7 @@ export enum AnnotationShape {
   BBox = 'bbox',
   Polygon = 'polygon',
   OBB = 'obb',
+  Classification = 'classification',
 }
 
 /** 2D 坐标点 */
@@ -52,8 +53,13 @@ export interface OBBAnnotation extends BaseAnnotation {
   angle: number; // 弧度
 }
 
+/** 分类标注（整图分类） */
+export interface ClassificationAnnotation extends BaseAnnotation {
+  shape: AnnotationShape.Classification;
+}
+
 /** 联合标注类型 */
-export type Annotation = BBoxAnnotation | PolygonAnnotation | OBBAnnotation;
+export type Annotation = BBoxAnnotation | PolygonAnnotation | OBBAnnotation | ClassificationAnnotation;
 
 /** 创建新的边界框标注 */
 export function createBBoxAnnotation(
@@ -114,6 +120,19 @@ export function createOBBAnnotation(
   };
 }
 
+/** 创建新的分类标注 */
+export function createClassificationAnnotation(
+  classId: number = -1,
+): ClassificationAnnotation {
+  return {
+    shape: AnnotationShape.Classification,
+    uuid: uuidv4(),
+    classId,
+    visible: true,
+    selected: false,
+  };
+}
+
 /** 获取 OBB 的 4 个顶点坐标（顺时针） */
 export function getOBBVertices(obb: OBBAnnotation): [Point, Point, Point, Point] {
   const cos = Math.cos(obb.angle);
@@ -161,6 +180,7 @@ export const AnnotationTypeLabels: Record<number, string> = {
   1: '分类',
   2: '分割',
   3: 'MLLM',
+  4: '姿态',
 };
 
 export const AnnotationTypeColors: Record<number, string> = {
@@ -168,6 +188,7 @@ export const AnnotationTypeColors: Record<number, string> = {
   1: 'green',
   2: 'orange',
   3: 'purple',
+  4: 'cyan',
 };
 
 /** 标注项目响应 */
@@ -229,6 +250,7 @@ export enum AnnotationType {
   Classification = 1,
   Segmentation = 2,
   MLLM = 3,
+  Pose = 4,
 }
 
 /** 颜色调色板 - 为不同类别分配颜色 */

@@ -293,7 +293,7 @@ const AnnotationListPage: React.FC = () => {
                   border: formData.annotation_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                   background: formData.annotation_type === Number(k) ? '#eef2ff' : '#fff',
                   color: formData.annotation_type === Number(k) ? '#4f6ef7' : '#666',
-                }}>{v}</button>
+                }} disabled={Number(k) === 4}>{Number(k) === 4 ? `${v} (占位)` : v}</button>
               ))}
             </div>
           </div>

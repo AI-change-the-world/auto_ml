@@ -24,12 +24,16 @@ class AnnotationType(IntEnum):
     DETECTION = 0   # 检测
     CLASSIFICATION = 1  # 分类
     SEGMENTATION = 2    # 分割
+    MLLM = 3
+    POSE = 4
 
 
 class TaskType(IntEnum):
     """任务类型"""
     DETECTION = 0
     CLASSIFICATION = 1
+    SEGMENTATION = 2
+    POSE = 3
 
 
 class TaskStatus(IntEnum):

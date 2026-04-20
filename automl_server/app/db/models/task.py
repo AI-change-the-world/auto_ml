@@ -30,6 +30,17 @@ class TaskLog(BaseEntity):
     log_level = Column(String(20), default="INFO", comment="日志级别")
 
 
+class TaskSource(BaseEntity):
+    """任务训练数据源实体"""
+    __tablename__ = "task_source"
+
+    task_id = Column(BigInteger, nullable=False, index=True, comment="任务ID")
+    dataset_id = Column(BigInteger, nullable=False, index=True, comment="数据集ID")
+    annotation_id = Column(BigInteger, nullable=False, index=True, comment="标注ID")
+    source_order = Column(Integer, default=0, comment="来源顺序")
+    source_name = Column(String(255), nullable=True, comment="来源名称快照")
+
+
 class BaseModels(BaseEntity):
     """基础模型实体"""
     __tablename__ = "base_models"

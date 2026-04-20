@@ -1,5 +1,6 @@
 import {
   AnnotationShape,
+  createClassificationAnnotation,
   createBBoxAnnotation,
   createPolygonAnnotation,
   createOBBAnnotation,
@@ -24,9 +25,15 @@ export function parseYoloAnnotations(
 
   for (const line of lines) {
     const parts = line.trim().split(/\s+/);
-    if (parts.length < 5) continue;
+    if (parts.length < 1) continue;
 
     const classId = parseInt(parts[0], 10);
+    if (Number.isNaN(classId)) continue;
+    if (parts.length === 1) {
+      annotations.push(createClassificationAnnotation(classId));
+      continue;
+    }
+
     const values = parts.slice(1).map((v) => parseFloat(v));
 
     if (values.length === 4) {
@@ -128,6 +135,8 @@ export function toYoloFormat(
           return obbToYolo(a, imageWidth, imageHeight);
         case AnnotationShape.Polygon:
           return polygonToYolo(a, imageWidth, imageHeight);
+        case AnnotationShape.Classification:
+          return `${a.classId}`;
         default:
           return '';
       }

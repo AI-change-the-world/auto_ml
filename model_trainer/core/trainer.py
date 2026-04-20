@@ -17,8 +17,13 @@ from ultralytics.engine.trainer import BaseTrainer
 from core.dataset import (
     cleanup_temp_dir,
     download_dataset_from_s3,
+    download_training_sources_from_s3,
+    merge_classification_sources,
+    merge_detection_sources,
+    merge_segmentation_sources,
     prepare_classification_dataset,
     prepare_detection_dataset,
+    prepare_segmentation_dataset,
 )
 from utils.config import get_s3_config, upload_to_s3
 from utils.logger import logger
@@ -113,6 +118,10 @@ def _trained_model_name(model_name: str, task_kind: str, task_id: int) -> str:
     return f"{Path(model_name).stem}-{task_kind}-task-{task_id}"
 
 
+def _segmentation_task_kind() -> str:
+    return "segmentation"
+
+
 def _export_onnx_model(
     task_id: int,
     best_pt_path: str,
@@ -185,6 +194,7 @@ def _train_detection_model(
     task_id: int,
     dataset_path: str,
     annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
@@ -192,6 +202,7 @@ def _train_detection_model(
     """内部函数：训练目标检测模型"""
     temp_folder = None
     train_dir = None
+    source_downloads = None
 
     try:
         # 更新任务状态为进行中
@@ -203,7 +214,11 @@ def _train_detection_model(
         # 下载数据集
         publish_task_log(
             task_id, "[pre-train] Downloading dataset from S3...", SERVICE_NAME)
-        temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
+        if sources:
+            source_downloads = download_training_sources_from_s3(sources)
+            temp_folder = merge_detection_sources(source_downloads)
+        else:
+            temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
 
         if not temp_folder:
             raise ValueError("Failed to download dataset")
@@ -342,18 +357,25 @@ def _train_detection_model(
             cleanup_temp_dir(train_dir)
         if temp_folder and os.path.exists(temp_folder):
             cleanup_temp_dir(temp_folder)
+        if source_downloads:
+            for source in source_downloads:
+                if os.path.exists(source.local_root):
+                    cleanup_temp_dir(source.local_root)
 
 
 def _train_classification_model(
     task_id: int,
     dataset_path: str,
     annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
 ):
     """内部函数：训练分类模型"""
     temp_folder = None
     train_dir = None
+    classes = task_config.get("classes") or []
+    source_downloads = None
 
     try:
         # 更新任务状态为进行中
@@ -365,19 +387,23 @@ def _train_classification_model(
         # 下载数据集
         publish_task_log(
             task_id, "[pre-train] Downloading dataset from S3...", SERVICE_NAME)
-        temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
+        if sources:
+            source_downloads = download_training_sources_from_s3(sources)
+            temp_folder, class_info = merge_classification_sources(source_downloads)
+        else:
+            temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
 
-        if not temp_folder:
-            raise ValueError("Failed to download dataset")
+            if not temp_folder:
+                raise ValueError("Failed to download dataset")
 
-        # 加载类别信息
-        classes_json_path = os.path.join(
-            temp_folder, "annotations", "classes.json")
-        if not os.path.exists(classes_json_path):
-            raise FileNotFoundError("classes.json not found")
+            # 加载类别信息
+            classes_json_path = os.path.join(
+                temp_folder, "annotations", "classes.json")
+            if not os.path.exists(classes_json_path):
+                raise FileNotFoundError("classes.json not found")
 
-        with open(classes_json_path, "r") as f:
-            class_info = json.load(f)
+            with open(classes_json_path, "r", encoding="utf-8") as f:
+                class_info = json.load(f)
 
         # 准备训练数据
         publish_task_log(
@@ -489,12 +515,141 @@ def _train_classification_model(
             cleanup_temp_dir(train_dir)
         if temp_folder and os.path.exists(temp_folder):
             cleanup_temp_dir(temp_folder)
+        if source_downloads:
+            for source in source_downloads:
+                if os.path.exists(source.local_root):
+                    cleanup_temp_dir(source.local_root)
+
+
+def _train_segmentation_model(
+    task_id: int,
+    dataset_path: str,
+    annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
+    classes: List[str],
+    task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
+):
+    temp_folder = None
+    train_dir = None
+    source_downloads = None
+
+    try:
+        publish_task_status(task_id, TaskStatus.RUNNING, SERVICE_NAME, "Starting segmentation training")
+        publish_task_log(task_id, "[pre-train] Starting segmentation model training...", SERVICE_NAME)
+
+        publish_task_log(task_id, "[pre-train] Downloading dataset from S3...", SERVICE_NAME)
+        if sources:
+            source_downloads = download_training_sources_from_s3(sources)
+            temp_folder = merge_segmentation_sources(source_downloads)
+        else:
+            temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
+
+        if not temp_folder:
+            raise ValueError("Failed to download dataset")
+
+        model_name = task_config.get("name", "yolo11n-seg.pt")
+
+        publish_task_log(task_id, "[pre-train] Preparing segmentation dataset...", SERVICE_NAME)
+        prepared_dataset = prepare_segmentation_dataset(
+            all_images_dir=os.path.join(temp_folder, "dataset"),
+            all_labels_dir=os.path.join(temp_folder, "annotations"),
+            class_names=classes,
+        )
+        train_dir = prepared_dataset.root_dir
+
+        callback = TrainingCallback(task_id, cancel_event)
+        epochs = task_config.get("epoch", 10)
+        imgsz = task_config.get("size", 640)
+        batch = task_config.get("batch", 8)
+        device = task_config.get("device", "cpu")
+
+        publish_task_log(task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
+        model = _load_yolo_model(model_name)
+        model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
+        model.add_callback("on_train_end", callback.on_train_end)
+        model.add_callback("on_train_batch_end", callback.on_train_batch_end)
+
+        publish_task_log(task_id, f"[train] Starting: epochs={epochs}, imgsz={imgsz}, batch={batch}", SERVICE_NAME)
+        model.train(
+            data=os.path.join(train_dir, "data.yaml"),
+            epochs=epochs,
+            imgsz=imgsz,
+            batch=batch,
+            device=device,
+        )
+
+        save_dir = str(model.trainer.save_dir.absolute())
+        best_pt_path = os.path.join(save_dir, "weights", "best.pt")
+        if not os.path.exists(best_pt_path):
+            raise FileNotFoundError(f"Model file not found: {best_pt_path}")
+
+        publish_task_status(
+            task_id,
+            TaskStatus.POST_PROCESS,
+            SERVICE_NAME,
+            "Uploading model artifacts and registering model",
+        )
+        onnx_model_path = _export_onnx_model(
+            task_id=task_id,
+            best_pt_path=best_pt_path,
+            task_config=task_config,
+        )
+        publish_task_log(task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
+        s3_config = get_s3_config()
+        pt_name = f"{uuid.uuid4()}.pt"
+        upload_to_s3(best_pt_path, pt_name, s3_config.models_bucket_name)
+        onnx_name = None
+        if onnx_model_path:
+            onnx_name = f"{uuid.uuid4()}.onnx"
+            upload_to_s3(onnx_model_path, onnx_name, s3_config.models_bucket_name)
+
+        model_info = {
+            "dataset_id": task_config.get("dataset_id"),
+            "annotation_id": task_config.get("annotation_id"),
+            "save_path": pt_name,
+            "onnx_save_path": onnx_name,
+            "class_names": classes,
+            "base_model_name": model_name,
+            "trained_model_name": _trained_model_name(
+                model_name,
+                _segmentation_task_kind(),
+                task_id,
+            ),
+            "loss": float(model.trainer.loss) if hasattr(model.trainer, 'loss') else 0.0,
+            "epoch": epochs,
+            "model_type": _segmentation_task_kind(),
+            "task_kind": _segmentation_task_kind(),
+        }
+        publish_model_registered(task_id, model_info, SERVICE_NAME)
+
+        publish_task_status(task_id, TaskStatus.COMPLETED, SERVICE_NAME, f"Model saved to {pt_name}")
+        publish_task_log(task_id, f"[post-train] Training completed. Model: {pt_name}", SERVICE_NAME)
+
+    except TaskCancelledError as e:
+        logger.warning(f"Segmentation training cancelled for task {task_id}: {e}")
+        publish_task_status(task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
+        publish_task_log(task_id, f"[cancel] {str(e)}", SERVICE_NAME, "WARNING")
+    except Exception as e:
+        logger.error(f"Segmentation training failed for task {task_id}: {e}")
+        publish_task_status(task_id, TaskStatus.FAILED, SERVICE_NAME, str(e))
+        publish_task_log(task_id, f"[error] Training failed: {str(e)}", SERVICE_NAME, "ERROR")
+    finally:
+        if train_dir and os.path.exists(train_dir):
+            cleanup_temp_dir(train_dir)
+        if temp_folder and os.path.exists(temp_folder):
+            cleanup_temp_dir(temp_folder)
+        if source_downloads:
+            for source in source_downloads:
+                if os.path.exists(source.local_root):
+                    cleanup_temp_dir(source.local_root)
 
 
 def train_detection(
     task_id: int,
     dataset_path: str,
     annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
@@ -506,6 +661,7 @@ def train_detection(
             "task_id": task_id,
             "dataset_path": dataset_path,
             "annotation_path": annotation_path,
+            "sources": sources,
             "classes": classes,
             "task_config": task_config,
             "cancel_event": cancel_event,
@@ -520,6 +676,7 @@ def train_classification(
     task_id: int,
     dataset_path: str,
     annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
 ):
@@ -530,6 +687,7 @@ def train_classification(
             "task_id": task_id,
             "dataset_path": dataset_path,
             "annotation_path": annotation_path,
+            "sources": sources,
             "task_config": task_config,
             "cancel_event": cancel_event,
         },
@@ -543,6 +701,7 @@ def run_detection_task(
     task_id: int,
     dataset_path: str,
     annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
@@ -552,6 +711,7 @@ def run_detection_task(
         task_id=task_id,
         dataset_path=dataset_path,
         annotation_path=annotation_path,
+        sources=sources,
         classes=classes,
         task_config=task_config,
         cancel_event=cancel_event,
@@ -562,6 +722,7 @@ def run_classification_task(
     task_id: int,
     dataset_path: str,
     annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
 ):
@@ -570,6 +731,27 @@ def run_classification_task(
         task_id=task_id,
         dataset_path=dataset_path,
         annotation_path=annotation_path,
+        sources=sources,
+        task_config=task_config,
+        cancel_event=cancel_event,
+    )
+
+
+def run_segmentation_task(
+    task_id: int,
+    dataset_path: str,
+    annotation_path: str,
+    sources: Optional[List[Dict[str, Any]]],
+    classes: List[str],
+    task_config: Dict[str, Any],
+    cancel_event: Optional[threading.Event] = None,
+):
+    _train_segmentation_model(
+        task_id=task_id,
+        dataset_path=dataset_path,
+        annotation_path=annotation_path,
+        sources=sources,
+        classes=classes,
         task_config=task_config,
         cancel_event=cancel_event,
     )

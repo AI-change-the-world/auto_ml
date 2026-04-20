@@ -4,7 +4,7 @@ import type Konva from 'konva';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import {
-  LabelMode, AnnotationShape,
+  LabelMode, AnnotationShape, AnnotationType,
   createBBoxAnnotation, createPolygonAnnotation, createOBBAnnotation,
   getClassColor, getOBBVertices, getPolygonCenter,
 } from '../../../types';
@@ -149,12 +149,15 @@ const ImageCanvas: React.FC = () => {
     updateAnnotation, setImageSize, changeMode,
   } = useAnnotationStore();
 
-  const { currentImageUrl, annotationFiles, datasetFiles, currentFileIndex } = useDatasetStore();
+  const { currentImageUrl, annotationFiles, datasetFiles, currentFileIndex, annotationProject } = useDatasetStore();
   const setAnnotations = useAnnotationStore((s) => s.setAnnotations);
   const undo = useAnnotationStore((s) => s.undo);
   const redo = useAnnotationStore((s) => s.redo);
   const beginBatch = useAnnotationStore((s) => s.beginBatch);
   const endBatch = useAnnotationStore((s) => s.endBatch);
+  const annotationType = annotationProject?.annotation_type ?? AnnotationType.Detection;
+  const isClassification = annotationType === AnnotationType.Classification;
+  const isPose = annotationType === AnnotationType.Pose;
 
   // 容器尺寸响应
   useEffect(() => {
@@ -198,18 +201,18 @@ const ImageCanvas: React.FC = () => {
         const file = datasetFiles[currentFileIndex];
         const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
         const annotationFile = annotationFiles.find((f) => f.file_name === labelFileName);
-        if (annotationFile?.content) {
+        if (annotationFile?.content && annotationType !== AnnotationType.Classification) {
           const parsed = parseYoloAnnotations(annotationFile.content, img.naturalWidth, img.naturalHeight);
           setAnnotations(parsed);
           hasExistingAnnotations = parsed.length > 0;
         }
       }
-      if (!hasExistingAnnotations) {
+      if (!hasExistingAnnotations && !isClassification && !isPose) {
         changeMode(LabelMode.Add);
       }
     };
     img.src = currentImageUrl;
-  }, [currentImageUrl, stageSize.width, stageSize.height]);
+  }, [currentImageUrl, stageSize.width, stageSize.height, annotationType, isClassification, isPose]);
 
   // 获取鼠标在图像坐标系中的位置
   const getImagePos = useCallback((_e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -898,9 +901,15 @@ const ImageCanvas: React.FC = () => {
   // ============ 光标样式 ============
 
   const getCursor = () => {
+    if (isClassification || isPose) return 'default';
     if (mode !== LabelMode.Add) return 'default';
     return 'crosshair';
   };
+
+  const classificationAnnotation = annotations[0];
+  const classificationLabel = classificationAnnotation && classificationAnnotation.classId >= 0 && classificationAnnotation.classId < classes.length
+    ? classes[classificationAnnotation.classId]
+    : null;
 
   return (
     <div
@@ -974,8 +983,49 @@ const ImageCanvas: React.FC = () => {
             </>
           )}
 
+          {isClassification && classificationLabel && (
+            <Group listening={false}>
+              <Rect
+                x={12 / scale}
+                y={12 / scale}
+                width={(classificationLabel.length * 8 + 24) / scale}
+                height={24 / scale}
+                fill={getClassColor(classificationAnnotation.classId)}
+                cornerRadius={6 / scale}
+              />
+              <Text
+                x={20 / scale}
+                y={17 / scale}
+                text={`Class: ${classificationLabel}`}
+                fontSize={13 / scale}
+                fill="#fff"
+              />
+            </Group>
+          )}
+
         </Layer>
       </Stage>
+
+      {(isClassification || isPose) && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            background: 'rgba(255,255,255,0.92)',
+            border: '1px solid #e5e7eb',
+            borderRadius: 10,
+            padding: '10px 12px',
+            fontSize: 13,
+            color: '#475569',
+            maxWidth: 320,
+          }}
+        >
+          {isClassification
+            ? '当前项目为整图分类，请在右侧标注列表选择或编辑类别。'
+            : '姿态标注暂未支持，当前仅保留占位类型。'}
+        </div>
+      )}
 
       <div
         style={{
