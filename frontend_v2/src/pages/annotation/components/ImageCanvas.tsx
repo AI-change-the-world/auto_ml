@@ -133,6 +133,12 @@ const ImageCanvas: React.FC = () => {
   const [draggingBox, setDraggingBox] = useState<{
     uuid: string; startMouse: Point; origX: number; origY: number;
   } | null>(null);
+  const [draggingPolygon, setDraggingPolygon] = useState<{
+    uuid: string; startMouse: Point; origPoints: Point[];
+  } | null>(null);
+  const [draggingPolygonVertex, setDraggingPolygonVertex] = useState<{
+    uuid: string; vertexIndex: number;
+  } | null>(null);
   const [rotating, setRotating] = useState<{
     uuid: string; cx: number; cy: number; startAngle: number; origAngle: number;
   } | null>(null);
@@ -237,6 +243,29 @@ const ImageCanvas: React.FC = () => {
   const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     const pos = getImagePos(e);
 
+    // Polygon 顶点编辑
+    if (draggingPolygonVertex && pos) {
+      const ann = annotations.find((a) => a.uuid === draggingPolygonVertex.uuid);
+      if (!ann || ann.shape !== AnnotationShape.Polygon) return;
+      const newPoints = ann.points.map((point, index) => (
+        index === draggingPolygonVertex.vertexIndex ? pos : point
+      ));
+      updateAnnotation(draggingPolygonVertex.uuid, { points: newPoints } as Partial<PolygonAnnotation>);
+      return;
+    }
+
+    // Polygon 整体拖拽移动
+    if (draggingPolygon && pos) {
+      const dx = pos.x - draggingPolygon.startMouse.x;
+      const dy = pos.y - draggingPolygon.startMouse.y;
+      const newPoints = draggingPolygon.origPoints.map((point) => ({
+        x: point.x + dx,
+        y: point.y + dy,
+      }));
+      updateAnnotation(draggingPolygon.uuid, { points: newPoints } as Partial<PolygonAnnotation>);
+      return;
+    }
+
     // BBox 拖拽移动
     if (draggingBox && pos) {
       const dx = pos.x - draggingBox.startMouse.x;
@@ -316,10 +345,26 @@ const ImageCanvas: React.FC = () => {
       w: Math.abs(pos.x - drawStart.x),
       h: Math.abs(pos.y - drawStart.y),
     });
-  }, [isDrawing, drawStart, getImagePos, mode, annotationShape, polygonPoints, draggingBox, resizing, rotating, updateAnnotation, annotations]);
+  }, [
+    isDrawing,
+    drawStart,
+    getImagePos,
+    mode,
+    annotationShape,
+    polygonPoints,
+    draggingBox,
+    draggingPolygon,
+    draggingPolygonVertex,
+    resizing,
+    rotating,
+    updateAnnotation,
+    annotations,
+  ]);
 
   const handleMouseUp = useCallback(() => {
     // BBox 拖拽/缩放结束
+    if (draggingPolygonVertex) { setDraggingPolygonVertex(null); endBatch(); return; }
+    if (draggingPolygon) { setDraggingPolygon(null); endBatch(); return; }
     if (draggingBox) { setDraggingBox(null); endBatch(); return; }
     if (resizing) { setResizing(null); endBatch(); return; }
     if (rotating) { setRotating(null); endBatch(); return; }
@@ -343,7 +388,18 @@ const ImageCanvas: React.FC = () => {
     }
 
     setDrawRect(null);
-  }, [isDrawing, drawRect, addAnnotation, annotationShape, draggingBox, resizing, rotating, endBatch]);
+  }, [
+    isDrawing,
+    drawRect,
+    addAnnotation,
+    annotationShape,
+    draggingBox,
+    draggingPolygon,
+    draggingPolygonVertex,
+    resizing,
+    rotating,
+    endBatch,
+  ]);
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon) {
@@ -424,16 +480,6 @@ const ImageCanvas: React.FC = () => {
   }, [scale, position]);
 
   // ============ 标注交互 ============
-
-  const handlePolygonVertexDrag = useCallback((uuid: string, vertexIndex: number, e: Konva.KonvaEventObject<DragEvent>) => {
-    const node = e.target;
-    const ann = annotations.find((a) => a.uuid === uuid);
-    if (!ann || ann.shape !== AnnotationShape.Polygon) return;
-
-    const newPoints = [...ann.points];
-    newPoints[vertexIndex] = { x: node.x(), y: node.y() };
-    updateAnnotation(uuid, { points: newPoints } as Partial<PolygonAnnotation>);
-  }, [updateAnnotation, annotations]);
 
   // BBox 缩放手柄拖拽结束 — 已由 Stage 鼠标事件替代
 
@@ -585,6 +631,7 @@ const ImageCanvas: React.FC = () => {
   const renderPolygon = (a: PolygonAnnotation, color: string, isSelected: boolean) => {
     const flatPoints = a.points.flatMap((p) => [p.x, p.y]);
     const center = getPolygonCenter(a);
+    const editable = isSelected && mode === LabelMode.Edit;
     return (
       <Group key={a.uuid}>
         <Line
@@ -594,8 +641,28 @@ const ImageCanvas: React.FC = () => {
           strokeWidth={isSelected ? 3 / scale : 2 / scale}
           fill={isSelected ? `${color}33` : `${color}11`}
           onClick={(e) => { e.cancelBubble = true; selectAnnotation(a.uuid); }}
+          onMouseEnter={(e) => {
+            const stage = e.target.getStage();
+            if (stage) stage.container().style.cursor = editable ? 'grab' : 'pointer';
+          }}
+          onMouseLeave={(e) => {
+            const stage = e.target.getStage();
+            if (stage) stage.container().style.cursor = 'default';
+          }}
+          onMouseDown={(e) => {
+            if (mode !== LabelMode.Edit || !isSelected) return;
+            e.cancelBubble = true;
+            const pos = getImagePos(e);
+            if (!pos) return;
+            setDraggingPolygon({
+              uuid: a.uuid,
+              startMouse: pos,
+              origPoints: a.points.map((point) => ({ ...point })),
+            });
+            beginBatch();
+          }}
         />
-        {isSelected && mode === LabelMode.Edit && a.points.map((p, i) => (
+        {editable && a.points.map((p, i) => (
           <Circle
             key={`vertex-${a.uuid}-${i}`}
             x={p.x}
@@ -604,8 +671,20 @@ const ImageCanvas: React.FC = () => {
             fill="white"
             stroke={color}
             strokeWidth={2 / scale}
-            draggable
-            onDragEnd={(e) => handlePolygonVertexDrag(a.uuid, i, e)}
+            onClick={(e) => { e.cancelBubble = true; }}
+            onMouseEnter={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = 'pointer';
+            }}
+            onMouseLeave={(e) => {
+              const stage = e.target.getStage();
+              if (stage) stage.container().style.cursor = 'default';
+            }}
+            onMouseDown={(e) => {
+              e.cancelBubble = true;
+              setDraggingPolygonVertex({ uuid: a.uuid, vertexIndex: i });
+              beginBatch();
+            }}
           />
         ))}
         {renderLabel(center.x, center.y, a.classId)}
