@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Drawer, message, Spin, Modal, Select, Upload, Input, InputNumber, Switch } from 'antd';
 import {
   CloudServerOutlined,
@@ -6,6 +7,7 @@ import {
   CloudUploadOutlined,
   CloudDownloadOutlined,
   CheckCircleOutlined,
+  ExclamationCircleOutlined,
   ExperimentOutlined,
   EyeOutlined,
   ApiOutlined,
@@ -13,9 +15,9 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listModels, deployModel, undeployModel, predictModel, getDeployStatus, renameModel } from '../../api/deploy';
+import { getDeploymentOverview, deployModel, undeployModel, predictModel, getDeployStatus, renameModel } from '../../api/deploy';
 import { getClassColor } from '../../types';
-import type { AvailableModelResponse, InferenceDetectionResult, InferenceParams, InferencePredictResponse } from '../../types/deploy';
+import type { DeploymentOverviewItem, InferenceDetectionResult, InferenceParams, InferencePredictResponse } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
 
 type InferencePreviewEntry = {
@@ -35,6 +37,8 @@ type ApiEndpointInfo = {
   body: string;
   curl: string;
 };
+
+const DEPLOYMENTS_CHANGED_EVENT = 'automl:deployments-changed';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -213,9 +217,10 @@ const renderOverlayShape = (
 };
 
 const DeployPage: React.FC = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation('deploy');
   const tc = useTranslation('common').t;
-  const [models, setModels] = useState<AvailableModelResponse[]>([]);
+  const [models, setModels] = useState<DeploymentOverviewItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [deployingId, setDeployingId] = useState<number | null>(null);
@@ -224,10 +229,10 @@ const DeployPage: React.FC = () => {
   const [previewMap, setPreviewMap] = useState<Record<number, InferencePreviewEntry | null>>({});
   const [activePreviewModelId, setActivePreviewModelId] = useState<number | null>(null);
   const [activeApiModelId, setActiveApiModelId] = useState<number | null>(null);
-  const [renamingModel, setRenamingModel] = useState<AvailableModelResponse | null>(null);
+  const [renamingModel, setRenamingModel] = useState<DeploymentOverviewItem | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameSubmitting, setRenameSubmitting] = useState(false);
-  const [testingModel, setTestingModel] = useState<AvailableModelResponse | null>(null);
+  const [testingModel, setTestingModel] = useState<DeploymentOverviewItem | null>(null);
   const [testingFile, setTestingFile] = useState<File | null>(null);
   const [inferenceMode, setInferenceMode] = useState<'direct' | 'tile'>('direct');
   const [tileSize, setTileSize] = useState(1280);
@@ -244,7 +249,7 @@ const DeployPage: React.FC = () => {
     [activePreviewModelId, previewMap],
   );
   const activeApiModel = useMemo(
-    () => (activeApiModelId != null ? models.find((item) => item.id === activeApiModelId) ?? null : null),
+    () => (activeApiModelId != null ? models.find((item) => item.model_id === activeApiModelId) ?? null : null),
     [activeApiModelId, models],
   );
 
@@ -286,10 +291,10 @@ const DeployPage: React.FC = () => {
   const fetchModels = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await listModels(1, 20);
+      const r = await getDeploymentOverview(false);
       if (r) {
         setModels(r.items);
-        setTotal(r.total);
+        setTotal(r.items.length);
       }
     } catch {
       message.error(tc('msg.loadFailed'));
@@ -320,6 +325,7 @@ const DeployPage: React.FC = () => {
       await deployModel(id, deviceMap[id] || 'cpu');
       const deployed = await waitForDeployState(id, true);
       await fetchModels();
+      window.dispatchEvent(new Event(DEPLOYMENTS_CHANGED_EVENT));
       if (deployed?.is_deployed) {
         message.success(t('deploySuccess'));
       } else {
@@ -342,6 +348,7 @@ const DeployPage: React.FC = () => {
           await undeployModel(id);
           const undeployed = await waitForDeployState(id, false);
           await fetchModels();
+          window.dispatchEvent(new Event(DEPLOYMENTS_CHANGED_EVENT));
           if (undeployed?.is_deployed === false) {
             message.success(t('undeploySuccess'));
           } else {
@@ -357,18 +364,18 @@ const DeployPage: React.FC = () => {
   };
 
   const handleTestInference = async (
-    model: AvailableModelResponse,
+    model: DeploymentOverviewItem,
     file: File,
     inferenceParams: InferenceParams,
   ) => {
-    setTestingId(model.id);
+    setTestingId(model.model_id);
     const imageUrl = URL.createObjectURL(file);
 
     try {
-      const result = await predictModel(model.id, file, inferenceParams);
+      const result = await predictModel(model.model_id, file, inferenceParams);
       savePreviewEntry({
-        modelId: model.id,
-        modelName: model.name || `Model #${model.id}`,
+        modelId: model.model_id,
+        modelName: model.model_name || `Model #${model.model_id}`,
         fileName: file.name,
         imageUrl,
         result,
@@ -377,14 +384,14 @@ const DeployPage: React.FC = () => {
       message.success(t('testSuccess'));
     } catch (error) {
       savePreviewEntry({
-        modelId: model.id,
-        modelName: model.name || `Model #${model.id}`,
+        modelId: model.model_id,
+        modelName: model.model_name || `Model #${model.model_id}`,
         fileName: file.name,
         imageUrl,
         result: {
           success: false,
-          model_id: model.id,
-          model_name: model.name,
+          model_id: model.model_id,
+          model_name: model.model_name,
           task_kind: model.model_type,
           backend: 'onnxruntime',
           device: model.deployment_device,
@@ -419,7 +426,7 @@ const DeployPage: React.FC = () => {
     };
   }, [edgeFilter, inferenceMode, mergeIou, tileOverlap, tileSize]);
 
-  const handleOpenTestModal = (model: AvailableModelResponse) => {
+  const handleOpenTestModal = (model: DeploymentOverviewItem) => {
     setTestingModel(model);
     setTestingFile(null);
   };
@@ -450,7 +457,7 @@ const DeployPage: React.FC = () => {
 
     setRenameSubmitting(true);
     try {
-      await renameModel(renamingModel.id, { name });
+      await renameModel(renamingModel.model_id, { name });
       await fetchModels();
       setRenamingModel(null);
       setRenameValue('');
@@ -481,9 +488,9 @@ const DeployPage: React.FC = () => {
     if (!activeApiModel) {
       return [];
     }
-    const predictUrl = `${apiBaseUrl}/inference/models/${activeApiModel.id}/predict`;
-    const predictBase64Url = `${apiBaseUrl}/inference/models/${activeApiModel.id}/predict/base64`;
-    const healthUrl = `${apiBaseUrl}/inference/models/${activeApiModel.id}/health`;
+    const predictUrl = `${apiBaseUrl}/inference/models/${activeApiModel.model_id}/predict`;
+    const predictBase64Url = `${apiBaseUrl}/inference/models/${activeApiModel.model_id}/predict/base64`;
+    const healthUrl = `${apiBaseUrl}/inference/models/${activeApiModel.model_id}/health`;
     return [
       {
         title: t('apiBinaryTitle'),
@@ -575,19 +582,35 @@ const DeployPage: React.FC = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {models.map((m) => (
-            <div key={m.id} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #faf5ff, #eef2ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
-                  <CloudServerOutlined />
-                </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.name || `Model #${m.id}`}</span>
+          {models.map((m) => {
+            const runtimeReady = m.is_deployed && m.runtime_status.healthy;
+            const runtimeOffline = !runtimeReady && m.runtime_status.status !== 'offline';
+            return (
+            <div
+              key={m.model_id}
+              style={{
+                background: '#fff',
+                border: '1px solid #eee',
+                borderRadius: 12,
+                padding: '16px 20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                transition: 'border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease',
+              }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, #faf5ff, #eef2ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
+                    <CloudServerOutlined />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.model_name || `Model #${m.model_id}`}</span>
                     <button
                       onClick={() => {
                         setRenamingModel(m);
-                        setRenameValue(m.name || '');
+                        setRenameValue(m.model_name || '');
                       }}
                       style={{
                         display: 'inline-flex',
@@ -605,7 +628,6 @@ const DeployPage: React.FC = () => {
                       <EditOutlined /> {t('rename')}
                     </button>
                     {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
-                    {m.onnx_model_path && <span style={{ padding: '1px 8px', background: '#eff6ff', color: '#2563eb', fontSize: 11, borderRadius: 999 }}>ONNX</span>}
                     {m.is_deployed ? (
                       <span style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
                         <CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}
@@ -615,25 +637,31 @@ const DeployPage: React.FC = () => {
                         {tc('status.notDeployed')}
                       </span>
                     )}
-                    {previewMap[m.id] && (
+                    {previewMap[m.model_id] && (
                       <span style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', fontSize: 11, borderRadius: 999 }}>
-                        {t('lastTest')}: {dayjs(previewMap[m.id]?.testedAt).format('HH:mm:ss')}
+                        {t('lastTest')}: {dayjs(previewMap[m.model_id]?.testedAt).format('HH:mm:ss')}
+                      </span>
+                    )}
+                    {runtimeOffline && (
+                      <span style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <ExclamationCircleOutlined style={{ fontSize: 10 }} /> {t('runtimeOffline', { defaultValue: '运行时离线' })}
                       </span>
                     )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999', marginTop: 2, flexWrap: 'wrap' }}>
-                    {m.loss != null && <span>Loss: {m.loss.toFixed(4)}</span>}
                     {m.deployment_device && <span>{t('device')}: {m.deployment_device}</span>}
+                    {m.deployment_port != null && <span>{t('port')}: {m.deployment_port}</span>}
+                    {runtimeOffline && <span>{t('runtimeStatus', { defaultValue: '运行时状态' })}: {m.runtime_status.status || 'offline'}</span>}
                     <span>{dayjs(m.created_at).format('YYYY-MM-DD')}</span>
                   </div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {previewMap[m.id] && (
+                {previewMap[m.model_id] && (
                   <button
                     onClick={() => {
                       setActiveApiModelId(null);
-                      setActivePreviewModelId(m.id);
+                      setActivePreviewModelId(m.model_id);
                     }}
                     style={{
                       display: 'inline-flex',
@@ -654,10 +682,28 @@ const DeployPage: React.FC = () => {
                 {m.is_deployed ? (
                   <>
                     <button
+                      onClick={() => navigate(`/deploy/${m.model_id}`)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '6px 14px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        background: '#fff',
+                        color: '#334155',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {t('viewActivity', { defaultValue: '实例详情' })}
+                    </button>
+                    <button
                       onClick={() => {
                         setActivePreviewModelId(null);
-                        setActiveApiModelId(m.id);
+                        setActiveApiModelId(m.model_id);
                       }}
+                      disabled={!runtimeReady}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -668,14 +714,15 @@ const DeployPage: React.FC = () => {
                         fontSize: 13,
                         background: '#f5f3ff',
                         color: '#6d28d9',
-                        cursor: 'pointer',
+                        cursor: runtimeReady ? 'pointer' : 'not-allowed',
+                        opacity: runtimeReady ? 1 : 0.5,
                       }}
                     >
                       <ApiOutlined /> {t('viewApi')}
                     </button>
                     <button
                       onClick={() => handleOpenTestModal(m)}
-                      disabled={testingId === m.id}
+                      disabled={!runtimeReady || testingId === m.model_id}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -686,14 +733,15 @@ const DeployPage: React.FC = () => {
                         fontSize: 13,
                         background: '#eff6ff',
                         color: '#2563eb',
-                        cursor: 'pointer',
+                        cursor: runtimeReady ? 'pointer' : 'not-allowed',
+                        opacity: runtimeReady ? 1 : 0.5,
                       }}
                     >
-                      <ExperimentOutlined /> {testingId === m.id ? t('testing') : t('testInference')}
+                      <ExperimentOutlined /> {testingId === m.model_id ? t('testing') : t('testInference')}
                     </button>
                     <button
-                      onClick={() => handleUndeploy(m.id)}
-                      disabled={deployingId === m.id}
+                      onClick={() => handleUndeploy(m.model_id)}
+                      disabled={deployingId === m.model_id}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -714,8 +762,8 @@ const DeployPage: React.FC = () => {
                   <>
                     <Select
                       size="small"
-                      value={deviceMap[m.id] || 'cpu'}
-                      onChange={(v) => setDeviceMap((p) => ({ ...p, [m.id]: v }))}
+                      value={deviceMap[m.model_id] || 'cpu'}
+                      onChange={(v) => setDeviceMap((p) => ({ ...p, [m.model_id]: v }))}
                       style={{ width: 80 }}
                       options={[
                         { label: 'CPU', value: 'cpu' },
@@ -723,8 +771,8 @@ const DeployPage: React.FC = () => {
                       ]}
                     />
                     <button
-                      onClick={() => void handleDeploy(m.id)}
-                      disabled={deployingId === m.id}
+                      onClick={() => void handleDeploy(m.model_id)}
+                      disabled={deployingId === m.model_id}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -744,7 +792,8 @@ const DeployPage: React.FC = () => {
                 )}
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 
@@ -958,15 +1007,15 @@ const DeployPage: React.FC = () => {
       <Modal
         open={!!testingModel}
         onCancel={() => {
-          if (testingModel && testingId === testingModel.id) return;
+          if (testingModel && testingId === testingModel.model_id) return;
           setTestingModel(null);
           setTestingFile(null);
         }}
         onOk={() => void handleInferenceRequestSubmit()}
-        confirmLoading={!!testingModel && testingId === testingModel.id}
-        okText={testingModel && testingId === testingModel.id ? t('testing') : t('testInference')}
-        cancelButtonProps={{ disabled: !!testingModel && testingId === testingModel.id }}
-        title={testingModel ? `${t('testConfigTitle')} · ${testingModel.name || `Model #${testingModel.id}`}` : t('testConfigTitle')}
+        confirmLoading={!!testingModel && testingId === testingModel.model_id}
+        okText={testingModel && testingId === testingModel.model_id ? t('testing') : t('testInference')}
+        cancelButtonProps={{ disabled: !!testingModel && testingId === testingModel.model_id }}
+        title={testingModel ? `${t('testConfigTitle')} · ${testingModel.model_name || `Model #${testingModel.model_id}`}` : t('testConfigTitle')}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ color: '#6b7280', fontSize: 13 }}>{t('inferenceParamsDesc')}</div>
@@ -1091,13 +1140,13 @@ const DeployPage: React.FC = () => {
         open={!!activeApiModel}
         onClose={() => setActiveApiModelId(null)}
         width={860}
-        title={activeApiModel ? `${t('apiDrawerTitle')} · ${activeApiModel.name || `Model #${activeApiModel.id}`}` : t('apiDrawerTitle')}
+        title={activeApiModel ? `${t('apiDrawerTitle')} · ${activeApiModel.model_name || `Model #${activeApiModel.model_id}`}` : t('apiDrawerTitle')}
       >
         {activeApiModel && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <span style={{ padding: '4px 10px', borderRadius: 999, background: '#eff6ff', color: '#2563eb', fontSize: 12 }}>
-                {t('apiModelId')}: {activeApiModel.id}
+                {t('apiModelId')}: {activeApiModel.model_id}
               </span>
               <span style={{ padding: '4px 10px', borderRadius: 999, background: '#f5f3ff', color: '#7c3aed', fontSize: 12 }}>
                 {t('apiBaseUrlLabel')}: {apiBaseUrl}

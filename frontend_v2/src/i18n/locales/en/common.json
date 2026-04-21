@@ -7,7 +7,6 @@
         "deploy": "Deploy",
         "augment": "Augment",
         "tools": "Tools",
-        "trash": "Trash",
         "settings": "Settings",
         "help": "Help",
         "myProjects": "MY PROJECTS",
@@ -38,6 +37,7 @@
         "ready": "Ready",
         "unknown": "Unknown",
         "enabled": "Enabled",
+        "notAvailable": "Unavailable",
         "pending": "Coming soon",
         "hasResult": "Has result"
     },

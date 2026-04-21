@@ -3,6 +3,7 @@ AutoML Server - FastAPI 主入口
 """
 import os
 import time
+from typing import Any
 from app.modules.home import router as home_router
 from app.modules.deploy import router as deploy_router
 from app.modules.inference import router as inference_router
@@ -21,6 +22,7 @@ from app.common import Result
 from app.common.exceptions import AppException
 from app.config.nacos_config_center import get_config_center
 from app.config.settings import get_settings
+from app.utils.http_client import HttpClient
 from app.mq.consumer import get_consumer
 from app.mq.publisher import get_publisher
 from app.mq.messages import MessageType
@@ -33,6 +35,37 @@ from app.mq.handlers import (
 )
 
 settings = get_settings()
+
+
+def _route_exists(path_prefix: str) -> bool:
+    normalized = path_prefix.rstrip("/")
+    for route in app.routes:
+        route_path = getattr(route, "path", "")
+        if route_path == normalized or route_path.startswith(f"{normalized}/"):
+            return True
+    return False
+
+
+async def _probe_json(base_url: str) -> dict[str, Any] | None:
+    client = HttpClient(base_url=base_url, timeout=5)
+    try:
+        response = await client.get("/health")
+        if response.status_code != 200:
+            return None
+        payload = response.json()
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+    finally:
+        await client.close()
+
+
+def _module_state(enabled: bool, available: bool = True) -> str:
+    if not enabled:
+        return "disabled"
+    if available:
+        return "enabled"
+    return "unavailable"
 
 
 def _init_mq_with_retry(loop: asyncio.AbstractEventLoop):
@@ -188,7 +221,37 @@ async def global_exception_handler(request: Request, exc: Exception):
 # 健康检查
 @app.get("/health", tags=["健康检查"])
 async def health_check():
-    return {"status": "ok", "service": settings.app_name}
+    trainer_health = await _probe_json(settings.model_trainer.base_url)
+    deploy_health = await _probe_json(settings.model_deploy.base_url)
+
+    dataset_enabled = _route_exists("/dataset")
+    annotation_enabled = _route_exists("/annotation")
+    training_route_enabled = _route_exists("/task")
+    deploy_route_enabled = _route_exists("/deploy")
+    inference_route_enabled = _route_exists("/inference")
+
+    return {
+        "status": "ok",
+        "service": settings.app_name,
+        "version": settings.app_version,
+        "modules": {
+            "dataset_mgmt": _module_state(dataset_enabled, dataset_enabled),
+            "annotation_mgmt": _module_state(annotation_enabled, annotation_enabled),
+            "train_task": _module_state(
+                training_route_enabled,
+                bool(trainer_health and trainer_health.get("status") == "healthy"),
+            ),
+            "model_deploy": _module_state(
+                deploy_route_enabled,
+                bool(deploy_health and deploy_health.get("status") == "healthy"),
+            ),
+            "predict_service": _module_state(
+                inference_route_enabled and deploy_route_enabled,
+                bool(deploy_health and deploy_health.get("status") == "healthy"),
+            ),
+            "user_mgmt": _module_state(False, False),
+        },
+    }
 
 
 # 注册路由

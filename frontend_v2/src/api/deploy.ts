@@ -8,6 +8,9 @@ import type {
   InferencePredictResponse,
   InferenceHealthResponse,
   RenameModelRequest,
+  DeploymentDetailResponse,
+  DeploymentOverviewResponse,
+  ModelInferenceActivityResponse,
 } from '../types';
 
 /** 获取可用模型列表 */
@@ -64,5 +67,27 @@ export async function predictModel(modelId: number, file: File, inferenceParams?
 /** 重命名模型 */
 export async function renameModel(modelId: number, data: RenameModelRequest) {
   const res = await apiClient.patch<Result<AvailableModelResponse>>(`/deploy/${modelId}/rename`, data);
+  return res.data.data;
+}
+
+/** 获取部署概览 */
+export async function getDeploymentOverview(deployedOnly = false) {
+  const res = await apiClient.get<Result<DeploymentOverviewResponse>>('/deploy/overview', {
+    params: { deployed_only: deployedOnly },
+  });
+  return res.data.data;
+}
+
+/** 获取单模型调用活动 */
+export async function getModelActivity(modelId: number, limit = 20) {
+  const res = await apiClient.get<Result<ModelInferenceActivityResponse>>(`/deploy/${modelId}/activity`, {
+    params: { limit },
+  });
+  return res.data.data;
+}
+
+/** 获取单实例部署详情 */
+export async function getDeployDetail(modelId: number) {
+  const res = await apiClient.get<Result<DeploymentDetailResponse>>(`/deploy/${modelId}/detail`);
   return res.data.data;
 }

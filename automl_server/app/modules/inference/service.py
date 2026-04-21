@@ -1,5 +1,6 @@
 """推理服务 - 统一代理到 model_deploy"""
 import json
+import time
 from typing import Optional
 
 from loguru import logger
@@ -40,7 +41,9 @@ class InferenceService:
         file_bytes: bytes,
         content_type: Optional[str] = None,
         inference_params: Optional[InferenceParams] = None,
+        client_ip: Optional[str] = None,
     ) -> InferencePredictResponse:
+        started_at = time.perf_counter()
         model = await self._get_deployed_model(db, model_id)
         payload = self._dump_inference_params(inference_params)
         data = None
@@ -65,7 +68,23 @@ class InferenceService:
             model.task_id,
             getattr(model, "class_names", None),
         )
-        return self._build_predict_response(payload, model, class_names)
+        result = self._build_predict_response(payload, model, class_names)
+        duration_ms = int((time.perf_counter() - started_at) * 1000)
+        if result.success:
+            await deploy_crud.mark_model_inference(db, model.id)
+        await deploy_crud.create_inference_log(
+            db,
+            model_id=model.id,
+            request_type="file",
+            success=result.success,
+            duration_ms=duration_ms,
+            result_count=len(result.results or []),
+            image_width=result.image_width,
+            image_height=result.image_height,
+            error_message=result.error,
+            client_ip=client_ip,
+        )
+        return result
 
     async def predict_base64(
         self,
@@ -73,7 +92,9 @@ class InferenceService:
         model_id: int,
         image_base64: str,
         inference_params: Optional[InferenceParams] = None,
+        client_ip: Optional[str] = None,
     ) -> InferencePredictResponse:
+        started_at = time.perf_counter()
         model = await self._get_deployed_model(db, model_id)
         response = await self.http_client.post(
             f"/predict/{model_id}/base64",
@@ -88,7 +109,23 @@ class InferenceService:
             model.task_id,
             getattr(model, "class_names", None),
         )
-        return self._build_predict_response(payload, model, class_names)
+        result = self._build_predict_response(payload, model, class_names)
+        duration_ms = int((time.perf_counter() - started_at) * 1000)
+        if result.success:
+            await deploy_crud.mark_model_inference(db, model.id)
+        await deploy_crud.create_inference_log(
+            db,
+            model_id=model.id,
+            request_type="base64",
+            success=result.success,
+            duration_ms=duration_ms,
+            result_count=len(result.results or []),
+            image_width=result.image_width,
+            image_height=result.image_height,
+            error_message=result.error,
+            client_ip=client_ip,
+        )
+        return result
 
     async def get_health(
         self,
@@ -101,34 +138,33 @@ class InferenceService:
 
         detail = None
         backend_healthy = False
-        if model.is_deployed:
-            try:
-                response = await self.http_client.get(f"/deploy/{model_id}/health")
-                if response.status_code == 200:
-                    detail = response.json()
-                    backend_healthy = bool(detail.get("healthy", False))
-                else:
-                    detail = {
-                        "healthy": False,
-                        "error": response.text or f"status={response.status_code}",
-                    }
-            except Exception as exc:
+        try:
+            response = await self.http_client.get(f"/deploy/{model_id}/health")
+            if response.status_code == 200:
+                detail = response.json()
+                backend_healthy = bool(detail.get("healthy", False))
+            else:
                 detail = {
                     "healthy": False,
-                    "error": str(exc),
+                    "error": response.text or f"status={response.status_code}",
                 }
-                logger.warning(f"Failed to fetch inference health for model {model_id}: {exc}")
+        except Exception as exc:
+            detail = {
+                "healthy": False,
+                "error": str(exc),
+            }
+            logger.warning(f"Failed to fetch inference health for model {model_id}: {exc}")
 
         return InferenceHealthResponse(
             model_id=model.id,
             model_name=model.name,
             task_kind=self._normalize_task_kind(model.model_type),
             backend=(detail or {}).get("backend") if isinstance(detail, dict) else None,
-            is_deployed=bool(model.is_deployed),
+            is_deployed=self._is_runtime_running(detail),
             backend_healthy=backend_healthy,
-            deployment_port=model.deployment_port,
-            deployment_device=model.deployment_device,
-            deployment_version=model.deployment_version,
+            deployment_port=(detail or {}).get("port") if self._is_runtime_running(detail) and isinstance(detail, dict) else None,
+            deployment_device=(detail or {}).get("device") if self._is_runtime_running(detail) and isinstance(detail, dict) else None,
+            deployment_version=model.deployment_version if self._is_runtime_running(detail) else None,
             detail=detail,
         )
 
@@ -136,9 +172,20 @@ class InferenceService:
         model = await deploy_crud.get_model_by_id(db, model_id)
         if not model:
             raise NotFoundException(f"Model {model_id} not found")
-        if not model.is_deployed:
-            raise BadRequestException(f"Model {model_id} is not deployed")
+        if not await self._is_runtime_ready(model_id):
+            raise BadRequestException(f"Model {model_id} runtime is not deployed")
         return model
+
+    async def _is_runtime_ready(self, model_id: int) -> bool:
+        try:
+            response = await self.http_client.get(f"/deploy/{model_id}/health")
+            if response.status_code != 200:
+                return False
+            payload = response.json()
+            return bool(isinstance(payload, dict) and payload.get("healthy"))
+        except Exception as exc:
+            logger.warning(f"Failed to verify runtime state for model {model_id}: {exc}")
+            return False
 
     def _parse_backend_response(self, response: Response, operation: str) -> dict:
         try:
@@ -245,6 +292,14 @@ class InferenceService:
         if model_type == "detection":
             return "detection_bbox"
         return model_type or "detection_bbox"
+
+    def _is_runtime_running(self, detail: object) -> bool:
+        if not isinstance(detail, dict):
+            return False
+        status = detail.get("status")
+        if isinstance(status, str):
+            return status.strip().lower() == "running"
+        return bool(status == 1)
 
     def _dump_inference_params(
         self,

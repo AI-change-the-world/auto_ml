@@ -32,6 +32,9 @@ class AvailableModelResponse(BaseModel):
     deployment_port: Optional[int]
     deployment_version: Optional[str]
     deployment_device: Optional[str]
+    deployed_at: Optional[datetime]
+    inference_count: int = 0
+    last_inference_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
@@ -46,3 +49,79 @@ class DeployStatusResponse(BaseModel):
     port: Optional[int]
     version: Optional[str]
     device: Optional[str]
+
+
+class DeploymentRuntimeStatus(BaseModel):
+    status: str = "unknown"
+    backend: Optional[str] = None
+    task_kind: Optional[str] = None
+    healthy: bool = False
+    detail: Optional[dict] = None
+
+
+class DeploymentOverviewItem(BaseModel):
+    model_id: int
+    model_name: Optional[str]
+    model_type: Optional[str]
+    task_id: Optional[int]
+    dataset_id: Optional[int]
+    deployment_id: Optional[str]
+    deployment_port: Optional[int]
+    deployment_version: Optional[str]
+    deployment_device: Optional[str]
+    is_deployed: bool
+    deployed_at: Optional[datetime]
+    inference_count: int = 0
+    last_inference_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+    runtime_status: DeploymentRuntimeStatus
+
+
+class DeploymentOverviewSummary(BaseModel):
+    total_models: int
+    active_deployments: int
+    healthy_deployments: int
+    total_inference_calls: int
+
+
+class DeploymentOverviewResponse(BaseModel):
+    summary: DeploymentOverviewSummary
+    items: list[DeploymentOverviewItem]
+
+
+class ModelInferenceLogResponse(BaseModel):
+    id: int
+    model_id: int
+    request_type: Optional[str]
+    success: bool
+    duration_ms: Optional[int]
+    result_count: int
+    image_width: Optional[int]
+    image_height: Optional[int]
+    error_message: Optional[str]
+    client_ip: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ModelInferenceMetricsResponse(BaseModel):
+    model_id: int
+    inference_count: int = 0
+    last_inference_at: Optional[datetime]
+    success_count: int = 0
+    failure_count: int = 0
+    avg_duration_ms: Optional[float]
+    last_24h_count: int = 0
+
+
+class ModelInferenceActivityResponse(BaseModel):
+    metrics: ModelInferenceMetricsResponse
+    logs: list[ModelInferenceLogResponse]
+
+
+class DeploymentDetailResponse(BaseModel):
+    item: DeploymentOverviewItem
+    metrics: ModelInferenceMetricsResponse

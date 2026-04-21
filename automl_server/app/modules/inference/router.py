@@ -1,7 +1,7 @@
 """推理 API 路由"""
 import json
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import Result
@@ -27,6 +27,7 @@ router = APIRouter(prefix="/inference", tags=["模型推理"])
 )
 async def predict_model(
     model_id: int,
+    request: Request,
     file: UploadFile = File(...),
     inference_params: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
@@ -46,6 +47,7 @@ async def predict_model(
         file_bytes=content,
         content_type=file.content_type,
         inference_params=parsed_params,
+        client_ip=request.client.host if request.client else None,
     )
     return Result.ok(result)
 
@@ -58,6 +60,7 @@ async def predict_model(
 async def predict_model_base64(
     model_id: int,
     data: InferenceBase64Request,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     service: InferenceService = Depends(get_inference_service),
 ):
@@ -66,6 +69,7 @@ async def predict_model_base64(
         model_id=model_id,
         image_base64=data.image,
         inference_params=data.inference_params,
+        client_ip=request.client.host if request.client else None,
     )
     return Result.ok(result)
 

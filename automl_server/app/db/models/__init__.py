@@ -3,12 +3,12 @@ from .base_entity import BaseEntity
 from .dataset import Dataset, DatasetFile
 from .annotation import Annotation, AnnotationFile
 from .task import Task, TaskLog, TaskSource, BaseModels
-from .deploy import AvailableModel
+from .deploy import AvailableModel, ModelInferenceLog
 
 __all__ = [
     "BaseEntity",
     "Dataset", "DatasetFile",
     "Annotation", "AnnotationFile",
     "Task", "TaskLog", "TaskSource", "BaseModels",
-    "AvailableModel",
+    "AvailableModel", "ModelInferenceLog",
 ]

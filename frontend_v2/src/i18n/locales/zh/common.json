@@ -7,7 +7,6 @@
         "deploy": "部署",
         "augment": "增强",
         "tools": "工具",
-        "trash": "回收站",
         "settings": "设置",
         "help": "帮助",
         "myProjects": "我的项目",
@@ -38,6 +37,7 @@
         "ready": "就绪",
         "unknown": "未知",
         "enabled": "已启用",
+        "notAvailable": "不可用",
         "pending": "待开发",
         "hasResult": "有结果"
     },

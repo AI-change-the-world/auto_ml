@@ -8,7 +8,6 @@ import {
   ExperimentOutlined,
   CloudServerOutlined,
   SettingOutlined,
-  DeleteOutlined,
   QuestionCircleOutlined,
   DownOutlined,
   RightOutlined,
@@ -20,7 +19,8 @@ import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { listAnnotations } from '../api/annotation';
 import { listTasks } from '../api/task';
-import type { AnnotationProject, TaskResponse } from '../types';
+import { getDeploymentOverview } from '../api/deploy';
+import type { AnnotationProject, TaskResponse, DeploymentOverviewItem } from '../types';
 
 /* ─── types ─── */
 interface NavItem {
@@ -41,6 +41,17 @@ const MainLayout: React.FC = () => {
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
   // 动态加载训练任务列表
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
+  // 动态加载部署列表
+  const [deploymentProjects, setDeploymentProjects] = useState<DeploymentOverviewItem[]>([]);
+  const refreshDeployments = useCallback(() => {
+    getDeploymentOverview(true).then((res) => {
+      setDeploymentProjects((res?.items || []).filter((item) => (
+        item.is_deployed
+        && item.runtime_status?.status === 'running'
+      )));
+    }).catch(() => { });
+  }, []);
+
   useEffect(() => {
     listAnnotations(1, 50).then((res) => {
       setAnnotationProjects(res.items || []);
@@ -48,7 +59,15 @@ const MainLayout: React.FC = () => {
     listTasks(1, 50).then((res) => {
       setTaskProjects(res.items || []);
     }).catch(() => { });
-  }, [location.pathname]); // 路由变化时刷新（如新建项目后返回）
+    refreshDeployments();
+  }, [location.pathname, refreshDeployments]); // 路由变化时刷新（如新建项目后返回）
+
+  useEffect(() => {
+    window.addEventListener('automl:deployments-changed', refreshDeployments);
+    return () => {
+      window.removeEventListener('automl:deployments-changed', refreshDeployments);
+    };
+  }, [refreshDeployments]);
 
   const startTour = useCallback(() => {
     const driverObj = driver({
@@ -155,12 +174,16 @@ const MainLayout: React.FC = () => {
       key: '/deploy',
       icon: <CloudServerOutlined />,
       label: t('nav.deploy'),
-      children: [],
+      children: deploymentProjects.map((item) => ({
+        key: `/deploy/${item.model_id}`,
+        label: item.model_name || `模型 #${item.model_id}`,
+        icon: <CloudServerOutlined style={{ color: item.runtime_status.healthy ? '#10b981' : '#f59e0b' }} />,
+        badge: item.deployment_port ? `:${item.deployment_port}` : undefined,
+      })),
     },
   ];
 
   const bottomItems = [
-    { key: '/trash', icon: <DeleteOutlined />, label: t('nav.trash') },
     { key: '/settings', icon: <SettingOutlined />, label: t('nav.settings') },
     { key: '/example-dataset', icon: <QuestionCircleOutlined />, label: t('nav.help'), tour: 'example-link' },
   ];

@@ -20,6 +20,9 @@ export interface AvailableModelResponse {
   deployment_port: number | null;
   deployment_version: string | null;
   deployment_device: string | null;
+  deployed_at: string | null;
+  inference_count: number;
+  last_inference_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -98,4 +101,77 @@ export interface InferenceHealthResponse {
 
 export interface RenameModelRequest {
   name: string;
+}
+
+export interface DeploymentRuntimeStatus {
+  status: string;
+  backend: string | null;
+  task_kind: string | null;
+  healthy: boolean;
+  detail?: Record<string, unknown> | null;
+}
+
+export interface DeploymentOverviewItem {
+  model_id: number;
+  model_name: string | null;
+  model_type: string | null;
+  task_id: number | null;
+  dataset_id: number | null;
+  deployment_id: string | null;
+  deployment_port: number | null;
+  deployment_version: string | null;
+  deployment_device: string | null;
+  is_deployed: boolean;
+  deployed_at: string | null;
+  inference_count: number;
+  last_inference_at: string | null;
+  created_at: string;
+  updated_at: string;
+  runtime_status: DeploymentRuntimeStatus;
+}
+
+export interface DeploymentOverviewSummary {
+  total_models: number;
+  active_deployments: number;
+  healthy_deployments: number;
+  total_inference_calls: number;
+}
+
+export interface DeploymentOverviewResponse {
+  summary: DeploymentOverviewSummary;
+  items: DeploymentOverviewItem[];
+}
+
+export interface ModelInferenceLogResponse {
+  id: number;
+  model_id: number;
+  request_type: string | null;
+  success: boolean;
+  duration_ms: number | null;
+  result_count: number;
+  image_width: number | null;
+  image_height: number | null;
+  error_message: string | null;
+  client_ip: string | null;
+  created_at: string;
+}
+
+export interface ModelInferenceMetricsResponse {
+  model_id: number;
+  inference_count: number;
+  last_inference_at: string | null;
+  success_count: number;
+  failure_count: number;
+  avg_duration_ms: number | null;
+  last_24h_count: number;
+}
+
+export interface ModelInferenceActivityResponse {
+  metrics: ModelInferenceMetricsResponse;
+  logs: ModelInferenceLogResponse[];
+}
+
+export interface DeploymentDetailResponse {
+  item: DeploymentOverviewItem;
+  metrics: ModelInferenceMetricsResponse;
 }

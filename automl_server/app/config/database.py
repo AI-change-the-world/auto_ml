@@ -55,7 +55,7 @@ async def init_db():
         from app.db.models import (
             Dataset, DatasetFile, Annotation, AnnotationFile,
             Task, TaskLog, TaskSource, BaseModels,
-            AvailableModel
+            AvailableModel, ModelInferenceLog
         )
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)
@@ -99,6 +99,54 @@ async def _ensure_schema_compatibility(conn):
                 "ALTER TABLE available_model "
                 "ADD COLUMN class_names TEXT DEFAULT NULL COMMENT '类别名称 JSON' "
                 "AFTER model_type"
+            )
+        )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'available_model' "
+            "AND COLUMN_NAME = 'deployed_at'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE available_model "
+                "ADD COLUMN deployed_at DATETIME DEFAULT NULL COMMENT '最近一次部署时间' "
+                "AFTER deployment_device"
+            )
+        )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'available_model' "
+            "AND COLUMN_NAME = 'inference_count'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE available_model "
+                "ADD COLUMN inference_count BIGINT NOT NULL DEFAULT 0 COMMENT '累计推理调用次数' "
+                "AFTER deployed_at"
+            )
+        )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'available_model' "
+            "AND COLUMN_NAME = 'last_inference_at'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE available_model "
+                "ADD COLUMN last_inference_at DATETIME DEFAULT NULL COMMENT '最近一次推理时间' "
+                "AFTER inference_count"
             )
         )
     result = await conn.execute(
@@ -168,6 +216,36 @@ async def _ensure_schema_compatibility(conn):
                 "KEY idx_task_source_dataset_id (dataset_id), "
                 "KEY idx_task_source_annotation_id (annotation_id)"
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务训练数据源'"
+            )
+        )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'model_inference_log'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "CREATE TABLE model_inference_log ("
+                "id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID', "
+                "model_id BIGINT NOT NULL COMMENT '模型ID', "
+                "request_type VARCHAR(32) DEFAULT NULL COMMENT '请求方式: file/base64', "
+                "success TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否成功', "
+                "duration_ms INT DEFAULT NULL COMMENT '推理耗时毫秒', "
+                "result_count INT NOT NULL DEFAULT 0 COMMENT '返回结果数量', "
+                "image_width INT DEFAULT NULL COMMENT '图像宽度', "
+                "image_height INT DEFAULT NULL COMMENT '图像高度', "
+                "error_message TEXT DEFAULT NULL COMMENT '错误信息', "
+                "client_ip VARCHAR(64) DEFAULT NULL COMMENT '客户端IP', "
+                "created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', "
+                "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', "
+                "is_deleted TINYINT(1) DEFAULT 0 COMMENT '逻辑删除标记', "
+                "PRIMARY KEY (id), "
+                "KEY idx_model_inference_log_model_id (model_id), "
+                "KEY idx_model_inference_log_created_at (created_at)"
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='模型推理调用记录'"
             )
         )
 

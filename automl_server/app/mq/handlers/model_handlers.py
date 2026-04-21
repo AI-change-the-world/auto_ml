@@ -2,6 +2,7 @@
 模型相关消息处理器
 """
 import json
+from datetime import datetime
 
 from loguru import logger
 from sqlalchemy import update
@@ -82,6 +83,7 @@ async def handle_model_deployed(message: ModelDeployedMessage):
                     deployment_port=deployment_info.get("port"),
                     deployment_version=deployment_info.get("version"),
                     deployment_device=deployment_info.get("device"),
+                    deployed_at=datetime.now(),
                 )
             )
             await session.execute(stmt)
@@ -114,6 +116,8 @@ async def handle_model_undeployed(message: ModelUndeployedMessage):
                     is_deployed=False,
                     deployment_id=None,
                     deployment_port=None,
+                    deployment_version=None,
+                    deployment_device=None,
                 )
             )
             await session.execute(stmt)

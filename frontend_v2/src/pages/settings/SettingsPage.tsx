@@ -1,19 +1,77 @@
-import React from 'react';
-import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import apiClient from '../../api/client';
+
+type ModuleState = 'enabled' | 'unavailable' | 'disabled';
+
+type HealthResponse = {
+  status: string;
+  service: string;
+  version?: string;
+  modules?: Partial<Record<'dataset_mgmt' | 'annotation_mgmt' | 'train_task' | 'model_deploy' | 'predict_service' | 'user_mgmt', ModuleState>>;
+};
+
+const getConfiguredApiBaseUrl = () => {
+  const base = import.meta.env.VITE_API_BASE_URL || '/api';
+  if (/^https?:\/\//i.test(base)) {
+    return base.replace(/\/+$/, '');
+  }
+  return new URL(base, window.location.origin).toString().replace(/\/+$/, '');
+};
 
 const SettingsPage: React.FC = () => {
   const { t } = useTranslation('settings');
   const tc = useTranslation('common').t;
+  const [backendVersion, setBackendVersion] = useState<string>('-');
+  const [platformName, setPlatformName] = useState<string>('AutoML Platform');
+  const [moduleStatusMap, setModuleStatusMap] = useState<Record<string, ModuleState>>({
+    dataset_mgmt: 'enabled',
+    annotation_mgmt: 'enabled',
+    train_task: 'enabled',
+    model_deploy: 'enabled',
+    predict_service: 'enabled',
+    user_mgmt: 'disabled',
+  });
 
   const modules = [
-    { name: t('datasetMgmt'), enabled: true },
-    { name: t('annotationMgmt'), enabled: true },
-    { name: t('trainTask'), enabled: true },
-    { name: t('modelDeploy'), enabled: true },
-    { name: t('userMgmt'), enabled: false },
-    { name: t('predictService'), enabled: false },
+    { key: 'dataset_mgmt', name: t('datasetMgmt') },
+    { key: 'annotation_mgmt', name: t('annotationMgmt') },
+    { key: 'train_task', name: t('trainTask') },
+    { key: 'model_deploy', name: t('modelDeploy') },
+    { key: 'user_mgmt', name: t('userMgmt') },
+    { key: 'predict_service', name: t('predictService') },
   ];
+  const apiBaseUrl = getConfiguredApiBaseUrl();
+
+  useEffect(() => {
+    let active = true;
+
+    const loadHealth = async () => {
+      try {
+        const response = await apiClient.get<HealthResponse>('/health');
+        if (!active) return;
+        setBackendVersion(response.data.version || '-');
+        setPlatformName(response.data.service || 'AutoML Platform');
+        if (response.data.modules) {
+          setModuleStatusMap((prev) => ({
+            ...prev,
+            ...response.data.modules,
+          }));
+        }
+      } catch {
+        if (!active) return;
+        setBackendVersion('-');
+        setPlatformName('AutoML Platform');
+      }
+    };
+
+    void loadHealth();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="page-container" style={{ maxWidth: 700 }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
@@ -23,10 +81,10 @@ const SettingsPage: React.FC = () => {
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('systemInfo')}</h3>
         {[
-          { label: t('platformName'), value: 'AutoML Platform' },
-          { label: t('version'), value: 'v2.0.0-dev' },
-          { label: t('apiAddress'), value: `${window.location.origin}/api`, mono: true },
-          { label: t('backendProxy'), value: 'http://localhost:8000', mono: true },
+          { label: t('platformName'), value: platformName },
+          { label: t('version'), value: backendVersion },
+          { label: t('apiAddress'), value: apiBaseUrl, mono: true },
+          { label: t('backendProxy'), value: apiBaseUrl, mono: true },
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 3 ? '1px solid #f8f8f8' : 'none' }}>
             <span style={{ fontSize: 13, color: '#888' }}>{item.label}</span>
@@ -41,10 +99,13 @@ const SettingsPage: React.FC = () => {
           {modules.map((m, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fafafa', borderRadius: 8 }}>
               <span style={{ fontSize: 13, color: '#555' }}>{m.name}</span>
-              {m.enabled
-                ? <span style={{ fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
-                : <span style={{ fontSize: 12, color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
-              }
+              {moduleStatusMap[m.key] === 'enabled' ? (
+                <span style={{ fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
+              ) : moduleStatusMap[m.key] === 'unavailable' ? (
+                <span style={{ fontSize: 12, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
+              ) : (
+                <span style={{ fontSize: 12, color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
+              )}
             </div>
           ))}
         </div>
