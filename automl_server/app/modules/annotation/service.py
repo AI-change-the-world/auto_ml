@@ -296,7 +296,12 @@ class AnnotationService:
     def _parse_pipeline_descriptor(self, item: Any) -> AnnotationAssistPipelineResponse | None:
         if not isinstance(item, dict):
             return None
-        pipeline_type = str(item.get("pipeline_type") or "generic")
+        pipeline_type = str(item.get("pipeline_type") or "").strip()
+        inferred_assist = self._looks_like_assist_pipeline(item)
+        if not pipeline_type and inferred_assist:
+            pipeline_type = "assist_annotation"
+        if not pipeline_type:
+            pipeline_type = "generic"
         if pipeline_type != "assist_annotation":
             return None
         if item.get("enabled") is False:
@@ -304,21 +309,40 @@ class AnnotationService:
         pipeline_id = str(item.get("name") or item.get("id") or "").strip()
         if not pipeline_id:
             return None
+        supported_annotation_types = [
+            int(value) for value in item.get("supported_annotation_types", []) or []
+            if str(value).strip().lstrip("-").isdigit()
+        ]
+        supported_shapes = [
+            str(value).strip().lower() for value in item.get("supported_shapes", []) or []
+            if str(value).strip()
+        ]
+        if inferred_assist and not supported_annotation_types:
+            supported_annotation_types = [0]
+        if inferred_assist and not supported_shapes:
+            supported_shapes = ["bbox"]
         return AnnotationAssistPipelineResponse(
             id=pipeline_id,
             name=str(item.get("display_name") or pipeline_id),
             description=item.get("description"),
-            supported_annotation_types=[
-                int(value) for value in item.get("supported_annotation_types", []) or []
-                if str(value).strip().lstrip("-").isdigit()
-            ],
-            supported_shapes=[
-                str(value).strip().lower() for value in item.get("supported_shapes", []) or []
-                if str(value).strip()
-            ],
+            supported_annotation_types=supported_annotation_types,
+            supported_shapes=supported_shapes,
             default_profile=item.get("default_profile"),
             enabled=bool(item.get("enabled", True)),
         )
+
+    def _looks_like_assist_pipeline(self, item: dict[str, Any]) -> bool:
+        assist_capabilities = {
+            "assist_annotation",
+            "draft_annotation",
+            "extract_white_annotations",
+            "render_white_annotation_overlay",
+            "understand_white_annotations",
+        }
+        for step in item.get("steps", []) or []:
+            if isinstance(step, dict) and step.get("capability") in assist_capabilities:
+                return True
+        return False
 
     def _normalize_target_classes(
         self,

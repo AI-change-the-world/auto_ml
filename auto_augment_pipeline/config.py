@@ -10,7 +10,7 @@ from typing import Any, Awaitable, Callable
 import yaml
 from pydantic import BaseModel, Field
 
-from .models import PipelineDefinition
+from models import PipelineDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -110,14 +110,16 @@ class ConfigManager:
             if raw:
                 self.current = self._parse(raw)
                 return self.current
-            logger.warning("Nacos config is empty, falling back to local/default config")
+            logger.warning(
+                "Nacos config is empty, falling back to local/default config")
 
         if self.config_path:
             path = Path(self.config_path).expanduser()
             if path.exists():
                 self.current = self._parse(path.read_text(encoding="utf-8"))
                 return self.current
-            logger.warning("Config file not found: %s, using default config", path)
+            logger.warning(
+                "Config file not found: %s, using default config", path)
 
         self.current = build_default_config()
         return self.current
@@ -131,7 +133,8 @@ class ConfigManager:
             return
 
         async def listener(tenant: str, data_id: str, group: str, content: str) -> None:
-            logger.info("Detected config change from Nacos: dataId=%s group=%s", data_id, group)
+            logger.info(
+                "Detected config change from Nacos: dataId=%s group=%s", data_id, group)
             config = self._parse(content)
             self.current = config
             if on_change is None:
@@ -162,7 +165,8 @@ class ConfigManager:
         try:
             from v2.nacos import ConfigParam
         except ImportError:
-            logger.warning("nacos-sdk-python v2 is not installed; skip loading Nacos config")
+            logger.warning(
+                "nacos-sdk-python v2 is not installed; skip loading Nacos config")
             return None
 
         service = await self._ensure_nacos_service()
@@ -179,7 +183,8 @@ class ConfigManager:
         try:
             from v2.nacos import ClientConfigBuilder, GRPCConfig, NacosConfigService
         except ImportError:
-            logger.warning("nacos-sdk-python v2 is not installed; skip Nacos client init")
+            logger.warning(
+                "nacos-sdk-python v2 is not installed; skip Nacos client init")
             return None
 
         try:
@@ -193,17 +198,20 @@ class ConfigManager:
             self._nacos_service = await NacosConfigService.create_config_service(client_config)
             return self._nacos_service
         except Exception as exc:
-            logger.warning("Failed to initialize Nacos config service: %s", exc)
+            logger.warning(
+                "Failed to initialize Nacos config service: %s", exc)
             return None
 
 
 def create_config_manager_from_env() -> ConfigManager:
-    default_config_path = Path(__file__).resolve().parent / "sample_config.yaml"
+    default_config_path = Path(
+        __file__).resolve().parent / "sample_config.yaml"
     return ConfigManager(
         config_path=os.getenv("AUTO_AUGMENT_CONFIG", str(default_config_path)),
         use_nacos=_as_bool(os.getenv("AUTO_AUGMENT_USE_NACOS"), default=False),
         nacos_server_addr=os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848"),
         nacos_data_id=os.getenv("NACOS_DATA_ID", "AUTO_AUGMENT_PIPELINE"),
         nacos_group=os.getenv("NACOS_GROUP", "DEFAULT_GROUP"),
-        watch_nacos=_as_bool(os.getenv("AUTO_AUGMENT_WATCH_NACOS"), default=True),
+        watch_nacos=_as_bool(
+            os.getenv("AUTO_AUGMENT_WATCH_NACOS"), default=True),
     )

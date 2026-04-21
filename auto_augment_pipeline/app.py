@@ -6,9 +6,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
-from .config import create_config_manager_from_env
-from .models import ExecuteCapabilityRequest, InlinePipelineRunRequest, NamedPipelineRunRequest, TaskPayload
-from .service import AutoAugmentService
+from config import create_config_manager_from_env
+from models import ExecuteCapabilityRequest, InlinePipelineRunRequest, NamedPipelineRunRequest, TaskPayload
+from service import AutoAugmentService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "auto_augment_pipeline.app:app",
+        "app:app",
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8010)),
         reload=os.getenv("RELOAD", "false").lower() == "true",

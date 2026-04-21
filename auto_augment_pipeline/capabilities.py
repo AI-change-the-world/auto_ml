@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
 
-from .models import (
+from models import (
     AnnotationItem,
     AnnotationResult,
     CapabilityDescriptor,
@@ -11,8 +11,8 @@ from .models import (
     OverlayRenderResult,
     TaskPayload,
 )
-from .ocr import OCRTextLine, RapidOCRService, normalize_label_to_allowed_classes
-from .utils import clamp, image_size, load_cv2_image, require_cv2
+from ocr import OCRTextLine, RapidOCRService, normalize_label_to_allowed_classes
+from utils import clamp, image_size, load_cv2_image, require_cv2
 
 BoxTuple = tuple[int, int, int, int]
 
@@ -50,7 +50,8 @@ class AnnotationNormalizationMixin:
         classes = payload.classes or params.get("classes", [])
         cleaned = [str(item).strip() for item in classes if str(item).strip()]
         if not cleaned:
-            raise ValueError("annotation extraction requires non-empty `classes`; free-form labels are disabled")
+            raise ValueError(
+                "annotation extraction requires non-empty `classes`; free-form labels are disabled")
         return cleaned
 
     def _normalize_annotations(
@@ -80,11 +81,13 @@ class AnnotationNormalizationMixin:
             if not label:
                 continue
             bbox = item.get("bbox") or item.get("box") or {}
-            x1, y1, x2, y2 = self._extract_box(bbox, width=width, height=height)
+            x1, y1, x2, y2 = self._extract_box(
+                bbox, width=width, height=height)
             if x2 <= x1 or y2 <= y1:
                 continue
             label_anchor = self._extract_label_anchor(
-                item.get("label_anchor") or item.get("label_position") or item.get("text_position"),
+                item.get("label_anchor") or item.get(
+                    "label_position") or item.get("text_position"),
                 x1=x1,
                 y1=y1,
                 x2=x2,
@@ -99,7 +102,8 @@ class AnnotationNormalizationMixin:
                     label=label,
                     bbox={"x1": x1, "y1": y1, "x2": x2, "y2": y2},
                     label_anchor=label_anchor,
-                    confidence=float(confidence) if confidence is not None else None,
+                    confidence=float(
+                        confidence) if confidence is not None else None,
                     source=getattr(self, "name", None),
                 )
             )
@@ -239,7 +243,8 @@ class DescribeImageCapability(Capability):
     ) -> DescriptionResult:
         image = payload.primary_image
         if image is None:
-            raise ValueError("describe_image requires `image` or `overlay_image`")
+            raise ValueError(
+                "describe_image requires `image` or `overlay_image`")
 
         provider = context.resolve_provider(provider_name, role="multimodal")
         prompt = (
@@ -281,7 +286,8 @@ class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
         provider = context.resolve_provider(provider_name, role="multimodal")
         width, height = image_size(image)
         classes = self._require_classes(payload, params)
-        prompt = payload.prompt or params.get("prompt") or self._build_prompt(width, height, classes)
+        prompt = payload.prompt or params.get(
+            "prompt") or self._build_prompt(width, height, classes)
         raw = provider.generate_json(
             prompt=prompt,
             image=image,
@@ -298,7 +304,8 @@ class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
             height=height,
             allowed_classes=classes,
             min_class_match_score=float(params.get("class_match_score", 0.72)),
-            max_label_distance_ratio=float(params.get("max_label_distance_ratio", 0.25)),
+            max_label_distance_ratio=float(
+                params.get("max_label_distance_ratio", 0.25)),
         )
         score_threshold = float(params.get("score_threshold", 0.0))
         annotations = [
@@ -359,11 +366,13 @@ class RenderWhiteAnnotationOverlayCapability(Capability):
     ) -> OverlayRenderResult:
         image = payload.image
         if image is None:
-            raise ValueError("render_white_annotation_overlay requires `image`")
+            raise ValueError(
+                "render_white_annotation_overlay requires `image`")
 
         classes = [item.strip() for item in payload.classes if item.strip()]
         if not classes:
-            raise ValueError("render_white_annotation_overlay requires non-empty `classes`")
+            raise ValueError(
+                "render_white_annotation_overlay requires non-empty `classes`")
 
         provider = context.resolve_provider(provider_name, role="image_edit")
         edit_prompt = payload.prompt or params.get("prompt")
@@ -420,7 +429,8 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
     ) -> AnnotationResult:
         image = payload.overlay_image or payload.image
         if image is None:
-            raise ValueError("understand_white_annotations requires `overlay_image` or `image`")
+            raise ValueError(
+                "understand_white_annotations requires `overlay_image` or `image`")
 
         provider = context.resolve_provider(provider_name, role="multimodal")
         width, height = image_size(image)
@@ -446,7 +456,8 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
             height=height,
             allowed_classes=classes,
             min_class_match_score=float(params.get("class_match_score", 0.72)),
-            max_label_distance_ratio=float(params.get("max_label_distance_ratio", 0.25)),
+            max_label_distance_ratio=float(
+                params.get("max_label_distance_ratio", 0.25)),
         )
         summary = raw.get("summary") if isinstance(raw, dict) else None
         return AnnotationResult(
@@ -504,7 +515,8 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
     ) -> AnnotationResult:
         image_payload = payload.overlay_image or payload.image
         if image_payload is None:
-            raise ValueError("extract_white_annotations requires `overlay_image` or `image`")
+            raise ValueError(
+                "extract_white_annotations requires `overlay_image` or `image`")
 
         cv2 = require_cv2()
         image = load_cv2_image(image_payload)
@@ -519,11 +531,13 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
         max_candidates = int(params.get("max_candidates", 200))
         classes = [item.strip() for item in payload.classes if item.strip()]
         min_match_score = float(params.get("class_match_score", 0.6))
-        border_density_threshold = float(params.get("border_density_threshold", 0.12))
+        border_density_threshold = float(
+            params.get("border_density_threshold", 0.12))
         max_text_distance = int(
             params.get(
                 "max_text_distance",
-                max(30, int(min(image_width, image_height) * float(params.get("max_text_distance_ratio", 0.12)))),
+                max(30, int(min(image_width, image_height) *
+                    float(params.get("max_text_distance_ratio", 0.12)))),
             )
         )
 
@@ -569,14 +583,16 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
             )
             if matched_text is not None:
                 label_anchor = self._extract_label_anchor(
-                    {"x": matched_text.bbox["x1"], "y": matched_text.bbox["y1"]},
+                    {"x": matched_text.bbox["x1"],
+                        "y": matched_text.bbox["y1"]},
                     x1=x1,
                     y1=y1,
                     x2=x2,
                     y2=y2,
                     width=image_width,
                     height=image_height,
-                    max_distance_ratio=max_text_distance / max(1, min(image_width, image_height)),
+                    max_distance_ratio=max_text_distance /
+                    max(1, min(image_width, image_height)),
                 )
 
             annotations.append(
@@ -617,11 +633,14 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
         max_candidates: int,
     ) -> list[BoxTuple]:
         cv2 = require_cv2()
-        mask = cv2.inRange(image, (threshold, threshold, threshold), (255, 255, 255))
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+        mask = cv2.inRange(image, (threshold, threshold,
+                           threshold), (255, 255, 255))
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT, (kernel_size, kernel_size))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
         line_mask = self._extract_line_mask(mask, line_scale=line_scale)
-        contours, _ = cv2.findContours(line_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(
+            line_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         candidates: list[BoxTuple] = []
         for contour in contours:
@@ -638,7 +657,7 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
             if fill_ratio > 0.75:
                 continue
 
-            roi = line_mask[y : y + h, x : x + w]
+            roi = line_mask[y: y + h, x: x + w]
             if not self._looks_like_box_frame(roi, border_density_threshold=border_density_threshold):
                 continue
             candidates.append((x, y, x + w, y + h))
@@ -650,8 +669,10 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
         height, width = mask.shape[:2]
         horizontal_size = max(10, width // max(2, line_scale))
         vertical_size = max(10, height // max(2, line_scale))
-        horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (horizontal_size, 1))
-        vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, vertical_size))
+        horizontal_kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT, (horizontal_size, 1))
+        vertical_kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT, (1, vertical_size))
 
         horizontal = cv2.morphologyEx(mask, cv2.MORPH_OPEN, horizontal_kernel)
         vertical = cv2.morphologyEx(mask, cv2.MORPH_OPEN, vertical_kernel)
@@ -669,9 +690,10 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
         height, width = roi.shape[:2]
         border_thickness = max(1, min(height, width) // 20)
         top = self._nonzero_ratio(roi[:border_thickness, :])
-        bottom = self._nonzero_ratio(roi[max(0, height - border_thickness) :, :])
+        bottom = self._nonzero_ratio(
+            roi[max(0, height - border_thickness):, :])
         left = self._nonzero_ratio(roi[:, :border_thickness])
-        right = self._nonzero_ratio(roi[:, max(0, width - border_thickness) :])
+        right = self._nonzero_ratio(roi[:, max(0, width - border_thickness):])
 
         has_horizontal = top >= border_density_threshold or bottom >= border_density_threshold
         has_vertical = left >= border_density_threshold or right >= border_density_threshold
@@ -776,7 +798,8 @@ class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability
         )
         text_center_x, text_center_y = text_item.center
 
-        anchor_distance = abs(text_center_x - anchor["x"]) + abs(text_center_y - anchor["y"])
+        anchor_distance = abs(
+            text_center_x - anchor["x"]) + abs(text_center_y - anchor["y"])
         box_distance = self._distance_to_box(box, text_item.center)
         distance = min(anchor_distance, box_distance)
         if distance > max_text_distance:
@@ -896,7 +919,8 @@ class AssistAnnotationCapability(Capability):
         result: AnnotationResult,
         params: dict[str, Any],
     ) -> str | None:
-        min_annotation_count = int(params.get("assist_min_annotation_count", 1))
+        min_annotation_count = int(params.get(
+            "assist_min_annotation_count", 1))
         min_labeled_ratio = float(params.get("assist_min_labeled_ratio", 0.75))
         if len(result.annotations) < min_annotation_count:
             return "extract_annotation_count_below_threshold"

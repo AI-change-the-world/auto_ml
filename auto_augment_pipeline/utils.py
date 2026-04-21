@@ -5,14 +5,15 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .models import ImagePayload
+from models import ImagePayload
 
 
 def require_cv2():
     try:
         import cv2
     except ImportError as exc:
-        raise RuntimeError("opencv_python is required for image processing features") from exc
+        raise RuntimeError(
+            "opencv_python is required for image processing features") from exc
     return cv2
 
 
@@ -20,7 +21,8 @@ def require_numpy():
     try:
         import numpy as np
     except ImportError as exc:
-        raise RuntimeError("numpy is required for image processing features") from exc
+        raise RuntimeError(
+            "numpy is required for image processing features") from exc
     return np
 
 
@@ -68,14 +70,15 @@ def crop_payload_from_cv2(
     image: Any, x1: int, y1: int, x2: int, y2: int, mime_type: str = "image/png"
 ) -> ImagePayload:
     cv2 = require_cv2()
-    cropped = image[max(0, y1) : max(0, y2), max(0, x1) : max(0, x2)]
+    cropped = image[max(0, y1): max(0, y2), max(0, x1): max(0, x2)]
     if cropped.size == 0:
         raise ValueError("crop region is empty")
     ok, encoded = cv2.imencode(".png", cropped)
     if not ok:
         raise ValueError("failed to encode cropped image")
     return ImagePayload(
-        base64_data=image_bytes_to_data_url(encoded.tobytes(), mime_type=mime_type),
+        base64_data=image_bytes_to_data_url(
+            encoded.tobytes(), mime_type=mime_type),
         mime_type=mime_type,
     )
 
@@ -115,7 +118,7 @@ def extract_json_block(text: str) -> dict[str, Any] | list[Any]:
         start = candidate.find(start_char)
         end = candidate.rfind(end_char)
         if start >= 0 and end > start:
-            return json.loads(candidate[start : end + 1])
+            return json.loads(candidate[start: end + 1])
     raise ValueError("provider response does not contain valid JSON")
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from .models import (
+from models import (
     ExecuteCapabilityRequest,
     PipelineDefinition,
     PipelineRunResult,
@@ -45,7 +45,8 @@ class PipelineRunner:
         }
 
         for step in definition.steps:
-            step_input = self._build_step_input(step.input_key, step.context_mapping, context)
+            step_input = self._build_step_input(
+                step.input_key, step.context_mapping, context)
             step_params = dict(step.params)
             step_params.update(global_params)
             step_params.update(runtime_params.get(step.name, {}))
@@ -75,7 +76,8 @@ class PipelineRunner:
             pipeline=definition.name,
             description=definition.description,
             steps=step_results,
-            context={key: self._to_jsonable(value) for key, value in context.items()},
+            context={key: self._to_jsonable(value)
+                     for key, value in context.items()},
         )
 
     def _build_step_input(
@@ -83,7 +85,8 @@ class PipelineRunner:
     ) -> TaskPayload:
         base_input = self._resolve_context_value(input_key, context)
         if base_input is None:
-            raise ValueError(f"pipeline input key `{input_key}` does not exist")
+            raise ValueError(
+                f"pipeline input key `{input_key}` does not exist")
         if isinstance(base_input, TaskPayload):
             payload = base_input.model_copy(deep=True)
         elif isinstance(base_input, dict):

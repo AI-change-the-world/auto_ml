@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .capabilities import (
+from capabilities import (
     AssistAnnotationCapability,
     Capability,
     DescribeImageCapability,
@@ -12,10 +12,10 @@ from .capabilities import (
     RenderWhiteAnnotationOverlayCapability,
     UnderstandWhiteAnnotationsCapability,
 )
-from .config import ProfileConfig, RuntimeConfig
-from .models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
-from .pipeline import PipelineRunner
-from .providers import BaseMultimodalProvider, ProviderRegistry
+from config import ProfileConfig, RuntimeConfig
+from models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
+from pipeline import PipelineRunner
+from providers import BaseMultimodalProvider, ProviderRegistry
 
 
 @dataclass
@@ -31,7 +31,8 @@ class ServiceExecutionContext:
         provider_name = None
         if self.provider_overrides:
             provider_name = self.provider_overrides.get(role)
-        provider_name = provider_name or explicit_name or self._profile_provider_name(role) or self._default_provider_name(role)
+        provider_name = provider_name or explicit_name or self._profile_provider_name(
+            role) or self._default_provider_name(role)
         if provider_name is None:
             names = self.providers.names()
             if len(names) == 1:
@@ -92,7 +93,8 @@ class AutoAugmentService:
         capability = self.capabilities.get(capability_name)
         if capability is None:
             raise ValueError(f"unsupported capability `{capability_name}`")
-        profile = self.config.profiles.get(request.profile) if request.profile else None
+        profile = self.config.profiles.get(
+            request.profile) if request.profile else None
         if request.profile and profile is None:
             raise ValueError(f"profile `{request.profile}` is not configured")
         params = dict(profile.params) if profile is not None else {}
@@ -123,7 +125,8 @@ class AutoAugmentService:
         pipeline_definition = definition
         if pipeline_definition is None:
             if not name:
-                raise ValueError("pipeline name or inline definition is required")
+                raise ValueError(
+                    "pipeline name or inline definition is required")
             pipeline_definition = self.config.pipelines.get(name)
             if pipeline_definition is None:
                 raise ValueError(f"pipeline `{name}` is not configured")

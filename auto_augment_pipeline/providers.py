@@ -5,9 +5,9 @@ import re
 from io import BytesIO
 from typing import Any
 
-from .config import ProviderConfig, RuntimeConfig
-from .models import ImagePayload
-from .utils import (
+from config import ProviderConfig, RuntimeConfig
+from models import ImagePayload
+from utils import (
     content_to_text,
     extract_json_block,
     image_size,
@@ -82,7 +82,8 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
             try:
                 from openai import OpenAI
             except ImportError as exc:
-                raise ProviderError("openai package is required for openai_compatible providers") from exc
+                raise ProviderError(
+                    "openai package is required for openai_compatible providers") from exc
 
             self._client = OpenAI(
                 api_key=self.config.api_key,
@@ -102,12 +103,14 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
         max_tokens: int | None = None,
     ) -> str:
         if not self.config.model:
-            raise ProviderError(f"provider `{self.name}` is missing model configuration")
+            raise ProviderError(
+                f"provider `{self.name}` is missing model configuration")
 
         user_content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
         if image is not None:
             user_content.append(
-                {"type": "image_url", "image_url": {"url": payload_to_data_url(image)}}
+                {"type": "image_url", "image_url": {
+                    "url": payload_to_data_url(image)}}
             )
 
         response = self.client.chat.completions.create(
@@ -136,7 +139,8 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
         background: str | None = None,
     ) -> ImagePayload:
         if not self.config.model:
-            raise ProviderError(f"provider `{self.name}` is missing model configuration")
+            raise ProviderError(
+                f"provider `{self.name}` is missing model configuration")
 
         image_buffer = BytesIO(load_image_bytes(image))
         image_buffer.name = "annotation_input.png"
@@ -155,10 +159,12 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
                 **extra,
             )
         except Exception as exc:
-            raise ProviderError(f"image edit request failed for provider `{self.name}`: {exc}") from exc
+            raise ProviderError(
+                f"image edit request failed for provider `{self.name}`: {exc}") from exc
 
         if not getattr(response, "data", None):
-            raise ProviderError(f"provider `{self.name}` returned empty image edit result")
+            raise ProviderError(
+                f"provider `{self.name}` returned empty image edit result")
 
         first_item = response.data[0]
         b64_json = getattr(first_item, "b64_json", None)
@@ -225,7 +231,8 @@ class MockProvider(BaseMultimodalProvider):
         }
 
     def _extract_allowed_classes(self, prompt: str) -> list[str]:
-        match = re.search(r"allowed_classes\s*=\s*\[(.*?)\]", prompt, flags=re.DOTALL)
+        match = re.search(
+            r"allowed_classes\s*=\s*\[(.*?)\]", prompt, flags=re.DOTALL)
         if not match:
             return []
         return [item.strip().strip("\"'") for item in match.group(1).split(",") if item.strip()]
@@ -251,11 +258,13 @@ class ProviderRegistry:
         providers: dict[str, BaseMultimodalProvider] = {}
         for name, item in config.providers.items():
             if item.kind == "openai_compatible":
-                providers[name] = OpenAICompatibleProvider(name=name, config=item)
+                providers[name] = OpenAICompatibleProvider(
+                    name=name, config=item)
             elif item.kind == "mock":
                 providers[name] = MockProvider(name=name, config=item)
             else:
-                logger.warning("Unsupported provider kind `%s`, skipping `%s`", item.kind, name)
+                logger.warning(
+                    "Unsupported provider kind `%s`, skipping `%s`", item.kind, name)
         return cls(providers)
 
     def get(self, name: str) -> BaseMultimodalProvider:
