@@ -52,6 +52,8 @@
     "inferenceParamsDesc": "These params are independent from training and dataset settings. If provided, inference follows them directly.",
     "fileName": "File",
     "imageSize": "Image Size",
+    "previewZoom": "Preview Zoom",
+    "resetView": "Reset View",
     "noResults": "No targets detected",
     "lastTest": "Last Inference",
     "port": "Port",

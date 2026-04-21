@@ -39,6 +39,7 @@ class DeployService:
         model_format: str = "onnx",
         task_kind: str = "detection_bbox",
         backend: str = "onnxruntime",
+        class_names: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         部署模型
@@ -84,7 +85,7 @@ class DeployService:
 
             # 启动运行时
             instance = runtime_manager.deploy_model(
-                model_id, local_model_path, device, task_kind, backend)
+                model_id, local_model_path, device, task_kind, backend, class_names)
             if not instance:
                 return {
                     "success": False,

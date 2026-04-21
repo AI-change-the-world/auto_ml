@@ -30,6 +30,7 @@ class RuntimeInstance:
         device: str = "cpu",
         task_kind: str = "detection_bbox",
         backend: str = "onnxruntime",
+        class_names: Optional[List[str]] = None,
     ):
         self.model_id = model_id
         self.model_path = model_path
@@ -43,7 +44,7 @@ class RuntimeInstance:
         self.session: Any = None
         self.input_name: Optional[str] = None
         self.input_shape: Optional[List[Any]] = None
-        self.class_names: List[str] = []
+        self.class_names: List[str] = list(class_names or [])
         self._lock = threading.RLock()
 
     def start(self) -> bool:
@@ -300,16 +301,9 @@ class RuntimeInstance:
                 continue
 
             x_center, y_center, width, height = pred[0:4]
-            confidence = float(pred[4])
+            class_id, confidence = self._parse_detection_class(pred)
             if confidence < conf_threshold:
                 continue
-
-            class_scores = pred[5:]
-            class_id = 0
-            class_conf = 1.0
-            if len(class_scores) > 0:
-                class_id = int(np.argmax(class_scores))
-                class_conf = float(class_scores[class_id])
 
             x1 = max(0.0, (float(x_center) - float(width) / 2.0) / input_width * orig_width)
             y1 = max(0.0, (float(y_center) - float(height) / 2.0) / input_height * orig_height)
@@ -330,7 +324,7 @@ class RuntimeInstance:
                     "type": "obb" if self.task_kind == "detection_obb" else "bbox",
                     "class_id": class_id,
                     "class_name": class_name,
-                    "confidence": confidence * class_conf,
+                    "confidence": confidence,
                     "box": {
                         "x1": x1,
                         "y1": y1,
@@ -344,6 +338,34 @@ class RuntimeInstance:
             return detections
         return self._nms(detections, iou_threshold)
 
+    def _parse_detection_class(self, pred: np.ndarray) -> tuple[int, float]:
+        class_count = len(self.class_names)
+
+        # Ultralytics 导出的检测 ONNX 常见格式为:
+        # [x, y, w, h, cls0, cls1, ...]，没有单独 objectness。
+        if class_count > 0 and len(pred) == class_count + 4:
+            class_scores = pred[4:4 + class_count]
+            class_id = int(np.argmax(class_scores))
+            confidence = float(class_scores[class_id])
+            return class_id, confidence
+
+        # 兼容包含 objectness 的旧式输出:
+        # [x, y, w, h, obj, cls0, cls1, ...]
+        if class_count > 0 and len(pred) >= class_count + 5:
+            objectness = float(pred[4])
+            class_scores = pred[5:5 + class_count]
+            class_id = int(np.argmax(class_scores))
+            confidence = objectness * float(class_scores[class_id])
+            return class_id, confidence
+
+        # 无法从元信息判断时的兜底逻辑，优先按 Ultralytics 当前导出格式处理。
+        class_scores = pred[4:]
+        if len(class_scores) == 0:
+            return 0, 0.0
+        class_id = int(np.argmax(class_scores))
+        confidence = float(class_scores[class_id])
+        return class_id, confidence
+
     def _nms(self, detections: List[Dict[str, Any]], iou_threshold: float) -> List[Dict[str, Any]]:
         if not detections:
             return []
@@ -355,7 +377,8 @@ class RuntimeInstance:
             kept.append(best)
             ordered = [
                 item for item in ordered
-                if self._iou(best["box"], item["box"]) < iou_threshold
+                if item.get("class_id") != best.get("class_id")
+                or self._iou(best["box"], item["box"]) < iou_threshold
             ]
         return kept
 
@@ -535,6 +558,7 @@ class RuntimeManager:
         device: str = "cpu",
         task_kind: str = "detection_bbox",
         backend: str = "onnxruntime",
+        class_names: Optional[List[str]] = None,
     ) -> Optional[RuntimeInstance]:
         """加载模型会话"""
         with self._lock:
@@ -554,6 +578,7 @@ class RuntimeManager:
             device=device,
             task_kind=task_kind,
             backend=backend,
+            class_names=class_names,
         )
         if instance.start():
             with self._lock:

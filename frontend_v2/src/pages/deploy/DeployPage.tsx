@@ -129,6 +129,31 @@ const formatResultGeometry = (item: InferenceDetectionResult) => {
   return '-';
 };
 
+const getItemBounds = (item: InferenceDetectionResult) => {
+  if (item.box) {
+    return item.box;
+  }
+  if (item.obb) {
+    return {
+      x1: item.obb.cx - item.obb.w / 2,
+      y1: item.obb.cy - item.obb.h / 2,
+      x2: item.obb.cx + item.obb.w / 2,
+      y2: item.obb.cy + item.obb.h / 2,
+    };
+  }
+  if (item.points && item.points.length > 0) {
+    const xs = item.points.map((point) => point.x);
+    const ys = item.points.map((point) => point.y);
+    return {
+      x1: Math.min(...xs),
+      y1: Math.min(...ys),
+      x2: Math.max(...xs),
+      y2: Math.max(...ys),
+    };
+  }
+  return null;
+};
+
 const renderOverlayShape = (
   item: InferenceDetectionResult,
   index: number,
@@ -209,7 +234,10 @@ const DeployPage: React.FC = () => {
   const [tileOverlap, setTileOverlap] = useState(0.2);
   const [mergeIou, setMergeIou] = useState(0.45);
   const [edgeFilter, setEdgeFilter] = useState(true);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [focusedResultIndex, setFocusedResultIndex] = useState<number | null>(null);
   const previewMapRef = useRef<Record<number, InferencePreviewEntry | null>>({});
+  const previewViewportRef = useRef<HTMLDivElement | null>(null);
 
   const activePreview = useMemo(
     () => (activePreviewModelId != null ? previewMap[activePreviewModelId] ?? null : null),
@@ -223,6 +251,13 @@ const DeployPage: React.FC = () => {
   useEffect(() => {
     previewMapRef.current = previewMap;
   }, [previewMap]);
+
+  useEffect(() => {
+    if (activePreview) {
+      setPreviewZoom(1);
+      setFocusedResultIndex(null);
+    }
+  }, [activePreview]);
 
   useEffect(() => {
     return () => {
@@ -440,6 +475,7 @@ const DeployPage: React.FC = () => {
   const imageHeight = activePreview?.result.image_height || 0;
   const hasPreviewGeometry = imageWidth > 0 && imageHeight > 0;
   const previewResults = activePreview?.result.results || [];
+  const previewZoomPercent = Math.round(previewZoom * 100);
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
   const apiEndpoints = useMemo<ApiEndpointInfo[]>(() => {
     if (!activeApiModel) {
@@ -474,6 +510,31 @@ const DeployPage: React.FC = () => {
       },
     ];
   }, [activeApiModel, apiBaseUrl, t]);
+  const focusPreviewResult = useCallback((item: InferenceDetectionResult, index: number) => {
+    setFocusedResultIndex(index);
+    setPreviewZoom((prev) => Math.max(prev, 2.5));
+
+    const bounds = getItemBounds(item);
+    const viewport = previewViewportRef.current;
+    if (!bounds || !viewport || imageWidth <= 0 || imageHeight <= 0) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const targetZoom = Math.max(previewZoom, 2.5);
+      const scaledWidth = imageWidth * targetZoom;
+      const scaledHeight = imageHeight * targetZoom;
+      const centerX = ((bounds.x1 + bounds.x2) / 2 / imageWidth) * scaledWidth;
+      const centerY = ((bounds.y1 + bounds.y2) / 2 / imageHeight) * scaledHeight;
+      const nextLeft = Math.max(0, centerX - viewport.clientWidth / 2);
+      const nextTop = Math.max(0, centerY - viewport.clientHeight / 2);
+      viewport.scrollTo({
+        left: nextLeft,
+        top: nextTop,
+        behavior: 'smooth',
+      });
+    });
+  }, [imageHeight, imageWidth, previewZoom]);
 
   return (
     <div className="page-container">
@@ -712,48 +773,119 @@ const DeployPage: React.FC = () => {
                   {t('imageSize')}: {imageWidth} × {imageHeight}
                 </span>
               )}
+              {hasPreviewGeometry && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom((prev) => Math.max(1, Number((prev - 0.25).toFixed(2))))}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      border: '1px solid #d1d5db',
+                      background: '#fff',
+                      color: '#374151',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    -
+                  </button>
+                  <span style={{ padding: '4px 10px', borderRadius: 999, background: '#f8fafc', color: '#475569', fontSize: 12 }}>
+                    {t('previewZoom')}: {previewZoomPercent}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewZoom((prev) => Math.min(6, Number((prev + 0.25).toFixed(2))))}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      border: '1px solid #d1d5db',
+                      background: '#fff',
+                      color: '#374151',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewZoom(1);
+                      setFocusedResultIndex(null);
+                      previewViewportRef.current?.scrollTo({ left: 0, top: 0, behavior: 'smooth' });
+                    }}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      border: '1px solid #d1d5db',
+                      background: '#fff',
+                      color: '#374151',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {t('resetView')}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', background: '#0f172a' }}>
               {hasPreviewGeometry ? (
-                <div style={{ position: 'relative', width: '100%', aspectRatio: `${imageWidth} / ${imageHeight}` }}>
-                  <img
-                    src={activePreview.imageUrl}
-                    alt={activePreview.fileName}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-                  />
-                  <svg
-                    viewBox={`0 0 ${imageWidth} ${imageHeight}`}
-                    preserveAspectRatio="none"
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                <div
+                  ref={previewViewportRef}
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    maxHeight: '72vh',
+                    overflow: 'auto',
+                    background: '#020617',
+                  }}
+                >
+                  <div
+                    style={{
+                      position: 'relative',
+                      width: imageWidth * previewZoom,
+                      height: imageHeight * previewZoom,
+                      transformOrigin: 'top left',
+                    }}
                   >
-                    {previewResults.map((item, index) => renderOverlayShape(item, index))}
-                  </svg>
-                  {previewResults.map((item, index) => {
-                    const color = getClassColor(item.class_id);
-                    const anchor = getLabelAnchor(item, imageWidth, imageHeight);
-                    return (
-                      <div
-                        key={`label-${index}`}
-                        style={{
-                          position: 'absolute',
-                          left: toPercent(anchor.x, imageWidth),
-                          top: toPercent(anchor.y, imageHeight),
-                          pointerEvents: 'none',
-                          background: color,
-                          color: '#fff',
-                          fontSize: 12,
-                          lineHeight: 1.2,
-                          padding: '4px 8px',
-                          borderRadius: 8,
-                          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.24)',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {item.class_name || `class_${item.class_id}`} · {formatConfidence(item.confidence)}
-                      </div>
-                    );
-                  })}
+                    <img
+                      src={activePreview.imageUrl}
+                      alt={activePreview.fileName}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+                    />
+                    <svg
+                      viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+                      preserveAspectRatio="none"
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+                    >
+                      {previewResults.map((item, index) => renderOverlayShape(item, index))}
+                    </svg>
+                    {previewResults.map((item, index) => {
+                      const color = getClassColor(item.class_id);
+                      const anchor = getLabelAnchor(item, imageWidth, imageHeight);
+                      return (
+                        <div
+                          key={`label-${index}`}
+                          style={{
+                            position: 'absolute',
+                            left: toPercent(anchor.x, imageWidth),
+                            top: toPercent(anchor.y, imageHeight),
+                            pointerEvents: 'none',
+                            background: focusedResultIndex === index ? '#111827' : color,
+                            color: '#fff',
+                            fontSize: Math.max(12, 12 * previewZoom),
+                            lineHeight: 1.2,
+                            padding: `${Math.max(4, 4 * previewZoom)}px ${Math.max(8, 8 * previewZoom)}px`,
+                            borderRadius: 8,
+                            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.24)',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.class_name || `class_${item.class_id}`} · {formatConfidence(item.confidence)}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <img
@@ -778,15 +910,17 @@ const DeployPage: React.FC = () => {
                     {previewResults.map((item, index) => (
                       <div
                         key={`result-${index}`}
+                        onClick={() => focusPreviewResult(item, index)}
                         style={{
                           display: 'flex',
                           justifyContent: 'space-between',
                           gap: 16,
                           padding: '12px 14px',
                           borderRadius: 12,
-                          border: '1px solid #eef2f7',
-                          background: '#fafcff',
+                          border: focusedResultIndex === index ? '1px solid #93c5fd' : '1px solid #eef2f7',
+                          background: focusedResultIndex === index ? '#eff6ff' : '#fafcff',
                           fontSize: 13,
+                          cursor: 'pointer',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>

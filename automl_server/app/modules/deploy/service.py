@@ -1,4 +1,5 @@
 """部署服务 - 与 model_deploy 通信"""
+import json
 from typing import List, Optional
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,6 +54,7 @@ class DeployService:
                 "backend": "onnxruntime",
                 "device": data.device,
                 "version": data.version,
+                "class_names": self._parse_classes(getattr(model, "class_names", None)),
             }
 
             response = await self.http_client.post("/deploy", json=deploy_request)
@@ -140,6 +142,17 @@ class DeployService:
         if model_type in {"detection", "detection_bbox", None, ""}:
             return "detection_bbox"
         return str(model_type)
+
+    def _parse_classes(self, raw_classes: Optional[str]) -> list[str]:
+        if not raw_classes:
+            return []
+        try:
+            parsed = json.loads(raw_classes)
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+        except Exception:
+            pass
+        return [item.strip() for item in raw_classes.split(",") if item.strip()]
 
     async def get_deploy_status(self, db: AsyncSession, model_id: int) -> DeployStatusResponse:
         """获取部署状态"""

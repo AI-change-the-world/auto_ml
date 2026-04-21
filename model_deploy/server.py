@@ -112,6 +112,7 @@ class DeployRequest(BaseModel):
     backend: str = "onnxruntime"
     device: str = "cpu"
     version: str = "v1"
+    class_names: Optional[List[str]] = None
 
 
 class DeployResponse(BaseModel):
@@ -239,6 +240,7 @@ async def deploy_model(request: DeployRequest):
             backend=request.backend,
             device=request.device,
             version=request.version,
+            class_names=request.class_names,
         )
 
         if result["success"]:

@@ -52,6 +52,8 @@
     "inferenceParamsDesc": "这部分参数独立于训练与数据集，只要传入就按这里执行大图或子图推理。",
     "fileName": "文件",
     "imageSize": "图像尺寸",
+    "previewZoom": "预览缩放",
+    "resetView": "重置视图",
     "noResults": "未检测到目标",
     "lastTest": "最近一次推理",
     "port": "端口",
