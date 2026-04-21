@@ -4,8 +4,10 @@ import type {
   PageResult,
   AvailableModelResponse,
   DeployStatusResponse,
+  InferenceParams,
   InferencePredictResponse,
   InferenceHealthResponse,
+  RenameModelRequest,
 } from '../types';
 
 /** 获取可用模型列表 */
@@ -43,9 +45,12 @@ export async function getInferenceHealth(modelId: number) {
 }
 
 /** 上传图片执行推理 */
-export async function predictModel(modelId: number, file: File) {
+export async function predictModel(modelId: number, file: File, inferenceParams?: InferenceParams | null) {
   const formData = new FormData();
   formData.append('file', file);
+  if (inferenceParams && Object.keys(inferenceParams).length > 0) {
+    formData.append('inference_params', JSON.stringify(inferenceParams));
+  }
   const res = await apiClient.post<Result<InferencePredictResponse>>(
     `/inference/models/${modelId}/predict`,
     formData,
@@ -53,5 +58,11 @@ export async function predictModel(modelId: number, file: File) {
       timeout: 120000,
     },
   );
+  return res.data.data;
+}
+
+/** 重命名模型 */
+export async function renameModel(modelId: number, data: RenameModelRequest) {
+  const res = await apiClient.patch<Result<AvailableModelResponse>>(`/deploy/${modelId}/rename`, data);
   return res.data.data;
 }

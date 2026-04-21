@@ -14,6 +14,7 @@ from app.utils.http_client import HttpClient
 from app.modules.deploy import crud as deploy_crud
 
 from .schemas import (
+    InferenceParams,
     InferenceHealthResponse,
     InferencePredictResponse,
 )
@@ -38,8 +39,15 @@ class InferenceService:
         file_name: str,
         file_bytes: bytes,
         content_type: Optional[str] = None,
+        inference_params: Optional[InferenceParams] = None,
     ) -> InferencePredictResponse:
         model = await self._get_deployed_model(db, model_id)
+        payload = self._dump_inference_params(inference_params)
+        data = None
+        if payload is not None:
+            data = {
+                "inference_params": json.dumps(payload, ensure_ascii=False),
+            }
         response = await self.http_client.post(
             f"/predict/{model_id}",
             files={
@@ -49,6 +57,7 @@ class InferenceService:
                     content_type or "application/octet-stream",
                 )
             },
+            data=data,
         )
         payload = self._parse_backend_response(response, "predict")
         class_names = await self._load_class_names(
@@ -63,11 +72,15 @@ class InferenceService:
         db: AsyncSession,
         model_id: int,
         image_base64: str,
+        inference_params: Optional[InferenceParams] = None,
     ) -> InferencePredictResponse:
         model = await self._get_deployed_model(db, model_id)
         response = await self.http_client.post(
             f"/predict/{model_id}/base64",
-            json={"image": image_base64},
+            json={
+                "image": image_base64,
+                "inference_params": self._dump_inference_params(inference_params),
+            },
         )
         payload = self._parse_backend_response(response, "predict/base64")
         class_names = await self._load_class_names(
@@ -232,6 +245,15 @@ class InferenceService:
         if model_type == "detection":
             return "detection_bbox"
         return model_type or "detection_bbox"
+
+    def _dump_inference_params(
+        self,
+        inference_params: Optional[InferenceParams],
+    ) -> Optional[dict]:
+        if inference_params is None:
+            return None
+        payload = inference_params.model_dump(exclude_none=True)
+        return payload or None
 
 
 async def get_inference_service():

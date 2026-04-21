@@ -53,10 +53,12 @@ export type {
   DeployRequest,
   AvailableModelResponse,
   DeployStatusResponse,
+  InferenceParams,
   InferenceBox,
   InferenceDetectionResult,
   InferencePredictResponse,
   InferenceHealthResponse,
+  RenameModelRequest,
 } from './deploy';
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';

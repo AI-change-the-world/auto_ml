@@ -6,7 +6,12 @@ from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.utils.http_client import HttpClient
 from . import crud
-from .schemas import DeployRequest, AvailableModelResponse, DeployStatusResponse
+from .schemas import (
+    DeployRequest,
+    RenameModelRequest,
+    AvailableModelResponse,
+    DeployStatusResponse,
+)
 
 
 class DeployService:
@@ -111,6 +116,23 @@ class DeployService:
             version=model.deployment_version,
             device=model.deployment_device,
         )
+
+    async def rename_model(
+        self,
+        db: AsyncSession,
+        model_id: int,
+        data: RenameModelRequest,
+    ) -> AvailableModelResponse:
+        model = await crud.get_model_by_id(db, model_id)
+        if not model:
+            raise NotFoundException(f"Model {model_id} not found")
+
+        name = data.name.strip()
+        if not name:
+            raise BadRequestException("Model name cannot be empty")
+
+        updated = await crud.update_model_name(db, model, name)
+        return AvailableModelResponse.model_validate(updated)
 
     def _normalize_task_kind(self, model_type: str | None) -> str:
         if model_type in {"detection_obb", "classification", "segmentation"}:

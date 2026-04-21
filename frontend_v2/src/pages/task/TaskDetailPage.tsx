@@ -98,6 +98,33 @@ const TaskDetailPage: React.FC = () => {
   const typeLabels: Record<number, string> = { 0: t('detection'), 1: t('classification') };
   const ck = TaskStatusColors[task.status] || 'default';
   const s = statusStyles[ck] || statusStyles.default;
+  const getSourceDisplayName = (source: NonNullable<TaskResponse['sources']>[number]) => (
+    source.source_name?.trim()
+    || t('sourceFallbackName', {
+      datasetId: source.dataset_id,
+      annotationId: source.annotation_id,
+    })
+  );
+  const primarySource = task.sources?.[0];
+  const primarySourceName = primarySource
+    ? getSourceDisplayName(primarySource)
+    : task.dataset_id != null && task.annotation_id != null
+      ? t('sourceFallbackName', {
+        datasetId: task.dataset_id,
+        annotationId: task.annotation_id,
+      })
+      : '-';
+  const primarySourceIds = primarySource
+    ? t('sourceIdsInline', {
+      datasetId: primarySource.dataset_id,
+      annotationId: primarySource.annotation_id,
+    })
+    : task.dataset_id != null && task.annotation_id != null
+      ? t('sourceIdsInline', {
+        datasetId: task.dataset_id,
+        annotationId: task.annotation_id,
+      })
+      : '-';
 
   return (
     <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto' }} className="page-container">
@@ -128,9 +155,18 @@ const TaskDetailPage: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
           {[
             { label: t('taskTypeLabel'), value: typeLabels[task.task_type] ?? task.task_type },
-            { label: t('dataset'), value: task.dataset_id ?? '-' },
-            { label: tc('nav.annotation', { ns: 'common' }), value: task.annotation_id ?? '-' },
-            { label: t('sources'), value: task.sources?.length ?? 0 },
+            {
+              label: t('primarySourceLabel'),
+              value: primarySourceName,
+            },
+            {
+              label: t('sourceCountLabel'),
+              value: t('sourceCount', { count: task.sources?.length ?? 0 }),
+            },
+            {
+              label: t('primarySourceIdsLabel'),
+              value: primarySourceIds,
+            },
             { label: tc('label.status'), value: TaskStatusLabels[task.status] },
             { label: tc('label.createdAt'), value: dayjs(task.created_at).format('YYYY-MM-DD HH:mm:ss') },
             { label: tc('label.updatedAt'), value: dayjs(task.updated_at).format('YYYY-MM-DD HH:mm:ss') },
@@ -146,12 +182,24 @@ const TaskDetailPage: React.FC = () => {
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>{t('sources')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {(task.sources || []).map((source, index) => (
-                <div key={source.id} style={{ fontSize: 13, color: '#334155' }}>
-                  {t('sourceItem', {
-                    index: index + 1,
-                    datasetId: source.dataset_id,
-                    annotationId: source.annotation_id,
-                  })}
+                <div
+                  key={source.id}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    background: '#fff',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>
+                    {index + 1}. {getSourceDisplayName(source)}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>
+                    {t('sourceIdsInline', {
+                      datasetId: source.dataset_id,
+                      annotationId: source.annotation_id,
+                    })}
+                  </div>
                 </div>
               ))}
             </div>

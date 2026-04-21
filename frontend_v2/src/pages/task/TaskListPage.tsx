@@ -15,6 +15,7 @@ import type {
   TaskStreamEnvelope,
   TrainingConfigPayload,
   TaskSourceItem,
+  TaskSourceResponse,
 } from '../../types/task';
 import type { Dataset } from '../../types/dataset';
 import { AnnotationType, type AnnotationProject } from '../../types/annotation';
@@ -255,6 +256,44 @@ const TaskListPage: React.FC = () => {
       ? model.model_type === 'detection_obb'
       : model.model_type === 'detection';
   });
+  const getSourceDisplayName = useCallback((source: TaskSourceResponse) => (
+    source.source_name?.trim()
+    || t('sourceFallbackName', {
+      datasetId: source.dataset_id,
+      annotationId: source.annotation_id,
+    })
+  ), [t]);
+  const getSourceSummary = useCallback((task: TaskResponse) => {
+    const sources = task.sources || [];
+    if (sources.length === 0) {
+      if (task.dataset_id != null && task.annotation_id != null) {
+        return t('sourceFallbackName', {
+          datasetId: task.dataset_id,
+          annotationId: task.annotation_id,
+        });
+      }
+      return '-';
+    }
+
+    const [first] = sources;
+    const firstName = getSourceDisplayName(first);
+    if (sources.length === 1) {
+      return firstName;
+    }
+    return t('sourceSummaryMore', {
+      first: firstName,
+      remaining: sources.length - 1,
+    });
+  }, [getSourceDisplayName, t]);
+  const getSourceTitle = useCallback((task: TaskResponse) => {
+    const sources = task.sources || [];
+    if (sources.length === 0) {
+      return getSourceSummary(task);
+    }
+    return sources.map((source, index) => (
+      `${index + 1}. ${getSourceDisplayName(source)}`
+    )).join('\n');
+  }, [getSourceDisplayName, getSourceSummary]);
 
   const updateTrainConfig = <K extends keyof TrainingConfigPayload>(key: K, value: TrainingConfigPayload[K]) => {
     setForm((prev) => ({
@@ -411,8 +450,18 @@ const TaskListPage: React.FC = () => {
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
-                          <span>{t('datasetId', { id: task.dataset_id ?? '-' })}</span>
-                          {task.annotation_id && <span>{t('annotationId', { id: task.annotation_id })}</span>}
+                          <span
+                            title={getSourceTitle(task)}
+                            style={{
+                              maxWidth: 520,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              color: '#4b5563',
+                            }}
+                          >
+                            {t('sources')}: {getSourceSummary(task)}
+                          </span>
                           <span>{t('sourceCount', { count: task.sources?.length ?? 0 })}</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {dayjs(task.created_at).format('MM-DD HH:mm')}</span>
                           {task.is_stale && (

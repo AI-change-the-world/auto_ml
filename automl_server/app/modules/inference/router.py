@@ -1,12 +1,16 @@
 """推理 API 路由"""
-from fastapi import APIRouter, Depends, File, UploadFile
+import json
+
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import Result
+from app.common.exceptions import BadRequestException
 from app.config.database import get_db
 
 from .schemas import (
     InferenceBase64Request,
+    InferenceParams,
     InferenceHealthResponse,
     InferencePredictResponse,
 )
@@ -24,16 +28,24 @@ router = APIRouter(prefix="/inference", tags=["模型推理"])
 async def predict_model(
     model_id: int,
     file: UploadFile = File(...),
+    inference_params: str | None = Form(default=None),
     db: AsyncSession = Depends(get_db),
     service: InferenceService = Depends(get_inference_service),
 ):
     content = await file.read()
+    parsed_params = None
+    if inference_params:
+        try:
+            parsed_params = InferenceParams.model_validate(json.loads(inference_params))
+        except Exception as exc:
+            raise BadRequestException(f"invalid inference_params: {exc}") from exc
     result = await service.predict(
         db,
         model_id=model_id,
         file_name=file.filename or "image.jpg",
         file_bytes=content,
         content_type=file.content_type,
+        inference_params=parsed_params,
     )
     return Result.ok(result)
 
@@ -49,7 +61,12 @@ async def predict_model_base64(
     db: AsyncSession = Depends(get_db),
     service: InferenceService = Depends(get_inference_service),
 ):
-    result = await service.predict_base64(db, model_id=model_id, image_base64=data.image)
+    result = await service.predict_base64(
+        db,
+        model_id=model_id,
+        image_base64=data.image,
+        inference_params=data.inference_params,
+    )
     return Result.ok(result)
 
 

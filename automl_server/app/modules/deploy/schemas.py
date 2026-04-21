@@ -14,6 +14,10 @@ class UndeployRequest(BaseModel):
     model_id: int
 
 
+class RenameModelRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255, description="模型名称")
+
+
 class AvailableModelResponse(BaseModel):
     id: int
     name: Optional[str]

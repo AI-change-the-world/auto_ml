@@ -3,7 +3,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
-from .schemas import DeployRequest, AvailableModelResponse, DeployStatusResponse
+from .schemas import (
+    DeployRequest,
+    RenameModelRequest,
+    AvailableModelResponse,
+    DeployStatusResponse,
+)
 from .service import get_deploy_service, DeployService
 
 router = APIRouter(prefix="/deploy", tags=["模型部署"])
@@ -42,6 +47,17 @@ async def undeploy_model(
 ):
     result = await service.undeploy_model(db, model_id)
     return Result.ok(result, "Undeploy request sent")
+
+
+@router.patch("/{model_id}/rename", response_model=Result[AvailableModelResponse], summary="重命名模型")
+async def rename_model(
+    model_id: int,
+    data: RenameModelRequest,
+    db: AsyncSession = Depends(get_db),
+    service: DeployService = Depends(get_deploy_service),
+):
+    result = await service.rename_model(db, model_id, data)
+    return Result.ok(result, "Model renamed")
 
 
 @router.get("/{model_id}/status", response_model=Result[DeployStatusResponse], summary="获取部署状态")

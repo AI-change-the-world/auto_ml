@@ -3,13 +3,14 @@ Model Deploy Service
 轻量级模型部署服务，使用 RabbitMQ 发送状态
 """
 import asyncio
+import json
 import os
 import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 from core.deploy_service import deploy_service
 from core.runtime_manager import runtime_manager
@@ -97,7 +98,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Model Deploy Service",
     description="轻量级模型部署服务（基于 RabbitMQ）",
-    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -151,6 +151,23 @@ class PredictResponse(BaseModel):
     image_height: Optional[int] = None
     results: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
+
+
+class InferenceParams(BaseModel):
+    input_type: Optional[str] = Field(default=None, description="输入类型: tile/mosaic/raw_aerial")
+    inference_mode: Optional[str] = Field(default=None, description="推理模式: direct/tile/scene")
+    tile_size: Optional[int] = Field(default=None, ge=64, description="切片尺寸")
+    tile_overlap: Optional[float] = Field(default=None, ge=0, lt=1, description="切片重叠比例")
+    merge_strategy: Optional[str] = Field(default=None, description="结果融合方式: nms/wbf")
+    merge_iou: Optional[float] = Field(default=None, ge=0, le=1, description="融合 IoU 阈值")
+    edge_filter: Optional[bool] = Field(default=None, description="是否过滤切片边缘结果")
+    return_global_coords: Optional[bool] = Field(default=None, description="是否返回全局坐标")
+    extra: Optional[Dict[str, Any]] = Field(default=None, description="保留扩展参数")
+
+
+class PredictBase64Request(BaseModel):
+    image: str
+    inference_params: Optional[InferenceParams] = None
 
 
 class HealthResponse(BaseModel):
@@ -275,7 +292,11 @@ async def list_deployments():
 
 
 @app.post("/predict/{model_id}", response_model=PredictResponse)
-async def predict(model_id: int, file: UploadFile = File(...)):
+async def predict(
+    model_id: int,
+    file: UploadFile = File(...),
+    inference_params: str | None = Form(default=None),
+):
     """
     执行模型推理
 
@@ -284,7 +305,19 @@ async def predict(model_id: int, file: UploadFile = File(...)):
     """
     try:
         image_data = await file.read()
-        result = await asyncio.to_thread(deploy_service.predict, model_id, image_data)
+        parsed_params = None
+        if inference_params:
+            try:
+                parsed_params = InferenceParams.model_validate(json.loads(inference_params))
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail=f"invalid inference_params: {exc}") from exc
+
+        result = await asyncio.to_thread(
+            deploy_service.predict,
+            model_id,
+            image_data,
+            parsed_params.model_dump(exclude_none=True) if parsed_params else None,
+        )
 
         if result.get("success"):
             return PredictResponse(
@@ -306,8 +339,8 @@ async def predict(model_id: int, file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/predict/{model_id}/base64")
-async def predict_base64(model_id: int, data: dict):
+@app.post("/predict/{model_id}/base64", response_model=PredictResponse)
+async def predict_base64(model_id: int, data: PredictBase64Request):
     """
     使用 base64 编码的图像进行推理
 
@@ -315,7 +348,7 @@ async def predict_base64(model_id: int, data: dict):
     - **image**: base64 编码的图像字符串
     """
     try:
-        image_base64 = data.get("image")
+        image_base64 = data.image
         if not image_base64:
             raise HTTPException(
                 status_code=400, detail="image field is required")
@@ -324,6 +357,7 @@ async def predict_base64(model_id: int, data: dict):
             deploy_service.predict_base64,
             model_id,
             image_base64,
+            data.inference_params.model_dump(exclude_none=True) if data.inference_params else None,
         )
 
         if result.get("success"):

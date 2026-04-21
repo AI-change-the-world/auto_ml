@@ -8,8 +8,9 @@ import base64
 import binascii
 import gc
 import io
+import math
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from PIL import Image
@@ -122,16 +123,24 @@ class RuntimeInstance:
         """检查会话是否已加载"""
         return self.health_check()
 
-    def predict(self, image_data: bytes) -> Dict[str, Any]:
+    def predict(
+        self,
+        image_data: bytes,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """使用二进制图像推理"""
         try:
             image = Image.open(io.BytesIO(image_data)).convert("RGB")
-            return self.predict_image(image)
+            return self.predict_image(image, inference_params=inference_params)
         except Exception as e:
             logger.error(f"Predict failed: model_id={self.model_id}, error={e}")
             return self._error_response(str(e))
 
-    def predict_base64(self, image_base64: str) -> Dict[str, Any]:
+    def predict_base64(
+        self,
+        image_base64: str,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """使用 base64 图像推理"""
         try:
             encoded = image_base64 or ""
@@ -139,7 +148,7 @@ class RuntimeInstance:
                 encoded = encoded.split(",", 1)[1]
             image_data = base64.b64decode(encoded)
             image = Image.open(io.BytesIO(image_data)).convert("RGB")
-            return self.predict_image(image)
+            return self.predict_image(image, inference_params=inference_params)
         except (binascii.Error, ValueError) as e:
             logger.error(f"Base64 decode failed: model_id={self.model_id}, error={e}")
             return self._error_response(f"Invalid base64 image payload: {e}")
@@ -147,7 +156,11 @@ class RuntimeInstance:
             logger.error(f"Predict base64 failed: model_id={self.model_id}, error={e}")
             return self._error_response(str(e))
 
-    def predict_image(self, image: Image.Image) -> Dict[str, Any]:
+    def predict_image(
+        self,
+        image: Image.Image,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """执行推理"""
         session, input_name, input_shape = self._session_state()
         if session is None or input_name is None:
@@ -155,14 +168,22 @@ class RuntimeInstance:
 
         try:
             orig_width, orig_height = image.size
-            input_tensor = self._preprocess(image, input_shape)
-            outputs = session.run(None, {input_name: input_tensor})
-            results = self._postprocess_detections(
-                outputs=outputs,
-                input_shape=input_shape,
-                orig_width=orig_width,
-                orig_height=orig_height,
-            )
+            normalized_params = self._normalize_inference_params(inference_params, input_shape)
+            if self._use_tile_inference(orig_width, orig_height, normalized_params):
+                results = self._predict_by_tiles(
+                    session=session,
+                    input_name=input_name,
+                    input_shape=input_shape,
+                    image=image,
+                    params=normalized_params,
+                )
+            else:
+                results = self._run_single_inference(
+                    session=session,
+                    input_name=input_name,
+                    input_shape=input_shape,
+                    image=image,
+                )
 
             return {
                 "success": True,
@@ -178,6 +199,62 @@ class RuntimeInstance:
             with self._lock:
                 self.last_error = str(e)
             return self._error_response(str(e))
+
+    def _run_single_inference(
+        self,
+        session: Any,
+        input_name: str,
+        input_shape: List[Any],
+        image: Image.Image,
+    ) -> List[Dict[str, Any]]:
+        orig_width, orig_height = image.size
+        input_tensor = self._preprocess(image, input_shape)
+        outputs = session.run(None, {input_name: input_tensor})
+        return self._postprocess_detections(
+            outputs=outputs,
+            input_shape=input_shape,
+            orig_width=orig_width,
+            orig_height=orig_height,
+        )
+
+    def _predict_by_tiles(
+        self,
+        session: Any,
+        input_name: str,
+        input_shape: List[Any],
+        image: Image.Image,
+        params: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        orig_width, orig_height = image.size
+        tile_size = int(params["tile_size"])
+        overlap = float(params["tile_overlap"])
+        merge_iou = float(params["merge_iou"])
+        edge_filter = bool(params["edge_filter"])
+
+        tile_boxes = self._build_tile_boxes(orig_width, orig_height, tile_size, overlap)
+        merged_results: List[Dict[str, Any]] = []
+
+        for left, top, right, bottom in tile_boxes:
+            tile = image.crop((left, top, right, bottom))
+            tile_width, tile_height = tile.size
+            input_tensor = self._preprocess(tile, input_shape)
+            outputs = session.run(None, {input_name: input_tensor})
+            tile_results = self._postprocess_detections(
+                outputs=outputs,
+                input_shape=input_shape,
+                orig_width=tile_width,
+                orig_height=tile_height,
+                iou_threshold=merge_iou,
+                apply_nms=False,
+            )
+
+            for item in tile_results:
+                global_item = self._to_global_coords(item, left, top)
+                if edge_filter and self._is_edge_detection(global_item, left, top, right, bottom, orig_width, orig_height):
+                    continue
+                merged_results.append(global_item)
+
+        return self._nms(merged_results, merge_iou)
 
     def _session_state(self) -> tuple[Any, Optional[str], List[Any]]:
         with self._lock:
@@ -205,6 +282,7 @@ class RuntimeInstance:
         orig_height: int,
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
+        apply_nms: bool = True,
     ) -> List[Dict[str, Any]]:
         if not outputs:
             return []
@@ -262,6 +340,8 @@ class RuntimeInstance:
                 }
             )
 
+        if not apply_nms:
+            return detections
         return self._nms(detections, iou_threshold)
 
     def _nms(self, detections: List[Dict[str, Any]], iou_threshold: float) -> List[Dict[str, Any]]:
@@ -292,6 +372,136 @@ class RuntimeInstance:
         if union <= 0:
             return 0.0
         return intersection / union
+
+    def _normalize_inference_params(
+        self,
+        inference_params: Optional[Dict[str, Any]],
+        input_shape: List[Any],
+    ) -> Dict[str, Any]:
+        payload = dict(inference_params or {})
+        default_tile = max(
+            self._normalize_dim(input_shape[2] if len(input_shape) > 2 else None),
+            self._normalize_dim(input_shape[3] if len(input_shape) > 3 else None),
+        )
+        return {
+            "inference_mode": str(payload.get("inference_mode") or "direct").strip().lower(),
+            "tile_size": self._normalize_dim(payload.get("tile_size"), default=default_tile),
+            "tile_overlap": self._normalize_ratio(payload.get("tile_overlap"), default=0.2),
+            "merge_iou": self._normalize_ratio(payload.get("merge_iou"), default=0.45, allow_one=True),
+            "edge_filter": bool(payload.get("edge_filter", False)),
+        }
+
+    def _use_tile_inference(
+        self,
+        image_width: int,
+        image_height: int,
+        params: Dict[str, Any],
+    ) -> bool:
+        if params["inference_mode"] == "tile":
+            return True
+        if params["inference_mode"] == "direct":
+            return False
+        tile_size = int(params["tile_size"])
+        return image_width > tile_size or image_height > tile_size
+
+    def _build_tile_boxes(
+        self,
+        image_width: int,
+        image_height: int,
+        tile_size: int,
+        tile_overlap: float,
+    ) -> List[Tuple[int, int, int, int]]:
+        stride = max(1, int(round(tile_size * (1 - tile_overlap))))
+        x_positions = self._axis_positions(image_width, tile_size, stride)
+        y_positions = self._axis_positions(image_height, tile_size, stride)
+        boxes: List[Tuple[int, int, int, int]] = []
+        for top in y_positions:
+            for left in x_positions:
+                right = min(left + tile_size, image_width)
+                bottom = min(top + tile_size, image_height)
+                boxes.append((left, top, right, bottom))
+        return boxes
+
+    def _axis_positions(self, length: int, tile_size: int, stride: int) -> List[int]:
+        if length <= tile_size:
+            return [0]
+
+        positions: List[int] = []
+        current = 0
+        last_start = max(0, length - tile_size)
+        while current < last_start:
+            positions.append(current)
+            current += stride
+        if not positions or positions[-1] != last_start:
+            positions.append(last_start)
+        return positions
+
+    def _to_global_coords(self, item: Dict[str, Any], offset_x: int, offset_y: int) -> Dict[str, Any]:
+        updated = dict(item)
+        if item.get("box"):
+            box = dict(item["box"])
+            box["x1"] += offset_x
+            box["x2"] += offset_x
+            box["y1"] += offset_y
+            box["y2"] += offset_y
+            updated["box"] = box
+        if item.get("points"):
+            updated["points"] = [
+                {"x": point["x"] + offset_x, "y": point["y"] + offset_y}
+                for point in item["points"]
+            ]
+        if item.get("obb"):
+            obb = dict(item["obb"])
+            obb["cx"] += offset_x
+            obb["cy"] += offset_y
+            updated["obb"] = obb
+        return updated
+
+    def _is_edge_detection(
+        self,
+        item: Dict[str, Any],
+        left: int,
+        top: int,
+        right: int,
+        bottom: int,
+        image_width: int,
+        image_height: int,
+    ) -> bool:
+        box = item.get("box")
+        if not isinstance(box, dict):
+            return False
+
+        margin = 2.0
+        touches_tile_edge = (
+            abs(float(box["x1"]) - left) <= margin
+            or abs(float(box["y1"]) - top) <= margin
+            or abs(float(box["x2"]) - right) <= margin
+            or abs(float(box["y2"]) - bottom) <= margin
+        )
+        touches_image_edge = (
+            left <= 0 and abs(float(box["x1"]) - left) <= margin
+            or top <= 0 and abs(float(box["y1"]) - top) <= margin
+            or right >= image_width and abs(float(box["x2"]) - right) <= margin
+            or bottom >= image_height and abs(float(box["y2"]) - bottom) <= margin
+        )
+        return touches_tile_edge and not touches_image_edge
+
+    def _normalize_ratio(
+        self,
+        value: Any,
+        default: float,
+        allow_one: bool = False,
+    ) -> float:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return default
+        upper = 1.0 if allow_one else math.nextafter(1.0, 0.0)
+        if normalized < 0:
+            return default
+        if normalized > upper:
+            return upper
+        return normalized
 
     def _normalize_dim(self, value: Any, default: int = 640) -> int:
         try:

@@ -25,3 +25,14 @@ async def get_model_by_id(db: AsyncSession, model_id: int) -> Optional[Available
                                         model_id, AvailableModel.is_deleted == False)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def update_model_name(
+    db: AsyncSession,
+    model: AvailableModel,
+    name: str,
+) -> AvailableModel:
+    model.name = name
+    await db.commit()
+    await db.refresh(model)
+    return model

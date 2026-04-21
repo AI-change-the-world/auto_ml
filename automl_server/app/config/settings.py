@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from loguru import logger
 
 from .nacos_config_center import get_config_center
+from app import __version__
 
 _last_nacos_log_keys: Optional[tuple[str, ...]] = None
 
@@ -58,7 +59,7 @@ class Settings(BaseModel):
     """全局设置"""
     # 服务配置
     app_name: str = "AutoML Server"
-    app_version: str = "1.0.0"
+    app_version: str = __version__
     host: str = "0.0.0.0"
     port: int = 45678
     debug: bool = False

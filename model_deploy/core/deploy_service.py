@@ -230,7 +230,12 @@ class DeployService:
 
         return result
 
-    def predict(self, model_id: int, image_data: bytes) -> Dict[str, Any]:
+    def predict(
+        self,
+        model_id: int,
+        image_data: bytes,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         路由推理请求到对应的内存会话
         """
@@ -242,12 +247,17 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            return instance.predict(image_data)
+            return instance.predict(image_data, inference_params=inference_params)
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}
 
-    def predict_base64(self, model_id: int, image_base64: str) -> Dict[str, Any]:
+    def predict_base64(
+        self,
+        model_id: int,
+        image_base64: str,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """使用 base64 图像进行推理"""
         instance = runtime_manager.get_instance(model_id)
         if not instance:
@@ -257,7 +267,7 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            return instance.predict_base64(image_base64)
+            return instance.predict_base64(image_base64, inference_params=inference_params)
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import pika
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from core.trainer import run_classification_task, run_detection_task, run_segmentation_task
@@ -332,7 +332,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Model Trainer Service",
     description="轻量级 YOLO 模型训练服务（基于 RabbitMQ）",
-    version="2.0.0",
     lifespan=lifespan,
 )
 

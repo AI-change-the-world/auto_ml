@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { Drawer, message, Spin, Modal, Select, Upload } from 'antd';
-import type { UploadProps } from 'antd';
+import { Drawer, message, Spin, Modal, Select, Upload, Input, InputNumber, Switch } from 'antd';
 import {
   CloudServerOutlined,
   ReloadOutlined,
@@ -11,11 +10,12 @@ import {
   EyeOutlined,
   ApiOutlined,
   CopyOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listModels, deployModel, undeployModel, predictModel, getDeployStatus } from '../../api/deploy';
+import { listModels, deployModel, undeployModel, predictModel, getDeployStatus, renameModel } from '../../api/deploy';
 import { getClassColor } from '../../types';
-import type { AvailableModelResponse, InferenceDetectionResult, InferencePredictResponse } from '../../types/deploy';
+import type { AvailableModelResponse, InferenceDetectionResult, InferenceParams, InferencePredictResponse } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
 
 type InferencePreviewEntry = {
@@ -199,6 +199,16 @@ const DeployPage: React.FC = () => {
   const [previewMap, setPreviewMap] = useState<Record<number, InferencePreviewEntry | null>>({});
   const [activePreviewModelId, setActivePreviewModelId] = useState<number | null>(null);
   const [activeApiModelId, setActiveApiModelId] = useState<number | null>(null);
+  const [renamingModel, setRenamingModel] = useState<AvailableModelResponse | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSubmitting, setRenameSubmitting] = useState(false);
+  const [testingModel, setTestingModel] = useState<AvailableModelResponse | null>(null);
+  const [testingFile, setTestingFile] = useState<File | null>(null);
+  const [inferenceMode, setInferenceMode] = useState<'direct' | 'tile'>('direct');
+  const [tileSize, setTileSize] = useState(1280);
+  const [tileOverlap, setTileOverlap] = useState(0.2);
+  const [mergeIou, setMergeIou] = useState(0.45);
+  const [edgeFilter, setEdgeFilter] = useState(true);
   const previewMapRef = useRef<Record<number, InferencePreviewEntry | null>>({});
 
   const activePreview = useMemo(
@@ -311,12 +321,16 @@ const DeployPage: React.FC = () => {
     });
   };
 
-  const handleTestInference = async (model: AvailableModelResponse, file: File) => {
+  const handleTestInference = async (
+    model: AvailableModelResponse,
+    file: File,
+    inferenceParams: InferenceParams,
+  ) => {
     setTestingId(model.id);
     const imageUrl = URL.createObjectURL(file);
 
     try {
-      const result = await predictModel(model.id, file);
+      const result = await predictModel(model.id, file, inferenceParams);
       savePreviewEntry({
         modelId: model.id,
         modelName: model.name || `Model #${model.id}`,
@@ -353,14 +367,65 @@ const DeployPage: React.FC = () => {
     }
   };
 
-  const uploadProps = (model: AvailableModelResponse): UploadProps => ({
-    accept: 'image/*',
-    showUploadList: false,
-    beforeUpload: (file) => {
-      void handleTestInference(model, file);
-      return false;
-    },
-  });
+  const buildInferenceParams = useCallback<() => InferenceParams>(() => {
+    if (inferenceMode === 'tile') {
+      return {
+        inference_mode: 'tile',
+        tile_size: tileSize,
+        tile_overlap: tileOverlap,
+        merge_iou: mergeIou,
+        edge_filter: edgeFilter,
+        merge_strategy: 'nms',
+      };
+    }
+
+    return {
+      inference_mode: 'direct',
+    };
+  }, [edgeFilter, inferenceMode, mergeIou, tileOverlap, tileSize]);
+
+  const handleOpenTestModal = (model: AvailableModelResponse) => {
+    setTestingModel(model);
+    setTestingFile(null);
+  };
+
+  const handleInferenceRequestSubmit = async () => {
+    if (!testingModel) return;
+    if (!testingFile) {
+      message.warning(t('selectImageRequired'));
+      return;
+    }
+
+    const model = testingModel;
+    const file = testingFile;
+    const inferenceParams = buildInferenceParams();
+
+    await handleTestInference(model, file, inferenceParams);
+    setTestingModel(null);
+    setTestingFile(null);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!renamingModel) return;
+    const name = renameValue.trim();
+    if (!name) {
+      message.warning(tc('msg.pleaseInputName'));
+      return;
+    }
+
+    setRenameSubmitting(true);
+    try {
+      await renameModel(renamingModel.id, { name });
+      await fetchModels();
+      setRenamingModel(null);
+      setRenameValue('');
+      message.success(t('renameSuccess'));
+    } catch {
+      message.error(t('renameFailed'));
+    } finally {
+      setRenameSubmitting(false);
+    }
+  };
 
   const handleCopy = useCallback(async (content: string, successText: string) => {
     try {
@@ -389,16 +454,16 @@ const DeployPage: React.FC = () => {
         method: 'POST',
         url: predictUrl,
         contentType: 'multipart/form-data',
-        body: 'form-data\nfile: <binary image file>',
-        curl: `curl -X POST "${predictUrl}" \\\n  -F "file=@/path/to/image.jpg"`,
+        body: 'form-data\nfile: <binary image file>\ninference_params: {"inference_mode":"tile","tile_size":1280,"tile_overlap":0.2,"merge_iou":0.45,"edge_filter":true}',
+        curl: `curl -X POST "${predictUrl}" \\\n  -F "file=@/path/to/image.jpg" \\\n  -F 'inference_params={"inference_mode":"tile","tile_size":1280,"tile_overlap":0.2,"merge_iou":0.45,"edge_filter":true}'`,
       },
       {
         title: t('apiBase64Title'),
         method: 'POST',
         url: predictBase64Url,
         contentType: 'application/json',
-        body: '{\n  "image": "<base64 string or data URL>"\n}',
-        curl: `curl -X POST "${predictBase64Url}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"image":"<base64 string or data URL>"}'`,
+        body: '{\n  "image": "<base64 string or data URL>",\n  "inference_params": {\n    "inference_mode": "tile",\n    "tile_size": 1280,\n    "tile_overlap": 0.2,\n    "merge_iou": 0.45,\n    "edge_filter": true\n  }\n}',
+        curl: `curl -X POST "${predictBase64Url}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"image":"<base64 string or data URL>","inference_params":{"inference_mode":"tile","tile_size":1280,"tile_overlap":0.2,"merge_iou":0.45,"edge_filter":true}}'`,
       },
       {
         title: t('apiHealthTitle'),
@@ -448,7 +513,7 @@ const DeployPage: React.FC = () => {
           <p>{t('empty')}</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {models.map((m) => (
             <div key={m.id} style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -458,6 +523,26 @@ const DeployPage: React.FC = () => {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.name || `Model #${m.id}`}</span>
+                    <button
+                      onClick={() => {
+                        setRenamingModel(m);
+                        setRenameValue(m.name || '');
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '4px 8px',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        background: '#fff',
+                        color: '#4b5563',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <EditOutlined /> {t('rename')}
+                    </button>
                     {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
                     {m.onnx_model_path && <span style={{ padding: '1px 8px', background: '#eff6ff', color: '#2563eb', fontSize: 11, borderRadius: 999 }}>ONNX</span>}
                     {m.is_deployed ? (
@@ -527,25 +612,24 @@ const DeployPage: React.FC = () => {
                     >
                       <ApiOutlined /> {t('viewApi')}
                     </button>
-                    <Upload {...uploadProps(m)}>
-                      <button
-                        disabled={testingId === m.id}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '6px 14px',
-                          border: '1px solid #dbeafe',
-                          borderRadius: 8,
-                          fontSize: 13,
-                          background: '#eff6ff',
-                          color: '#2563eb',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <ExperimentOutlined /> {testingId === m.id ? t('testing') : t('testInference')}
-                      </button>
-                    </Upload>
+                    <button
+                      onClick={() => handleOpenTestModal(m)}
+                      disabled={testingId === m.id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '6px 14px',
+                        border: '1px solid #dbeafe',
+                        borderRadius: 8,
+                        fontSize: 13,
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ExperimentOutlined /> {testingId === m.id ? t('testing') : t('testInference')}
+                    </button>
                     <button
                       onClick={() => handleUndeploy(m.id)}
                       disabled={deployingId === m.id}
@@ -736,6 +820,138 @@ const DeployPage: React.FC = () => {
           </div>
         )}
       </Drawer>
+
+      <Modal
+        open={!!testingModel}
+        onCancel={() => {
+          if (testingModel && testingId === testingModel.id) return;
+          setTestingModel(null);
+          setTestingFile(null);
+        }}
+        onOk={() => void handleInferenceRequestSubmit()}
+        confirmLoading={!!testingModel && testingId === testingModel.id}
+        okText={testingModel && testingId === testingModel.id ? t('testing') : t('testInference')}
+        cancelButtonProps={{ disabled: !!testingModel && testingId === testingModel.id }}
+        title={testingModel ? `${t('testConfigTitle')} · ${testingModel.name || `Model #${testingModel.id}`}` : t('testConfigTitle')}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ color: '#6b7280', fontSize: 13 }}>{t('inferenceParamsDesc')}</div>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+            <span>{t('inferenceMode')}</span>
+            <Select
+              value={inferenceMode}
+              onChange={(value) => setInferenceMode(value)}
+              options={[
+                { label: t('directInference'), value: 'direct' },
+                { label: t('tileInference'), value: 'tile' },
+              ]}
+            />
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+              <span>{t('tileSize')}</span>
+              <InputNumber
+                min={256}
+                max={4096}
+                step={64}
+                value={tileSize}
+                onChange={(value) => setTileSize(Number(value || 1280))}
+                style={{ width: '100%' }}
+                disabled={inferenceMode !== 'tile'}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+              <span>{t('tileOverlap')}</span>
+              <InputNumber
+                min={0}
+                max={0.9}
+                step={0.05}
+                value={tileOverlap}
+                onChange={(value) => setTileOverlap(Number(value ?? 0.2))}
+                style={{ width: '100%' }}
+                disabled={inferenceMode !== 'tile'}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+              <span>{t('mergeIou')}</span>
+              <InputNumber
+                min={0}
+                max={1}
+                step={0.05}
+                value={mergeIou}
+                onChange={(value) => setMergeIou(Number(value ?? 0.45))}
+                style={{ width: '100%' }}
+                disabled={inferenceMode !== 'tile'}
+              />
+            </label>
+            <label
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+                fontSize: 12,
+                color: '#4b5563',
+                alignSelf: 'end',
+              }}
+            >
+              <span>{t('edgeFilter')}</span>
+              <div style={{ display: 'inline-flex', width: 'fit-content' }}>
+                <Switch checked={edgeFilter} onChange={setEdgeFilter} disabled={inferenceMode !== 'tile'} />
+              </div>
+            </label>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 12, color: '#4b5563' }}>{t('selectImage')}</div>
+            <Upload
+              accept="image/*"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                setTestingFile(file);
+                return false;
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 8,
+                  background: '#fff',
+                  color: '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('selectImage')}
+              </button>
+            </Upload>
+            <div style={{ minHeight: 20, fontSize: 12, color: testingFile ? '#111827' : '#9ca3af' }}>
+              {testingFile ? `${t('fileName')}: ${testingFile.name}` : t('selectImageRequired')}
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!renamingModel}
+        onCancel={() => {
+          if (renameSubmitting) return;
+          setRenamingModel(null);
+          setRenameValue('');
+        }}
+        onOk={() => void handleRenameSubmit()}
+        confirmLoading={renameSubmitting}
+        title={t('renameTitle')}
+      >
+        <Input
+          value={renameValue}
+          onChange={(event) => setRenameValue(event.target.value)}
+          placeholder={t('renamePlaceholder')}
+          maxLength={255}
+        />
+      </Modal>
 
       <Drawer
         open={!!activeApiModel}

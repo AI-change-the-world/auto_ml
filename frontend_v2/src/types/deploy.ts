@@ -41,6 +41,18 @@ export interface InferenceBox {
   y2: number;
 }
 
+export interface InferenceParams {
+  input_type?: string | null;
+  inference_mode?: 'direct' | 'tile' | 'scene' | string | null;
+  tile_size?: number | null;
+  tile_overlap?: number | null;
+  merge_strategy?: 'nms' | 'wbf' | string | null;
+  merge_iou?: number | null;
+  edge_filter?: boolean | null;
+  return_global_coords?: boolean | null;
+  extra?: Record<string, unknown> | null;
+}
+
 export interface InferenceDetectionResult {
   type: 'bbox' | 'obb' | 'classification' | string;
   class_id: number;
@@ -82,4 +94,8 @@ export interface InferenceHealthResponse {
   deployment_device: string | null;
   deployment_version: string | null;
   detail?: Record<string, unknown> | null;
+}
+
+export interface RenameModelRequest {
+  name: string;
 }
