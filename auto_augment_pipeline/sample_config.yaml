@@ -51,22 +51,36 @@ profiles:
 pipelines:
   vision_label_bundle:
     name: vision_label_bundle
+    display_name: 图像理解 + BBox 草稿
     description: Use the same input image to produce a scene summary and an annotation draft.
+    pipeline_type: assist_annotation
+    enabled: true
+    supported_annotation_types: [0]
+    supported_shapes: [bbox]
+    default_profile: assist_default
     steps:
       - name: describe_scene
         capability: describe_image
         input_key: input
         output_key: scene_description
+        profile: assist_default
       - name: draft_boxes
         capability: draft_annotation
         input_key: input
         output_key: draft_annotations
+        profile: assist_default
         params:
           score_threshold: 0.2
 
   overlay_extract:
     name: overlay_extract
+    display_name: 白框图提取 BBox
     description: Extract white boxes from an overlay image and assign OCR text to the nearest box.
+    pipeline_type: assist_annotation
+    enabled: true
+    supported_annotation_types: [0]
+    supported_shapes: [bbox]
+    default_profile: assist_default
     steps:
       - name: extract_overlay
         capability: extract_white_annotations
@@ -79,23 +93,37 @@ pipelines:
 
   overlay_understand_mllm:
     name: overlay_understand_mllm
+    display_name: 多模态理解白框 BBox
     description: Let a multimodal model recover structured labels from a white-box overlay image.
+    pipeline_type: assist_annotation
+    enabled: true
+    supported_annotation_types: [0]
+    supported_shapes: [bbox]
+    default_profile: assist_default
     steps:
       - name: understand_overlay
         capability: understand_white_annotations
         input_key: input
         output_key: overlay_annotations
+        profile: assist_default
         params:
           class_match_score: 0.72
 
   render_then_extract_overlay:
     name: render_then_extract_overlay
+    display_name: 生成白框并提取 BBox
     description: Use an image editing model to render pure white overlays, then extract them with OpenCV and OCR.
+    pipeline_type: assist_annotation
+    enabled: true
+    supported_annotation_types: [0]
+    supported_shapes: [bbox]
+    default_profile: assist_default
     steps:
       - name: render_overlay
         capability: render_white_annotation_overlay
         input_key: input
         output_key: overlay_result
+        profile: assist_default
       - name: extract_overlay
         capability: extract_white_annotations
         input_key: input

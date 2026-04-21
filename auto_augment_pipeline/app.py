@@ -4,10 +4,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 from .config import create_config_manager_from_env
-from .models import ExecuteCapabilityRequest, InlinePipelineRunRequest, TaskPayload
+from .models import ExecuteCapabilityRequest, InlinePipelineRunRequest, NamedPipelineRunRequest, TaskPayload
 from .service import AutoAugmentService
 
 logging.basicConfig(level=logging.INFO)
@@ -57,9 +57,22 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/v1/pipelines/{pipeline_name}/run")
-    async def run_named_pipeline(pipeline_name: str, payload: TaskPayload):
+    async def run_named_pipeline(pipeline_name: str, request: Request):
         try:
-            return app.state.service.run_pipeline(name=pipeline_name, payload=payload)
+            body = await request.json()
+            if isinstance(body, dict) and "input" in body:
+                payload = NamedPipelineRunRequest.model_validate(body)
+                return app.state.service.run_pipeline(
+                    name=pipeline_name,
+                    payload=payload.input,
+                    profile=payload.profile,
+                    params=payload.params,
+                    provider_overrides=payload.provider_overrides,
+                )
+            return app.state.service.run_pipeline(
+                name=pipeline_name,
+                payload=TaskPayload.model_validate(body),
+            )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

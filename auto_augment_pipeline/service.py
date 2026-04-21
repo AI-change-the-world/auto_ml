@@ -116,6 +116,9 @@ class AutoAugmentService:
         name: str | None = None,
         definition: PipelineDefinition | None = None,
         payload: TaskPayload,
+        profile: str | None = None,
+        params: dict[str, Any] | None = None,
+        provider_overrides: dict[str, str] | None = None,
     ) -> Any:
         pipeline_definition = definition
         if pipeline_definition is None:
@@ -124,7 +127,13 @@ class AutoAugmentService:
             pipeline_definition = self.config.pipelines.get(name)
             if pipeline_definition is None:
                 raise ValueError(f"pipeline `{name}` is not configured")
-        return self.pipeline_runner.run(pipeline_definition, payload)
+        return self.pipeline_runner.run_with_options(
+            pipeline_definition,
+            payload,
+            profile=profile,
+            params=params,
+            provider_overrides=provider_overrides,
+        )
 
     def _build_capabilities(self) -> dict[str, Capability]:
         items: list[Capability] = [

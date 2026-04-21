@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Space, Tooltip, Tag, Divider, Segmented, message } from 'antd';
+import { Button, Space, Tooltip, Tag, Divider, Segmented, message, Select } from 'antd';
 import {
   EditOutlined,
   PlusSquareOutlined,
@@ -18,11 +18,12 @@ import {
   RobotOutlined,
   PictureOutlined,
 } from '@ant-design/icons';
-import { assistCurrentAnnotation } from '../../../api/annotation';
+import { assistCurrentAnnotation, listAnnotationAssistPipelines, updateAnnotation } from '../../../api/annotation';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { LabelMode, AnnotationShape, AnnotationType } from '../../../types';
 import { createBBoxAnnotation } from '../../../types';
+import type { AnnotationAssistPipeline } from '../../../types';
 
 const Toolbar: React.FC = () => {
   const navigate = useNavigate();
@@ -32,10 +33,18 @@ const Toolbar: React.FC = () => {
     classes, setAnnotations, addAnnotation, addOrGetClassId,
   } = useAnnotationStore();
   const { nextFile, prevFile, saveCurrentAnnotation, currentFileIndex, datasetFiles, loading, annotationProject } = useDatasetStore();
+  const setDatasetState = useDatasetStore.setState;
+  const [assistPipelines, setAssistPipelines] = React.useState<AnnotationAssistPipeline[]>([]);
+  const [assistPipelineId, setAssistPipelineId] = React.useState<string | undefined>(undefined);
+  const [assistPipelineLoading, setAssistPipelineLoading] = React.useState(false);
 
   const annotationType = annotationProject?.annotation_type ?? AnnotationType.Detection;
   const isClassification = annotationType === AnnotationType.Classification;
   const isPose = annotationType === AnnotationType.Pose;
+  const currentShape = annotationShape === AnnotationShape.OBB ? 'obb'
+    : annotationShape === AnnotationShape.Polygon ? 'polygon'
+      : annotationShape === AnnotationShape.Classification ? 'classification'
+        : 'bbox';
 
   const handleFitToWindow = () => {
     const fn = (window as unknown as Record<string, unknown>).__canvasFitToWindow;
@@ -70,6 +79,51 @@ const Toolbar: React.FC = () => {
     }
   }, [shapeOptions, annotationShape, setAnnotationShape]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!annotationProject?.id || isClassification || isPose) {
+      setAssistPipelines([]);
+      setAssistPipelineId(undefined);
+      return;
+    }
+
+    setAssistPipelineLoading(true);
+    listAnnotationAssistPipelines(annotationProject.id, currentShape)
+      .then((items) => {
+        if (cancelled) return;
+        setAssistPipelines(items || []);
+        const current = annotationProject.assist_pipeline || undefined;
+        const next = (items || []).some((item) => item.id === current)
+          ? current
+          : items?.[0]?.id;
+        setAssistPipelineId(next);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAssistPipelines([]);
+          setAssistPipelineId(undefined);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAssistPipelineLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [annotationProject?.id, annotationProject?.assist_pipeline, currentShape, isClassification, isPose]);
+
+  const handleAssistPipelineChange = async (value: string) => {
+    setAssistPipelineId(value);
+    if (!annotationProject?.id) return;
+    try {
+      const updated = await updateAnnotation(annotationProject.id, { assist_pipeline: value });
+      setDatasetState({ annotationProject: updated });
+    } catch {
+      message.error('保存辅助标注链路失败');
+    }
+  };
+
   const handleAssist = async () => {
     if (!annotationProject?.id) {
       message.warning('未加载标注项目');
@@ -83,11 +137,17 @@ const Toolbar: React.FC = () => {
       message.warning('请先为标注项目配置类别');
       return;
     }
+    if (!assistPipelineId) {
+      message.warning('请先选择辅助标注 Pipeline');
+      return;
+    }
 
     const currentFile = datasetFiles[currentFileIndex];
     try {
       const result = await assistCurrentAnnotation(annotationProject.id, {
         file_name: currentFile.file_name,
+        pipeline_id: assistPipelineId,
+        shape: currentShape,
         replace_existing: false,
       });
 
@@ -186,16 +246,33 @@ const Toolbar: React.FC = () => {
 
         <Divider type="vertical" />
 
-        <Tooltip title="辅助标注当前图片">
-          <Button
-            icon={<RobotOutlined />}
-            onClick={handleAssist}
-            disabled={loading || !annotationProject || annotationType !== AnnotationType.Detection}
-            size="small"
-          >
-            辅助标注
-          </Button>
-        </Tooltip>
+        {!isClassification && !isPose && (
+          <>
+            <Select
+              size="small"
+              placeholder="选择辅助 Pipeline"
+              value={assistPipelineId}
+              loading={assistPipelineLoading}
+              disabled={loading || !annotationProject || assistPipelines.length === 0}
+              onChange={handleAssistPipelineChange}
+              style={{ width: 190 }}
+              options={assistPipelines.map((item) => ({
+                label: item.name,
+                value: item.id,
+              }))}
+            />
+            <Tooltip title="辅助标注当前图片">
+              <Button
+                icon={<RobotOutlined />}
+                onClick={handleAssist}
+                disabled={loading || !annotationProject || !assistPipelineId || currentShape !== 'bbox'}
+                size="small"
+              >
+                辅助标注
+              </Button>
+            </Tooltip>
+          </>
+        )}
 
         <Divider type="vertical" />
 

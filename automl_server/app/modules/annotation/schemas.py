@@ -11,6 +11,7 @@ class AnnotationCreate(BaseModel):
     classes: Optional[str] = Field(default=None, description="分类项 JSON")
     storage_type: int = Field(default=1)
     prompt: Optional[str] = None
+    assist_pipeline: Optional[str] = None
     dataset_id: Optional[int] = None
 
 
@@ -18,6 +19,7 @@ class AnnotationUpdate(BaseModel):
     name: Optional[str] = None
     classes: Optional[str] = None
     prompt: Optional[str] = None
+    assist_pipeline: Optional[str] = None
 
 
 class AnnotationResponse(BaseModel):
@@ -28,6 +30,7 @@ class AnnotationResponse(BaseModel):
     storage_type: int
     save_path: Optional[str]
     prompt: Optional[str]
+    assist_pipeline: Optional[str]
     dataset_id: Optional[int]
     created_at: datetime
     updated_at: datetime
@@ -55,8 +58,22 @@ class AnnotationFileSave(BaseModel):
 
 class AnnotationAssistRequest(BaseModel):
     file_name: str
+    pipeline_id: Optional[str] = None
+    shape: str = "bbox"
+    target_classes: Optional[List[str]] = None
     profile: Optional[str] = None
     replace_existing: bool = False
+    params: dict = Field(default_factory=dict)
+
+
+class AnnotationAssistPipelineResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    supported_annotation_types: List[int] = Field(default_factory=list)
+    supported_shapes: List[str] = Field(default_factory=list)
+    default_profile: Optional[str] = None
+    enabled: bool = True
 
 
 class AnnotationAssistItem(BaseModel):

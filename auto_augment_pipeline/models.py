@@ -85,13 +85,20 @@ class PipelineStep(BaseModel):
     input_key: str = "input"
     output_key: str | None = None
     provider: str | None = None
+    profile: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     context_mapping: dict[str, str] = Field(default_factory=dict)
 
 
 class PipelineDefinition(BaseModel):
     name: str
+    display_name: str | None = None
     description: str | None = None
+    pipeline_type: str = "generic"
+    enabled: bool = True
+    supported_annotation_types: list[int] = Field(default_factory=list)
+    supported_shapes: list[str] = Field(default_factory=list)
+    default_profile: str | None = None
     steps: list[PipelineStep] = Field(default_factory=list)
 
 
@@ -111,3 +118,10 @@ class PipelineRunResult(BaseModel):
 class InlinePipelineRunRequest(BaseModel):
     definition: PipelineDefinition
     input: TaskPayload
+
+
+class NamedPipelineRunRequest(BaseModel):
+    profile: str | None = None
+    input: TaskPayload
+    params: dict[str, Any] = Field(default_factory=dict)
+    provider_overrides: dict[str, str] = Field(default_factory=dict)

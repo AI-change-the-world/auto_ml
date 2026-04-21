@@ -5,6 +5,7 @@ from app.common import Result, PageResult
 from app.config.database import get_db
 from .schemas import (
     AnnotationAssistRequest,
+    AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
     AnnotationUpdate,
@@ -89,6 +90,17 @@ async def assist_current_annotation(
     service: AnnotationService = Depends(get_annotation_service),
 ):
     result = await service.assist_current_file(db, annotation_id, data)
+    return Result.ok(result)
+
+
+@router.get("/{annotation_id}/assist/pipelines", response_model=Result[list[AnnotationAssistPipelineResponse]], summary="获取可用辅助标注 Pipeline")
+async def list_assist_pipelines(
+    annotation_id: int,
+    shape: str = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.list_assist_pipelines(db, annotation_id, shape=shape)
     return Result.ok(result)
 
 

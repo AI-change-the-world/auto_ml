@@ -18,6 +18,7 @@ class Annotation(BaseEntity):
                           comment="存储类型: 0=本地, 1=S3, 2=WebDAV")
     save_path = Column(String(512), nullable=True, comment="存储路径")
     prompt = Column(Text, nullable=True, comment="AI 标注提示词")
+    assist_pipeline = Column(String(128), nullable=True, comment="默认辅助标注 Pipeline")
     dataset_id = Column(BigInteger, nullable=True,
                         index=True, comment="关联数据集ID")
 

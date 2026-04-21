@@ -7,6 +7,7 @@ import type {
   AnnotationFileSaveRequest,
   AnnotationAssistRequest,
   AnnotationAssistResponse,
+  AnnotationAssistPipeline,
   AnnotationCreate,
 } from '../types';
 
@@ -31,7 +32,7 @@ export async function getAnnotation(annotationId: number) {
 }
 
 /** 更新标注项目 */
-export async function updateAnnotation(annotationId: number, data: { name?: string; classes?: string; prompt?: string }) {
+export async function updateAnnotation(annotationId: number, data: { name?: string; classes?: string; prompt?: string; assist_pipeline?: string | null }) {
   const res = await apiClient.put<Result<AnnotationProject>>(`/annotation/${annotationId}`, data);
   return res.data.data;
 }
@@ -59,5 +60,13 @@ export async function saveAnnotationFile(annotationId: number, data: AnnotationF
 /** 辅助标注当前图片 */
 export async function assistCurrentAnnotation(annotationId: number, data: AnnotationAssistRequest) {
   const res = await apiClient.post<Result<AnnotationAssistResponse>>(`/annotation/${annotationId}/assist/current`, data);
+  return res.data.data;
+}
+
+/** 获取当前标注项目可用的辅助标注 Pipeline */
+export async function listAnnotationAssistPipelines(annotationId: number, shape?: string) {
+  const res = await apiClient.get<Result<AnnotationAssistPipeline[]>>(`/annotation/${annotationId}/assist/pipelines`, {
+    params: shape ? { shape } : undefined,
+  });
   return res.data.data;
 }

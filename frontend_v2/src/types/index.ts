@@ -13,6 +13,7 @@ export type {
   AnnotationAssistRequest,
   AnnotationAssistResponse,
   AnnotationAssistItem,
+  AnnotationAssistPipeline,
   AnnotationCreate,
 } from './annotation';
 export {

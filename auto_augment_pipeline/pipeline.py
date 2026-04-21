@@ -19,17 +19,46 @@ class PipelineRunner:
         self._executor = executor
 
     def run(self, definition: PipelineDefinition, payload: TaskPayload) -> PipelineRunResult:
+        return self.run_with_options(definition, payload)
+
+    def run_with_options(
+        self,
+        definition: PipelineDefinition,
+        payload: TaskPayload,
+        *,
+        profile: str | None = None,
+        params: dict[str, Any] | None = None,
+        provider_overrides: dict[str, str] | None = None,
+    ) -> PipelineRunResult:
         context: dict[str, Any] = {"input": payload}
         step_results: list[StepExecutionResult] = []
+        runtime_params = params or {}
+        scoped_param_keys = {
+            "*",
+            *(step.name for step in definition.steps),
+            *(step.capability for step in definition.steps),
+        }
+        global_params = {
+            key: value
+            for key, value in runtime_params.items()
+            if key not in scoped_param_keys
+        }
 
         for step in definition.steps:
             step_input = self._build_step_input(step.input_key, step.context_mapping, context)
+            step_params = dict(step.params)
+            step_params.update(global_params)
+            step_params.update(runtime_params.get(step.name, {}))
+            step_params.update(runtime_params.get(step.capability, {}))
+            step_params.update(runtime_params.get("*", {}))
             result = self._executor(
                 step.capability,
                 ExecuteCapabilityRequest(
                     provider=step.provider,
+                    profile=profile or step.profile,
+                    provider_overrides=provider_overrides or {},
                     input=step_input,
-                    params=step.params,
+                    params=step_params,
                 ),
             )
             output_key = step.output_key or step.name

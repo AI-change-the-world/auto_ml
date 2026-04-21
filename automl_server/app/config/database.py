@@ -181,6 +181,22 @@ async def _ensure_schema_compatibility(conn):
                 "AFTER scenario_type"
             )
         )
+    result = await conn.execute(
+        text(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'annotation' "
+            "AND COLUMN_NAME = 'assist_pipeline'"
+        )
+    )
+    if result.scalar_one() == 0:
+        await conn.execute(
+            text(
+                "ALTER TABLE annotation "
+                "ADD COLUMN assist_pipeline VARCHAR(128) DEFAULT NULL COMMENT '默认辅助标注 Pipeline' "
+                "AFTER prompt"
+            )
+        )
     await conn.execute(
         text(
             "UPDATE available_model am "

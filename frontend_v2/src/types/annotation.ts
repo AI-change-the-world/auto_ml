@@ -171,6 +171,7 @@ export interface AnnotationCreate {
   classes?: string;
   storage_type?: number;
   prompt?: string;
+  assist_pipeline?: string;
   dataset_id?: number;
 }
 
@@ -200,6 +201,7 @@ export interface AnnotationProject {
   storage_type: number;
   save_path: string | null;
   prompt: string | null;
+  assist_pipeline: string | null;
   dataset_id: number | null;
   created_at: string;
   updated_at: string;
@@ -223,8 +225,22 @@ export interface AnnotationFileSaveRequest {
 
 export interface AnnotationAssistRequest {
   file_name: string;
+  pipeline_id?: string;
+  shape?: string;
+  target_classes?: string[];
   profile?: string;
   replace_existing?: boolean;
+  params?: Record<string, unknown>;
+}
+
+export interface AnnotationAssistPipeline {
+  id: string;
+  name: string;
+  description?: string | null;
+  supported_annotation_types: number[];
+  supported_shapes: string[];
+  default_profile?: string | null;
+  enabled: boolean;
 }
 
 export interface AnnotationAssistItem {
