@@ -205,6 +205,15 @@ class AnnotationService:
             },
             "params": data.params or {},
         }
+        logger.info(
+            "Assist annotation request annotation_id=%s file=%s pipeline=%s shape=%s classes=%s prompt=%s",
+            annotation_id,
+            data.file_name,
+            pipeline.id,
+            shape,
+            selected_classes,
+            ann.prompt,
+        )
         if data.profile:
             request_payload["provider_overrides"] = {}
 

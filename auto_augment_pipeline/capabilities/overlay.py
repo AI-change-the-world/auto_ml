@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from models import AnnotationItem, AnnotationResult, OverlayRenderResult, TaskPayload
 from ocr import OCRTextLine, RapidOCRService
 from utils import image_size, load_cv2_image, require_cv2
 from base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver
+
+logger = logging.getLogger(__name__)
 
 
 class RenderWhiteAnnotationOverlayCapability(Capability):
@@ -35,20 +38,30 @@ class RenderWhiteAnnotationOverlayCapability(Capability):
             width, height = image_size(image)
             image_dimensions = {"width": width, "height": height}
             edit_prompt = self._build_edit_prompt(width, height, classes)
+        logger.info(
+            "render_white_annotation_overlay classes=%s prompt=%s",
+            classes,
+            edit_prompt,
+        )
         overlay_image = provider.edit_image(
             prompt=edit_prompt,
             image=image,
             size=params.get("size"),
             background=params.get("background"),
         )
+        overlay_s3_key = getattr(provider, "_last_generated_image_s3_key", None)
         return OverlayRenderResult(
             capability=self.name,
             provider=provider.name,
             overlay_image=overlay_image,
             edit_prompt=edit_prompt,
             classes=classes,
+            overlay_s3_key=overlay_s3_key,
             summary="Generated white-box overlay image for downstream annotation extraction.",
-            raw={"image_size": image_dimensions} if image_dimensions is not None else None,
+            raw={
+                "image_size": image_dimensions,
+                "overlay_s3_key": overlay_s3_key,
+            } if image_dimensions is not None or overlay_s3_key is not None else None,
         )
 
     def _build_edit_prompt(self, width: int, height: int, classes: list[str]) -> str:
@@ -58,11 +71,11 @@ class RenderWhiteAnnotationOverlayCapability(Capability):
             f"allowed_classes = {allowed}\n"
             "Instructions:\n"
             "1. Only annotate objects that clearly belong to allowed_classes.\n"
-            "2. Draw each annotation as a pure white rectangular box using #FFFFFF.\n"
-            "3. Draw one pure white class label near each box, preferably at the upper-left or directly above the box.\n"
-            "4. The label text must be exactly one item from allowed_classes.\n"
-            "5. Keep the original image content unchanged except for the white boxes and white labels.\n"
-            "6. Do not add any extra legend, explanation, watermark, arrows, or decorative marks.\n"
+            "2. Keep the original image fully visible; do not replace the scene, do not create a blank or pure white background.\n"
+            "3. Overlay each annotation as a pure white rectangular box using #FFFFFF directly on top of the original image.\n"
+            "4. Overlay one pure white class label near each box, preferably at the upper-left or directly above the box.\n"
+            "5. The label text must be exactly one item from allowed_classes.\n"
+            "6. Do not add any extra legend, explanation, watermark, arrows, masks, or decorative marks.\n"
             "7. If an object cannot be confidently mapped to allowed_classes, do not annotate it.\n"
             "8. If boxes overlap, still draw every visible box separately.\n"
             "Return only the edited image."
@@ -89,6 +102,11 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
         width, height = image_size(image)
         classes = self._require_classes(payload, params)
         prompt = payload.prompt or params.get("prompt") or self._build_overlay_prompt(width, height, classes)
+        logger.info(
+            "understand_white_annotations classes=%s prompt=%s",
+            classes,
+            prompt,
+        )
         raw = provider.generate_json(
             prompt=prompt,
             image=image,
@@ -121,9 +139,9 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
     def _build_overlay_prompt(self, width: int, height: int, classes: list[str]) -> str:
         classes_repr = "[" + ", ".join(f'"{item}"' for item in classes) + "]"
         return (
-            f"图像尺寸是 {width}x{height}。这是一张已经画好纯白色标注框和纯白色类别文字的叠加图。\n"
+            f"图像尺寸是 {width}x{height}。这是一张在原始图像上叠加了纯白色标注框和纯白色类别文字的结果图。\n"
             f"allowed_classes = {classes_repr}\n"
-            "请根据白色矩形框和离框最近的白色标签文字，还原结构化标注，只返回 JSON。\n"
+            "请根据叠加在原图上的白色矩形框和离框最近的白色标签文字，还原结构化标注，只返回 JSON。\n"
             "规则：\n"
             "1. 一个白色矩形框对应一个 annotation。\n"
             "2. label 只能从 allowed_classes 中选。\n"

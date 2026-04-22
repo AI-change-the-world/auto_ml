@@ -3,11 +3,11 @@ service_name: auto-augment-pipeline
 providers:
 
   qwen_vl:
-    kind: openai_compatible
+    kind: dashscope_multimodal
     role: multimodal
-    base_url: 
+    base_url: https://dashscope.aliyuncs.com/api/v1
     api_key: 
-    model: 
+    model: qwen-image-edit-plus-2025-12-15
     timeout_seconds: 60
     temperature: 0.0
     max_tokens: 1024

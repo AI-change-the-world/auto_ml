@@ -115,9 +115,9 @@ class RapidOCRService:
             return []
 
         if hasattr(result, "boxes") and hasattr(result, "txts"):
-            boxes = list(getattr(result, "boxes", []) or [])
-            texts = list(getattr(result, "txts", []) or [])
-            scores = list(getattr(result, "scores", []) or [])
+            boxes = self._coerce_sequence(getattr(result, "boxes", None))
+            texts = self._coerce_sequence(getattr(result, "txts", None))
+            scores = self._coerce_sequence(getattr(result, "scores", None))
             return self._build_lines(
                 boxes,
                 texts,
@@ -169,7 +169,7 @@ class RapidOCRService:
     ) -> list[OCRTextLine]:
         lines: list[OCRTextLine] = []
         for index, raw_text in enumerate(texts):
-            text = str(raw_text or "").strip()
+            text = str(raw_text).strip() if raw_text is not None else ""
             if not text:
                 continue
             normalized_text = (
@@ -205,6 +205,29 @@ class RapidOCRService:
             )
         return lines
 
+    def _coerce_sequence(self, value: Any) -> list[Any]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, tuple):
+            return list(value)
+        if isinstance(value, str):
+            return [value]
+        if hasattr(value, "tolist"):
+            converted = value.tolist()
+            if converted is None:
+                return []
+            if isinstance(converted, list):
+                return converted
+            if isinstance(converted, tuple):
+                return list(converted)
+            return [converted]
+        try:
+            return list(value)
+        except TypeError:
+            return [value]
+
     def _extract_text_value(self, value: Any) -> str:
         if isinstance(value, tuple):
             return str(value[0])
@@ -227,6 +250,8 @@ class RapidOCRService:
     def _to_bbox(self, raw_box: Any) -> dict[str, int] | None:
         if raw_box is None:
             return None
+        if hasattr(raw_box, "tolist"):
+            raw_box = raw_box.tolist()
         if isinstance(raw_box, dict):
             if {"x1", "y1", "x2", "y2"} <= set(raw_box.keys()):
                 return {

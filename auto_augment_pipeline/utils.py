@@ -88,6 +88,11 @@ def content_to_text(content: Any) -> str:
         return ""
     if isinstance(content, str):
         return content
+    if isinstance(content, dict):
+        text = content.get("text")
+        if text:
+            return str(text)
+        return str(content)
     if isinstance(content, list):
         parts: list[str] = []
         for item in content:

@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 import re
+import uuid
 from io import BytesIO
 from typing import Any
+from urllib.request import urlopen
 
 from config import ProviderConfig, RuntimeConfig
 from models import ImagePayload
+from storage import upload_bytes_to_s3
 from utils import (
     content_to_text,
     extract_json_block,
+    image_bytes_to_data_url,
     image_size,
     load_image_bytes,
     payload_to_data_url,
@@ -178,6 +184,272 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
         )
 
 
+class DashScopeMultimodalProvider(BaseMultimodalProvider):
+    def __init__(self, name: str, config: ProviderConfig) -> None:
+        super().__init__(name=name, config=config)
+        self._last_generated_image_s3_key: str | None = None
+
+    def generate_text(
+        self,
+        *,
+        prompt: str,
+        image: ImagePayload | None = None,
+        system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> str:
+        if not self.config.model:
+            raise ProviderError(
+                f"provider `{self.name}` is missing model configuration")
+        if image is None:
+            raise ProviderError(
+                f"provider `{self.name}` requires an image for multimodal generation")
+
+        try:
+            import dashscope
+            from dashscope import MultiModalConversation
+        except ImportError as exc:
+            raise ProviderError(
+                "dashscope package is required for dashscope_multimodal providers") from exc
+
+        if self.config.base_url:
+            dashscope.base_http_api_url = self.config.base_url
+
+        full_prompt = prompt.strip()
+        if system_prompt and system_prompt.strip():
+            full_prompt = f"{system_prompt.strip()}\n\n{full_prompt}"
+        logger.info(
+            "DashScope multimodal request provider=%s model=%s prompt=%s",
+            self.name,
+            self.config.model,
+            full_prompt,
+        )
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"image": payload_to_data_url(image)},
+                    {"text": full_prompt},
+                ],
+            }
+        ]
+
+        try:
+            response = MultiModalConversation.call(
+                api_key=self.config.api_key,
+                model=self.config.model,
+                messages=messages,
+                stream=False,
+                temperature=self.config.temperature if temperature is None else temperature,
+                max_tokens=self.config.max_tokens if max_tokens is None else max_tokens,
+                **self.config.extra,
+            )
+        except Exception as exc:
+            raise ProviderError(
+                f"dashscope request failed for provider `{self.name}`: {exc}") from exc
+
+        status_code = getattr(response, "status_code", None)
+        if status_code != 200:
+            raise ProviderError(
+                f"dashscope request failed for provider `{self.name}`: status={status_code}, "
+                f"code={getattr(response, 'code', None)}, message={getattr(response, 'message', None)}"
+            )
+
+        output = getattr(response, "output", None)
+        choices = getattr(output, "choices",
+                          None) if output is not None else None
+        if not choices:
+            raise ProviderError(
+                f"provider `{self.name}` returned empty multimodal result")
+
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content",
+                          None) if message is not None else None
+        return content_to_text(content).strip()
+
+    def edit_image(
+        self,
+        *,
+        prompt: str,
+        image: ImagePayload,
+        size: str | None = None,
+        background: str | None = None,
+    ) -> ImagePayload:
+        if not self.config.model:
+            raise ProviderError(
+                f"provider `{self.name}` is missing model configuration")
+
+        try:
+            import dashscope
+            from dashscope import MultiModalConversation
+        except ImportError as exc:
+            raise ProviderError(
+                "dashscope package is required for dashscope_multimodal providers") from exc
+
+        if self.config.base_url:
+            dashscope.base_http_api_url = self.config.base_url
+
+        request_kwargs = dict(self.config.extra)
+        if size is not None:
+            request_kwargs["size"] = size
+        if background is not None:
+            request_kwargs["background"] = background
+
+        edit_prompt = prompt.strip()
+        logger.info(
+            "DashScope image edit request provider=%s model=%s prompt=%s",
+            self.name,
+            self.config.model,
+            edit_prompt,
+        )
+
+        try:
+            response = MultiModalConversation.call(
+                api_key=self.config.api_key,
+                model=self.config.model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"image": payload_to_data_url(image)},
+                            {"text": edit_prompt},
+                        ],
+                    }
+                ],
+                stream=False,
+                **request_kwargs,
+            )
+        except Exception as exc:
+            raise ProviderError(
+                f"dashscope image edit failed for provider `{self.name}`: {exc}") from exc
+
+        status_code = getattr(response, "status_code", None)
+        if status_code != 200:
+            raise ProviderError(
+                f"dashscope image edit failed for provider `{self.name}`: status={status_code}, "
+                f"code={getattr(response, 'code', None)}, message={getattr(response, 'message', None)}"
+            )
+
+        output = getattr(response, "output", None)
+        choices = getattr(output, "choices",
+                          None) if output is not None else None
+        if not choices:
+            raise ProviderError(
+                f"provider `{self.name}` returned empty image edit result")
+
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content", None) if message is not None else None
+        generated_image = self._extract_image_content(content)
+        if generated_image is None:
+            raise ProviderError(
+                f"provider `{self.name}` did not return generated image content")
+
+        image_bytes, mime_type = self._load_generated_image_bytes(generated_image)
+        result_payload = ImagePayload(
+            base64_data=image_bytes_to_data_url(image_bytes, mime_type=mime_type),
+            mime_type=mime_type,
+        )
+        s3_key = f"auto_augment/overlay_results/{uuid.uuid4().hex}.png"
+        try:
+            upload_bytes_to_s3(image_bytes, s3_key)
+            self._last_generated_image_s3_key = s3_key
+            logger.info(
+                "Uploaded DashScope edited image to MinIO: %s",
+                s3_key,
+            )
+        except Exception as exc:
+            self._last_generated_image_s3_key = None
+            logger.warning("Failed to upload DashScope edited image to MinIO: %s", exc)
+
+        return ImagePayload(
+            base64_data=result_payload.base64_data,
+            mime_type=result_payload.mime_type,
+        )
+
+    def _extract_image_content(self, content: Any) -> dict[str, str] | None:
+        if isinstance(content, dict):
+            image_value = content.get("image")
+            if isinstance(image_value, str) and image_value:
+                return self._classify_generated_image(image_value)
+            return None
+        if not isinstance(content, list):
+            return None
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            image_value = item.get("image")
+            if isinstance(image_value, str) and image_value:
+                return self._classify_generated_image(image_value)
+        return None
+
+    def _classify_generated_image(self, image_value: str) -> dict[str, str]:
+        stripped = image_value.strip()
+        if stripped.startswith("data:"):
+            return {
+                "kind": "data_url",
+                "value": stripped,
+                "mime_type": self._mime_type_from_data_url(stripped) or "image/png",
+            }
+        if stripped.startswith("http://") or stripped.startswith("https://"):
+            return {
+                "kind": "url",
+                "value": stripped,
+                "mime_type": "image/png",
+            }
+        return {
+            "kind": "base64",
+            "value": stripped,
+            "mime_type": "image/png",
+        }
+
+    def _load_generated_image_bytes(self, generated_image: dict[str, str]) -> tuple[bytes, str]:
+        kind = generated_image.get("kind")
+        value = generated_image.get("value", "")
+        mime_type = generated_image.get("mime_type", "image/png")
+        if kind == "url":
+            return self._download_image_bytes(value, fallback_mime_type=mime_type)
+        if kind == "data_url":
+            return load_image_bytes(
+                ImagePayload(
+                    base64_data=value,
+                    mime_type=mime_type,
+                )
+            ), mime_type
+        if kind == "base64":
+            try:
+                return self._decode_base64_bytes(value), mime_type
+            except binascii.Error as exc:
+                raise ProviderError(
+                    f"provider `{self.name}` returned an invalid base64 image payload"
+                ) from exc
+        raise ProviderError(
+            f"provider `{self.name}` returned unsupported image payload kind `{kind}`"
+        )
+
+    def _download_image_bytes(self, url: str, fallback_mime_type: str) -> tuple[bytes, str]:
+        try:
+            with urlopen(url, timeout=self.config.timeout_seconds) as response:
+                image_bytes = response.read()
+                content_type = response.headers.get_content_type()
+        except Exception as exc:
+            raise ProviderError(
+                f"failed to download generated image from DashScope url: {url}"
+            ) from exc
+        mime_type = content_type or fallback_mime_type or "image/png"
+        return image_bytes, mime_type
+
+    def _decode_base64_bytes(self, value: str) -> bytes:
+        padded = value + ("=" * (-len(value) % 4))
+        return base64.b64decode(padded, validate=False)
+
+    def _mime_type_from_data_url(self, value: str) -> str | None:
+        match = re.match(r"^data:([^;,]+)", value)
+        if not match:
+            return None
+        return match.group(1)
+
+
 class MockProvider(BaseMultimodalProvider):
     def generate_text(
         self,
@@ -259,6 +531,9 @@ class ProviderRegistry:
         for name, item in config.providers.items():
             if item.kind == "openai_compatible":
                 providers[name] = OpenAICompatibleProvider(
+                    name=name, config=item)
+            elif item.kind == "dashscope_multimodal":
+                providers[name] = DashScopeMultimodalProvider(
                     name=name, config=item)
             elif item.kind == "mock":
                 providers[name] = MockProvider(name=name, config=item)

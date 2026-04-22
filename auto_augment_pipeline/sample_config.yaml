@@ -17,7 +17,7 @@ providers:
       response_format: b64_json
 
   qwen_vl:
-    kind: openai_compatible
+    kind: dashscope_multimodal
     role: multimodal
     base_url: ${QWEN_BASE_URL}
     api_key: ${QWEN_API_KEY}

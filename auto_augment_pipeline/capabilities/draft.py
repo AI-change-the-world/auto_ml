@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from models import AnnotationResult, TaskPayload
 from utils import image_size
 from base import AnnotationNormalizationMixin, Capability, ProviderResolver
+
+logger = logging.getLogger(__name__)
 
 
 class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
@@ -27,6 +30,11 @@ class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
         width, height = image_size(image)
         classes = self._require_classes(payload, params)
         prompt = payload.prompt or params.get("prompt") or self._build_prompt(width, height, classes)
+        logger.info(
+            "draft_annotation classes=%s prompt=%s",
+            classes,
+            prompt,
+        )
         raw = provider.generate_json(
             prompt=prompt,
             image=image,

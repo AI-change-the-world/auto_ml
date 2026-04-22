@@ -61,6 +61,7 @@ class OverlayRenderResult(BaseModel):
     overlay_image: ImagePayload
     edit_prompt: str
     classes: list[str] = Field(default_factory=list)
+    overlay_s3_key: str | None = None
     summary: str | None = None
     raw: dict[str, Any] | list[Any] | None = None
 

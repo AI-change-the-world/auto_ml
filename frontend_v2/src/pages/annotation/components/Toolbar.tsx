@@ -148,6 +148,7 @@ const Toolbar: React.FC = () => {
         file_name: currentFile.file_name,
         pipeline_id: assistPipelineId,
         shape: currentShape,
+        target_classes: classes,
         replace_existing: false,
       });
 
