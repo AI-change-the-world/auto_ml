@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request
 
 from config import create_config_manager_from_env
 from models import ExecuteCapabilityRequest, InlinePipelineRunRequest, NamedPipelineRunRequest, TaskPayload
+from mq import RabbitMQRpcWorker, load_rabbitmq_config
 from service import AutoAugmentService
 
 logging.basicConfig(level=logging.INFO)
@@ -21,11 +22,19 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI):
         config = await config_manager.load()
         service = AutoAugmentService(config)
+        mq_config = load_rabbitmq_config()
+        rpc_worker = RabbitMQRpcWorker(
+            mq_config,
+            lambda payload: handle_rpc_request(service, payload),
+        )
         app.state.config_manager = config_manager
         app.state.service = service
+        app.state.rpc_worker = rpc_worker
         await config_manager.start_watch(service.reload)
+        rpc_worker.start()
         logger.info("Auto augment pipeline service is ready")
         yield
+        rpc_worker.stop()
         await config_manager.close()
 
     app = FastAPI(
@@ -87,6 +96,28 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return app
+
+
+def handle_rpc_request(service: AutoAugmentService, payload: dict):
+    action = str(payload.get("action") or "").strip()
+    if action == "list_pipelines":
+        return [item.model_dump(mode="json") for item in service.list_pipelines()]
+    if action == "run_pipeline":
+        pipeline_name = str(payload.get("pipeline_name") or "").strip()
+        if not pipeline_name:
+            raise ValueError("pipeline_name is required")
+        request_payload = NamedPipelineRunRequest.model_validate(payload.get("request") or {})
+        result = service.run_pipeline(
+            name=pipeline_name,
+            payload=request_payload.input,
+            profile=request_payload.profile,
+            params=request_payload.params,
+            provider_overrides=request_payload.provider_overrides,
+        )
+        if hasattr(result, "model_dump"):
+            return result.model_dump(mode="json")
+        return result
+    raise ValueError(f"unsupported rpc action `{action}`")
 
 
 app = create_app()

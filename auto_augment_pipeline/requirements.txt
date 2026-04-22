@@ -8,3 +8,4 @@ openai
 nacos_sdk_python==2.0.4
 rapidocr
 onnxruntime
+pika==1.3.2

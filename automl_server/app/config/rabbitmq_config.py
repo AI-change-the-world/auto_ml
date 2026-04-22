@@ -30,6 +30,7 @@ class RabbitMQConfig(BaseModel):
     model_undeployed_queue: str = "auto_ml.model.undeployed"
     heartbeat_queue: str = "auto_ml.heartbeat"
     trainer_task_queue: str = "trainer.task.queue"
+    assist_rpc_queue: str = "auto_ml.assist.rpc"
 
     # 路由键
     task_status_routing_key: str = "task.status.update"
@@ -38,6 +39,7 @@ class RabbitMQConfig(BaseModel):
     model_deployed_routing_key: str = "model.deployed"
     model_undeployed_routing_key: str = "model.undeployed"
     trainer_task_routing_key: str = "trainer.task.submit"
+    assist_rpc_routing_key: str = "assist.rpc.request"
 
 
 def _get_mq_nested_value(mq: dict, section: str, key: str, flat_key: str, default):
@@ -80,6 +82,8 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
                 mq, "queues", "heartbeat", "heartbeat_queue", "auto_ml.heartbeat"),
             trainer_task_queue=_get_mq_nested_value(
                 mq, "queues", "trainer_task", "trainer_task_queue", "trainer.task.queue"),
+            assist_rpc_queue=_get_mq_nested_value(
+                mq, "queues", "assist_rpc", "assist_rpc_queue", "auto_ml.assist.rpc"),
             task_status_routing_key=_get_mq_nested_value(
                 mq, "routing_keys", "task_status", "task_status_routing_key", "task.status.update"),
             task_log_routing_key=_get_mq_nested_value(
@@ -92,6 +96,8 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
                 mq, "routing_keys", "model_undeployed", "model_undeployed_routing_key", "model.undeployed"),
             trainer_task_routing_key=_get_mq_nested_value(
                 mq, "routing_keys", "trainer_task", "trainer_task_routing_key", "trainer.task.submit"),
+            assist_rpc_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "assist_rpc", "assist_rpc_routing_key", "assist.rpc.request"),
         )
     except Exception as e:
         logger.warning(f"Failed to load RabbitMQ config from Nacos: {e}")
@@ -115,12 +121,14 @@ def _load_mq_from_env() -> RabbitMQConfig:
         model_undeployed_queue=os.getenv("MODEL_UNDEPLOYED_QUEUE", "auto_ml.model.undeployed"),
         heartbeat_queue=os.getenv("HEARTBEAT_QUEUE", "auto_ml.heartbeat"),
         trainer_task_queue=os.getenv("TRAINER_TASK_QUEUE", "trainer.task.queue"),
+        assist_rpc_queue=os.getenv("ASSIST_RPC_QUEUE", "auto_ml.assist.rpc"),
         task_status_routing_key=os.getenv("TASK_STATUS_ROUTING_KEY", "task.status.update"),
         task_log_routing_key=os.getenv("TASK_LOG_ROUTING_KEY", "task.log"),
         model_registered_routing_key=os.getenv("MODEL_REGISTERED_ROUTING_KEY", "model.registered"),
         model_deployed_routing_key=os.getenv("MODEL_DEPLOYED_ROUTING_KEY", "model.deployed"),
         model_undeployed_routing_key=os.getenv("MODEL_UNDEPLOYED_ROUTING_KEY", "model.undeployed"),
         trainer_task_routing_key=os.getenv("TRAINER_TASK_ROUTING_KEY", "trainer.task.submit"),
+        assist_rpc_routing_key=os.getenv("ASSIST_RPC_ROUTING_KEY", "assist.rpc.request"),
     )
 
 

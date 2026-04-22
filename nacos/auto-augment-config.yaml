@@ -1,39 +1,25 @@
 service_name: auto-augment-pipeline
 
 providers:
-  mock_vision:
-    kind: mock
-    role: multimodal
-    model: mock-vision
-
-  nano_banana2_pro:
-    kind: openai_compatible
-    role: image_edit
-    base_url: ${NANO_BANANA_BASE_URL}
-    api_key: ${NANO_BANANA_API_KEY}
-    model: ${NANO_BANANA_MODEL}
-    timeout_seconds: 120
-    extra:
-      response_format: b64_json
 
   qwen_vl:
     kind: openai_compatible
     role: multimodal
-    base_url: ${QWEN_BASE_URL}
-    api_key: ${QWEN_API_KEY}
-    model: ${QWEN_MODEL}
+    base_url: 
+    api_key: 
+    model: 
     timeout_seconds: 60
     temperature: 0.0
     max_tokens: 1024
 
 defaults:
   multimodal_provider: qwen_vl
-  image_edit_provider: nano_banana2_pro
+  image_edit_provider: qwen_vl
 
 profiles:
   assist_default:
     multimodal_provider: qwen_vl
-    image_edit_provider: nano_banana2_pro
+    image_edit_provider: qwen_vl
     params:
       class_match_score: 0.72
       assist_min_annotation_count: 1
@@ -49,14 +35,22 @@ profiles:
       assist_min_labeled_ratio: 0.5
 
 pipelines:
+
   render_then_extract_overlay:
     name: render_then_extract_overlay
+    display_name: 生成白框并提取 BBox
     description: Use an image editing model to render pure white overlays, then extract them with OpenCV and OCR.
+    pipeline_type: assist_annotation
+    enabled: true
+    supported_annotation_types: [0]
+    supported_shapes: [bbox]
+    default_profile: assist_default
     steps:
       - name: render_overlay
         capability: render_white_annotation_overlay
         input_key: input
         output_key: overlay_result
+        profile: assist_default
       - name: extract_overlay
         capability: extract_white_annotations
         input_key: input

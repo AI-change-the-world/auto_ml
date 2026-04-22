@@ -2,10 +2,9 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    AUTO_AUGMENT_CONFIG=/app/auto_augment_pipeline/sample_config.yaml
+    PIP_NO_CACHE_DIR=1
 
-WORKDIR /app
+WORKDIR /app/auto_augment_pipeline
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
@@ -21,4 +20,4 @@ COPY auto_augment_pipeline /app/auto_augment_pipeline
 
 EXPOSE 8010
 
-CMD ["uvicorn", "auto_augment_pipeline.app:app", "--host", "0.0.0.0", "--port", "8010"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8010"]

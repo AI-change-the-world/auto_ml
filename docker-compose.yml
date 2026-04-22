@@ -322,11 +322,10 @@ services:
       nacos-init:
         condition: service_completed_successfully
     environment:
-      AUTO_AUGMENT_USE_NACOS: "true"
       AUTO_AUGMENT_WATCH_NACOS: "true"
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
-      NACOS_DATA_ID: AUTO_AUGMENT_PIPELINE
+      AUTO_AUGMENT_NACOS_DATA_ID: AUTO_AUGMENT_PIPELINE
       NACOS_GROUP: ${NACOS_GROUP:-AUTO_ML}
     ports:
       - "${AUTO_AUGMENT_PIPELINE_PORT:-8010}:${AUTO_AUGMENT_PIPELINE_PORT:-8010}"

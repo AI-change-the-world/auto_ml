@@ -53,12 +53,6 @@ class RuntimeConfig(BaseModel):
     pipelines: dict[str, PipelineDefinition] = Field(default_factory=dict)
 
 
-def _as_bool(value: str | None, default: bool = False) -> bool:
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _expand_env_vars(raw: str) -> str:
     pattern = re.compile(r"\$\{([A-Z0-9_]+)\}")
 
@@ -68,69 +62,42 @@ def _expand_env_vars(raw: str) -> str:
     return pattern.sub(replace, raw)
 
 
-def build_default_config() -> RuntimeConfig:
-    return RuntimeConfig(
-        providers={
-            "mock_vision": ProviderConfig(
-                kind="mock",
-                role="multimodal",
-                model="mock-vision",
-            )
-        },
-        defaults=DefaultsConfig(
-            multimodal_provider="mock_vision",
-            image_edit_provider="mock_vision",
-        ),
-    )
-
-
 class ConfigManager:
     def __init__(
         self,
         *,
-        config_path: str | None = None,
-        use_nacos: bool = False,
         nacos_server_addr: str = "127.0.0.1:8848",
+        nacos_namespace: str = "public",
         nacos_data_id: str = "AUTO_AUGMENT_PIPELINE",
-        nacos_group: str = "DEFAULT_GROUP",
+        nacos_group: str = "AUTO_ML",
+        nacos_log_dir: str | None = None,
+        nacos_cache_dir: str | None = None,
         watch_nacos: bool = False,
     ) -> None:
-        self.config_path = config_path
-        self.use_nacos = use_nacos
         self.nacos_server_addr = nacos_server_addr
+        self.nacos_namespace = nacos_namespace
         self.nacos_data_id = nacos_data_id
         self.nacos_group = nacos_group
+        self.nacos_log_dir = nacos_log_dir
+        self.nacos_cache_dir = nacos_cache_dir
         self.watch_nacos = watch_nacos
-        self.current = build_default_config()
+        self.current = RuntimeConfig()
         self._nacos_service: Any | None = None
 
     async def load(self) -> RuntimeConfig:
-        if self.use_nacos:
-            raw = await self._load_from_nacos()
-            if raw:
-                self.current = self._parse(raw)
-                return self.current
-            logger.warning(
-                "Nacos config is empty, falling back to local/default config")
-
-        if self.config_path:
-            path = Path(self.config_path).expanduser()
-            if path.exists():
-                self.current = self._parse(path.read_text(encoding="utf-8"))
-                return self.current
-            logger.warning(
-                "Config file not found: %s, using default config", path)
-
-        self.current = build_default_config()
+        raw = await self._load_from_nacos()
+        if not raw:
+            raise RuntimeError(
+                f"Nacos config is empty: dataId={self.nacos_data_id}, group={self.nacos_group}, namespace={self.nacos_namespace}"
+            )
+        self.current = self._parse(raw)
         return self.current
 
     async def start_watch(self, on_change: ConfigChangedCallback | None = None) -> None:
-        if not self.use_nacos or not self.watch_nacos:
+        if not self.watch_nacos:
             return
 
         service = await self._ensure_nacos_service()
-        if service is None:
-            return
 
         async def listener(tenant: str, data_id: str, group: str, content: str) -> None:
             logger.info(
@@ -158,20 +125,17 @@ class ConfigManager:
         expanded = _expand_env_vars(raw)
         data = yaml.safe_load(expanded) or {}
         if not data:
-            return build_default_config()
+            raise RuntimeError("Nacos config payload is empty")
         return RuntimeConfig.model_validate(data)
 
     async def _load_from_nacos(self) -> str | None:
         try:
             from v2.nacos import ConfigParam
         except ImportError:
-            logger.warning(
-                "nacos-sdk-python v2 is not installed; skip loading Nacos config")
-            return None
+            raise RuntimeError(
+                "nacos-sdk-python v2 is not installed") from None
 
         service = await self._ensure_nacos_service()
-        if service is None:
-            return None
         return await service.get_config(
             ConfigParam(data_id=self.nacos_data_id, group=self.nacos_group)
         )
@@ -183,35 +147,38 @@ class ConfigManager:
         try:
             from v2.nacos import ClientConfigBuilder, GRPCConfig, NacosConfigService
         except ImportError:
-            logger.warning(
-                "nacos-sdk-python v2 is not installed; skip Nacos client init")
-            return None
+            raise RuntimeError(
+                "nacos-sdk-python v2 is not installed") from None
 
         try:
             client_config = (
                 ClientConfigBuilder()
                 .server_address(self.nacos_server_addr)
+                .namespace_id(self.nacos_namespace)
                 .log_level("INFO")
+                .log_dir(self.nacos_log_dir or str(Path("/tmp/auto_augment_pipeline/nacos/logs")))
+                .cache_dir(self.nacos_cache_dir or str(Path("/tmp/auto_augment_pipeline/nacos/cache")))
                 .grpc_config(GRPCConfig(grpc_timeout=5000))
                 .build()
             )
             self._nacos_service = await NacosConfigService.create_config_service(client_config)
             return self._nacos_service
         except Exception as exc:
-            logger.warning(
-                "Failed to initialize Nacos config service: %s", exc)
-            return None
+            raise RuntimeError(
+                f"Failed to initialize Nacos config service: {exc}") from exc
 
 
 def create_config_manager_from_env() -> ConfigManager:
-    default_config_path = Path(
-        __file__).resolve().parent / "sample_config.yaml"
+    watch_nacos = os.getenv("AUTO_AUGMENT_WATCH_NACOS", "true").strip().lower() in {
+        "1", "true", "yes", "on"}
     return ConfigManager(
-        config_path=os.getenv("AUTO_AUGMENT_CONFIG", str(default_config_path)),
-        use_nacos=_as_bool(os.getenv("AUTO_AUGMENT_USE_NACOS"), default=False),
         nacos_server_addr=os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848"),
-        nacos_data_id=os.getenv("NACOS_DATA_ID", "AUTO_AUGMENT_PIPELINE"),
-        nacos_group=os.getenv("NACOS_GROUP", "DEFAULT_GROUP"),
-        watch_nacos=_as_bool(
-            os.getenv("AUTO_AUGMENT_WATCH_NACOS"), default=True),
+        nacos_namespace=os.getenv(
+            "AUTO_AUGMENT_NACOS_NAMESPACE", os.getenv("NACOS_NAMESPACE", "public")),
+        nacos_data_id=os.getenv(
+            "AUTO_AUGMENT_NACOS_DATA_ID", "AUTO_AUGMENT_PIPELINE"),
+        nacos_group=os.getenv("NACOS_GROUP", "AUTO_ML"),
+        nacos_log_dir=os.getenv("AUTO_AUGMENT_NACOS_LOG_DIR"),
+        nacos_cache_dir=os.getenv("AUTO_AUGMENT_NACOS_CACHE_DIR"),
+        watch_nacos=watch_nacos,
     )

@@ -1,4 +1,5 @@
 """标注服务"""
+import asyncio
 import json
 import mimetypes
 from typing import Any
@@ -10,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import DatasetFile
+from app.mq.rpc_client import get_assist_rpc_client
 from app.utils.s3_delegate import get_s3_delegate
-from app.utils.http_client import HttpClient
 from . import crud
 from .schemas import (
     AnnotationAssistRequest,
@@ -27,22 +28,16 @@ from .schemas import (
 class AnnotationService:
     def __init__(self):
         self.s3 = get_s3_delegate()
-        self._augment_client = None
-
-    @property
-    def augment_client(self) -> HttpClient:
-        if self._augment_client is None:
-            settings = get_settings()
-            self._augment_client = HttpClient(
-                base_url=settings.auto_augment_pipeline.base_url,
-                timeout=settings.auto_augment_pipeline.timeout,
-            )
-        return self._augment_client
+        self._assist_rpc_client = None
 
     async def close(self):
-        if self._augment_client is not None:
-            await self._augment_client.close()
-            self._augment_client = None
+        return None
+
+    @property
+    def assist_rpc_client(self):
+        if self._assist_rpc_client is None:
+            self._assist_rpc_client = get_assist_rpc_client()
+        return self._assist_rpc_client
 
     async def create_annotation(self, db: AsyncSession, data: AnnotationCreate) -> AnnotationResponse:
         ann_uuid = str(uuid.uuid4())
@@ -102,7 +97,12 @@ class AnnotationService:
             raise NotFoundException(f"Annotation {annotation_id} not found")
 
         payload = await self._fetch_pipeline_catalog()
-        raw_items = payload.get("pipelines", payload if isinstance(payload, list) else [])
+        if isinstance(payload, list):
+            raw_items = payload
+        elif isinstance(payload, dict):
+            raw_items = payload.get("pipelines", [])
+        else:
+            raw_items = []
         items: list[AnnotationAssistPipelineResponse] = []
         normalized_shape = (shape or "").strip().lower()
         for item in raw_items:
@@ -209,23 +209,20 @@ class AnnotationService:
             request_payload["provider_overrides"] = {}
 
         try:
-            response = await self.augment_client.post(
-                f"/v1/pipelines/{pipeline.id}/run",
-                json=request_payload,
+            payload = await asyncio.to_thread(
+                self.assist_rpc_client.call,
+                {
+                    "action": "run_pipeline",
+                    "pipeline_name": pipeline.id,
+                    "request": request_payload,
+                },
+                get_settings().auto_augment_pipeline.timeout,
             )
         except Exception as exc:
-            logger.error(f"Failed to call auto_augment_pipeline: {exc}")
+            logger.error(f"Failed to call auto_augment_pipeline by MQ: {exc}")
             raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
 
-        if response.status_code != 200:
-            detail = response.text
-            try:
-                detail = response.json().get("detail", detail)
-            except Exception:
-                pass
-            raise BadRequestException(f"annotation assist failed: {detail}")
-
-        result = self._extract_pipeline_annotation_result(response.json(), pipeline.id)
+        result = self._extract_pipeline_annotation_result(payload, pipeline.id)
         raw_annotations = result.get("annotations", [])
         items = []
         for item in raw_annotations:
@@ -261,13 +258,14 @@ class AnnotationService:
 
     async def _fetch_pipeline_catalog(self) -> Any:
         try:
-            response = await self.augment_client.get("/v1/pipelines")
+            return await asyncio.to_thread(
+                self.assist_rpc_client.call,
+                {"action": "list_pipelines"},
+                get_settings().auto_augment_pipeline.timeout,
+            )
         except Exception as exc:
-            logger.error(f"Failed to list auto_augment_pipeline pipelines: {exc}")
+            logger.error(f"Failed to list auto_augment_pipeline pipelines by MQ: {exc}")
             raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
-        if response.status_code != 200:
-            raise BadRequestException(f"failed to list annotation assist pipelines: {response.text}")
-        return response.json()
 
     async def _resolve_assist_pipeline(
         self,

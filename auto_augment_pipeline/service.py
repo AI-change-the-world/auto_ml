@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+import os
+import sys
 from dataclasses import dataclass
 from typing import Any
+
+_CAPABILITIES_DIR = os.path.join(os.path.dirname(__file__), "capabilities")
+if _CAPABILITIES_DIR not in sys.path:
+    sys.path.insert(0, _CAPABILITIES_DIR)
 
 from capabilities import (
     AssistAnnotationCapability,

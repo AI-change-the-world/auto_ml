@@ -135,24 +135,18 @@
 
 ## 配置方式
 
-默认会读取：
+运行配置只从 Nacos 获取：
 
-- `auto_augment_pipeline/sample_config.yaml`
+- `AUTO_AUGMENT_NACOS_DATA_ID`，默认 `AUTO_AUGMENT_PIPELINE`
+- `NACOS_GROUP`，默认 `DEFAULT_GROUP`
+- `NACOS_SERVER_ADDR`，默认 `127.0.0.1:8848`
 
-也可以通过环境变量覆盖：
+可选环境变量：
 
-- `AUTO_AUGMENT_CONFIG`
-- `AUTO_AUGMENT_USE_NACOS`
-- `NACOS_SERVER_ADDR`
-- `NACOS_DATA_ID`
-- `NACOS_GROUP`
+- `AUTO_AUGMENT_NACOS_NAMESPACE`
 - `AUTO_AUGMENT_WATCH_NACOS`
-
-`sample_config.yaml` 里已经包含了：
-
-- provider 配置示例
-- 默认 provider
-- 四个示例 pipeline
+- `AUTO_AUGMENT_NACOS_LOG_DIR`
+- `AUTO_AUGMENT_NACOS_CACHE_DIR`
 
 OCR 不需要额外配置 provider，默认使用内置 `RapidOCR`。
 图像编辑推荐单独配一个 `image_edit_provider`，比如 `nano banana2 pro`。

@@ -67,7 +67,13 @@ class DeployService:
                     model_type=item.model_type,
                     task_id=item.task_id,
                     dataset_id=item.dataset_id,
-                    deployment_id=self._deployment_value(is_active, item.deployment_id, runtime_deployment.get("deployment_id") if runtime_deployment else None),
+                    deployment_id=self._string_or_none(
+                        self._deployment_value(
+                            is_active,
+                            item.deployment_id,
+                            runtime_deployment.get("deployment_id") if runtime_deployment else None,
+                        )
+                    ),
                     deployment_port=self._deployment_value(is_active, item.deployment_port, runtime_deployment.get("port") if runtime_deployment else None),
                     deployment_version=self._deployment_value(is_active, item.deployment_version, runtime_deployment.get("version") if runtime_deployment else None),
                     deployment_device=self._deployment_value(is_active, item.deployment_device, runtime_deployment.get("device") if runtime_deployment else None),
@@ -274,7 +280,13 @@ class DeployService:
         return DeployStatusResponse(
             model_id=model_id,
             is_deployed=is_active,
-            deployment_id=self._deployment_value(is_active, model.deployment_id, runtime_deployment.get("deployment_id") if runtime_deployment else None),
+            deployment_id=self._string_or_none(
+                self._deployment_value(
+                    is_active,
+                    model.deployment_id,
+                    runtime_deployment.get("deployment_id") if runtime_deployment else None,
+                )
+            ),
             port=self._deployment_value(is_active, model.deployment_port, runtime_deployment.get("port") if runtime_deployment else None),
             version=self._deployment_value(is_active, model.deployment_version, runtime_deployment.get("version") if runtime_deployment else None),
             device=self._deployment_value(is_active, model.deployment_device, runtime_deployment.get("device") if runtime_deployment else None),
@@ -320,7 +332,13 @@ class DeployService:
             model_type=model.model_type,
             task_id=model.task_id,
             dataset_id=model.dataset_id,
-            deployment_id=self._deployment_value(is_active, model.deployment_id, runtime_deployment.get("deployment_id") if runtime_deployment else None),
+            deployment_id=self._string_or_none(
+                self._deployment_value(
+                    is_active,
+                    model.deployment_id,
+                    runtime_deployment.get("deployment_id") if runtime_deployment else None,
+                )
+            ),
             deployment_port=self._deployment_value(is_active, model.deployment_port, runtime_deployment.get("port") if runtime_deployment else None),
             deployment_version=self._deployment_value(is_active, model.deployment_version, runtime_deployment.get("version") if runtime_deployment else None),
             deployment_device=self._deployment_value(is_active, model.deployment_device, runtime_deployment.get("device") if runtime_deployment else None),
@@ -440,6 +458,11 @@ class DeployService:
 
     def _coalesce_value(self, primary: Any, secondary: Any) -> Any:
         return primary if primary not in (None, "", []) else secondary
+
+    def _string_or_none(self, value: Any) -> Optional[str]:
+        if value in (None, "", []):
+            return None
+        return str(value)
 
 
 def get_deploy_service() -> DeployService:
