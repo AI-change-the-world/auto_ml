@@ -52,7 +52,6 @@ class AutoAugmentPipelineConfig(BaseModel):
     """Auto Augment Pipeline 服务配置"""
     base_url: str = "http://auto-augment-pipeline:8010"
     timeout: int = 120
-    default_profile: str = "assist_default"
 
 
 class Settings(BaseModel):
@@ -182,10 +181,6 @@ def _load_settings() -> Settings:
             "AUTO_AUGMENT_PIPELINE_TIMEOUT",
             augment_nacos.get("timeout", 120),
         )),
-        default_profile=os.getenv(
-            "AUTO_AUGMENT_PIPELINE_DEFAULT_PROFILE",
-            augment_nacos.get("default_profile", "assist_default"),
-        ),
     )
 
     task_stale_timeout_seconds = int(

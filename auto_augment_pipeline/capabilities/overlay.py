@@ -116,6 +116,12 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
             ),
             temperature=float(params.get("temperature", 0.0)),
             max_tokens=int(params.get("max_tokens", 1024)),
+            json_mode=bool(params.get("json_mode", False)),
+            json_response_type=(
+                str(params.get("json_response_type")).strip()
+                if params.get("json_response_type") is not None
+                else None
+            ),
         )
         annotations = self._normalize_annotations(
             raw,

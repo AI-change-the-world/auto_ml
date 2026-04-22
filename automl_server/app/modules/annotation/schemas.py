@@ -61,7 +61,6 @@ class AnnotationAssistRequest(BaseModel):
     pipeline_id: Optional[str] = None
     shape: str = "bbox"
     target_classes: Optional[List[str]] = None
-    profile: Optional[str] = None
     replace_existing: bool = False
     params: dict = Field(default_factory=dict)
 
@@ -72,7 +71,6 @@ class AnnotationAssistPipelineResponse(BaseModel):
     description: Optional[str] = None
     supported_annotation_types: List[int] = Field(default_factory=list)
     supported_shapes: List[str] = Field(default_factory=list)
-    default_profile: Optional[str] = None
     enabled: bool = True
 
 
@@ -88,6 +86,5 @@ class AnnotationAssistResponse(BaseModel):
     image_width: int
     image_height: int
     annotations: List[AnnotationAssistItem]
-    profile: str
     replace_existing: bool
     debug: Optional[dict] = None

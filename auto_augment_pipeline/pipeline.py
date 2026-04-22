@@ -26,9 +26,7 @@ class PipelineRunner:
         definition: PipelineDefinition,
         payload: TaskPayload,
         *,
-        profile: str | None = None,
         params: dict[str, Any] | None = None,
-        provider_overrides: dict[str, str] | None = None,
     ) -> PipelineRunResult:
         context: dict[str, Any] = {"input": payload}
         step_results: list[StepExecutionResult] = []
@@ -56,8 +54,6 @@ class PipelineRunner:
                 step.capability,
                 ExecuteCapabilityRequest(
                     provider=step.provider,
-                    profile=profile or step.profile,
-                    provider_overrides=provider_overrides or {},
                     input=step_input,
                     params=step_params,
                 ),

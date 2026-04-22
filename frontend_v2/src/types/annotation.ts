@@ -228,7 +228,6 @@ export interface AnnotationAssistRequest {
   pipeline_id?: string;
   shape?: string;
   target_classes?: string[];
-  profile?: string;
   replace_existing?: boolean;
   params?: Record<string, unknown>;
 }
@@ -239,7 +238,6 @@ export interface AnnotationAssistPipeline {
   description?: string | null;
   supported_annotation_types: number[];
   supported_shapes: string[];
-  default_profile?: string | null;
   enabled: boolean;
 }
 
@@ -255,7 +253,6 @@ export interface AnnotationAssistResponse {
   image_width: number;
   image_height: number;
   annotations: AnnotationAssistItem[];
-  profile: string;
   replace_existing: boolean;
   debug?: Record<string, unknown> | null;
 }

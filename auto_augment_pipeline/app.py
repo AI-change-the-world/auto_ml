@@ -74,9 +74,7 @@ def create_app() -> FastAPI:
                 return app.state.service.run_pipeline(
                     name=pipeline_name,
                     payload=payload.input,
-                    profile=payload.profile,
                     params=payload.params,
-                    provider_overrides=payload.provider_overrides,
                 )
             return app.state.service.run_pipeline(
                 name=pipeline_name,
@@ -110,9 +108,7 @@ def handle_rpc_request(service: AutoAugmentService, payload: dict):
         result = service.run_pipeline(
             name=pipeline_name,
             payload=request_payload.input,
-            profile=request_payload.profile,
             params=request_payload.params,
-            provider_overrides=request_payload.provider_overrides,
         )
         if hasattr(result, "model_dump"):
             return result.model_dump(mode="json")

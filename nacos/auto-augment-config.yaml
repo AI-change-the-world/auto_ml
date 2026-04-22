@@ -2,7 +2,7 @@ service_name: auto-augment-pipeline
 
 providers:
 
-  qwen_vl:
+  qwen_edit:
     kind: dashscope_multimodal
     role: multimodal
     base_url: https://dashscope.aliyuncs.com/api/v1
@@ -12,29 +12,37 @@ providers:
     temperature: 0.0
     max_tokens: 1024
 
-defaults:
-  multimodal_provider: qwen_vl
-  image_edit_provider: qwen_vl
-
-profiles:
-  assist_default:
-    multimodal_provider: qwen_vl
-    image_edit_provider: qwen_vl
-    params:
-      class_match_score: 0.72
-      assist_min_annotation_count: 1
-      assist_min_labeled_ratio: 0.75
-      min_area: 250
-
-  assist_mock:
-    multimodal_provider: mock_vision
-    image_edit_provider: mock_vision
-    params:
-      class_match_score: 0.6
-      assist_min_annotation_count: 1
-      assist_min_labeled_ratio: 0.5
+  qwen_vl:
+    kind: openai_compatible
+    role: multimodal
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: 
+    model: qwen-vl-max
+    timeout_seconds: 60
+    temperature: 0.0
+    max_tokens: 1024
 
 pipelines:
+
+  direct_bbox_preview:
+    name: direct_bbox_preview
+    display_name: 直接理解 BBox + 预览图
+    description: Ask a multimodal model to directly return bbox JSON, then render an annotated preview image with OpenCV and upload it to S3.
+    pipeline_type: assist_annotation
+    enabled: true
+    supported_annotation_types: [0]
+    supported_shapes: [bbox]
+    steps:
+      - name: direct_bbox_preview
+        capability: draft_annotation_preview
+        provider: qwen_vl
+        input_key: input
+        output_key: draft_annotations
+        params:
+          json_mode: true
+          json_response_type: json_object
+          class_match_score: 0.72
+          score_threshold: 0.2
 
   render_then_extract_overlay:
     name: render_then_extract_overlay
@@ -44,13 +52,12 @@ pipelines:
     enabled: true
     supported_annotation_types: [0]
     supported_shapes: [bbox]
-    default_profile: assist_default
     steps:
       - name: render_overlay
         capability: render_white_annotation_overlay
+        provider: qwen_edit
         input_key: input
         output_key: overlay_result
-        profile: assist_default
       - name: extract_overlay
         capability: extract_white_annotations
         input_key: input

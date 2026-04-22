@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 import logging
 import re
 import uuid
@@ -56,6 +57,8 @@ class BaseMultimodalProvider:
         system_prompt: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        json_mode: bool = False,
+        json_response_type: str | None = None,
     ) -> dict[str, Any] | list[Any]:
         text = self.generate_text(
             prompt=prompt,
@@ -135,6 +138,84 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
             max_tokens=self.config.max_tokens if max_tokens is None else max_tokens,
         )
         return content_to_text(response.choices[0].message.content).strip()
+
+    def generate_json(
+        self,
+        *,
+        prompt: str,
+        image: ImagePayload | None = None,
+        system_prompt: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        json_mode: bool = False,
+        json_response_type: str | None = None,
+    ) -> dict[str, Any] | list[Any]:
+        if not self.config.model:
+            raise ProviderError(
+                f"provider `{self.name}` is missing model configuration")
+
+        user_content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+        if image is not None:
+            user_content.append(
+                {"type": "image_url", "image_url": {
+                    "url": payload_to_data_url(image)}}
+            )
+
+        if not json_mode:
+            return super().generate_json(
+                prompt=prompt,
+                image=image,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                json_mode=json_mode,
+                json_response_type=json_response_type,
+            )
+
+        try:
+            request_kwargs: dict[str, Any] = {}
+            if json_response_type:
+                request_kwargs["response_format"] = {"type": json_response_type}
+            response = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt or "You are a careful multimodal annotation assistant.",
+                    },
+                    {
+                        "role": "user",
+                        "content": user_content,
+                    },
+                ],
+                temperature=self.config.temperature if temperature is None else temperature,
+                max_tokens=self.config.max_tokens if max_tokens is None else max_tokens,
+                **request_kwargs,
+            )
+            content = content_to_text(response.choices[0].message.content).strip()
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "provider `%s` returned invalid JSON in native JSON mode, falling back to block extraction",
+                    self.name,
+                )
+                return extract_json_block(content)
+        except Exception as exc:
+            logger.warning(
+                "provider `%s` native JSON mode failed (%s), falling back to text parsing",
+                self.name,
+                exc,
+            )
+            return super().generate_json(
+                prompt=prompt,
+                image=image,
+                system_prompt=system_prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                json_mode=False,
+                json_response_type=None,
+            )
 
     def edit_image(
         self,
@@ -476,6 +557,8 @@ class MockProvider(BaseMultimodalProvider):
         system_prompt: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        json_mode: bool = False,
+        json_response_type: str | None = None,
     ) -> dict[str, Any] | list[Any]:
         width, height = (1000, 1000)
         if image is not None:

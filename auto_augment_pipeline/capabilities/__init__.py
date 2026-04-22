@@ -7,6 +7,7 @@ from overlay import (
     RenderWhiteAnnotationOverlayCapability,
     UnderstandWhiteAnnotationsCapability,
 )
+from preview import DraftAnnotationPreviewCapability
 
 __all__ = [
     "AnnotationNormalizationMixin",
@@ -15,6 +16,7 @@ __all__ = [
     "Capability",
     "DescribeImageCapability",
     "DraftAnnotationCapability",
+    "DraftAnnotationPreviewCapability",
     "ExtractWhiteAnnotationsCapability",
     "ProviderResolver",
     "RenderWhiteAnnotationOverlayCapability",

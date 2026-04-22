@@ -184,10 +184,7 @@ class AnnotationService:
         mime_type = mimetypes.guess_type(data.file_name)[0] or "image/jpeg"
         image_base64 = self._to_data_url(image_bytes, mime_type)
 
-        settings = get_settings()
-        profile = data.profile or pipeline.default_profile or settings.auto_augment_pipeline.default_profile
         request_payload = {
-            "profile": profile,
             "input": {
                 "image": {
                     "base64_data": image_base64,
@@ -214,9 +211,6 @@ class AnnotationService:
             selected_classes,
             ann.prompt,
         )
-        if data.profile:
-            request_payload["provider_overrides"] = {}
-
         try:
             payload = await asyncio.to_thread(
                 self.assist_rpc_client.call,
@@ -260,7 +254,6 @@ class AnnotationService:
             image_width=int(result.get("image_width", 0) or 0),
             image_height=int(result.get("image_height", 0) or 0),
             annotations=items,
-            profile=profile,
             replace_existing=data.replace_existing,
             debug=result.get("raw") if isinstance(result.get("raw"), dict) else None,
         )
@@ -334,7 +327,6 @@ class AnnotationService:
             description=item.get("description"),
             supported_annotation_types=supported_annotation_types,
             supported_shapes=supported_shapes,
-            default_profile=item.get("default_profile"),
             enabled=bool(item.get("enabled", True)),
         )
 
@@ -342,6 +334,7 @@ class AnnotationService:
         assist_capabilities = {
             "assist_annotation",
             "draft_annotation",
+            "draft_annotation_preview",
             "extract_white_annotations",
             "render_white_annotation_overlay",
             "understand_white_annotations",

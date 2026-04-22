@@ -30,26 +30,9 @@ class ProviderConfig(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
-class DefaultsConfig(BaseModel):
-    multimodal_provider: str | None = None
-    text_provider: str | None = None
-    ocr_provider: str | None = None
-    image_edit_provider: str | None = None
-
-
-class ProfileConfig(BaseModel):
-    multimodal_provider: str | None = None
-    text_provider: str | None = None
-    ocr_provider: str | None = None
-    image_edit_provider: str | None = None
-    params: dict[str, Any] = Field(default_factory=dict)
-
-
 class RuntimeConfig(BaseModel):
     service_name: str = "auto-augment-pipeline"
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
-    defaults: DefaultsConfig = Field(default_factory=DefaultsConfig)
-    profiles: dict[str, ProfileConfig] = Field(default_factory=dict)
     pipelines: dict[str, PipelineDefinition] = Field(default_factory=dict)
 
 
