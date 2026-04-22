@@ -159,6 +159,17 @@ const ImageCanvas: React.FC = () => {
   const isClassification = annotationType === AnnotationType.Classification;
   const isPose = annotationType === AnnotationType.Pose;
 
+  const fitImageToViewport = useCallback((img: HTMLImageElement) => {
+    const scaleX = stageSize.width / img.naturalWidth;
+    const scaleY = stageSize.height / img.naturalHeight;
+    const newScale = Math.min(scaleX, scaleY, 1);
+    setScale(newScale);
+    setPosition({
+      x: (stageSize.width - img.naturalWidth * newScale) / 2,
+      y: (stageSize.height - img.naturalHeight * newScale) / 2,
+    });
+  }, [stageSize.height, stageSize.width]);
+
   // 容器尺寸响应
   useEffect(() => {
     const updateSize = () => {
@@ -181,38 +192,51 @@ const ImageCanvas: React.FC = () => {
       setImage(null);
       return;
     }
+    let cancelled = false;
     const img = new window.Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      if (cancelled) return;
       setImage(img);
       setImageSize(img.naturalWidth, img.naturalHeight);
-
-      const scaleX = stageSize.width / img.naturalWidth;
-      const scaleY = stageSize.height / img.naturalHeight;
-      const newScale = Math.min(scaleX, scaleY, 1);
-      setScale(newScale);
-      setPosition({
-        x: (stageSize.width - img.naturalWidth * newScale) / 2,
-        y: (stageSize.height - img.naturalHeight * newScale) / 2,
-      });
-
-      let hasExistingAnnotations = false;
-      if (datasetFiles.length > 0 && currentFileIndex >= 0) {
-        const file = datasetFiles[currentFileIndex];
-        const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
-        const annotationFile = annotationFiles.find((f) => f.file_name === labelFileName);
-        if (annotationFile?.content && annotationType !== AnnotationType.Classification) {
-          const parsed = parseYoloAnnotations(annotationFile.content, img.naturalWidth, img.naturalHeight);
-          setAnnotations(parsed);
-          hasExistingAnnotations = parsed.length > 0;
-        }
-      }
-      if (!hasExistingAnnotations && !isClassification && !isPose) {
-        changeMode(LabelMode.Add);
-      }
     };
     img.src = currentImageUrl;
-  }, [currentImageUrl, stageSize.width, stageSize.height, annotationType, isClassification, isPose]);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentImageUrl, setImageSize]);
+
+  useEffect(() => {
+    if (!image) return;
+    fitImageToViewport(image);
+  }, [image, fitImageToViewport]);
+
+  useEffect(() => {
+    if (!image || isClassification || isPose) return;
+    let hasExistingAnnotations = false;
+    if (datasetFiles.length > 0 && currentFileIndex >= 0) {
+      const file = datasetFiles[currentFileIndex];
+      const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
+      const annotationFile = annotationFiles.find((f) => f.file_name === labelFileName);
+      if (annotationFile?.content) {
+        const parsed = parseYoloAnnotations(annotationFile.content, image.naturalWidth, image.naturalHeight);
+        setAnnotations(parsed);
+        hasExistingAnnotations = parsed.length > 0;
+      }
+    }
+    if (!hasExistingAnnotations) {
+      changeMode(LabelMode.Add);
+    }
+  }, [
+    image,
+    annotationFiles,
+    datasetFiles,
+    currentFileIndex,
+    isClassification,
+    isPose,
+    setAnnotations,
+    changeMode,
+  ]);
 
   // 获取鼠标在图像坐标系中的位置
   const getImagePos = useCallback((_e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -488,15 +512,8 @@ const ImageCanvas: React.FC = () => {
 
   const fitToWindow = useCallback(() => {
     if (!image) return;
-    const scaleX = stageSize.width / image.naturalWidth;
-    const scaleY = stageSize.height / image.naturalHeight;
-    const newScale = Math.min(scaleX, scaleY, 1);
-    setScale(newScale);
-    setPosition({
-      x: (stageSize.width - image.naturalWidth * newScale) / 2,
-      y: (stageSize.height - image.naturalHeight * newScale) / 2,
-    });
-  }, [image, stageSize]);
+    fitImageToViewport(image);
+  }, [image, fitImageToViewport]);
 
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__canvasFitToWindow = fitToWindow;
