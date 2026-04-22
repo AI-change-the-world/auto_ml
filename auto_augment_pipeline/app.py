@@ -3,12 +3,18 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+from threading import RLock
 
 from fastapi import FastAPI, HTTPException, Request
 
-from config import create_config_manager_from_env
+from config import (
+    get_runtime_config,
+    register_runtime_config_callback,
+    unregister_runtime_config_callback,
+)
 from models import ExecuteCapabilityRequest, InlinePipelineRunRequest, NamedPipelineRunRequest, TaskPayload
 from mq import RabbitMQRpcWorker, load_rabbitmq_config
+from nacos_config_center import get_config_center
 from service import AutoAugmentService
 
 logging.basicConfig(level=logging.INFO)
@@ -16,26 +22,50 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
-    config_manager = create_config_manager_from_env()
+    service_holder: dict[str, AutoAugmentService | None] = {"service": None}
+    service_lock = RLock()
+
+    def get_service() -> AutoAugmentService:
+        with service_lock:
+            service = service_holder["service"]
+            if service is None:
+                raise RuntimeError("Auto augment service is not initialized")
+            return service
+
+    def _on_runtime_config_update(config) -> None:
+        with service_lock:
+            service = service_holder["service"]
+            if service is None:
+                return
+            service.reload(config)
+        logger.info("Auto augment runtime config reloaded")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        config = await config_manager.load()
+        get_config_center().start()
+        config = get_runtime_config()
         service = AutoAugmentService(config)
         mq_config = load_rabbitmq_config()
         rpc_worker = RabbitMQRpcWorker(
             mq_config,
-            lambda payload: handle_rpc_request(service, payload),
+            lambda payload: handle_rpc_request(get_service(), payload),
         )
-        app.state.config_manager = config_manager
+        with service_lock:
+            service_holder["service"] = service
         app.state.service = service
         app.state.rpc_worker = rpc_worker
-        await config_manager.start_watch(service.reload)
+        register_runtime_config_callback(
+            "auto_augment_runtime",
+            _on_runtime_config_update,
+        )
         rpc_worker.start()
         logger.info("Auto augment pipeline service is ready")
         yield
+        unregister_runtime_config_callback("auto_augment_runtime")
         rpc_worker.stop()
-        await config_manager.close()
+        with service_lock:
+            service_holder["service"] = None
+        get_config_center().stop()
 
     app = FastAPI(
         title="Auto Augment Pipeline",

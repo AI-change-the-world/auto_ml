@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 import opendal
@@ -32,6 +33,7 @@ def _fetch_nacos_payload() -> dict[str, Any]:
     return payload
 
 
+@lru_cache(maxsize=1)
 def get_s3_config() -> S3Config:
     payload = _fetch_nacos_payload()
     s3 = payload.get("local-s3-config", {}) if isinstance(payload, dict) else {}
