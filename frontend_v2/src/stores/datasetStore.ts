@@ -6,6 +6,7 @@ import { getDataset, getDatasetFiles, previewFile } from '../api/dataset';
 import { AnnotationType, createClassificationAnnotation } from '../types';
 import { toYoloFormat } from '../utils/yolo';
 import { isImageFileName } from '../utils/file';
+import { parseClassificationAnnotationContent, serializeClassificationAnnotationContent } from '../utils/classification';
 import { useAnnotationStore } from './annotationStore';
 import { message } from 'antd';
 
@@ -108,8 +109,8 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
       if (annotationFile?.content) {
         if (annotationProject.annotation_type === AnnotationType.Classification) {
-          const classId = parseInt(annotationFile.content.trim(), 10);
-          annotationStore.setAnnotations(Number.isNaN(classId) ? [] : [createClassificationAnnotation(classId)]);
+          const classIds = parseClassificationAnnotationContent(annotationFile.content);
+          annotationStore.setAnnotations(classIds.length > 0 ? [createClassificationAnnotation(classIds[0])] : []);
         } else {
           // 需要等待图像加载完成才能获取尺寸，先设置空标注
           // 实际解析在 ImageCanvas 图像加载后进行
@@ -170,7 +171,11 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
     const file = datasetFiles[currentFileIndex];
     const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
     const content = annotationProject.annotation_type === AnnotationType.Classification
-      ? String(annotationStore.annotations[0]?.classId ?? '').trim()
+      ? serializeClassificationAnnotationContent(
+        annotationStore.annotations[0]?.classId !== undefined && annotationStore.annotations[0]?.classId >= 0
+          ? [annotationStore.annotations[0].classId]
+          : [],
+      )
       : toYoloFormat(
         annotationStore.annotations,
         annotationStore.imageWidth,

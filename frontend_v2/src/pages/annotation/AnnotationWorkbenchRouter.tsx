@@ -25,7 +25,9 @@ const AnnotationWorkbenchRouter: React.FC = () => {
         const annotation = await getAnnotation(Number(annotationId));
         let workbench = 'image';
 
-        if (annotation.annotation_type === AnnotationType.MLLM) {
+        if (annotation.annotation_type === AnnotationType.Classification) {
+          workbench = 'classification';
+        } else if (annotation.annotation_type === AnnotationType.MLLM) {
           workbench = 'mllm';
         } else if (annotation.dataset_id) {
           const dataset = await getDataset(annotation.dataset_id);
