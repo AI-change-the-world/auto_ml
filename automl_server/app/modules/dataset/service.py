@@ -13,11 +13,11 @@ from fastapi import UploadFile
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.constants import DatasetScenarioType
+from app.common.constants import DataType, DatasetScenarioType
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
-from .schemas import DatasetCreate, DatasetUpdate, DatasetResponse, FilePreviewResponse
+from .schemas import DatasetCreate, DatasetUpdate, DatasetResponse, FilePreviewResponse, FileContentResponse
 
 # 支持的压缩包扩展名
 ARCHIVE_EXTENSIONS = {'.zip', '.tar', '.tar.gz',
@@ -50,6 +50,24 @@ DEFAULT_AERIAL_STITCH_CONFIG: Dict[str, Any] = {
     },
 }
 
+DEFAULT_LLM_CONVERSATION_CONFIG: Dict[str, Any] = {
+    "conversation": {
+        "mode": "llm",
+        "result_format": "json",
+        "roles": ["system", "user", "assistant"],
+        "primary_input": "text",
+    }
+}
+
+DEFAULT_MLLM_CONVERSATION_CONFIG: Dict[str, Any] = {
+    "conversation": {
+        "mode": "mllm",
+        "result_format": "json",
+        "roles": ["system", "user", "assistant"],
+        "primary_input": "image",
+    }
+}
+
 
 class DatasetService:
     """数据集服务"""
@@ -59,7 +77,9 @@ class DatasetService:
 
     async def create_dataset(self, db: AsyncSession, data: DatasetCreate) -> DatasetResponse:
         """创建数据集"""
+        self._validate_dataset_type_and_scenario(data.data_type, data.scenario_type)
         scenario_config = self._prepare_scenario_config(
+            data.data_type,
             data.scenario_type,
             data.scenario_config,
         )
@@ -120,14 +140,22 @@ class DatasetService:
         """更新数据集"""
         update_data = data.model_dump(exclude_unset=True)
         if "scenario_type" in update_data or "scenario_config" in update_data:
+            dataset = None
+            data_type = update_data.get("data_type")
             scenario_type = update_data.get("scenario_type")
-            if scenario_type is None:
+            if scenario_type is None or data_type is None:
                 dataset = await crud.get_dataset_by_id(db, dataset_id)
                 if not dataset:
                     raise NotFoundException(f"Dataset {dataset_id} not found")
+            if scenario_type is None:
                 scenario_type = dataset.scenario_type
+            if data_type is None:
+                data_type = dataset.data_type
+
+            self._validate_dataset_type_and_scenario(data_type, scenario_type)
 
             scenario_config = self._prepare_scenario_config(
+                data_type,
                 scenario_type,
                 update_data.get("scenario_config"),
             )
@@ -212,6 +240,7 @@ class DatasetService:
 
     def _prepare_scenario_config(
         self,
+        data_type: int,
         scenario_type: int,
         config: Optional[Dict[str, Any]],
     ) -> Optional[Dict[str, Any]]:
@@ -219,20 +248,47 @@ class DatasetService:
         if scenario_type == DatasetScenarioType.NORMAL:
             return config
 
-        if scenario_type != DatasetScenarioType.AERIAL_STITCH:
-            raise BadRequestException(
-                f"Unsupported dataset scenario_type: {scenario_type}")
+        if scenario_type == DatasetScenarioType.AERIAL_STITCH:
+            if data_type != DataType.IMAGE:
+                raise BadRequestException("Aerial stitch scenario only supports image datasets")
+            if not config:
+                return DEFAULT_AERIAL_STITCH_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_AERIAL_STITCH_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
 
-        if not config:
-            return DEFAULT_AERIAL_STITCH_CONFIG
+        if scenario_type == DatasetScenarioType.LLM_CONVERSATION:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("LLM conversation scenario only supports text datasets")
+            if not config:
+                return DEFAULT_LLM_CONVERSATION_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_LLM_CONVERSATION_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
 
-        normalized = json.loads(json.dumps(DEFAULT_AERIAL_STITCH_CONFIG))
-        for key, value in config.items():
-            if isinstance(value, dict) and isinstance(normalized.get(key), dict):
-                normalized[key].update(value)
-            else:
-                normalized[key] = value
-        return normalized
+        if scenario_type == DatasetScenarioType.MLLM_CONVERSATION:
+            if data_type != DataType.IMAGE:
+                raise BadRequestException("MLLM conversation scenario only supports image datasets")
+            if not config:
+                return DEFAULT_MLLM_CONVERSATION_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_MLLM_CONVERSATION_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        raise BadRequestException(
+            f"Unsupported dataset scenario_type: {scenario_type}")
 
     def _dump_scenario_config(self, config: Optional[Dict[str, Any]]) -> Optional[str]:
         if config is None:
@@ -266,6 +322,14 @@ class DatasetService:
             created_at=dataset.created_at,
             updated_at=dataset.updated_at,
         )
+
+    def _validate_dataset_type_and_scenario(self, data_type: int, scenario_type: int) -> None:
+        if scenario_type == DatasetScenarioType.AERIAL_STITCH and data_type != DataType.IMAGE:
+            raise BadRequestException("Aerial stitch scenario only supports image datasets")
+        if scenario_type == DatasetScenarioType.LLM_CONVERSATION and data_type != DataType.TEXT:
+            raise BadRequestException("LLM conversation scenario only supports text datasets")
+        if scenario_type == DatasetScenarioType.MLLM_CONVERSATION and data_type != DataType.IMAGE:
+            raise BadRequestException("MLLM conversation scenario only supports image datasets")
 
     async def _extract_and_upload(
         self,
@@ -438,6 +502,31 @@ class DatasetService:
             file_name=file_name,
             presigned_url=presigned_url,
         )
+
+    async def get_file_content(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+        file_name: str,
+    ) -> FileContentResponse:
+        """读取文本文件内容"""
+        dataset = await crud.get_dataset_by_id(db, dataset_id)
+        if not dataset:
+            raise NotFoundException(f"Dataset {dataset_id} not found")
+        if dataset.data_type != DataType.TEXT:
+            raise BadRequestException("Only text datasets support reading file content")
+
+        file_record = await crud.get_dataset_file_by_name(db, dataset_id, file_name)
+        if not file_record or not file_record.save_path:
+            raise NotFoundException(f"File {file_name} not found")
+
+        raw_bytes = await self.s3.get_file(file_record.save_path, bucket_type="datasets")
+        try:
+            content = raw_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            content = raw_bytes.decode("utf-8", errors="replace")
+
+        return FileContentResponse(file_name=file_name, content=content)
 
     async def delete_file(
         self,

@@ -27,6 +27,8 @@ const AnnotationWorkbenchRouter: React.FC = () => {
 
         if (annotation.annotation_type === AnnotationType.Classification) {
           workbench = 'classification';
+        } else if (annotation.annotation_type === AnnotationType.LLM) {
+          workbench = 'llm';
         } else if (annotation.annotation_type === AnnotationType.MLLM) {
           workbench = 'mllm';
         } else if (annotation.dataset_id) {

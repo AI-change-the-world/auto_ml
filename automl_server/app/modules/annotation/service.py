@@ -8,9 +8,11 @@ from typing import List, Optional
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.common.constants import AnnotationType, DataType, DatasetScenarioType
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import DatasetFile
+from app.modules.dataset import crud as dataset_crud
 from app.mq.rpc_client import get_assist_rpc_client
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
@@ -40,6 +42,8 @@ class AnnotationService:
         return self._assist_rpc_client
 
     async def create_annotation(self, db: AsyncSession, data: AnnotationCreate) -> AnnotationResponse:
+        await self._validate_annotation_dataset_link(db, data.annotation_type, data.dataset_id)
+
         ann_uuid = str(uuid.uuid4())
         save_path = f"annotations/{ann_uuid}"
 
@@ -398,6 +402,28 @@ class AnnotationService:
         import base64
         encoded = base64.b64encode(data).decode("utf-8")
         return f"data:{mime_type};base64,{encoded}"
+
+    async def _validate_annotation_dataset_link(
+        self,
+        db: AsyncSession,
+        annotation_type: int,
+        dataset_id: Optional[int],
+    ) -> None:
+        if dataset_id is None:
+            return
+
+        dataset = await dataset_crud.get_dataset_by_id(db, dataset_id)
+        if not dataset:
+            raise NotFoundException(f"Dataset {dataset_id} not found")
+
+        if annotation_type == AnnotationType.LLM and (
+            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.LLM_CONVERSATION
+        ):
+            raise BadRequestException("LLM annotation project can only bind LLM conversation datasets")
+        if annotation_type == AnnotationType.MLLM and (
+            dataset.data_type != DataType.IMAGE or dataset.scenario_type != DatasetScenarioType.MLLM_CONVERSATION
+        ):
+            raise BadRequestException("MLLM annotation project can only bind MLLM conversation datasets")
 
 
 async def get_annotation_service():

@@ -38,6 +38,12 @@ export interface DatasetScenarioConfig {
     default_views?: string[];
     allow_view_specific_models?: boolean;
   };
+  conversation?: {
+    mode?: 'llm' | 'mllm';
+    result_format?: 'json';
+    roles?: string[];
+    primary_input?: 'text' | 'image';
+  };
   [key: string]: unknown;
 }
 
@@ -73,14 +79,18 @@ export const DataTypeIcons: Record<number, string> = {
 export const DatasetScenarioType = {
   Normal: 0,
   AerialStitch: 1,
+  LLMConversation: 2,
+  MLLMConversation: 3,
 } as const;
 
 export type DatasetScenarioTypeValue =
   (typeof DatasetScenarioType)[keyof typeof DatasetScenarioType];
 
 export const DatasetScenarioLabels: Record<number, string> = {
-  [DatasetScenarioType.Normal]: '普通图像',
+  [DatasetScenarioType.Normal]: '普通',
   [DatasetScenarioType.AerialStitch]: '无人机航拍/拼接',
+  [DatasetScenarioType.LLMConversation]: 'LLM 对话标注',
+  [DatasetScenarioType.MLLMConversation]: 'MLLM 对话标注',
 };
 
 export const createDefaultAerialScenarioConfig = (): DatasetScenarioConfig => ({
@@ -107,6 +117,80 @@ export const createDefaultAerialScenarioConfig = (): DatasetScenarioConfig => ({
   },
 });
 
+export const createDefaultLlmScenarioConfig = (): DatasetScenarioConfig => ({
+  conversation: {
+    mode: 'llm',
+    result_format: 'json',
+    roles: ['system', 'user', 'assistant'],
+    primary_input: 'text',
+  },
+});
+
+export const createDefaultMllmScenarioConfig = (): DatasetScenarioConfig => ({
+  conversation: {
+    mode: 'mllm',
+    result_format: 'json',
+    roles: ['system', 'user', 'assistant'],
+    primary_input: 'image',
+  },
+});
+
+export function getDatasetScenarioOptions(dataType: number): Array<{ value: number; label: string }> {
+  if (dataType === 0) {
+    return [
+      { value: DatasetScenarioType.Normal, label: '普通图像' },
+      { value: DatasetScenarioType.AerialStitch, label: DatasetScenarioLabels[DatasetScenarioType.AerialStitch] },
+      { value: DatasetScenarioType.MLLMConversation, label: DatasetScenarioLabels[DatasetScenarioType.MLLMConversation] },
+    ];
+  }
+
+  if (dataType === 1) {
+    return [
+      { value: DatasetScenarioType.Normal, label: '普通文本' },
+      { value: DatasetScenarioType.LLMConversation, label: DatasetScenarioLabels[DatasetScenarioType.LLMConversation] },
+    ];
+  }
+
+  if (dataType === 2) {
+    return [{ value: DatasetScenarioType.Normal, label: '普通视频' }];
+  }
+
+  if (dataType === 3) {
+    return [{ value: DatasetScenarioType.Normal, label: '普通音频' }];
+  }
+
+  return [{ value: DatasetScenarioType.Normal, label: DatasetScenarioLabels[DatasetScenarioType.Normal] }];
+}
+
+export function getDatasetScenarioLabel(dataType: number, scenarioType: number): string {
+  const matched = getDatasetScenarioOptions(dataType).find((item) => item.value === scenarioType);
+  return matched?.label ?? DatasetScenarioLabels[scenarioType] ?? DatasetScenarioLabels[DatasetScenarioType.Normal];
+}
+
+export function createDefaultScenarioConfig(
+  dataType: number,
+  scenarioType: number,
+): DatasetScenarioConfig | null {
+  if (scenarioType === DatasetScenarioType.AerialStitch && dataType === 0) {
+    return createDefaultAerialScenarioConfig();
+  }
+  if (scenarioType === DatasetScenarioType.LLMConversation && dataType === 1) {
+    return createDefaultLlmScenarioConfig();
+  }
+  if (scenarioType === DatasetScenarioType.MLLMConversation && dataType === 0) {
+    return createDefaultMllmScenarioConfig();
+  }
+  return null;
+}
+
+export function isLlmConversationDataset(dataType: number, scenarioType: number): boolean {
+  return dataType === 1 && scenarioType === DatasetScenarioType.LLMConversation;
+}
+
+export function isMllmConversationDataset(dataType: number, scenarioType: number): boolean {
+  return dataType === 0 && scenarioType === DatasetScenarioType.MLLMConversation;
+}
+
 /** 数据集文件响应 */
 export interface DatasetFile {
   id: number;
@@ -120,4 +204,9 @@ export interface DatasetFile {
 export interface FilePreviewResponse {
   file_name: string;
   presigned_url: string;
+}
+
+export interface FileContentResponse {
+  file_name: string;
+  content: string;
 }

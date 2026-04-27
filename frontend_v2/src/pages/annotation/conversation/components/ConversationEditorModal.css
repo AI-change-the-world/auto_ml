@@ -1,0 +1,51 @@
+.conversation-message-actions {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.conversation-message-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.conversation-message-action:hover {
+  color: #165dff;
+}
+
+.conversation-message-action--delete:hover {
+  color: #ef4444;
+}
+
+.conversation-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #165dff;
+  color: #ffffff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.conversation-add-button:hover {
+  background: #0f56f4;
+}
+
+.conversation-add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}

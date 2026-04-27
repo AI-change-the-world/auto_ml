@@ -4,13 +4,13 @@ import { message, Spin, Modal, Input, Select, Tag } from 'antd';
 import {
   PlusOutlined, TagsOutlined, SearchOutlined, ClockCircleOutlined,
   DeleteOutlined, SettingOutlined, BorderOutlined, PictureOutlined,
-  GatewayOutlined, RobotOutlined, DeploymentUnitOutlined,
+  GatewayOutlined, RobotOutlined, DeploymentUnitOutlined, MessageOutlined,
 } from '@ant-design/icons';
 import { listAnnotations, createAnnotation, deleteAnnotation, updateAnnotation } from '../../api/annotation';
 import { listDatasets } from '../../api/dataset';
 import type { AnnotationProject, AnnotationCreate } from '../../types/annotation';
 import type { Dataset } from '../../types/dataset';
-import { AnnotationTypeLabels, AnnotationTypeColors, AnnotationTypeIconKeys } from '../../types/annotation';
+import { AnnotationType, AnnotationTypeLabels, AnnotationTypeColors, AnnotationTypeIconKeys, DataTypeLabels, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
 import { useTranslation } from 'react-i18next';
 
 const colorMap: Record<string, { bg: string; fg: string }> = {
@@ -18,6 +18,46 @@ const colorMap: Record<string, { bg: string; fg: string }> = {
   green: { bg: '#f0fdf4', fg: '#16a34a' },
   orange: { bg: '#fff7ed', fg: '#ea580c' },
   purple: { bg: '#faf5ff', fg: '#9333ea' },
+  geekblue: { bg: '#eef2ff', fg: '#1d4ed8' },
+  cyan: { bg: '#ecfeff', fg: '#0891b2' },
+};
+
+const isImageDataset = (dataset?: Dataset) => dataset?.data_type === 0;
+const isTextDataset = (dataset?: Dataset) => dataset?.data_type === 1;
+
+const getAllowedAnnotationTypes = (dataset?: Dataset): number[] => {
+  if (!dataset) {
+    return [
+      AnnotationType.Detection,
+      AnnotationType.Classification,
+      AnnotationType.Segmentation,
+      AnnotationType.MLLM,
+      AnnotationType.LLM,
+    ];
+  }
+
+  if (isLlmConversationDataset(dataset.data_type, dataset.scenario_type)) {
+    return [AnnotationType.LLM];
+  }
+
+  if (isMllmConversationDataset(dataset.data_type, dataset.scenario_type)) {
+    return [AnnotationType.MLLM];
+  }
+
+  if (isImageDataset(dataset)) {
+    return [
+      AnnotationType.Detection,
+      AnnotationType.Classification,
+      AnnotationType.Segmentation,
+      AnnotationType.MLLM,
+    ];
+  }
+
+  if (isTextDataset(dataset)) {
+    return [AnnotationType.LLM];
+  }
+
+  return [];
 };
 
 const renderAnnotationTypeIcon = (annotationType: number, color = '#a5b4fc', size = 28) => {
@@ -31,6 +71,8 @@ const renderAnnotationTypeIcon = (annotationType: number, color = '#a5b4fc', siz
       return <GatewayOutlined style={iconStyle} />;
     case 'mllm':
       return <RobotOutlined style={iconStyle} />;
+    case 'llm':
+      return <MessageOutlined style={iconStyle} />;
     case 'pose':
       return <DeploymentUnitOutlined style={iconStyle} />;
     default:
@@ -121,6 +163,15 @@ const AnnotationListPage: React.FC = () => {
 
   const handleCreate = async () => {
     if (!formData.name.trim()) { message.warning(tc('msg.pleaseInputName')); return; }
+    const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
+    if (formData.annotation_type === AnnotationType.LLM && selectedDataset && !isLlmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
+      message.warning('LLM 标注项目只能绑定 LLM 对话数据集');
+      return;
+    }
+    if (formData.annotation_type === AnnotationType.MLLM && selectedDataset && !isMllmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
+      message.warning('MLLM 标注项目只能绑定 MLLM 对话数据集');
+      return;
+    }
     setCreating(true);
     try {
       await createAnnotation(formData);
@@ -139,6 +190,9 @@ const AnnotationListPage: React.FC = () => {
       onOk: async () => { await deleteAnnotation(id); message.success(tc('msg.deleted')); fetch(); },
     });
   };
+
+  const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
+  const availableAnnotationTypes = getAllowedAnnotationTypes(selectedDataset).map((value) => [String(value), AnnotationTypeLabels[value]] as const);
 
   return (
     <div className="page-container">
@@ -306,7 +360,7 @@ const AnnotationListPage: React.FC = () => {
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationType')}</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {Object.entries(AnnotationTypeLabels).map(([k, v]) => (
+              {availableAnnotationTypes.map(([k, v]) => (
                 <button key={k} onClick={() => setFormData({ ...formData, annotation_type: Number(k) })} style={{
                   padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
                   border: formData.annotation_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
@@ -325,7 +379,22 @@ const AnnotationListPage: React.FC = () => {
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('linkedDataset')}</label>
             <Select placeholder={t('selectDataset')} allowClear style={{ width: '100%' }} value={formData.dataset_id}
-              onChange={(v) => setFormData({ ...formData, dataset_id: v })} options={datasets.map((ds) => ({ label: ds.name, value: ds.id }))} />
+              onChange={(v) => {
+                const nextDataset = datasets.find((item) => item.id === v);
+                const nextAllowedTypes = getAllowedAnnotationTypes(nextDataset);
+                let nextAnnotationType = formData.annotation_type ?? AnnotationType.Detection;
+                if (!nextAllowedTypes.includes(nextAnnotationType)) {
+                  nextAnnotationType = nextAllowedTypes[0] ?? AnnotationType.Detection;
+                }
+                setFormData({ ...formData, dataset_id: v, annotation_type: nextAnnotationType });
+              }}
+              options={datasets.map((ds) => ({ label: `${ds.name} · ${DataTypeLabels[ds.data_type] ?? '未知'}`, value: ds.id }))}
+            />
+            {selectedDataset && (formData.annotation_type === AnnotationType.LLM || formData.annotation_type === AnnotationType.MLLM) && (
+              <div style={{ marginTop: 6, fontSize: 12, color: '#888' }}>
+                当前数据集类型：{DataTypeLabels[selectedDataset.data_type] ?? '未知'}
+              </div>
+            )}
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('initialClasses')}</label>

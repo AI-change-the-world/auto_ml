@@ -23,6 +23,8 @@ class DatasetScenarioType(IntEnum):
     """数据集场景类型"""
     NORMAL = 0
     AERIAL_STITCH = 1
+    LLM_CONVERSATION = 2
+    MLLM_CONVERSATION = 3
 
 
 class AnnotationType(IntEnum):
@@ -32,6 +34,7 @@ class AnnotationType(IntEnum):
     SEGMENTATION = 2    # 分割
     MLLM = 3
     POSE = 4
+    LLM = 5
 
 
 class TaskType(IntEnum):

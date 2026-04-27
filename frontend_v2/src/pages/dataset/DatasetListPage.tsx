@@ -14,9 +14,12 @@ import { listDatasets, createDataset, deleteDataset } from '../../api/dataset';
 import type { Dataset, DatasetCreate } from '../../types';
 import {
   DataTypeLabels,
-  DatasetScenarioLabels,
   DatasetScenarioType,
-  createDefaultAerialScenarioConfig,
+  getDatasetScenarioOptions,
+  getDatasetScenarioLabel,
+  createDefaultScenarioConfig,
+  isLlmConversationDataset,
+  isMllmConversationDataset,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
 
@@ -40,7 +43,12 @@ const DatasetListPage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState<DatasetCreate>(createInitialFormData());
-  const isImageDataType = (formData.data_type ?? IMAGE_DATA_TYPE) === IMAGE_DATA_TYPE;
+  const currentDataType = formData.data_type ?? IMAGE_DATA_TYPE;
+  const currentScenarioType = formData.scenario_type ?? DatasetScenarioType.Normal;
+  const scenarioOptions = getDatasetScenarioOptions(currentDataType);
+  const isAerialScenario = currentScenarioType === DatasetScenarioType.AerialStitch;
+  const isLlmScenario = isLlmConversationDataset(currentDataType, currentScenarioType);
+  const isMllmScenario = isMllmConversationDataset(currentDataType, currentScenarioType);
 
   const fetchDatasets = useCallback(async () => {
     setLoading(true);
@@ -155,6 +163,9 @@ const DatasetListPage: React.FC = () => {
                   <span style={{ fontSize: 11, padding: '1px 8px', background: '#eef2ff', color: '#4f6ef7', borderRadius: 999, flexShrink: 0 }}>
                     {DataTypeLabels[ds.data_type] ?? tc('status.unknown')}
                   </span>
+                  <span style={{ fontSize: 11, padding: '1px 8px', background: '#f8fafc', color: '#475569', borderRadius: 999, flexShrink: 0 }}>
+                    {getDatasetScenarioLabel(ds.data_type, ds.scenario_type)}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><PictureOutlined /> {ds.count} {tc('label.files')}</span>
@@ -182,15 +193,14 @@ const DatasetListPage: React.FC = () => {
                   key={k}
                   onClick={() => {
                     const nextDataType = Number(k);
+                    const nextScenarioOptions = getDatasetScenarioOptions(nextDataType);
+                    const currentAllowed = nextScenarioOptions.find((item) => item.value === (formData.scenario_type ?? DatasetScenarioType.Normal));
+                    const nextScenarioType = currentAllowed?.value ?? nextScenarioOptions[0]?.value ?? DatasetScenarioType.Normal;
                     setFormData({
                       ...formData,
                       data_type: nextDataType,
-                      scenario_type: nextDataType === IMAGE_DATA_TYPE
-                        ? (formData.scenario_type ?? DatasetScenarioType.Normal)
-                        : DatasetScenarioType.Normal,
-                      scenario_config: nextDataType === IMAGE_DATA_TYPE && formData.scenario_type === DatasetScenarioType.AerialStitch
-                        ? formData.scenario_config ?? createDefaultAerialScenarioConfig()
-                        : null,
+                      scenario_type: nextScenarioType,
+                      scenario_config: createDefaultScenarioConfig(nextDataType, nextScenarioType),
                     });
                   }}
                   style={{
@@ -203,39 +213,39 @@ const DatasetListPage: React.FC = () => {
               ))}
             </div>
           </div>
-          {isImageDataType && (
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('scenarioType')}</label>
-              <Select
-                style={{ width: '100%' }}
-                value={formData.scenario_type ?? DatasetScenarioType.Normal}
-                onChange={(value) => setFormData({
-                  ...formData,
-                  scenario_type: value,
-                  scenario_config: value === DatasetScenarioType.AerialStitch ? createDefaultAerialScenarioConfig() : null,
-                })}
-                options={[
-                  {
-                    label: DatasetScenarioLabels[DatasetScenarioType.Normal],
-                    value: DatasetScenarioType.Normal,
-                  },
-                  {
-                    label: DatasetScenarioLabels[DatasetScenarioType.AerialStitch],
-                    value: DatasetScenarioType.AerialStitch,
-                  },
-                ]}
-              />
-              {formData.scenario_type === DatasetScenarioType.AerialStitch && (
-                <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, lineHeight: 1.7 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#0f766e', fontWeight: 600, marginBottom: 2 }}>
-                    <ApartmentOutlined /> {t('aerialScenarioTitle')}
-                  </div>
-                  <div>{t('aerialScenarioDesc')}</div>
-                  <div style={{ marginTop: 4, color: '#94a3b8' }}>{t('aerialNamingExample')}</div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('scenarioType')}</label>
+            <Select
+              style={{ width: '100%' }}
+              value={currentScenarioType}
+              onChange={(value) => setFormData({
+                ...formData,
+                scenario_type: value,
+                scenario_config: createDefaultScenarioConfig(currentDataType, value),
+              })}
+              options={scenarioOptions}
+            />
+            {isAerialScenario && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, lineHeight: 1.7 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#0f766e', fontWeight: 600, marginBottom: 2 }}>
+                  <ApartmentOutlined /> {t('aerialScenarioTitle')}
                 </div>
-              )}
-            </div>
-          )}
+                <div>{t('aerialScenarioDesc')}</div>
+                <div style={{ marginTop: 4, color: '#94a3b8' }}>{t('aerialNamingExample')}</div>
+              </div>
+            )}
+            {(isLlmScenario || isMllmScenario) && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontSize: 12, lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                  {isLlmScenario ? 'LLM 对话数据集' : 'MLLM 对话数据集'}
+                </div>
+                <div>标注结果按 JSON 保存，适合多轮对话式标注。</div>
+                <div style={{ marginTop: 4, color: '#94a3b8' }}>
+                  {isLlmScenario ? '建议上传 txt、md、json 等文本文件。' : '建议上传图像文件，标注时逐张补充对话。'}
+                </div>
+              </div>
+            )}
+          </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.description')}</label>
             <Input.TextArea rows={3} placeholder={t('optionalDesc')} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />

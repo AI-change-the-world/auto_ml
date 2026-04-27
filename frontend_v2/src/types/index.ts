@@ -36,6 +36,7 @@ export type {
   Dataset,
   DatasetFile,
   FilePreviewResponse,
+  FileContentResponse,
   DatasetCreate,
   DatasetUpdate,
   DatasetScenarioConfig,
@@ -47,6 +48,13 @@ export {
   DatasetScenarioType,
   DatasetScenarioLabels,
   createDefaultAerialScenarioConfig,
+  createDefaultLlmScenarioConfig,
+  createDefaultMllmScenarioConfig,
+  getDatasetScenarioOptions,
+  getDatasetScenarioLabel,
+  createDefaultScenarioConfig,
+  isLlmConversationDataset,
+  isMllmConversationDataset,
 } from './dataset';
 export type { HomeStats } from './home';
 export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope, TrainingConfigPayload } from './task';

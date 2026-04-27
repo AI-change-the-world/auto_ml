@@ -182,6 +182,7 @@ export const AnnotationTypeLabels: Record<number, string> = {
   2: '分割',
   3: 'MLLM',
   4: '姿态',
+  5: 'LLM',
 };
 
 export const AnnotationTypeColors: Record<number, string> = {
@@ -190,6 +191,7 @@ export const AnnotationTypeColors: Record<number, string> = {
   2: 'orange',
   3: 'purple',
   4: 'cyan',
+  5: 'geekblue',
 };
 
 export const AnnotationTypeIconKeys: Record<number, string> = {
@@ -198,6 +200,7 @@ export const AnnotationTypeIconKeys: Record<number, string> = {
   2: 'polygon',
   3: 'mllm',
   4: 'pose',
+  5: 'llm',
 };
 
 /** 标注项目响应 */
@@ -272,6 +275,7 @@ export enum AnnotationType {
   Segmentation = 2,
   MLLM = 3,
   Pose = 4,
+  LLM = 5,
 }
 
 /** 颜色调色板 - 为不同类别分配颜色 */

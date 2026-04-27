@@ -161,6 +161,21 @@ async def get_dataset_file_by_id(db: AsyncSession, file_id: int) -> Optional[Dat
     return result.scalar_one_or_none()
 
 
+async def get_dataset_file_by_name(
+    db: AsyncSession,
+    dataset_id: int,
+    file_name: str,
+) -> Optional[DatasetFile]:
+    """根据数据集 ID 和文件名获取文件"""
+    stmt = select(DatasetFile).where(
+        DatasetFile.dataset_id == dataset_id,
+        DatasetFile.file_name == file_name,
+        DatasetFile.is_deleted == False,
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 async def delete_dataset_file(db: AsyncSession, file_id: int) -> bool:
     """软删除数据集文件"""
     stmt = (

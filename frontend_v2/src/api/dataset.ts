@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { Result, PageResult, Dataset, DatasetFile, FilePreviewResponse, DatasetCreate, DatasetUpdate } from '../types';
+import type { Result, PageResult, Dataset, DatasetFile, FilePreviewResponse, FileContentResponse, DatasetCreate, DatasetUpdate } from '../types';
 
 /** 创建数据集 */
 export async function createDataset(data: DatasetCreate) {
@@ -55,6 +55,14 @@ export async function getDatasetFiles(datasetId: number, page = 1, pageSize = 50
 /** 预览文件 */
 export async function previewFile(datasetId: number, fileName: string) {
   const res = await apiClient.get<Result<FilePreviewResponse>>(`/dataset/${datasetId}/preview`, {
+    params: { file_name: fileName },
+  });
+  return res.data.data;
+}
+
+/** 读取文本文件内容 */
+export async function getDatasetFileContent(datasetId: number, fileName: string) {
+  const res = await apiClient.get<Result<FileContentResponse>>(`/dataset/${datasetId}/content`, {
     params: { file_name: fileName },
   });
   return res.data.data;

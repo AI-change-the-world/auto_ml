@@ -16,7 +16,7 @@ class Dataset(BaseEntity):
     data_type = Column(Integer, default=0,
                        comment="数据类型: 0=图像, 1=文本, 2=视频, 3=音频")
     scenario_type = Column(Integer, default=0,
-                           comment="场景类型: 0=普通, 1=无人机航拍/拼接")
+                           comment="场景类型: 0=普通, 1=无人机航拍/拼接, 2=LLM对话标注, 3=MLLM对话标注")
     scenario_config = Column(Text, nullable=True, comment="场景配置 JSON")
     save_path = Column(String(512), nullable=True, comment="存储路径")
     count = Column(Integer, default=0, comment="文件数量")

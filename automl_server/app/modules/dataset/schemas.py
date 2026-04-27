@@ -17,7 +17,7 @@ class DatasetCreate(BaseModel):
     data_type: int = Field(
         default=0, description="数据类型: 0=图像, 1=文本, 2=视频, 3=音频")
     scenario_type: int = Field(
-        default=0, description="场景类型: 0=普通, 1=无人机航拍/拼接")
+        default=0, description="场景类型: 0=普通, 1=无人机航拍/拼接, 2=LLM对话标注, 3=MLLM对话标注")
     scenario_config: Optional[Dict[str, Any]] = Field(
         default=None, description="场景配置 JSON")
     description: Optional[str] = Field(default=None, description="描述")
@@ -72,6 +72,12 @@ class FilePreviewResponse(BaseModel):
     """文件预览响应"""
     file_name: str
     presigned_url: str
+
+
+class FileContentResponse(BaseModel):
+    """文本文件内容响应"""
+    file_name: str
+    content: str
 
 
 class BatchDeleteRequest(BaseModel):

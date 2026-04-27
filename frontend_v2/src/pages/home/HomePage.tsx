@@ -16,6 +16,7 @@ import {
 } from '@ant-design/icons';
 import { getHomeStats } from '../../api/home';
 import type { HomeStats } from '../../types/home';
+import { AnnotationTypeLabels } from '../../types';
 import { useTranslation } from 'react-i18next';
 
 /* ─── Reusable Card ─── */
@@ -104,8 +105,6 @@ const HomePage: React.FC = () => {
 
   const recentDatasets = stats?.recent_datasets ?? [];
   const recentAnnotations = stats?.recent_annotations ?? [];
-  const annotationTypeLabels: Record<number, string> = { 0: 'BBox', 1: 'OBB', 2: 'Polygon' };
-
   return (
     <div className="page-container">
       {/* ─── Page Header ─── */}
@@ -257,7 +256,7 @@ const HomePage: React.FC = () => {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ann.name}</div>
-                    <div style={{ fontSize: 11, color: '#999' }}>{annotationTypeLabels[ann.annotation_type] ?? 'BBox'}</div>
+                    <div style={{ fontSize: 11, color: '#999' }}>{AnnotationTypeLabels[ann.annotation_type] ?? '检测'}</div>
                   </div>
                 </div>
               ))}

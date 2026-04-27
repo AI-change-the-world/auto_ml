@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import { getDataset, getDatasetFiles, uploadDatasetFiles, previewFile, deleteDataset, deleteDatasetFile, batchDeleteDatasetFiles } from '../../api/dataset';
 import type { Dataset, DatasetFile } from '../../types';
-import { DataTypeLabels, DatasetScenarioLabels, DatasetScenarioType } from '../../types';
+import { DataTypeLabels, DatasetScenarioType, getDatasetScenarioLabel, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { isImageFileName } from '../../utils/file';
 
@@ -171,6 +171,8 @@ const DatasetDetailPage: React.FC = () => {
   const displayedFiles = activeTab === 'images' ? imageFiles : files;
   const isAerialDataset = dataset.scenario_type === DatasetScenarioType.AerialStitch;
   const isImageDataset = dataset.data_type === 0;
+  const isLlmDataset = isLlmConversationDataset(dataset.data_type, dataset.scenario_type);
+  const isMllmDataset = isMllmConversationDataset(dataset.data_type, dataset.scenario_type);
   const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
 
   const tabs = [
@@ -207,7 +209,12 @@ const DatasetDetailPage: React.FC = () => {
             </span>
             {isImageDataset && (
               <span style={{ padding: '2px 10px', background: isAerialDataset ? '#ecfdf5' : '#f8fafc', color: isAerialDataset ? '#0f766e' : '#64748b', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <ApartmentOutlined /> {DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal]}
+                <ApartmentOutlined /> {getDatasetScenarioLabel(dataset.data_type, dataset.scenario_type)}
+              </span>
+            )}
+            {!isImageDataset && dataset.scenario_type !== DatasetScenarioType.Normal && (
+              <span style={{ padding: '2px 10px', background: '#f8fafc', color: '#64748b', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ApartmentOutlined /> {getDatasetScenarioLabel(dataset.data_type, dataset.scenario_type)}
               </span>
             )}
             <span style={{ padding: '2px 10px', background: '#f0fdf4', color: '#16a34a', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -257,6 +264,17 @@ const DatasetDetailPage: React.FC = () => {
                 {t('aerialOverlap', { value: `${Math.round(overlapRatio * 100)}%` })}
               </span>
             )}
+          </div>
+        </div>
+      )}
+
+      {(isLlmDataset || isMllmDataset) && (
+        <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'linear-gradient(135deg, #f8fafc, #eef2ff)', border: '1px solid #e2e8f0', color: '#334155' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1e40af', marginBottom: 6 }}>
+            {isLlmDataset ? 'LLM 对话数据集' : 'MLLM 对话数据集'}
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+            标注工作台会以对话方式编辑，结果文件按 JSON 存储。
           </div>
         </div>
       )}
@@ -506,7 +524,7 @@ const DatasetDetailPage: React.FC = () => {
             {[
               { label: tc('label.name'), value: dataset.name },
               { label: tc('label.type'), value: DataTypeLabels[dataset.data_type] ?? tc('status.unknown') },
-              ...(isImageDataset ? [{ label: t('scenarioType'), value: DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal] }] : []),
+              { label: t('scenarioType'), value: getDatasetScenarioLabel(dataset.data_type, dataset.scenario_type) },
               { label: tc('label.files'), value: t('fileCount', { count: files.length }) },
               { label: t('storageLocal'), value: dataset.storage_type === 0 ? t('storageLocal') : t('storageS3') },
               { label: tc('label.createdAt'), value: new Date(dataset.created_at).toLocaleString() },

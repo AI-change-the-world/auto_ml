@@ -12,7 +12,7 @@ class Annotation(BaseEntity):
 
     name = Column(String(255), nullable=False, comment="标注项目名称")
     annotation_type = Column(
-        Integer, default=0, comment="标注类型: 0=检测(BBox/OBB), 1=分类, 2=分割(Polygon), 3=MLLM")
+        Integer, default=0, comment="标注类型: 0=检测(BBox/OBB), 1=分类, 2=分割(Polygon), 3=MLLM, 4=姿态, 5=LLM")
     classes = Column(Text, nullable=True, comment="分类项 JSON")
     storage_type = Column(Integer, default=1,
                           comment="存储类型: 0=本地, 1=S3, 2=WebDAV")

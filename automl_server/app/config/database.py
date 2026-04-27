@@ -161,7 +161,7 @@ async def _ensure_schema_compatibility(conn):
         await conn.execute(
             text(
                 "ALTER TABLE dataset "
-                "ADD COLUMN scenario_type INT DEFAULT 0 COMMENT '场景类型: 0=普通, 1=无人机航拍/拼接' "
+                "ADD COLUMN scenario_type INT DEFAULT 0 COMMENT '场景类型: 0=普通, 1=无人机航拍/拼接, 2=LLM对话标注, 3=MLLM对话标注' "
                 "AFTER data_type"
             )
         )

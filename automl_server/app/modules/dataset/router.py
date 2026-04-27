@@ -10,7 +10,7 @@ from app.common import Result, PageResult
 from app.config.database import get_db
 from .schemas import (
     DatasetCreate, DatasetUpdate, DatasetResponse,
-    DatasetFileResponse, FilePreviewResponse, BatchDeleteRequest
+    DatasetFileResponse, FilePreviewResponse, FileContentResponse, BatchDeleteRequest
 )
 from .service import get_dataset_service, DatasetService
 
@@ -113,6 +113,18 @@ async def preview_file(
 ):
     """预览文件（获取预签名 URL）"""
     result = await service.preview_file(db, dataset_id, file_name)
+    return Result.ok(result)
+
+
+@router.get("/{dataset_id}/content", response_model=Result[FileContentResponse], summary="读取文本文件内容")
+async def get_file_content(
+    dataset_id: int,
+    file_name: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    service: DatasetService = Depends(get_dataset_service),
+):
+    """读取文本文件内容"""
+    result = await service.get_file_content(db, dataset_id, file_name)
     return Result.ok(result)
 
 
