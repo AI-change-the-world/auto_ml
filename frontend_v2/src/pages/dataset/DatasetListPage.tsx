@@ -27,6 +27,8 @@ const createInitialFormData = (): DatasetCreate => ({
   scenario_config: null,
 });
 
+const IMAGE_DATA_TYPE = 0;
+
 const DatasetListPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('dataset');
@@ -38,6 +40,7 @@ const DatasetListPage: React.FC = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState<DatasetCreate>(createInitialFormData());
+  const isImageDataType = (formData.data_type ?? IMAGE_DATA_TYPE) === IMAGE_DATA_TYPE;
 
   const fetchDatasets = useCallback(async () => {
     setLoading(true);
@@ -172,44 +175,24 @@ const DatasetListPage: React.FC = () => {
             <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('scenarioType')}</label>
-            <Select
-              style={{ width: '100%' }}
-              value={formData.scenario_type ?? DatasetScenarioType.Normal}
-              onChange={(value) => setFormData({
-                ...formData,
-                data_type: 0,
-                scenario_type: value,
-                scenario_config: value === DatasetScenarioType.AerialStitch ? createDefaultAerialScenarioConfig() : null,
-              })}
-              options={[
-                {
-                  label: DatasetScenarioLabels[DatasetScenarioType.Normal],
-                  value: DatasetScenarioType.Normal,
-                },
-                {
-                  label: DatasetScenarioLabels[DatasetScenarioType.AerialStitch],
-                  value: DatasetScenarioType.AerialStitch,
-                },
-              ]}
-            />
-            {formData.scenario_type === DatasetScenarioType.AerialStitch && (
-              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, lineHeight: 1.7 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#0f766e', fontWeight: 600, marginBottom: 2 }}>
-                  <ApartmentOutlined /> {t('aerialScenarioTitle')}
-                </div>
-                <div>{t('aerialScenarioDesc')}</div>
-                <div style={{ marginTop: 4, color: '#94a3b8' }}>{t('aerialNamingExample')}</div>
-              </div>
-            )}
-          </div>
-          <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataType')}</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {Object.entries(DataTypeLabels).map(([k, v]) => (
                 <button
                   key={k}
-                  onClick={() => setFormData({ ...formData, data_type: Number(k) })}
+                  onClick={() => {
+                    const nextDataType = Number(k);
+                    setFormData({
+                      ...formData,
+                      data_type: nextDataType,
+                      scenario_type: nextDataType === IMAGE_DATA_TYPE
+                        ? (formData.scenario_type ?? DatasetScenarioType.Normal)
+                        : DatasetScenarioType.Normal,
+                      scenario_config: nextDataType === IMAGE_DATA_TYPE && formData.scenario_type === DatasetScenarioType.AerialStitch
+                        ? formData.scenario_config ?? createDefaultAerialScenarioConfig()
+                        : null,
+                    });
+                  }}
                   style={{
                     padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
                     border: formData.data_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
@@ -220,6 +203,39 @@ const DatasetListPage: React.FC = () => {
               ))}
             </div>
           </div>
+          {isImageDataType && (
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('scenarioType')}</label>
+              <Select
+                style={{ width: '100%' }}
+                value={formData.scenario_type ?? DatasetScenarioType.Normal}
+                onChange={(value) => setFormData({
+                  ...formData,
+                  scenario_type: value,
+                  scenario_config: value === DatasetScenarioType.AerialStitch ? createDefaultAerialScenarioConfig() : null,
+                })}
+                options={[
+                  {
+                    label: DatasetScenarioLabels[DatasetScenarioType.Normal],
+                    value: DatasetScenarioType.Normal,
+                  },
+                  {
+                    label: DatasetScenarioLabels[DatasetScenarioType.AerialStitch],
+                    value: DatasetScenarioType.AerialStitch,
+                  },
+                ]}
+              />
+              {formData.scenario_type === DatasetScenarioType.AerialStitch && (
+                <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, lineHeight: 1.7 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#0f766e', fontWeight: 600, marginBottom: 2 }}>
+                    <ApartmentOutlined /> {t('aerialScenarioTitle')}
+                  </div>
+                  <div>{t('aerialScenarioDesc')}</div>
+                  <div style={{ marginTop: 4, color: '#94a3b8' }}>{t('aerialNamingExample')}</div>
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.description')}</label>
             <Input.TextArea rows={3} placeholder={t('optionalDesc')} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />

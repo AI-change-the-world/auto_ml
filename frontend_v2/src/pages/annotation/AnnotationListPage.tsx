@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { message, Spin, Modal, Input, Select, Tag } from 'antd';
 import {
   PlusOutlined, TagsOutlined, SearchOutlined, ClockCircleOutlined,
-  DeleteOutlined, EditOutlined, SettingOutlined,
+  DeleteOutlined, SettingOutlined, BorderOutlined, PictureOutlined,
+  GatewayOutlined, RobotOutlined, DeploymentUnitOutlined,
 } from '@ant-design/icons';
 import { listAnnotations, createAnnotation, deleteAnnotation, updateAnnotation } from '../../api/annotation';
 import { listDatasets } from '../../api/dataset';
 import type { AnnotationProject, AnnotationCreate } from '../../types/annotation';
 import type { Dataset } from '../../types/dataset';
-import { AnnotationTypeLabels, AnnotationTypeColors } from '../../types/annotation';
+import { AnnotationTypeLabels, AnnotationTypeColors, AnnotationTypeIconKeys } from '../../types/annotation';
 import { useTranslation } from 'react-i18next';
 
 const colorMap: Record<string, { bg: string; fg: string }> = {
@@ -17,6 +18,24 @@ const colorMap: Record<string, { bg: string; fg: string }> = {
   green: { bg: '#f0fdf4', fg: '#16a34a' },
   orange: { bg: '#fff7ed', fg: '#ea580c' },
   purple: { bg: '#faf5ff', fg: '#9333ea' },
+};
+
+const renderAnnotationTypeIcon = (annotationType: number, color = '#a5b4fc', size = 28) => {
+  const iconStyle = { fontSize: size, color };
+  switch (AnnotationTypeIconKeys[annotationType]) {
+    case 'bbox':
+      return <BorderOutlined style={iconStyle} />;
+    case 'classification':
+      return <PictureOutlined style={iconStyle} />;
+    case 'polygon':
+      return <GatewayOutlined style={iconStyle} />;
+    case 'mllm':
+      return <RobotOutlined style={iconStyle} />;
+    case 'pose':
+      return <DeploymentUnitOutlined style={iconStyle} />;
+    default:
+      return <TagsOutlined style={iconStyle} />;
+  }
 };
 
 const AnnotationListPage: React.FC = () => {
@@ -177,7 +196,7 @@ const AnnotationListPage: React.FC = () => {
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
               >
                 <div style={{ height: 90, background: 'linear-gradient(135deg, #eef2ff, #e8dff5)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  <EditOutlined style={{ fontSize: 28, color: '#a5b4fc' }} />
+                  {renderAnnotationTypeIcon(ann.annotation_type)}
                   <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
                     <button onClick={(e) => openClassesModal(e, ann)} style={{
                       width: 28, height: 28, borderRadius: 6,
@@ -286,14 +305,20 @@ const AnnotationListPage: React.FC = () => {
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationType')}</label>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {Object.entries(AnnotationTypeLabels).map(([k, v]) => (
                 <button key={k} onClick={() => setFormData({ ...formData, annotation_type: Number(k) })} style={{
                   padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
                   border: formData.annotation_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                   background: formData.annotation_type === Number(k) ? '#eef2ff' : '#fff',
                   color: formData.annotation_type === Number(k) ? '#4f6ef7' : '#666',
-                }} disabled={Number(k) === 4}>{Number(k) === 4 ? `${v} (占位)` : v}</button>
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }} disabled={Number(k) === 4}>
+                  {renderAnnotationTypeIcon(Number(k), formData.annotation_type === Number(k) ? '#4f6ef7' : '#8c8c8c', 14)}
+                  <span>{Number(k) === 4 ? `${v} (占位)` : v}</span>
+                </button>
               ))}
             </div>
           </div>

@@ -30,6 +30,7 @@ export {
   getPolygonCenter,
   AnnotationTypeLabels,
   AnnotationTypeColors,
+  AnnotationTypeIconKeys,
 } from './annotation';
 export type {
   Dataset,

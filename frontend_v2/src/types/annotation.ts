@@ -192,6 +192,14 @@ export const AnnotationTypeColors: Record<number, string> = {
   4: 'cyan',
 };
 
+export const AnnotationTypeIconKeys: Record<number, string> = {
+  0: 'bbox',
+  1: 'classification',
+  2: 'polygon',
+  3: 'mllm',
+  4: 'pose',
+};
+
 /** 标注项目响应 */
 export interface AnnotationProject {
   id: number;

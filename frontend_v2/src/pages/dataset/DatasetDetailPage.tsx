@@ -170,6 +170,7 @@ const DatasetDetailPage: React.FC = () => {
   const imageFiles = files.filter((f) => isImageFileName(f.file_name));
   const displayedFiles = activeTab === 'images' ? imageFiles : files;
   const isAerialDataset = dataset.scenario_type === DatasetScenarioType.AerialStitch;
+  const isImageDataset = dataset.data_type === 0;
   const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
 
   const tabs = [
@@ -204,9 +205,11 @@ const DatasetDetailPage: React.FC = () => {
             <span style={{ padding: '2px 10px', background: '#eef2ff', color: '#4f6ef7', fontSize: 12, borderRadius: 999 }}>
               {DataTypeLabels[dataset.data_type] ?? tc('status.unknown')}
             </span>
-            <span style={{ padding: '2px 10px', background: isAerialDataset ? '#ecfdf5' : '#f8fafc', color: isAerialDataset ? '#0f766e' : '#64748b', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <ApartmentOutlined /> {DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal]}
-            </span>
+            {isImageDataset && (
+              <span style={{ padding: '2px 10px', background: isAerialDataset ? '#ecfdf5' : '#f8fafc', color: isAerialDataset ? '#0f766e' : '#64748b', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ApartmentOutlined /> {DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal]}
+              </span>
+            )}
             <span style={{ padding: '2px 10px', background: '#f0fdf4', color: '#16a34a', fontSize: 12, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 5, height: 5, borderRadius: 999, background: '#16a34a' }} /> {tc('status.ready')}
             </span>
@@ -503,7 +506,7 @@ const DatasetDetailPage: React.FC = () => {
             {[
               { label: tc('label.name'), value: dataset.name },
               { label: tc('label.type'), value: DataTypeLabels[dataset.data_type] ?? tc('status.unknown') },
-              { label: t('scenarioType'), value: DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal] },
+              ...(isImageDataset ? [{ label: t('scenarioType'), value: DatasetScenarioLabels[dataset.scenario_type] ?? DatasetScenarioLabels[DatasetScenarioType.Normal] }] : []),
               { label: tc('label.files'), value: t('fileCount', { count: files.length }) },
               { label: t('storageLocal'), value: dataset.storage_type === 0 ? t('storageLocal') : t('storageS3') },
               { label: tc('label.createdAt'), value: new Date(dataset.created_at).toLocaleString() },
