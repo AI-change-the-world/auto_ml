@@ -8,6 +8,7 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
     AnnotationResponse,
     AnnotationFileResponse,
@@ -38,6 +39,13 @@ async def list_annotations(
 ):
     items, total = await service.list_annotations(db, page, page_size, keyword)
     return Result.ok(PageResult.create(items, total, page, page_size))
+
+
+@router.get("/types", response_model=Result[list[AnnotationTypeDefinitionResponse]], summary="获取支持的标注类型")
+async def list_annotation_types(
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    return Result.ok(service.list_annotation_types())
 
 
 @router.get("/{annotation_id}", response_model=Result[AnnotationResponse], summary="获取标注项目详情")

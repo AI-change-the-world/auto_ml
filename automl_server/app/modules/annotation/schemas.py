@@ -39,6 +39,15 @@ class AnnotationResponse(BaseModel):
         from_attributes = True
 
 
+class AnnotationTypeDefinitionResponse(BaseModel):
+    value: int
+    code: str
+    label: str
+    color: str
+    icon_key: str
+    supports_classes: bool
+
+
 class AnnotationFileResponse(BaseModel):
     id: int
     annotation_id: int

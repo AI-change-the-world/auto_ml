@@ -1,26 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { message, Spin, Modal, Input, Select, Tag } from 'antd';
-import {
-  PlusOutlined, TagsOutlined, SearchOutlined, ClockCircleOutlined,
-  DeleteOutlined, SettingOutlined, BorderOutlined, PictureOutlined,
-  GatewayOutlined, RobotOutlined, DeploymentUnitOutlined, MessageOutlined,
-} from '@ant-design/icons';
-import { listAnnotations, createAnnotation, deleteAnnotation, updateAnnotation } from '../../api/annotation';
+import { PlusOutlined, TagsOutlined, SearchOutlined } from '@ant-design/icons';
+import { listAnnotations, createAnnotation, deleteAnnotation, updateAnnotation, listAnnotationTypes } from '../../api/annotation';
 import { listDatasets } from '../../api/dataset';
 import type { AnnotationProject, AnnotationCreate } from '../../types/annotation';
 import type { Dataset } from '../../types/dataset';
-import { AnnotationType, AnnotationTypeLabels, AnnotationTypeColors, AnnotationTypeIconKeys, DataTypeLabels, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
+import {
+  AnnotationType,
+  DataTypeLabels,
+  DefaultAnnotationTypeRegistry,
+  createAnnotationTypeRegistry,
+  isLlmConversationDataset,
+  isMllmConversationDataset,
+} from '../../types';
 import { useTranslation } from 'react-i18next';
-
-const colorMap: Record<string, { bg: string; fg: string }> = {
-  blue: { bg: '#eef2ff', fg: '#4f6ef7' },
-  green: { bg: '#f0fdf4', fg: '#16a34a' },
-  orange: { bg: '#fff7ed', fg: '#ea580c' },
-  purple: { bg: '#faf5ff', fg: '#9333ea' },
-  geekblue: { bg: '#eef2ff', fg: '#1d4ed8' },
-  cyan: { bg: '#ecfeff', fg: '#0891b2' },
-};
+import AnnotationProjectCard, { parseAnnotationClasses, renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
 
 const isImageDataset = (dataset?: Dataset) => dataset?.data_type === 0;
 const isTextDataset = (dataset?: Dataset) => dataset?.data_type === 1;
@@ -60,26 +55,6 @@ const getAllowedAnnotationTypes = (dataset?: Dataset): number[] => {
   return [];
 };
 
-const renderAnnotationTypeIcon = (annotationType: number, color = '#a5b4fc', size = 28) => {
-  const iconStyle = { fontSize: size, color };
-  switch (AnnotationTypeIconKeys[annotationType]) {
-    case 'bbox':
-      return <BorderOutlined style={iconStyle} />;
-    case 'classification':
-      return <PictureOutlined style={iconStyle} />;
-    case 'polygon':
-      return <GatewayOutlined style={iconStyle} />;
-    case 'mllm':
-      return <RobotOutlined style={iconStyle} />;
-    case 'llm':
-      return <MessageOutlined style={iconStyle} />;
-    case 'pose':
-      return <DeploymentUnitOutlined style={iconStyle} />;
-    default:
-      return <TagsOutlined style={iconStyle} />;
-  }
-};
-
 const AnnotationListPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('annotation');
@@ -92,6 +67,7 @@ const AnnotationListPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [formData, setFormData] = useState<AnnotationCreate>({ name: '', annotation_type: 0 });
+  const [annotationTypeRegistry, setAnnotationTypeRegistry] = useState(DefaultAnnotationTypeRegistry);
 
   // ─── Classes 编辑 Modal ───
   const [classesModalOpen, setClassesModalOpen] = useState(false);
@@ -102,17 +78,7 @@ const AnnotationListPage: React.FC = () => {
   const openClassesModal = (e: React.MouseEvent, ann: AnnotationProject) => {
     e.stopPropagation();
     setClassesEditId(ann.id);
-    // 解析已有 classes
-    let parsed: string[] = [];
-    if (ann.classes) {
-      try {
-        const arr = JSON.parse(ann.classes);
-        parsed = Array.isArray(arr) ? arr : [];
-      } catch {
-        parsed = ann.classes.split(/[;；,，]/).map((s: string) => s.trim()).filter(Boolean);
-      }
-    }
-    setClassesEditList(parsed);
+    setClassesEditList(parseAnnotationClasses(ann.classes));
     setClassesImportText('');
     setClassesModalOpen(true);
   };
@@ -150,6 +116,9 @@ const AnnotationListPage: React.FC = () => {
     try {
       const res = await listAnnotations(1, 50, keyword || undefined);
       if (res) { setAnnotations(res.items); setTotal(res.total); }
+
+      const typeDefinitions = await listAnnotationTypes().catch(() => []);
+      if (typeDefinitions.length > 0) setAnnotationTypeRegistry(createAnnotationTypeRegistry(typeDefinitions));
     } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [keyword]);
@@ -164,6 +133,7 @@ const AnnotationListPage: React.FC = () => {
   const handleCreate = async () => {
     if (!formData.name.trim()) { message.warning(tc('msg.pleaseInputName')); return; }
     const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
+    const selectedType = annotationTypeRegistry[formData.annotation_type ?? AnnotationType.Detection];
     if (formData.annotation_type === AnnotationType.LLM && selectedDataset && !isLlmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
       message.warning('LLM 标注项目只能绑定 LLM 对话数据集');
       return;
@@ -174,7 +144,8 @@ const AnnotationListPage: React.FC = () => {
     }
     setCreating(true);
     try {
-      await createAnnotation(formData);
+      const payload = selectedType?.supportsClasses ? formData : { ...formData, classes: undefined };
+      await createAnnotation(payload);
       message.success(tc('msg.createSuccess'));
       setCreateOpen(false);
       setFormData({ name: '', annotation_type: 0 });
@@ -192,7 +163,10 @@ const AnnotationListPage: React.FC = () => {
   };
 
   const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
-  const availableAnnotationTypes = getAllowedAnnotationTypes(selectedDataset).map((value) => [String(value), AnnotationTypeLabels[value]] as const);
+  const availableAnnotationTypes = getAllowedAnnotationTypes(selectedDataset)
+    .map((value) => annotationTypeRegistry[value])
+    .filter((item) => item !== undefined);
+  const selectedAnnotationType = annotationTypeRegistry[formData.annotation_type ?? AnnotationType.Detection];
 
   return (
     <div className="page-container">
@@ -230,63 +204,18 @@ const AnnotationListPage: React.FC = () => {
         </div>
       ) : (
         <div className="card-grid">
-          {annotations.map((ann) => {
-            const ck = AnnotationTypeColors[ann.annotation_type] || 'blue';
-            const c = colorMap[ck] || colorMap.blue;
-            const classes = (() => {
-              if (!ann.classes) return [];
-              try {
-                const parsed = JSON.parse(ann.classes);
-                return Array.isArray(parsed) ? parsed : [];
-              } catch {
-                return ann.classes.split(/[;；,，]/).map((s: string) => s.trim()).filter(Boolean);
-              }
-            })();
-            return (
-              <div key={ann.id}
-                onClick={() => navigate(`/annotations/${ann.id}/label`)}
-                style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                <div style={{ height: 90, background: 'linear-gradient(135deg, #eef2ff, #e8dff5)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-                  {renderAnnotationTypeIcon(ann.annotation_type)}
-                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
-                    <button onClick={(e) => openClassesModal(e, ann)} style={{
-                      width: 28, height: 28, borderRadius: 6,
-                      background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: 13,
-                    }} title="编辑类别"><SettingOutlined /></button>
-                    <button onClick={(e) => handleDelete(e, ann.id)} style={{
-                      width: 28, height: 28, borderRadius: 6,
-                      background: 'rgba(255,255,255,0.8)', border: 'none', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: 13,
-                    }}><DeleteOutlined /></button>
-                  </div>
-                </div>
-                <div style={{ padding: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ann.name}</span>
-                    <span style={{ fontSize: 11, padding: '1px 8px', background: c.bg, color: c.fg, borderRadius: 999, flexShrink: 0 }}>
-                      {AnnotationTypeLabels[ann.annotation_type] ?? tc('status.unknown')}
-                    </span>
-                  </div>
-                  {classes.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                      {classes.slice(0, 5).map((cl, i) => (
-                        <span key={i} style={{ padding: '1px 6px', background: '#f5f5f5', color: '#666', fontSize: 11, borderRadius: 4 }}>{cl.trim()}</span>
-                      ))}
-                      {classes.length > 5 && <span style={{ fontSize: 11, color: '#bbb' }}>+{classes.length - 5}</span>}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999' }}>
-                    <span>{t('classCount', { count: classes.length })}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><ClockCircleOutlined /> {new Date(ann.created_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {annotations.map((ann) => (
+            <AnnotationProjectCard
+              key={ann.id}
+              annotation={ann}
+              typeModel={annotationTypeRegistry[ann.annotation_type]}
+              unknownLabel={tc('status.unknown')}
+              t={t}
+              onOpen={(annotation) => navigate(`/annotations/${annotation.id}/label`)}
+              onEditClasses={openClassesModal}
+              onDelete={handleDelete}
+            />
+          ))}
         </div>
       )}
 
@@ -360,18 +289,18 @@ const AnnotationListPage: React.FC = () => {
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationType')}</label>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {availableAnnotationTypes.map(([k, v]) => (
-                <button key={k} onClick={() => setFormData({ ...formData, annotation_type: Number(k) })} style={{
+              {availableAnnotationTypes.map((typeModel) => (
+                <button key={typeModel.value} onClick={() => setFormData({ ...formData, annotation_type: typeModel.value, classes: typeModel.supportsClasses ? formData.classes : undefined })} style={{
                   padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
-                  border: formData.annotation_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
-                  background: formData.annotation_type === Number(k) ? '#eef2ff' : '#fff',
-                  color: formData.annotation_type === Number(k) ? '#4f6ef7' : '#666',
+                  border: formData.annotation_type === typeModel.value ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                  background: formData.annotation_type === typeModel.value ? '#eef2ff' : '#fff',
+                  color: formData.annotation_type === typeModel.value ? '#4f6ef7' : '#666',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                }} disabled={Number(k) === 4}>
-                  {renderAnnotationTypeIcon(Number(k), formData.annotation_type === Number(k) ? '#4f6ef7' : '#8c8c8c', 14)}
-                  <span>{Number(k) === 4 ? `${v} (占位)` : v}</span>
+                }} disabled={typeModel.value === AnnotationType.Pose}>
+                  {renderAnnotationTypeIcon(typeModel.iconKey, formData.annotation_type === typeModel.value ? '#4f6ef7' : '#8c8c8c', 14)}
+                  <span>{typeModel.value === AnnotationType.Pose ? `${typeModel.label} (占位)` : typeModel.label}</span>
                 </button>
               ))}
             </div>
@@ -396,11 +325,13 @@ const AnnotationListPage: React.FC = () => {
               </div>
             )}
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('initialClasses')}</label>
-            <Input.TextArea rows={2} placeholder={t('classesPlaceholder')} value={formData.classes}
-              onChange={(e) => setFormData({ ...formData, classes: e.target.value })} />
-          </div>
+          {selectedAnnotationType?.supportsClasses && (
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('initialClasses')}</label>
+              <Input.TextArea rows={2} placeholder={t('classesPlaceholder')} value={formData.classes}
+                onChange={(e) => setFormData({ ...formData, classes: e.target.value })} />
+            </div>
+          )}
         </div>
       </Modal>
     </div>

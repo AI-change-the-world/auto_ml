@@ -9,6 +9,7 @@ import type {
   AnnotationAssistResponse,
   AnnotationAssistPipeline,
   AnnotationCreate,
+  AnnotationTypeDefinition,
 } from '../types';
 
 /** 创建标注项目 */
@@ -23,6 +24,12 @@ export async function listAnnotations(page = 1, pageSize = 10, keyword?: string)
   if (keyword) params.keyword = keyword;
   const res = await apiClient.get<Result<PageResult<AnnotationProject>>>('/annotation/list', { params });
   return res.data.data;
+}
+
+/** 获取当前后端支持的标注类型 */
+export async function listAnnotationTypes() {
+  const res = await apiClient.get<Result<AnnotationTypeDefinition[]>>('/annotation/types');
+  return res.data.data ?? [];
 }
 
 /** 获取标注项目详情 */

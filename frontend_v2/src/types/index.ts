@@ -8,6 +8,7 @@ export type {
   Point,
   YoloLabel,
   AnnotationProject,
+  AnnotationTypeDefinition,
   AnnotationFile,
   AnnotationFileSaveRequest,
   AnnotationAssistRequest,
@@ -28,9 +29,15 @@ export {
   createClassificationAnnotation,
   getOBBVertices,
   getPolygonCenter,
+  AnnotationTypeModel,
+  DEFAULT_ANNOTATION_TYPE_DEFINITIONS,
+  DefaultAnnotationTypeRegistry,
+  createAnnotationTypeRegistry,
+  getAnnotationTypeModel,
   AnnotationTypeLabels,
   AnnotationTypeColors,
   AnnotationTypeIconKeys,
+  AnnotationTypeSupportsClasses,
 } from './annotation';
 export type {
   Dataset,

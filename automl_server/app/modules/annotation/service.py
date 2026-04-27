@@ -8,7 +8,13 @@ from typing import List, Optional
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.common.constants import AnnotationType, DataType, DatasetScenarioType
+from app.common.constants import (
+    AnnotationType,
+    DataType,
+    DatasetScenarioType,
+    get_annotation_type_definition,
+    get_annotation_type_definitions,
+)
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import DatasetFile
@@ -21,6 +27,7 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
     AnnotationResponse,
     AnnotationFileSave,
@@ -40,6 +47,12 @@ class AnnotationService:
         if self._assist_rpc_client is None:
             self._assist_rpc_client = get_assist_rpc_client()
         return self._assist_rpc_client
+
+    def list_annotation_types(self) -> list[AnnotationTypeDefinitionResponse]:
+        return [
+            AnnotationTypeDefinitionResponse(**definition.__dict__)
+            for definition in get_annotation_type_definitions()
+        ]
 
     async def create_annotation(self, db: AsyncSession, data: AnnotationCreate) -> AnnotationResponse:
         await self._validate_annotation_dataset_link(db, data.annotation_type, data.dataset_id)
@@ -409,6 +422,9 @@ class AnnotationService:
         annotation_type: int,
         dataset_id: Optional[int],
     ) -> None:
+        if get_annotation_type_definition(annotation_type) is None:
+            raise BadRequestException(f"unsupported annotation type: {annotation_type}")
+
         if dataset_id is None:
             return
 

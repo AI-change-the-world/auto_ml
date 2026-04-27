@@ -175,32 +175,121 @@ export interface AnnotationCreate {
   dataset_id?: number;
 }
 
+/** 标注类型枚举，与后端 app.common.constants.AnnotationType 保持一致 */
+export enum AnnotationType {
+  Detection = 0,
+  Classification = 1,
+  Segmentation = 2,
+  MLLM = 3,
+  Pose = 4,
+  LLM = 5,
+}
+
+export interface AnnotationTypeDefinition {
+  value: number;
+  code: string;
+  label: string;
+  color: string;
+  icon_key: string;
+  supports_classes: boolean;
+}
+
+export class AnnotationTypeModel {
+  readonly value: number;
+  readonly code: string;
+  readonly label: string;
+  readonly color: string;
+  readonly iconKey: string;
+  readonly supportsClasses: boolean;
+
+  constructor(definition: AnnotationTypeDefinition) {
+    this.value = definition.value;
+    this.code = definition.code;
+    this.label = definition.label;
+    this.color = definition.color;
+    this.iconKey = definition.icon_key;
+    this.supportsClasses = definition.supports_classes;
+  }
+}
+
+export const DEFAULT_ANNOTATION_TYPE_DEFINITIONS: AnnotationTypeDefinition[] = [
+  {
+    value: AnnotationType.Detection,
+    code: 'detection',
+    label: '检测',
+    color: 'blue',
+    icon_key: 'bbox',
+    supports_classes: true,
+  },
+  {
+    value: AnnotationType.Classification,
+    code: 'classification',
+    label: '分类',
+    color: 'green',
+    icon_key: 'classification',
+    supports_classes: true,
+  },
+  {
+    value: AnnotationType.Segmentation,
+    code: 'segmentation',
+    label: '分割',
+    color: 'orange',
+    icon_key: 'polygon',
+    supports_classes: true,
+  },
+  {
+    value: AnnotationType.MLLM,
+    code: 'mllm',
+    label: 'MLLM',
+    color: 'purple',
+    icon_key: 'mllm',
+    supports_classes: false,
+  },
+  {
+    value: AnnotationType.Pose,
+    code: 'pose',
+    label: '姿态',
+    color: 'cyan',
+    icon_key: 'pose',
+    supports_classes: true,
+  },
+  {
+    value: AnnotationType.LLM,
+    code: 'llm',
+    label: 'LLM',
+    color: 'geekblue',
+    icon_key: 'llm',
+    supports_classes: false,
+  },
+];
+
+export const createAnnotationTypeRegistry = (
+  definitions: AnnotationTypeDefinition[] = DEFAULT_ANNOTATION_TYPE_DEFINITIONS,
+): Record<number, AnnotationTypeModel> => Object.fromEntries(
+  definitions.map((definition) => [definition.value, new AnnotationTypeModel(definition)]),
+);
+
+export const DefaultAnnotationTypeRegistry = createAnnotationTypeRegistry();
+
 /** 标注类型标签 */
-export const AnnotationTypeLabels: Record<number, string> = {
-  0: '检测',
-  1: '分类',
-  2: '分割',
-  3: 'MLLM',
-  4: '姿态',
-  5: 'LLM',
-};
+export const AnnotationTypeLabels: Record<number, string> = Object.fromEntries(
+  DEFAULT_ANNOTATION_TYPE_DEFINITIONS.map((definition) => [definition.value, definition.label]),
+);
 
-export const AnnotationTypeColors: Record<number, string> = {
-  0: 'blue',
-  1: 'green',
-  2: 'orange',
-  3: 'purple',
-  4: 'cyan',
-  5: 'geekblue',
-};
+export const AnnotationTypeColors: Record<number, string> = Object.fromEntries(
+  DEFAULT_ANNOTATION_TYPE_DEFINITIONS.map((definition) => [definition.value, definition.color]),
+);
 
-export const AnnotationTypeIconKeys: Record<number, string> = {
-  0: 'bbox',
-  1: 'classification',
-  2: 'polygon',
-  3: 'mllm',
-  4: 'pose',
-  5: 'llm',
+export const AnnotationTypeIconKeys: Record<number, string> = Object.fromEntries(
+  DEFAULT_ANNOTATION_TYPE_DEFINITIONS.map((definition) => [definition.value, definition.icon_key]),
+);
+
+export const AnnotationTypeSupportsClasses: Record<number, boolean> = Object.fromEntries(
+  DEFAULT_ANNOTATION_TYPE_DEFINITIONS.map((definition) => [definition.value, definition.supports_classes]),
+);
+
+export const getAnnotationTypeModel = (annotationType: number): AnnotationTypeModel | undefined => {
+  return DefaultAnnotationTypeRegistry[annotationType];
 };
 
 /** 标注项目响应 */
@@ -266,16 +355,6 @@ export interface AnnotationAssistResponse {
   annotations: AnnotationAssistItem[];
   replace_existing: boolean;
   debug?: Record<string, unknown> | null;
-}
-
-/** 标注类型枚举 */
-export enum AnnotationType {
-  Detection = 0,
-  Classification = 1,
-  Segmentation = 2,
-  MLLM = 3,
-  Pose = 4,
-  LLM = 5,
 }
 
 /** 颜色调色板 - 为不同类别分配颜色 */

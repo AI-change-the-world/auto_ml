@@ -1,6 +1,7 @@
 """
 常量定义
 """
+from dataclasses import dataclass
 from enum import IntEnum
 
 
@@ -35,6 +36,80 @@ class AnnotationType(IntEnum):
     MLLM = 3
     POSE = 4
     LLM = 5
+
+
+@dataclass(frozen=True)
+class AnnotationTypeDefinition:
+    """标注类型元数据，前端通过接口复用这份定义。"""
+    value: int
+    code: str
+    label: str
+    color: str
+    icon_key: str
+    supports_classes: bool
+
+
+ANNOTATION_TYPE_DEFINITIONS: tuple[AnnotationTypeDefinition, ...] = (
+    AnnotationTypeDefinition(
+        value=AnnotationType.DETECTION,
+        code="detection",
+        label="检测",
+        color="blue",
+        icon_key="bbox",
+        supports_classes=True,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.CLASSIFICATION,
+        code="classification",
+        label="分类",
+        color="green",
+        icon_key="classification",
+        supports_classes=True,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.SEGMENTATION,
+        code="segmentation",
+        label="分割",
+        color="orange",
+        icon_key="polygon",
+        supports_classes=True,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.MLLM,
+        code="mllm",
+        label="MLLM",
+        color="purple",
+        icon_key="mllm",
+        supports_classes=False,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.POSE,
+        code="pose",
+        label="姿态",
+        color="cyan",
+        icon_key="pose",
+        supports_classes=True,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.LLM,
+        code="llm",
+        label="LLM",
+        color="geekblue",
+        icon_key="llm",
+        supports_classes=False,
+    ),
+)
+
+
+def get_annotation_type_definitions() -> list[AnnotationTypeDefinition]:
+    return list(ANNOTATION_TYPE_DEFINITIONS)
+
+
+def get_annotation_type_definition(annotation_type: int) -> AnnotationTypeDefinition | None:
+    for definition in ANNOTATION_TYPE_DEFINITIONS:
+        if definition.value == annotation_type:
+            return definition
+    return None
 
 
 class TaskType(IntEnum):
