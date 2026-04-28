@@ -1,5 +1,5 @@
 ﻿<div align="center">
-  <img src="./readme/icon_with_text.png" width="300" height="300">
+  <img src="./readme/icon_v2.png" width="300" height="300">
 </div>
 
 <p align="center">📘 其他语言版本</p>
