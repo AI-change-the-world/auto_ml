@@ -20,6 +20,10 @@ import 'driver.js/dist/driver.css';
 import { listAnnotations } from '../api/annotation';
 import { listTasks } from '../api/task';
 import { getDeploymentOverview } from '../api/deploy';
+import {
+  ANNOTATIONS_CHANGED_EVENT,
+  TASKS_CHANGED_EVENT,
+} from '../utils/projectEvents';
 import type { AnnotationProject, TaskResponse, DeploymentOverviewItem } from '../types';
 
 /* ─── types ─── */
@@ -43,6 +47,16 @@ const MainLayout: React.FC = () => {
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
   // 动态加载部署列表
   const [deploymentProjects, setDeploymentProjects] = useState<DeploymentOverviewItem[]>([]);
+  const refreshAnnotations = useCallback(() => {
+    listAnnotations(1, 50).then((res) => {
+      setAnnotationProjects(res.items || []);
+    }).catch(() => { });
+  }, []);
+  const refreshTasks = useCallback(() => {
+    listTasks(1, 50).then((res) => {
+      setTaskProjects(res.items || []);
+    }).catch(() => { });
+  }, []);
   const refreshDeployments = useCallback(() => {
     getDeploymentOverview(true).then((res) => {
       setDeploymentProjects((res?.items || []).filter((item) => (
@@ -53,21 +67,21 @@ const MainLayout: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    listAnnotations(1, 50).then((res) => {
-      setAnnotationProjects(res.items || []);
-    }).catch(() => { });
-    listTasks(1, 50).then((res) => {
-      setTaskProjects(res.items || []);
-    }).catch(() => { });
+    refreshAnnotations();
+    refreshTasks();
     refreshDeployments();
-  }, [location.pathname, refreshDeployments]); // 路由变化时刷新（如新建项目后返回）
+  }, [location.pathname, refreshAnnotations, refreshDeployments, refreshTasks]); // 路由变化时刷新（如新建项目后返回）
 
   useEffect(() => {
+    window.addEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
+    window.addEventListener(TASKS_CHANGED_EVENT, refreshTasks);
     window.addEventListener('automl:deployments-changed', refreshDeployments);
     return () => {
+      window.removeEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
+      window.removeEventListener(TASKS_CHANGED_EVENT, refreshTasks);
       window.removeEventListener('automl:deployments-changed', refreshDeployments);
     };
-  }, [refreshDeployments]);
+  }, [refreshAnnotations, refreshDeployments, refreshTasks]);
 
   const startTour = useCallback(() => {
     const driverObj = driver({

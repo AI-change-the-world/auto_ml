@@ -8,7 +8,7 @@
     "deleteTitle": "Delete Annotation",
     "annotationType": "Annotation Type",
     "linkedDataset": "Linked Dataset",
-    "selectDataset": "Select dataset (optional)",
+    "selectDataset": "Select dataset",
     "initialClasses": "Initial Classes",
     "classesPlaceholder": "Use comma, semicolon, or newline, e.g.: person;car;dog",
     "inputName": "Enter annotation name",

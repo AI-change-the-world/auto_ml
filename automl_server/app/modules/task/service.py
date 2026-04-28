@@ -12,7 +12,12 @@ from app.config.settings import get_settings
 from app.db.models import Dataset, Annotation, Asset, SampleItem, AnnotationRecord
 from app.mq.publisher import get_publisher
 from app.utils.annotation_classes import parse_annotation_classes
+from app.utils.annotation_record_storage import (
+    is_annotation_record_storage_path,
+    parse_annotation_record_payload,
+)
 from app.utils.http_client import HttpClient
+from app.utils.s3_delegate import get_s3_delegate
 from . import crud
 from .schemas import (
     TaskCreate,
@@ -29,6 +34,7 @@ DEFAULT_STALE_TIMEOUT_SECONDS = 2 * 60 * 60
 
 class TaskService:
     def __init__(self):
+        self.s3 = get_s3_delegate()
         self._publisher = None
         self._trainer_client = None
         self._trainer_client_base_url = None
@@ -336,7 +342,7 @@ class TaskService:
             )
             asset_map = {asset.id: asset for asset in asset_result.scalars().all()}
 
-        samples: list[dict[str, Any]] = []
+        prepared_samples: list[tuple[SampleItem, AnnotationRecord, Asset]] = []
         for item in sample_items:
             record = record_map.get(item.id)
             if not record:
@@ -344,6 +350,20 @@ class TaskService:
             asset = asset_map.get(item.asset_id) if item.asset_id else None
             if not asset or not asset.save_path:
                 continue
+            prepared_samples.append((item, record, asset))
+
+        if not prepared_samples:
+            return []
+
+        record_contents = await asyncio.gather(
+            *(
+                self._load_record_content(record.annotation_type, record.content)
+                for _, record, _ in prepared_samples
+            )
+        )
+
+        samples: list[dict[str, Any]] = []
+        for (item, record, asset), content in zip(prepared_samples, record_contents):
             samples.append({
                 "sample_item_id": item.id,
                 "item_key": item.item_key,
@@ -363,7 +383,7 @@ class TaskService:
                     "id": record.id,
                     "annotation_type": record.annotation_type,
                     "status": record.status,
-                    "content": self._load_record_content(record.content),
+                    "content": content,
                 },
             })
         return samples
@@ -388,20 +408,23 @@ class TaskService:
             return None
         return parsed if isinstance(parsed, dict) else None
 
-    def _load_record_content(self, raw_content: Any) -> dict[str, Any]:
-        if not raw_content:
+    async def _load_record_content(
+        self,
+        annotation_type: int,
+        content_path: Any,
+    ) -> dict[str, Any]:
+        if not is_annotation_record_storage_path(content_path):
             return {}
-        if isinstance(raw_content, dict):
-            return raw_content
         try:
-            parsed = json.loads(raw_content)
-        except (TypeError, json.JSONDecodeError):
-            return {"label_text": str(raw_content)}
-        if isinstance(parsed, dict):
-            return parsed
-        if isinstance(parsed, str):
-            return {"label_text": parsed}
-        return {"value": parsed}
+            payload = await self.s3.get_file(content_path, bucket_type="annotations")
+        except Exception as e:
+            logger.warning(f"Failed to load annotation record content from {content_path}: {e}")
+            return {}
+        return parse_annotation_record_payload(
+            annotation_type,
+            payload,
+            source_path=content_path,
+        )
 
     async def _cancel_trainer_task(self, task_id: int):
         try:

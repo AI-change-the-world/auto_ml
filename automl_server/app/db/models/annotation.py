@@ -35,4 +35,4 @@ class AnnotationRecord(BaseEntity):
                              comment="标注类型快照")
     status = Column(String(32), default="draft",
                     comment="状态: draft/saved/reviewed")
-    content = Column(Text, nullable=True, comment="标注内容 JSON")
+    content = Column(Text, nullable=True, comment="标注文件路径")

@@ -8,7 +8,7 @@
     "deleteTitle": "删除标注项目",
     "annotationType": "标注类型",
     "linkedDataset": "关联数据集",
-    "selectDataset": "选择数据集（可选）",
+    "selectDataset": "选择数据集",
     "initialClasses": "初始类别",
     "classesPlaceholder": "用逗号、分号或换行分隔，例如: person;car;dog",
     "inputName": "输入标注项目名称",

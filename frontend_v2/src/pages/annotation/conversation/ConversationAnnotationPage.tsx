@@ -105,7 +105,7 @@ const ConversationAnnotationPage: React.FC = () => {
 
       const samples = sampleResult?.items || [];
       const recordMap = new Map(
-        (recordResult?.items || []).map((record) => [record.sample_item_id, record.content]),
+        (recordResult?.items || []).filter((record) => record.sample_item_id !== null).map((record) => [record.sample_item_id, record.content]),
       );
       const initialEntriesBySample: ConversationEntriesBySample = {};
       samples.forEach((sample) => {
@@ -271,17 +271,20 @@ const ConversationAnnotationPage: React.FC = () => {
     JSON.parse(serializeConversationAnnotationContent(mode, entry)) as Record<string, unknown>
   );
 
+  const buildSavePayload = (sample: SampleItem, entry: ReturnType<typeof createEmptyConversationAnnotationEntry>) => ({
+    sample_item_id: sample.id,
+    content: buildRecordContent(entry),
+    status: 'saved',
+  });
+
   const saveCurrentSample = async (sampleItemId: number) => {
     if (!project) return;
     const sample = sampleItems.find((item) => item.id === sampleItemId);
+    if (!sample) return;
     const displayName = sample ? getSampleDisplayName(sample) : String(sampleItemId);
     try {
       const entry = entriesBySample[sampleItemId] || createEmptyConversationAnnotationEntry();
-      await saveAnnotationRecord(project.id, {
-        sample_item_id: sampleItemId,
-        content: buildRecordContent(entry),
-        status: 'saved',
-      });
+      await saveAnnotationRecord(project.id, buildSavePayload(sample, entry));
       setSavedBySample((state) => ({ ...state, [sampleItemId]: entry }));
       message.success(`已保存 ${displayName}`);
     } catch (error) {
@@ -299,11 +302,7 @@ const ConversationAnnotationPage: React.FC = () => {
         const current = JSON.stringify(entry);
         const saved = JSON.stringify(savedBySample[sample.id] || createEmptyConversationAnnotationEntry());
         if (current === saved) continue;
-        await saveAnnotationRecord(project.id, {
-          sample_item_id: sample.id,
-          content: buildRecordContent(entry),
-          status: 'saved',
-        });
+        await saveAnnotationRecord(project.id, buildSavePayload(sample, entry));
       }
       setSavedBySample(entriesBySample);
       message.success('全部对话标注已保存');

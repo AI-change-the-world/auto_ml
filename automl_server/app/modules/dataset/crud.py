@@ -164,7 +164,7 @@ async def get_sample_items(
     stmt = (
         select(SampleItem)
         .where(*conditions)
-        .order_by(SampleItem.sort_order.asc(), SampleItem.created_at.desc())
+        .order_by(SampleItem.id.asc())
         .offset(offset)
         .limit(limit)
     )
@@ -205,4 +205,3 @@ async def delete_sample_item(db: AsyncSession, sample_item_id: int) -> bool:
     )
     result = await db.execute(stmt)
     return result.rowcount > 0
-
