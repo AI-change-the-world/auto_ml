@@ -25,4 +25,17 @@ export interface HomeStats {
     data_type: number;
     created_at: string | null;
   }[];
+  assist_pipelines: {
+    id: string;
+    name: string;
+    description?: string | null;
+    supported_annotation_types: number[];
+    supported_shapes: string[];
+    enabled: boolean;
+    steps: {
+      name: string;
+      capability: string;
+      provider?: string | null;
+    }[];
+  }[];
 }

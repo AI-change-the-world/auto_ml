@@ -1,17 +1,22 @@
 """首页统计 API"""
 from fastapi import APIRouter, Depends
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.common import Result
 from app.config.database import get_db
 from app.db.models import Dataset, DatasetFile, Annotation, Task, AvailableModel
+from app.modules.annotation.service import AnnotationService, get_annotation_service
 
 router = APIRouter(prefix="/home", tags=["首页"])
 
 
 @router.get("/stats", response_model=Result, summary="获取统计数据")
-async def get_stats(db: AsyncSession = Depends(get_db)):
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    annotation_service: AnnotationService = Depends(get_annotation_service),
+):
     """获取首页统计数据"""
 
     # 数据集数量
@@ -89,6 +94,12 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         for r in recent_datasets_result.fetchall()
     ]
 
+    assist_pipelines = []
+    try:
+        assist_pipelines = await annotation_service.list_platform_assist_pipeline_details()
+    except Exception as exc:
+        logger.warning(f"Failed to load assist pipelines for home stats: {exc}")
+
     return Result.ok({
         "datasets": dataset_count,
         "images": image_count,
@@ -104,4 +115,5 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
         },
         "recent_annotations": recent_annotations,
         "recent_datasets": recent_datasets,
+        "assist_pipelines": assist_pipelines,
     })

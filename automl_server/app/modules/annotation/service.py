@@ -113,6 +113,18 @@ class AnnotationService:
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
 
+        items = await self.list_platform_assist_pipelines()
+        normalized_shape = (shape or "").strip().lower()
+        filtered_items: list[AnnotationAssistPipelineResponse] = []
+        for item in items:
+            if item.supported_annotation_types and ann.annotation_type not in item.supported_annotation_types:
+                continue
+            if normalized_shape and item.supported_shapes and normalized_shape not in item.supported_shapes:
+                continue
+            filtered_items.append(item)
+        return filtered_items
+
+    async def list_platform_assist_pipelines(self) -> list[AnnotationAssistPipelineResponse]:
         payload = await self._fetch_pipeline_catalog()
         if isinstance(payload, list):
             raw_items = payload
@@ -120,17 +132,33 @@ class AnnotationService:
             raw_items = payload.get("pipelines", [])
         else:
             raw_items = []
+
         items: list[AnnotationAssistPipelineResponse] = []
-        normalized_shape = (shape or "").strip().lower()
         for item in raw_items:
             parsed = self._parse_pipeline_descriptor(item)
             if parsed is None:
                 continue
-            if parsed.supported_annotation_types and ann.annotation_type not in parsed.supported_annotation_types:
-                continue
-            if normalized_shape and parsed.supported_shapes and normalized_shape not in parsed.supported_shapes:
-                continue
             items.append(parsed)
+        return items
+
+    async def list_platform_assist_pipeline_details(self) -> list[dict[str, Any]]:
+        payload = await self._fetch_pipeline_catalog()
+        if isinstance(payload, list):
+            raw_items = payload
+        elif isinstance(payload, dict):
+            raw_items = payload.get("pipelines", [])
+        else:
+            raw_items = []
+
+        items: list[dict[str, Any]] = []
+        for item in raw_items:
+            parsed = self._parse_pipeline_descriptor(item)
+            if parsed is None:
+                continue
+            items.append({
+                **parsed.model_dump(mode="json"),
+                "steps": self._parse_pipeline_steps(item),
+            })
         return items
 
     async def save_annotation_file(self, db: AsyncSession, annotation_id: int, data: AnnotationFileSave) -> int:
@@ -360,6 +388,23 @@ class AnnotationService:
             if isinstance(step, dict) and step.get("capability") in assist_capabilities:
                 return True
         return False
+
+    def _parse_pipeline_steps(self, item: dict[str, Any]) -> list[dict[str, Any]]:
+        steps: list[dict[str, Any]] = []
+        for step in item.get("steps", []) or []:
+            if not isinstance(step, dict):
+                continue
+            capability = str(step.get("capability") or "").strip()
+            name = str(step.get("name") or capability or "step").strip()
+            provider = str(step.get("provider") or "").strip() or None
+            if not capability and not name:
+                continue
+            steps.append({
+                "name": name,
+                "capability": capability or name,
+                "provider": provider,
+            })
+        return steps
 
     def _normalize_target_classes(
         self,
