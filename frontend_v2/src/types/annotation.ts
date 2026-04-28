@@ -307,24 +307,25 @@ export interface AnnotationProject {
   updated_at: string;
 }
 
-/** 标注文件响应 */
-export interface AnnotationFile {
+export interface AnnotationRecord {
   id: number;
   annotation_id: number;
-  file_name: string;
-  save_path: string | null;
-  content: string | null;
+  sample_item_id: number;
+  annotation_type: number;
+  status: string;
+  content: Record<string, unknown> | null;
   created_at: string;
+  updated_at: string;
 }
 
-/** 保存标注文件请求 */
-export interface AnnotationFileSaveRequest {
-  file_name: string;
-  content: string;
+export interface AnnotationRecordSaveRequest {
+  sample_item_id: number;
+  content: Record<string, unknown>;
+  status?: string;
 }
 
 export interface AnnotationAssistRequest {
-  file_name: string;
+  sample_item_id: number;
   pipeline_id?: string;
   shape?: string;
   target_classes?: string[];
@@ -349,7 +350,8 @@ export interface AnnotationAssistItem {
 }
 
 export interface AnnotationAssistResponse {
-  file_name: string;
+  sample_item_id: number;
+  item_key: string;
   image_width: number;
   image_height: number;
   annotations: AnnotationAssistItem[];

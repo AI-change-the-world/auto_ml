@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import BadRequestException, NotFoundException
 from app.config.settings import get_settings
 from app.db.models import Annotation, Task
+from app.utils.annotation_classes import parse_annotation_classes
 from app.utils.http_client import HttpClient
 from app.modules.deploy import crud as deploy_crud
 
@@ -212,7 +213,7 @@ class InferenceService:
         task_id: int | None,
         stored_class_names: Optional[str] = None,
     ) -> list[str]:
-        parsed_stored = self._parse_classes(stored_class_names)
+        parsed_stored = parse_annotation_classes(stored_class_names)
         if parsed_stored:
             return parsed_stored
 
@@ -237,18 +238,7 @@ class InferenceService:
         if not annotation or not annotation.classes:
             return []
 
-        return self._parse_classes(annotation.classes)
-
-    def _parse_classes(self, raw_classes: Optional[str]) -> list[str]:
-        if not raw_classes:
-            return []
-        try:
-            parsed = json.loads(raw_classes)
-            if isinstance(parsed, list):
-                return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:
-            pass
-        return [item.strip() for item in raw_classes.split(",") if item.strip()]
+        return parse_annotation_classes(annotation.classes)
 
     def _build_predict_response(self, payload: dict, model, class_names: list[str]) -> InferencePredictResponse:
         success = bool(payload.get("success"))

@@ -10,7 +10,7 @@
     "linkedDataset": "关联数据集",
     "selectDataset": "选择数据集（可选）",
     "initialClasses": "初始类别",
-    "classesPlaceholder": "逗号分隔，例如: person,car,dog",
+    "classesPlaceholder": "用逗号、分号或换行分隔，例如: person;car;dog",
     "inputName": "输入标注项目名称",
     "classCount": "{{count}} 个类别",
     "bbox": "矩形框",

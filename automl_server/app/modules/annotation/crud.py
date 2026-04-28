@@ -2,7 +2,7 @@
 from typing import List, Optional
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Annotation, AnnotationFile
+from app.db.models import Annotation, AnnotationRecord
 
 
 async def create_annotation(db: AsyncSession, **kwargs) -> Annotation:
@@ -54,43 +54,69 @@ async def delete_annotation(db: AsyncSession, annotation_id: int) -> bool:
     return result.rowcount > 0
 
 
-async def create_annotation_file(db: AsyncSession, **kwargs) -> AnnotationFile:
-    file = AnnotationFile(**kwargs)
-    db.add(file)
+# ============ AnnotationRecord CRUD ============
+
+async def create_annotation_record(db: AsyncSession, **kwargs) -> AnnotationRecord:
+    record = AnnotationRecord(**kwargs)
+    db.add(record)
     await db.flush()
-    await db.refresh(file)
-    return file
+    await db.refresh(record)
+    return record
 
 
-async def get_annotation_file(db: AsyncSession, annotation_id: int, file_name: str) -> Optional[AnnotationFile]:
-    stmt = select(AnnotationFile).where(
-        AnnotationFile.annotation_id == annotation_id,
-        AnnotationFile.file_name == file_name,
-        AnnotationFile.is_deleted == False
+async def get_annotation_record(
+    db: AsyncSession,
+    annotation_id: int,
+    sample_item_id: int,
+) -> Optional[AnnotationRecord]:
+    stmt = select(AnnotationRecord).where(
+        AnnotationRecord.annotation_id == annotation_id,
+        AnnotationRecord.sample_item_id == sample_item_id,
+        AnnotationRecord.is_deleted == False,
     )
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_annotation_files(db: AsyncSession, annotation_id: int, offset: int = 0, limit: int = 100) -> tuple[List[AnnotationFile], int]:
-    conditions = [AnnotationFile.annotation_id ==
-                  annotation_id, AnnotationFile.is_deleted == False]
-    count_stmt = select(func.count()).select_from(
-        AnnotationFile).where(*conditions)
+async def get_annotation_records(
+    db: AsyncSession,
+    annotation_id: int,
+    offset: int = 0,
+    limit: int = 100,
+) -> tuple[List[AnnotationRecord], int]:
+    conditions = [
+        AnnotationRecord.annotation_id == annotation_id,
+        AnnotationRecord.is_deleted == False,
+    ]
+    count_stmt = select(func.count()).select_from(AnnotationRecord).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-
-    stmt = select(AnnotationFile).where(
-        *conditions).order_by(AnnotationFile.created_at.desc()).offset(offset).limit(limit)
+    stmt = (
+        select(AnnotationRecord)
+        .where(*conditions)
+        .order_by(AnnotationRecord.updated_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     result = await db.execute(stmt)
     return list(result.scalars().all()), total
 
 
-async def update_annotation_file(db: AsyncSession, file_id: int, content: str) -> Optional[AnnotationFile]:
-    stmt = select(AnnotationFile).where(AnnotationFile.id == file_id)
+async def update_annotation_record(
+    db: AsyncSession,
+    record_id: int,
+    **kwargs,
+) -> Optional[AnnotationRecord]:
+    stmt = select(AnnotationRecord).where(
+        AnnotationRecord.id == record_id,
+        AnnotationRecord.is_deleted == False,
+    )
     result = await db.execute(stmt)
-    file = result.scalar_one_or_none()
-    if file:
-        file.content = content
-        await db.flush()
-        await db.refresh(file)
-    return file
+    record = result.scalar_one_or_none()
+    if not record:
+        return None
+    for key, value in kwargs.items():
+        if value is not None:
+            setattr(record, key, value)
+    await db.flush()
+    await db.refresh(record)
+    return record

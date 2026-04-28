@@ -7,19 +7,19 @@ import type { ConversationFileRow } from '../types';
 interface Props {
   rows: ConversationFileRow[];
   mode: ConversationAnnotationMode;
-  focusedFileName: string | null;
+  focusedSampleItemId: number | null;
   total: number;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
-  onOpen: (fileName: string) => void;
-  onFocus: (fileName: string) => void;
+  onOpen: (sampleItemId: number) => void;
+  onFocus: (sampleItemId: number) => void;
 }
 
 const ConversationFileListCard: React.FC<Props> = ({
   rows,
   mode,
-  focusedFileName,
+  focusedSampleItemId,
   total,
   page,
   pageSize,
@@ -75,13 +75,13 @@ const ConversationFileListCard: React.FC<Props> = ({
         dataSource={rows}
         renderItem={(row) => (
           <List.Item
-            onClick={() => onOpen(row.fileName)}
-            onMouseEnter={() => onFocus(row.fileName)}
+            onClick={() => onOpen(row.sampleItemId)}
+            onMouseEnter={() => onFocus(row.sampleItemId)}
             style={{
               cursor: 'pointer',
               padding: 0,
-              background: focusedFileName === row.fileName ? '#f7fbff' : '#fff',
-              borderLeft: `4px solid ${focusedFileName === row.fileName ? accentColor : 'transparent'}`,
+              background: focusedSampleItemId === row.sampleItemId ? '#f7fbff' : '#fff',
+              borderLeft: `4px solid ${focusedSampleItemId === row.sampleItemId ? accentColor : 'transparent'}`,
               borderBottom: '1px solid #f1f5f9',
               transition: 'background 0.2s ease, border-color 0.2s ease',
             }}
@@ -126,18 +126,6 @@ const ConversationFileListCard: React.FC<Props> = ({
                   >
                     {row.fileName}
                   </div>
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 12,
-                      color: '#94a3b8',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {row.fileName}.annotation.json
-                  </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
                     <Tag
                       bordered={false}
@@ -179,7 +167,7 @@ const ConversationFileListCard: React.FC<Props> = ({
                 icon={<MessageOutlined />}
                 onClick={(event) => {
                   event.stopPropagation();
-                  onOpen(row.fileName);
+                  onOpen(row.sampleItemId);
                 }}
                 style={{
                   height: 38,

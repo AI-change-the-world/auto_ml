@@ -54,8 +54,8 @@ automl_server/
 │   │   └── models/                 # 数据模型 (按模块组织)
 │   │       ├── __init__.py
 │   │       ├── base_entity.py      # 基础实体 (id, created_at, updated_at, is_deleted)
-│   │       ├── dataset.py          # Dataset, DatasetFile
-│   │       ├── annotation.py       # Annotation, AnnotationFile
+│   │       ├── dataset.py          # Dataset, Asset, SampleItem
+│   │       ├── annotation.py       # Annotation, AnnotationRecord
 │   │       ├── task.py             # Task, TaskLog, BaseModels
 │   │       ├── predict.py          # PredictTask, PredictData
 │   │       ├── deploy.py           # AvailableModel
@@ -174,13 +174,21 @@ class Dataset(BaseEntity):
     storage_type: int       # 存储类型 (0=本地, 1=S3, 2=WebDAV)
     data_type: int          # 数据类型 (0=图像, 1=文本, 2=视频, 3=音频)
     save_path: str          # S3 路径
-    count: int              # 文件数量
+    count: int              # 样本数量
     description: str        # 描述
 
-class DatasetFile(BaseEntity):
+class Asset(BaseEntity):
     dataset_id: int
+    asset_type: str
     file_name: str
     save_path: str
+
+class SampleItem(BaseEntity):
+    dataset_id: int
+    asset_id: int
+    item_type: str
+    item_key: str
+    payload: str
 ```
 
 **API 端点**：
@@ -191,9 +199,9 @@ class DatasetFile(BaseEntity):
 | GET | /dataset/{id} | 获取数据集详情 |
 | DELETE | /dataset/{id} | 删除数据集 |
 | POST | /dataset/{id}/upload | 上传文件 |
-| GET | /dataset/{id}/files | 获取文件列表 |
-| GET | /dataset/{id}/export | 导出为 ZIP |
-| GET | /dataset/{id}/preview | 预览文件 |
+| GET | /dataset/{id}/samples | 获取样本列表 |
+| POST | /dataset/{id}/samples | 创建样本 |
+| GET | /dataset/{id}/samples/{sample_id}/preview | 预览样本资源 |
 
 ---
 
@@ -201,7 +209,7 @@ class DatasetFile(BaseEntity):
 
 **功能**：
 - 标注项目 CRUD
-- 标注文件管理
+- 标注记录管理
 - 支持多种标注类型（检测、分类、分割）
 
 **实体**：
@@ -215,11 +223,12 @@ class Annotation(BaseEntity):
     prompt: str             # AI 标注提示词
     dataset_id: int         # 关联数据集
 
-class AnnotationFile(BaseEntity):
+class AnnotationRecord(BaseEntity):
     annotation_id: int
-    file_name: str
-    save_path: str
-    content: str            # 标注内容
+    sample_item_id: int
+    annotation_type: int
+    status: str
+    content: str            # 标注内容 JSON
 ```
 
 **API 端点**：
@@ -229,8 +238,8 @@ class AnnotationFile(BaseEntity):
 | GET | /annotation/list | 分页查询标注项目 |
 | GET | /annotation/{id} | 获取标注详情 |
 | DELETE | /annotation/{id} | 删除标注项目 |
-| POST | /annotation/{id}/file | 保存标注文件 |
-| GET | /annotation/{id}/files | 获取标注文件列表 |
+| GET | /annotation/{id}/records | 获取标注记录 |
+| POST | /annotation/{id}/records | 保存标注记录 |
 
 ---
 
@@ -634,9 +643,10 @@ apscheduler>=3.10.0
 | 表名 | 对应模块 |
 |------|----------|
 | dataset | 数据集 |
-| dataset_file | 数据集文件 |
+| asset | 原始资源 |
+| sample_item | 样本 |
 | annotation | 标注项目 |
-| annotation_file | 标注文件 |
+| annotation_record | 标注记录 |
 | task | 训练任务 |
 | task_log | 任务日志 |
 | base_models | 基础模型 |

@@ -3,8 +3,8 @@ import type {
   Result,
   PageResult,
   AnnotationProject,
-  AnnotationFile,
-  AnnotationFileSaveRequest,
+  AnnotationRecord,
+  AnnotationRecordSaveRequest,
   AnnotationAssistRequest,
   AnnotationAssistResponse,
   AnnotationAssistPipeline,
@@ -50,17 +50,17 @@ export async function deleteAnnotation(annotationId: number) {
   return res.data;
 }
 
-/** 获取标注文件列表 */
-export async function getAnnotationFiles(annotationId: number, page = 1, pageSize = 100) {
-  const res = await apiClient.get<Result<PageResult<AnnotationFile>>>(`/annotation/${annotationId}/files`, {
+/** 获取标注记录列表 */
+export async function getAnnotationRecords(annotationId: number, page = 1, pageSize = 500) {
+  const res = await apiClient.get<Result<PageResult<AnnotationRecord>>>(`/annotation/${annotationId}/records`, {
     params: { page, page_size: pageSize },
   });
   return res.data.data;
 }
 
-/** 保存标注文件 */
-export async function saveAnnotationFile(annotationId: number, data: AnnotationFileSaveRequest) {
-  const res = await apiClient.post<Result<number>>(`/annotation/${annotationId}/file`, data);
+/** 保存样本标注记录 */
+export async function saveAnnotationRecord(annotationId: number, data: AnnotationRecordSaveRequest) {
+  const res = await apiClient.post<Result<AnnotationRecord>>(`/annotation/${annotationId}/records`, data);
   return res.data.data;
 }
 

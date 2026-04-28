@@ -18,8 +18,8 @@ import {
   CheckSquareOutlined,
   BorderOutlined,
 } from '@ant-design/icons';
-import { getDataset, getDatasetFiles, uploadDatasetFiles, previewFile, deleteDataset, deleteDatasetFile, batchDeleteDatasetFiles } from '../../api/dataset';
-import type { Dataset, DatasetFile } from '../../types';
+import { getDataset, getDatasetSamples, uploadDatasetFiles, previewSample, deleteDataset, deleteDatasetSample } from '../../api/dataset';
+import type { Dataset, SampleItem } from '../../types';
 import { DataTypeLabels, DatasetScenarioType, getDatasetScenarioLabel, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { isImageFileName } from '../../utils/file';
@@ -49,7 +49,7 @@ const DatasetDetailPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [files, setFiles] = useState<DatasetFile[]>([]);
+  const [samples, setSamples] = useState<SampleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -60,9 +60,9 @@ const DatasetDetailPage: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [ds, filesRes] = await Promise.all([getDataset(datasetId), getDatasetFiles(datasetId)]);
+      const [ds, filesRes] = await Promise.all([getDataset(datasetId), getDatasetSamples(datasetId)]);
       if (ds) setDataset(ds);
-      if (filesRes) setFiles(filesRes.items);
+      if (filesRes) setSamples(filesRes.items);
     } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [datasetId]);
@@ -71,15 +71,16 @@ const DatasetDetailPage: React.FC = () => {
 
   // 加载图片预览
   useEffect(() => {
-    files.forEach(async (f) => {
-      if (previewUrls[f.file_name]) return;
-      if (!isImageFileName(f.file_name)) return;
+    samples.forEach(async (sample) => {
+      const fileName = sample.asset?.file_name;
+      if (!fileName || previewUrls[fileName]) return;
+      if (!isImageFileName(fileName)) return;
       try {
-        const res = await previewFile(datasetId, f.file_name);
-        if (res?.presigned_url) setPreviewUrls((prev) => ({ ...prev, [f.file_name]: res.presigned_url }));
+        const res = await previewSample(datasetId, sample.id);
+        if (res?.presigned_url) setPreviewUrls((prev) => ({ ...prev, [fileName]: res.presigned_url }));
       } catch { /* ignore */ }
     });
-  }, [files, datasetId]);
+  }, [samples, datasetId]);
 
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
@@ -110,16 +111,16 @@ const DatasetDetailPage: React.FC = () => {
     });
   };
 
-  const handleDeleteFile = (e: React.MouseEvent, file: DatasetFile) => {
+  const handleDeleteSample = (e: React.MouseEvent, sample: SampleItem) => {
     e.stopPropagation();
     Modal.confirm({
       title: t('deleteFileTitle'),
       content: t('deleteFileConfirm'),
       okButtonProps: { danger: true },
       onOk: async () => {
-        await deleteDatasetFile(datasetId, file.id);
+        await deleteDatasetSample(datasetId, sample.id);
         message.success(tc('msg.deleted'));
-        setSelectedIds((prev) => { const next = new Set(prev); next.delete(file.id); return next; });
+        setSelectedIds((prev) => { const next = new Set(prev); next.delete(sample.id); return next; });
         fetchData();
       },
     });
@@ -132,7 +133,7 @@ const DatasetDetailPage: React.FC = () => {
       content: t('batchDeleteConfirm', { count: selectedIds.size }),
       okButtonProps: { danger: true },
       onOk: async () => {
-        await batchDeleteDatasetFiles(datasetId, Array.from(selectedIds));
+        await Promise.all(Array.from(selectedIds).map((sampleId) => deleteDatasetSample(datasetId, sampleId)));
         message.success(tc('msg.deleted'));
         setSelectedIds(new Set());
         fetchData();
@@ -167,8 +168,9 @@ const DatasetDetailPage: React.FC = () => {
     </div>
   );
 
-  const imageFiles = files.filter((f) => isImageFileName(f.file_name));
-  const displayedFiles = activeTab === 'images' ? imageFiles : files;
+  const getSampleFileName = (sample: SampleItem) => sample.asset?.file_name || sample.item_key;
+  const imageFiles = samples.filter((sample) => isImageFileName(getSampleFileName(sample)));
+  const displayedFiles = activeTab === 'images' ? imageFiles : samples;
   const isAerialDataset = dataset.scenario_type === DatasetScenarioType.AerialStitch;
   const isImageDataset = dataset.data_type === 0;
   const isLlmDataset = isLlmConversationDataset(dataset.data_type, dataset.scenario_type);
@@ -176,7 +178,7 @@ const DatasetDetailPage: React.FC = () => {
   const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
 
   const tabs = [
-    { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: files.length },
+    { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: samples.length },
     { key: 'images', label: t('images'), icon: <PictureOutlined />, count: imageFiles.length },
     { key: 'info', label: t('info'), icon: <TagOutlined /> },
   ];
@@ -222,7 +224,7 @@ const DatasetDetailPage: React.FC = () => {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: '#888' }}>
-            <span><FileOutlined /> {t('filesCount', { count: files.length })}</span>
+            <span><FileOutlined /> {t('filesCount', { count: samples.length })}</span>
             <span>·</span>
             <span><PictureOutlined /> {t('imagesCount', { count: imageFiles.length })}</span>
             <span>·</span>
@@ -370,18 +372,20 @@ const DatasetDetailPage: React.FC = () => {
             // 图片网格视图
             imageFiles.length > 0 ? (
               <div className="image-grid">
-                {imageFiles.map((f) => (
-                  <div key={f.id} style={{
+                {imageFiles.map((sample) => {
+                  const fileName = getSampleFileName(sample);
+                  return (
+                  <div key={sample.id} style={{
                     position: 'relative', paddingBottom: '100%', background: '#f5f5f5',
                     borderRadius: 8, overflow: 'hidden',
-                    outline: selectedIds.has(f.id) ? '2px solid #4f6ef7' : 'none',
+                    outline: selectedIds.has(sample.id) ? '2px solid #4f6ef7' : 'none',
                     outlineOffset: -2,
                   }}>
-                    <div style={{ position: 'absolute', inset: 0 }} onClick={() => toggleSelect(f.id)}>
-                      {previewUrls[f.file_name] ? (
+                    <div style={{ position: 'absolute', inset: 0 }} onClick={() => toggleSelect(sample.id)}>
+                      {previewUrls[fileName] ? (
                         <Image
-                          src={previewUrls[f.file_name]}
-                          alt={f.file_name}
+                          src={previewUrls[fileName]}
+                          alt={fileName}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           preview={{ mask: <span style={{ color: '#fff', fontSize: 12 }}>{t('preview')}</span> }}
                           onClick={(e) => e.stopPropagation()}
@@ -394,19 +398,19 @@ const DatasetDetailPage: React.FC = () => {
                     </div>
                     {/* Select checkbox */}
                     <div
-                      onClick={(e) => { e.stopPropagation(); toggleSelect(f.id); }}
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(sample.id); }}
                       style={{
                         position: 'absolute', top: 6, left: 6, width: 20, height: 20,
-                        borderRadius: 4, background: selectedIds.has(f.id) ? '#4f6ef7' : 'rgba(0,0,0,0.3)',
+                        borderRadius: 4, background: selectedIds.has(sample.id) ? '#4f6ef7' : 'rgba(0,0,0,0.3)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: 'pointer', color: '#fff', fontSize: 12,
                       }}
                     >
-                      {selectedIds.has(f.id) && '✓'}
+                      {selectedIds.has(sample.id) && '✓'}
                     </div>
                     {/* Delete btn */}
                     <div
-                      onClick={(e) => handleDeleteFile(e, f)}
+                      onClick={(e) => handleDeleteSample(e, sample)}
                       style={{
                         position: 'absolute', top: 6, right: 6, width: 20, height: 20,
                         borderRadius: 4, background: 'rgba(0,0,0,0.3)',
@@ -427,10 +431,11 @@ const DatasetDetailPage: React.FC = () => {
                       padding: '16px 6px 4px', color: '#fff', fontSize: 10,
                       whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>
-                      {f.file_name}
+                      {fileName}
                     </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: 60, color: '#ddd' }}>
@@ -454,47 +459,49 @@ const DatasetDetailPage: React.FC = () => {
                   <div style={{ textAlign: 'center' }}>{t('actions')}</div>
                 </div>
                 {/* Table rows */}
-                {displayedFiles.map((f) => (
+                {displayedFiles.map((sample) => {
+                  const fileName = getSampleFileName(sample);
+                  return (
                   <div
-                    key={f.id}
+                    key={sample.id}
                     style={{
                       display: 'grid', gridTemplateColumns: '40px 1fr 160px 60px',
                       padding: '10px 16px', borderBottom: '1px solid #f5f5f5',
                       alignItems: 'center', fontSize: 13,
-                      background: selectedIds.has(f.id) ? '#f0f4ff' : '#fff',
+                      background: selectedIds.has(sample.id) ? '#f0f4ff' : '#fff',
                       transition: 'background 0.15s',
                     }}
-                    onMouseEnter={(e) => { if (!selectedIds.has(f.id)) e.currentTarget.style.background = '#fafafa'; }}
-                    onMouseLeave={(e) => { if (!selectedIds.has(f.id)) e.currentTarget.style.background = '#fff'; }}
+                    onMouseEnter={(e) => { if (!selectedIds.has(sample.id)) e.currentTarget.style.background = '#fafafa'; }}
+                    onMouseLeave={(e) => { if (!selectedIds.has(sample.id)) e.currentTarget.style.background = '#fff'; }}
                   >
                     {/* Checkbox */}
                     <div
-                      onClick={() => toggleSelect(f.id)}
+                      onClick={() => toggleSelect(sample.id)}
                       style={{
                         width: 18, height: 18, borderRadius: 4, cursor: 'pointer',
-                        border: selectedIds.has(f.id) ? 'none' : '1px solid #d9d9d9',
-                        background: selectedIds.has(f.id) ? '#4f6ef7' : '#fff',
+                        border: selectedIds.has(sample.id) ? 'none' : '1px solid #d9d9d9',
+                        background: selectedIds.has(sample.id) ? '#4f6ef7' : '#fff',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontSize: 11,
                       }}
                     >
-                      {selectedIds.has(f.id) && '✓'}
+                      {selectedIds.has(sample.id) && '✓'}
                     </div>
                     {/* File name */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{getFileIcon(f.file_name)}</span>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>{getFileIcon(fileName)}</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#111' }}>
-                        {f.file_name}
+                        {fileName}
                       </span>
                     </div>
                     {/* Upload time */}
                     <div style={{ color: '#999', fontSize: 12 }}>
-                      {new Date(f.created_at).toLocaleString()}
+                      {new Date(sample.created_at).toLocaleString()}
                     </div>
                     {/* Actions */}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
                       <button
-                        onClick={(e) => handleDeleteFile(e, f)}
+                        onClick={(e) => handleDeleteSample(e, sample)}
                         style={{
                           padding: '2px 6px', border: 'none', background: 'none',
                           color: '#999', cursor: 'pointer', fontSize: 13, borderRadius: 4,
@@ -506,7 +513,8 @@ const DatasetDetailPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: 60, color: '#ddd' }}>
@@ -525,7 +533,7 @@ const DatasetDetailPage: React.FC = () => {
               { label: tc('label.name'), value: dataset.name },
               { label: tc('label.type'), value: DataTypeLabels[dataset.data_type] ?? tc('status.unknown') },
               { label: t('scenarioType'), value: getDatasetScenarioLabel(dataset.data_type, dataset.scenario_type) },
-              { label: tc('label.files'), value: t('fileCount', { count: files.length }) },
+              { label: tc('label.files'), value: t('fileCount', { count: samples.length }) },
               { label: t('storageLocal'), value: dataset.storage_type === 0 ? t('storageLocal') : t('storageS3') },
               { label: tc('label.createdAt'), value: new Date(dataset.created_at).toLocaleString() },
               { label: tc('label.updatedAt'), value: new Date(dataset.updated_at).toLocaleString() },

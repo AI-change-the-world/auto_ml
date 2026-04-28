@@ -1,5 +1,16 @@
 import apiClient from './client';
-import type { Result, PageResult, Dataset, DatasetFile, FilePreviewResponse, FileContentResponse, DatasetCreate, DatasetUpdate } from '../types';
+import type {
+  Result,
+  PageResult,
+  Dataset,
+  FilePreviewResponse,
+  FileContentResponse,
+  DatasetCreate,
+  DatasetUpdate,
+  SampleItem,
+  SampleItemCreate,
+  SampleItemUpdate,
+} from '../types';
 
 /** 创建数据集 */
 export async function createDataset(data: DatasetCreate) {
@@ -44,38 +55,40 @@ export async function uploadDatasetFiles(datasetId: number, files: File[]) {
   return res.data.data;
 }
 
-/** 获取数据集文件列表 */
-export async function getDatasetFiles(datasetId: number, page = 1, pageSize = 500) {
-  const res = await apiClient.get<Result<PageResult<DatasetFile>>>(`/dataset/${datasetId}/files`, {
-    params: { page, page_size: pageSize },
+/** 获取数据集样本列表 */
+export async function getDatasetSamples(datasetId: number, page = 1, pageSize = 500, itemType?: string) {
+  const res = await apiClient.get<Result<PageResult<SampleItem>>>(`/dataset/${datasetId}/samples`, {
+    params: { page, page_size: pageSize, item_type: itemType },
   });
   return res.data.data;
 }
 
-/** 预览文件 */
-export async function previewFile(datasetId: number, fileName: string) {
-  const res = await apiClient.get<Result<FilePreviewResponse>>(`/dataset/${datasetId}/preview`, {
-    params: { file_name: fileName },
-  });
+/** 创建数据集样本 */
+export async function createDatasetSample(datasetId: number, data: SampleItemCreate) {
+  const res = await apiClient.post<Result<SampleItem>>(`/dataset/${datasetId}/samples`, data);
   return res.data.data;
 }
 
-/** 读取文本文件内容 */
-export async function getDatasetFileContent(datasetId: number, fileName: string) {
-  const res = await apiClient.get<Result<FileContentResponse>>(`/dataset/${datasetId}/content`, {
-    params: { file_name: fileName },
-  });
+/** 更新数据集样本 */
+export async function updateDatasetSample(datasetId: number, sampleItemId: number, data: SampleItemUpdate) {
+  const res = await apiClient.put<Result<SampleItem>>(`/dataset/${datasetId}/samples/${sampleItemId}`, data);
   return res.data.data;
 }
 
-/** 删除单个文件 */
-export async function deleteDatasetFile(datasetId: number, fileId: number) {
-  const res = await apiClient.delete<Result<unknown>>(`/dataset/${datasetId}/files/${fileId}`);
+/** 删除数据集样本 */
+export async function deleteDatasetSample(datasetId: number, sampleItemId: number) {
+  const res = await apiClient.delete<Result<unknown>>(`/dataset/${datasetId}/samples/${sampleItemId}`);
   return res.data;
 }
 
-/** 批量删除文件 */
-export async function batchDeleteDatasetFiles(datasetId: number, fileIds: number[]) {
-  const res = await apiClient.post<Result<number>>(`/dataset/${datasetId}/files/batch-delete`, { file_ids: fileIds });
+/** 预览样本资源 */
+export async function previewSample(datasetId: number, sampleItemId: number) {
+  const res = await apiClient.get<Result<FilePreviewResponse>>(`/dataset/${datasetId}/samples/${sampleItemId}/preview`);
+  return res.data.data;
+}
+
+/** 读取样本文本内容 */
+export async function getDatasetSampleContent(datasetId: number, sampleItemId: number) {
+  const res = await apiClient.get<Result<FileContentResponse>>(`/dataset/${datasetId}/samples/${sampleItemId}/content`);
   return res.data.data;
 }

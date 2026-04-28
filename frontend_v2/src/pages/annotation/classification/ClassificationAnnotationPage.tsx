@@ -24,23 +24,19 @@ import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
   EyeOutlined,
-  FolderOpenOutlined,
   LeftOutlined,
   RightOutlined,
   ReloadOutlined,
   SaveOutlined,
   TagsOutlined,
 } from '@ant-design/icons';
-import { getAnnotation, getAnnotationFiles, saveAnnotationFile, updateAnnotation } from '../../../api/annotation';
-import { getDataset, getDatasetFiles, previewFile } from '../../../api/dataset';
-import { AnnotationType, type AnnotationProject, type Dataset, type DatasetFile, getClassColor } from '../../../types';
-import { isImageFileName } from '../../../utils/file';
-import {
-  buildClassificationLabelFileName,
-  normalizeClassificationLabelIds,
-  parseClassificationAnnotationContent,
-  serializeClassificationAnnotationContent,
-} from '../../../utils/classification';
+import { getAnnotation, getAnnotationRecords, saveAnnotationRecord, updateAnnotation } from '../../../api/annotation';
+import { getDataset, getDatasetSamples, previewSample } from '../../../api/dataset';
+import { AnnotationType, type AnnotationProject, type Dataset, type SampleItem, getClassColor } from '../../../types';
+import { buildClassificationRecordContent, getRecordClassIds } from '../../../utils/annotationRecordContent';
+import { parseAnnotationClasses } from '../../../utils/annotationClasses';
+import { normalizeClassificationLabelIds } from '../../../utils/classification';
+import { getSampleItemName, isImageSampleItem } from '../../../utils/sampleItem';
 
 const { Title, Text } = Typography;
 
@@ -51,9 +47,8 @@ interface PreviewState {
 }
 
 interface TableRow {
-  id: number;
-  fileName: string;
-  labelFileName: string;
+  sampleItemId: number;
+  sampleName: string;
   selected: number[];
   dirty: boolean;
 }
@@ -63,26 +58,13 @@ const API_BATCH_SIZE = 500;
 const THUMB_WIDTH = 92;
 const THUMB_HEIGHT = 68;
 
-const parseProjectClasses = (raw: string | null): string[] => {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item) => String(item).trim()).filter(Boolean);
-    }
-  } catch {
-    // ignore and fall back
-  }
-  return raw.split(/[,\n;；，]+/).map((item) => item.trim()).filter(Boolean);
-};
-
-async function loadAllDatasetFiles(datasetId: number): Promise<DatasetFile[]> {
+async function loadAllDatasetSamples(datasetId: number): Promise<SampleItem[]> {
   let page = 1;
   let totalPages = 1;
-  const items: DatasetFile[] = [];
+  const items: SampleItem[] = [];
 
   while (page <= totalPages) {
-    const response = await getDatasetFiles(datasetId, page, API_BATCH_SIZE);
+    const response = await getDatasetSamples(datasetId, page, API_BATCH_SIZE);
     items.push(...(response.items || []));
     totalPages = response.pages || 1;
     page += 1;
@@ -91,13 +73,13 @@ async function loadAllDatasetFiles(datasetId: number): Promise<DatasetFile[]> {
   return items;
 }
 
-async function loadAllAnnotationFiles(annotationId: number) {
+async function loadAllAnnotationRecords(annotationId: number) {
   let page = 1;
   let totalPages = 1;
-  const items: Array<{ file_name: string; content: string | null }> = [];
+  const items: Array<{ sample_item_id: number; content: Record<string, unknown> | null }> = [];
 
   while (page <= totalPages) {
-    const response = await getAnnotationFiles(annotationId, page, API_BATCH_SIZE);
+    const response = await getAnnotationRecords(annotationId, page, API_BATCH_SIZE);
     items.push(...(response.items || []));
     totalPages = response.pages || 1;
     page += 1;
@@ -114,42 +96,39 @@ const ClassificationAnnotationPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [project, setProject] = useState<AnnotationProject | null>(null);
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [datasetFiles, setDatasetFiles] = useState<DatasetFile[]>([]);
+  const [sampleItems, setSampleItems] = useState<SampleItem[]>([]);
   const [classes, setClasses] = useState<string[]>([]);
-  const [selectedByFile, setSelectedByFile] = useState<Record<string, number[]>>({});
-  const [savedByFile, setSavedByFile] = useState<Record<string, number[]>>({});
-  const [previewByFile, setPreviewByFile] = useState<Record<string, PreviewState>>({});
+  const [selectedBySample, setSelectedBySample] = useState<Record<number, number[]>>({});
+  const [savedBySample, setSavedBySample] = useState<Record<number, number[]>>({});
+  const [previewBySample, setPreviewBySample] = useState<Record<number, PreviewState>>({});
   const [keyword, setKeyword] = useState('');
   const [classFilter, setClassFilter] = useState<number | 'all'>('all');
   const [page, setPage] = useState(1);
   const [newClassName, setNewClassName] = useState('');
-  const [activeFileName, setActiveFileName] = useState<string | null>(null);
+  const [activeSampleId, setActiveSampleId] = useState<number | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [focusedFileName, setFocusedFileName] = useState<string | null>(null);
+  const [focusedSampleId, setFocusedSampleId] = useState<number | null>(null);
 
   const annotationNumericId = Number(annotationId);
 
-  const loadPreview = useCallback(async (datasetId: number, fileName: string) => {
-    setPreviewByFile((state) => {
-      const current = state[fileName];
+  const loadPreview = useCallback(async (datasetId: number, sample: SampleItem) => {
+    setPreviewBySample((state) => {
+      const current = state[sample.id];
       if (current?.loading || current?.url) return state;
-      return {
-        ...state,
-        [fileName]: { loading: true },
-      };
+      return { ...state, [sample.id]: { loading: true } };
     });
 
     try {
-      const response = await previewFile(datasetId, fileName);
-      setPreviewByFile((state) => ({
+      const response = await previewSample(datasetId, sample.id);
+      setPreviewBySample((state) => ({
         ...state,
-        [fileName]: { loading: false, url: response.presigned_url },
+        [sample.id]: { loading: false, url: response.presigned_url },
       }));
     } catch (error) {
       console.error('Failed to load preview', error);
-      setPreviewByFile((state) => ({
+      setPreviewBySample((state) => ({
         ...state,
-        [fileName]: { loading: false, error: '预览加载失败' },
+        [sample.id]: { loading: false, error: '预览加载失败' },
       }));
     }
   }, []);
@@ -170,39 +149,38 @@ const ClassificationAnnotationPage: React.FC = () => {
       }
 
       setProject(annotation);
-      setClasses(parseProjectClasses(annotation.classes));
+      setClasses(parseAnnotationClasses(annotation.classes));
 
       if (!annotation.dataset_id) {
         setDataset(null);
-        setDatasetFiles([]);
-        setSelectedByFile({});
-        setSavedByFile({});
+        setSampleItems([]);
+        setSelectedBySample({});
+        setSavedBySample({});
         return;
       }
 
-      const [datasetDetail, datasetResult, annotationResult] = await Promise.all([
+      const [datasetDetail, samplesResult, recordsResult] = await Promise.all([
         getDataset(annotation.dataset_id),
-        loadAllDatasetFiles(annotation.dataset_id),
-        loadAllAnnotationFiles(annotation.id),
+        loadAllDatasetSamples(annotation.dataset_id),
+        loadAllAnnotationRecords(annotation.id),
       ]);
 
-      const imageFiles = (datasetResult || []).filter((file) => isImageFileName(file.file_name));
-      const annotationMap = new Map(
-        (annotationResult || []).map((file) => [file.file_name, parseClassificationAnnotationContent(file.content)]),
+      const imageSamples = (samplesResult || []).filter(isImageSampleItem);
+      const recordMap = new Map(
+        (recordsResult || []).map((record) => [record.sample_item_id, getRecordClassIds(record.content)]),
       );
-      const initialSelectedByFile: Record<string, number[]> = {};
-
-      imageFiles.forEach((file) => {
-        initialSelectedByFile[file.file_name] = annotationMap.get(buildClassificationLabelFileName(file.file_name)) || [];
+      const initialSelectedBySample: Record<number, number[]> = {};
+      imageSamples.forEach((sample) => {
+        initialSelectedBySample[sample.id] = recordMap.get(sample.id) || [];
       });
 
       setDataset(datasetDetail);
-      setDatasetFiles(imageFiles);
-      setSelectedByFile(initialSelectedByFile);
-      setSavedByFile(initialSelectedByFile);
-      setPreviewByFile({});
+      setSampleItems(imageSamples);
+      setSelectedBySample(initialSelectedBySample);
+      setSavedBySample(initialSelectedBySample);
+      setPreviewBySample({});
       setPage(1);
-      setActiveFileName(null);
+      setActiveSampleId(null);
       setModalOpen(false);
     } catch (error) {
       console.error('Failed to load classification annotation project', error);
@@ -216,76 +194,74 @@ const ClassificationAnnotationPage: React.FC = () => {
     void loadProject();
   }, [loadProject]);
 
-  const filteredFiles = useMemo(() => {
-    return datasetFiles.filter((file) => {
-      const matchesKeyword = !keyword || file.file_name.toLowerCase().includes(keyword.toLowerCase());
-      const selected = selectedByFile[file.file_name] || [];
+  const filteredSamples = useMemo(() => {
+    return sampleItems.filter((sample) => {
+      const sampleName = getSampleItemName(sample);
+      const matchesKeyword = !keyword || sampleName.toLowerCase().includes(keyword.toLowerCase());
+      const selected = selectedBySample[sample.id] || [];
       const matchesClass = classFilter === 'all' || selected.includes(classFilter);
       return matchesKeyword && matchesClass;
     });
-  }, [classFilter, datasetFiles, keyword, selectedByFile]);
+  }, [classFilter, keyword, sampleItems, selectedBySample]);
 
-  const pagedFiles = useMemo(() => {
+  const pagedSamples = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
-    return filteredFiles.slice(start, start + PAGE_SIZE);
-  }, [filteredFiles, page]);
+    return filteredSamples.slice(start, start + PAGE_SIZE);
+  }, [filteredSamples, page]);
 
   useEffect(() => {
     if (!dataset?.id) return;
-    pagedFiles.forEach((file) => {
-      void loadPreview(dataset.id, file.file_name);
+    pagedSamples.forEach((sample) => {
+      void loadPreview(dataset.id, sample);
     });
-  }, [dataset?.id, loadPreview, pagedFiles]);
+  }, [dataset?.id, loadPreview, pagedSamples]);
 
   useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(filteredFiles.length / PAGE_SIZE));
-    if (page > maxPage) {
-      setPage(maxPage);
-    }
-  }, [filteredFiles.length, page]);
+    const maxPage = Math.max(1, Math.ceil(filteredSamples.length / PAGE_SIZE));
+    if (page > maxPage) setPage(maxPage);
+  }, [filteredSamples.length, page]);
 
   const dirtyCount = useMemo(() => {
-    return datasetFiles.reduce((count, file) => {
-      const current = normalizeClassificationLabelIds(selectedByFile[file.file_name] || []);
-      const saved = normalizeClassificationLabelIds(savedByFile[file.file_name] || []);
+    return sampleItems.reduce((count, sample) => {
+      const current = normalizeClassificationLabelIds(selectedBySample[sample.id] || []);
+      const saved = normalizeClassificationLabelIds(savedBySample[sample.id] || []);
       return JSON.stringify(current) === JSON.stringify(saved) ? count : count + 1;
     }, 0);
-  }, [datasetFiles, savedByFile, selectedByFile]);
+  }, [sampleItems, savedBySample, selectedBySample]);
 
-  const activeSelected = activeFileName ? selectedByFile[activeFileName] || [] : [];
-  const activeSaved = activeFileName ? savedByFile[activeFileName] || [] : [];
+  const activeSample = activeSampleId ? sampleItems.find((sample) => sample.id === activeSampleId) : undefined;
+  const activeSampleName = activeSample ? getSampleItemName(activeSample) : null;
+  const activeSelected = activeSampleId ? selectedBySample[activeSampleId] || [] : [];
+  const activeSaved = activeSampleId ? savedBySample[activeSampleId] || [] : [];
   const activeDirty = JSON.stringify(normalizeClassificationLabelIds(activeSelected)) !== JSON.stringify(normalizeClassificationLabelIds(activeSaved));
-  const activeIndex = activeFileName ? filteredFiles.findIndex((file) => file.file_name === activeFileName) : -1;
+  const activeIndex = activeSampleId ? filteredSamples.findIndex((sample) => sample.id === activeSampleId) : -1;
   const canOpenPrev = activeIndex > 0;
-  const canOpenNext = activeIndex >= 0 && activeIndex < filteredFiles.length - 1;
+  const canOpenNext = activeIndex >= 0 && activeIndex < filteredSamples.length - 1;
 
-  const toggleFileLabel = (fileName: string, classId: number, checked: boolean) => {
-    setSelectedByFile((state) => {
-      const current = state[fileName] || [];
+  const toggleSampleLabel = (sampleId: number, classId: number, checked: boolean) => {
+    setSelectedBySample((state) => {
+      const current = state[sampleId] || [];
       const next = checked
         ? normalizeClassificationLabelIds([...current, classId])
         : current.filter((item) => item !== classId);
-      return {
-        ...state,
-        [fileName]: next,
-      };
+      return { ...state, [sampleId]: next };
     });
   };
 
-  const openEditor = (fileName: string) => {
-    setActiveFileName(fileName);
-    setFocusedFileName(fileName);
+  const openEditor = (sampleId: number) => {
+    const sample = sampleItems.find((item) => item.id === sampleId);
+    if (!sample) return;
+    setActiveSampleId(sampleId);
+    setFocusedSampleId(sampleId);
     setModalOpen(true);
-    if (dataset?.id) {
-      void loadPreview(dataset.id, fileName);
-    }
+    if (dataset?.id) void loadPreview(dataset.id, sample);
   };
 
   const openRelativeEditor = (offset: -1 | 1) => {
     if (activeIndex < 0) return;
-    const nextFile = filteredFiles[activeIndex + offset];
-    if (!nextFile) return;
-    openEditor(nextFile.file_name);
+    const nextSample = filteredSamples[activeIndex + offset];
+    if (!nextSample) return;
+    openEditor(nextSample.id);
   };
 
   const addClass = async (value: string) => {
@@ -308,24 +284,23 @@ const ClassificationAnnotationPage: React.FC = () => {
     }
   };
 
-  const saveFileLabels = async (fileName: string) => {
+  const saveSampleLabels = async (sampleId: number) => {
     if (!project) return;
-    const classIds = normalizeClassificationLabelIds(selectedByFile[fileName] || []);
-    const content = serializeClassificationAnnotationContent(classIds);
+    const sample = sampleItems.find((item) => item.id === sampleId);
+    const sampleName = sample ? getSampleItemName(sample) : String(sampleId);
+    const classIds = normalizeClassificationLabelIds(selectedBySample[sampleId] || []);
 
     try {
-      await saveAnnotationFile(project.id, {
-        file_name: buildClassificationLabelFileName(fileName),
-        content,
+      await saveAnnotationRecord(project.id, {
+        sample_item_id: sampleId,
+        content: buildClassificationRecordContent(classIds),
+        status: 'saved',
       });
-      setSavedByFile((state) => ({
-        ...state,
-        [fileName]: classIds,
-      }));
-      message.success(`已保存 ${fileName}`);
+      setSavedBySample((state) => ({ ...state, [sampleId]: classIds }));
+      message.success(`已保存 ${sampleName}`);
     } catch (error) {
-      console.error('Failed to save classification file', error);
-      message.error(`保存失败: ${fileName}`);
+      console.error('Failed to save classification sample', error);
+      message.error(`保存失败: ${sampleName}`);
     }
   };
 
@@ -333,19 +308,19 @@ const ClassificationAnnotationPage: React.FC = () => {
     if (!project) return;
     setSaving(true);
     try {
-      for (const file of datasetFiles) {
-        const current = normalizeClassificationLabelIds(selectedByFile[file.file_name] || []);
-        const saved = normalizeClassificationLabelIds(savedByFile[file.file_name] || []);
+      for (const sample of sampleItems) {
+        const current = normalizeClassificationLabelIds(selectedBySample[sample.id] || []);
+        const saved = normalizeClassificationLabelIds(savedBySample[sample.id] || []);
         if (JSON.stringify(current) === JSON.stringify(saved)) continue;
-        const content = serializeClassificationAnnotationContent(current);
-        await saveAnnotationFile(project.id, {
-          file_name: buildClassificationLabelFileName(file.file_name),
-          content,
+        await saveAnnotationRecord(project.id, {
+          sample_item_id: sample.id,
+          content: buildClassificationRecordContent(current),
+          status: 'saved',
         });
       }
-      setSavedByFile(
-        datasetFiles.reduce<Record<string, number[]>>((acc, file) => {
-          acc[file.file_name] = normalizeClassificationLabelIds(selectedByFile[file.file_name] || []);
+      setSavedBySample(
+        sampleItems.reduce<Record<number, number[]>>((acc, sample) => {
+          acc[sample.id] = normalizeClassificationLabelIds(selectedBySample[sample.id] || []);
           return acc;
         }, {}),
       );
@@ -358,27 +333,18 @@ const ClassificationAnnotationPage: React.FC = () => {
     }
   };
 
-  const renderThumb = (fileName: string, large = false) => {
-    const preview = previewByFile[fileName];
+  const renderThumb = (sample: SampleItem, large = false) => {
+    const preview = previewBySample[sample.id];
     const width = large ? 320 : THUMB_WIDTH;
     const height = large ? 240 : THUMB_HEIGHT;
+    const sampleName = getSampleItemName(sample);
 
     if (!preview || preview.loading) {
       return <Skeleton.Image active style={{ width, height }} />;
     }
     if (preview.error || !preview.url) {
       return (
-        <div
-          style={{
-            width,
-            height,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#f5f5f5',
-            borderRadius: 8,
-          }}
-        >
+        <div style={{ width, height, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', borderRadius: 8 }}>
           <Text type="secondary">无预览</Text>
         </div>
       );
@@ -387,43 +353,35 @@ const ClassificationAnnotationPage: React.FC = () => {
     return (
       <Image
         src={preview.url}
-        alt={fileName}
+        alt={sampleName}
         preview={false}
-        style={{
-          width,
-          height,
-          objectFit: 'cover',
-          borderRadius: 10,
-          background: '#f5f5f5',
-          display: 'block',
-        }}
+        style={{ width, height, objectFit: 'cover', borderRadius: 10, background: '#f5f5f5', display: 'block' }}
       />
     );
   };
 
   const rows: TableRow[] = useMemo(() => {
-    return pagedFiles.map((file) => {
-      const selected = normalizeClassificationLabelIds(selectedByFile[file.file_name] || []);
-      const saved = normalizeClassificationLabelIds(savedByFile[file.file_name] || []);
+    return pagedSamples.map((sample) => {
+      const selected = normalizeClassificationLabelIds(selectedBySample[sample.id] || []);
+      const saved = normalizeClassificationLabelIds(savedBySample[sample.id] || []);
       return {
-        id: file.id,
-        fileName: file.file_name,
-        labelFileName: buildClassificationLabelFileName(file.file_name),
+        sampleItemId: sample.id,
+        sampleName: getSampleItemName(sample),
         selected,
         dirty: JSON.stringify(selected) !== JSON.stringify(saved),
       };
     });
-  }, [pagedFiles, savedByFile, selectedByFile]);
+  }, [pagedSamples, savedBySample, selectedBySample]);
 
   useEffect(() => {
     if (rows.length === 0) {
-      setFocusedFileName(null);
+      setFocusedSampleId(null);
       return;
     }
-    if (!focusedFileName || !rows.some((row) => row.fileName === focusedFileName)) {
-      setFocusedFileName(rows[0].fileName);
+    if (!focusedSampleId || !rows.some((row) => row.sampleItemId === focusedSampleId)) {
+      setFocusedSampleId(rows[0].sampleItemId);
     }
-  }, [focusedFileName, rows]);
+  }, [focusedSampleId, rows]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -441,45 +399,40 @@ const ClassificationAnnotationPage: React.FC = () => {
         if (event.key === 'ArrowRight') {
           event.preventDefault();
           openRelativeEditor(1);
-          return;
         }
         return;
       }
 
       if (rows.length === 0) return;
-      const currentIndex = rows.findIndex((row) => row.fileName === focusedFileName);
+      const currentIndex = rows.findIndex((row) => row.sampleItemId === focusedSampleId);
       const safeIndex = currentIndex >= 0 ? currentIndex : 0;
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        const nextIndex = Math.min(rows.length - 1, safeIndex + 1);
-        setFocusedFileName(rows[nextIndex].fileName);
+        setFocusedSampleId(rows[Math.min(rows.length - 1, safeIndex + 1)].sampleItemId);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        const prevIndex = Math.max(0, safeIndex - 1);
-        setFocusedFileName(rows[prevIndex].fileName);
+        setFocusedSampleId(rows[Math.max(0, safeIndex - 1)].sampleItemId);
       } else if (event.key === 'Enter') {
         event.preventDefault();
-        openEditor(rows[safeIndex].fileName);
+        openEditor(rows[safeIndex].sampleItemId);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [focusedFileName, modalOpen, rows, filteredFiles, activeIndex]);
+  }, [focusedSampleId, modalOpen, rows, filteredSamples, activeIndex]);
 
   const columns: ColumnsType<TableRow> = [
     {
-      title: '图像',
-      dataIndex: 'fileName',
-      key: 'fileName',
+      title: '样本',
+      dataIndex: 'sampleName',
+      key: 'sampleName',
       render: (_, row) => (
         <Space direction="vertical" size={4}>
-          <Text strong>{row.fileName}</Text>
+          <Text strong>{row.sampleName}</Text>
           <Space size={8} wrap>
-            <Tag icon={<FolderOpenOutlined />} color="default" style={{ marginInlineEnd: 0 }}>
-              {row.labelFileName}
-            </Tag>
+            <Tag color="default" style={{ marginInlineEnd: 0 }}>Sample #{row.sampleItemId}</Tag>
             {row.dirty ? (
               <Tag color="warning" style={{ marginInlineEnd: 0 }}>未保存</Tag>
             ) : (
@@ -498,7 +451,7 @@ const ClassificationAnnotationPage: React.FC = () => {
             <Text type="secondary">未选择</Text>
           ) : (
             row.selected.map((classId) => (
-              <Tag key={`${row.fileName}-${classId}`} color={getClassColor(classId)} icon={<TagsOutlined />}>
+              <Tag key={`${row.sampleItemId}-${classId}`} color={getClassColor(classId)} icon={<TagsOutlined />}>
                 {classes[classId] ?? `class_${classId}`}
               </Tag>
             ))
@@ -511,7 +464,10 @@ const ClassificationAnnotationPage: React.FC = () => {
       key: 'thumb',
       width: 132,
       align: 'right',
-      render: (_, row) => renderThumb(row.fileName),
+      render: (_, row) => {
+        const sample = sampleItems.find((item) => item.id === row.sampleItemId);
+        return sample ? renderThumb(sample) : null;
+      },
     },
     {
       title: '操作',
@@ -520,13 +476,7 @@ const ClassificationAnnotationPage: React.FC = () => {
       align: 'right',
       render: (_, row) => (
         <Space>
-          <Button
-            icon={<EyeOutlined />}
-            onClick={(event) => {
-              event.stopPropagation();
-              openEditor(row.fileName);
-            }}
-          >
+          <Button icon={<EyeOutlined />} onClick={(event) => { event.stopPropagation(); openEditor(row.sampleItemId); }}>
             标注
           </Button>
           <Button
@@ -536,7 +486,7 @@ const ClassificationAnnotationPage: React.FC = () => {
             disabled={!row.dirty}
             onClick={(event) => {
               event.stopPropagation();
-              void saveFileLabels(row.fileName);
+              void saveSampleLabels(row.sampleItemId);
             }}
           >
             保存
@@ -547,27 +497,15 @@ const ClassificationAnnotationPage: React.FC = () => {
   ];
 
   if (!annotationId || Number.isNaN(annotationNumericId)) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}>
-        <Title level={4} type="secondary">无效的分类标注项目</Title>
-      </div>
-    );
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}><Title level={4} type="secondary">无效的分类标注项目</Title></div>;
   }
 
   if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}>
-        <Spin size="large" tip="正在加载分类标注页面..." />
-      </div>
-    );
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}><Spin size="large" tip="正在加载分类标注页面..." /></div>;
   }
 
   if (!project) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}>
-        <Empty description="分类标注项目不存在" />
-      </div>
-    );
+    return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f6f8fb' }}><Empty description="分类标注项目不存在" /></div>;
   }
 
   if (dataset && dataset.data_type !== 0) {
@@ -577,12 +515,7 @@ const ClassificationAnnotationPage: React.FC = () => {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/annotations')}>
             返回标注项目
           </Button>
-          <Alert
-            type="info"
-            showIcon
-            message="当前分类页面先支持图像分类"
-            description="这个独立分类工作台已与图像检测/分割页面解耦，后续可以在此基础上继续扩展文本分类等场景。"
-          />
+          <Alert type="info" showIcon message="当前分类页面先支持图像分类" description="这个独立分类工作台已与图像检测/分割页面解耦，后续可以在此基础上继续扩展文本分类等场景。" />
         </Space>
       </div>
     );
@@ -595,9 +528,7 @@ const ClassificationAnnotationPage: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div>
               <Space size={12} align="center">
-                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/annotations')}>
-                  返回
-                </Button>
+                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/annotations')}>返回</Button>
                 <Tag color="green" style={{ marginInlineEnd: 0 }}>图像分类</Tag>
                 <Tag color="blue" style={{ marginInlineEnd: 0 }}>{dataset?.name || '未绑定数据集'}</Tag>
               </Space>
@@ -605,8 +536,8 @@ const ClassificationAnnotationPage: React.FC = () => {
             </div>
             <Space size={12} wrap align="start">
               <Card size="small" style={{ minWidth: 140, borderRadius: 16, background: '#fafbff' }}>
-                <Text type="secondary">图像数量</Text>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{datasetFiles.length}</div>
+                <Text type="secondary">样本数量</Text>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{sampleItems.length}</div>
               </Card>
               <Card size="small" style={{ minWidth: 140, borderRadius: 16, background: '#fffdf7' }}>
                 <Text type="secondary">未保存</Text>
@@ -620,57 +551,26 @@ const ClassificationAnnotationPage: React.FC = () => {
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <Space wrap>
-                <Input.Search
-                  allowClear
-                  placeholder="按文件名搜索"
-                  value={keyword}
-                  onChange={(e) => setKeyword(e.target.value)}
-                  style={{ width: 280 }}
-                />
+                <Input.Search allowClear placeholder="按样本名搜索" value={keyword} onChange={(e) => setKeyword(e.target.value)} style={{ width: 280 }} />
                 <Select
                   value={classFilter}
                   onChange={(value) => setClassFilter(value)}
                   style={{ width: 220 }}
                   options={[
                     { label: '全部标签状态', value: 'all' },
-                    ...classes.map((className, index) => ({
-                      label: className,
-                      value: index,
-                    })),
+                    ...classes.map((className, index) => ({ label: className, value: index })),
                   ]}
                 />
               </Space>
               <Space wrap>
-                <Input.Search
-                  placeholder="新增类别"
-                  value={newClassName}
-                  onChange={(e) => setNewClassName(e.target.value)}
-                  onSearch={(value) => void addClass(value)}
-                  enterButton="添加"
-                  style={{ width: 260 }}
-                />
-                <Button icon={<ReloadOutlined />} onClick={() => void loadProject()}>
-                  刷新
-                </Button>
-                <Button
-                  type="primary"
-                  icon={<SaveOutlined />}
-                  onClick={() => void saveAll()}
-                  loading={saving}
-                  disabled={dirtyCount === 0}
-                >
-                  保存全部
-                </Button>
+                <Input.Search placeholder="新增类别" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} onSearch={(value) => void addClass(value)} enterButton="添加" style={{ width: 260 }} />
+                <Button icon={<ReloadOutlined />} onClick={() => void loadProject()}>刷新</Button>
+                <Button type="primary" icon={<SaveOutlined />} onClick={() => void saveAll()} loading={saving} disabled={dirtyCount === 0}>保存全部</Button>
               </Space>
             </div>
 
             {classes.length === 0 ? (
-              <Alert
-                type="warning"
-                showIcon
-                message="当前还没有分类类别"
-                description="请先新增类别"
-              />
+              <Alert type="warning" showIcon message="当前还没有分类类别" description="请先新增类别" />
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {classes.map((className, index) => (
@@ -684,35 +584,28 @@ const ClassificationAnnotationPage: React.FC = () => {
         </Card>
 
         <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: 20, borderColor: '#e8ebf2', overflow: 'hidden' }}>
-          {filteredFiles.length === 0 ? (
+          {filteredSamples.length === 0 ? (
             <div style={{ padding: 48 }}>
-              <Empty description="没有符合条件的图像" />
+              <Empty description="没有符合条件的图像样本" />
             </div>
           ) : (
             <>
               <Table<TableRow>
-                rowKey="id"
+                rowKey="sampleItemId"
                 columns={columns}
                 dataSource={rows}
                 pagination={false}
                 onRow={(record) => ({
-                  onClick: () => openEditor(record.fileName),
-                  onMouseEnter: () => setFocusedFileName(record.fileName),
+                  onClick: () => openEditor(record.sampleItemId),
+                  onMouseEnter: () => setFocusedSampleId(record.sampleItemId),
                   style: {
                     cursor: 'pointer',
-                    background: focusedFileName === record.fileName ? '#f5f8ff' : undefined,
+                    background: focusedSampleId === record.sampleItemId ? '#f5f8ff' : undefined,
                   },
                 })}
               />
               <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 24px 24px' }}>
-                <Pagination
-                  current={page}
-                  pageSize={PAGE_SIZE}
-                  total={filteredFiles.length}
-                  onChange={setPage}
-                  showSizeChanger={false}
-                  showTotal={(totalValue) => `共 ${totalValue} 张图像`}
-                />
+                <Pagination current={page} pageSize={PAGE_SIZE} total={filteredSamples.length} onChange={setPage} showSizeChanger={false} showTotal={(totalValue) => `共 ${totalValue} 个样本`} />
               </div>
             </>
           )}
@@ -720,27 +613,21 @@ const ClassificationAnnotationPage: React.FC = () => {
       </Space>
 
       <Modal
-        title={activeFileName ? `分类标注: ${activeFileName}` : '分类标注'}
+        title={activeSampleName ? `分类标注: ${activeSampleName}` : '分类标注'}
         open={modalOpen}
         width={860}
         onCancel={() => setModalOpen(false)}
         footer={
           <Space>
-            <Button icon={<LeftOutlined />} disabled={!canOpenPrev} onClick={() => openRelativeEditor(-1)}>
-              上一张
-            </Button>
-            <Button icon={<RightOutlined />} disabled={!canOpenNext} onClick={() => openRelativeEditor(1)}>
-              下一张
-            </Button>
+            <Button icon={<LeftOutlined />} disabled={!canOpenPrev} onClick={() => openRelativeEditor(-1)}>上一张</Button>
+            <Button icon={<RightOutlined />} disabled={!canOpenNext} onClick={() => openRelativeEditor(1)}>下一张</Button>
             <Button onClick={() => setModalOpen(false)}>关闭</Button>
             <Button
               type="primary"
               icon={<SaveOutlined />}
-              disabled={!activeFileName || !activeDirty}
+              disabled={!activeSampleId || !activeDirty}
               onClick={() => {
-                if (activeFileName) {
-                  void saveFileLabels(activeFileName);
-                }
+                if (activeSampleId) void saveSampleLabels(activeSampleId);
               }}
             >
               保存当前
@@ -748,73 +635,36 @@ const ClassificationAnnotationPage: React.FC = () => {
           </Space>
         }
       >
-        {activeFileName ? (
+        {activeSample ? (
           <div style={{ display: 'grid', gridTemplateColumns: '340px minmax(0, 1fr)', gap: 24 }}>
             <div>
-              <div style={{ marginBottom: 12 }}>{renderThumb(activeFileName, true)}</div>
+              <div style={{ marginBottom: 12 }}>{renderThumb(activeSample, true)}</div>
               <Space size={8} wrap>
-                <Tag icon={<FolderOpenOutlined />} color="default">{buildClassificationLabelFileName(activeFileName)}</Tag>
+                <Tag color="default">Sample #{activeSample.id}</Tag>
                 {activeDirty ? <Tag color="warning">未保存</Tag> : <Tag color="success">已保存</Tag>}
               </Space>
             </div>
             <Space direction="vertical" size={16} style={{ width: '100%' }}>
-              <div>
-                <Text strong>已选标签</Text>
-                <div style={{ marginTop: 10, minHeight: 36 }}>
-                  <Space size={[6, 6]} wrap>
-                    {activeSelected.length === 0 ? (
-                      <Text type="secondary">未选择标签</Text>
-                    ) : (
-                      activeSelected.map((classId) => (
-                        <Tag key={`${activeFileName}-active-${classId}`} color={getClassColor(classId)} icon={<TagsOutlined />}>
-                          {classes[classId] ?? `class_${classId}`}
-                        </Tag>
-                      ))
-                    )}
-                  </Space>
-                </div>
-              </div>
-
-              <div>
-                <Text strong>标签编辑</Text>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                    gap: 10,
-                    marginTop: 12,
-                  }}
-                >
-                  {classes.map((className, classId) => {
-                    const checked = activeSelected.includes(classId);
-                    return (
-                      <label
-                        key={`${activeFileName}-${className}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          padding: '12px 14px',
-                          borderRadius: 14,
-                          border: `1px solid ${checked ? getClassColor(classId) : '#e8ebf2'}`,
-                          background: checked ? `${getClassColor(classId)}12` : '#fff',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Checkbox
-                          checked={checked}
-                          onChange={(event) => toggleFileLabel(activeFileName, classId, event.target.checked)}
-                        />
-                        <span style={{ color: '#1f1f1f', fontSize: 13 }}>{className}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <Text strong>选择类别</Text>
+              {classes.length === 0 ? (
+                <Alert type="warning" showIcon message="请先新增类别" />
+              ) : (
+                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                  {classes.map((className, index) => (
+                    <Checkbox
+                      key={className}
+                      checked={activeSelected.includes(index)}
+                      onChange={(event) => toggleSampleLabel(activeSample.id, index, event.target.checked)}
+                    >
+                      <Tag color={getClassColor(index)} style={{ marginInlineEnd: 8 }}>{className}</Tag>
+                    </Checkbox>
+                  ))}
+                </Space>
+              )}
             </Space>
           </div>
         ) : (
-          <Empty description="请选择一个图像条目" />
+          <Empty description="未选择样本" />
         )}
       </Modal>
     </div>

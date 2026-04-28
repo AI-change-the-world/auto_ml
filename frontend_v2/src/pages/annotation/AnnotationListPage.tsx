@@ -15,7 +15,8 @@ import {
   isMllmConversationDataset,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
-import AnnotationProjectCard, { parseAnnotationClasses, renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
+import AnnotationProjectCard, { renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
+import { parseAnnotationClasses, serializeAnnotationClasses } from '../../utils/annotationClasses';
 
 const isImageDataset = (dataset?: Dataset) => dataset?.data_type === 0;
 const isTextDataset = (dataset?: Dataset) => dataset?.data_type === 1;
@@ -84,9 +85,8 @@ const AnnotationListPage: React.FC = () => {
   };
 
   const handleClassesImport = () => {
-    const text = classesImportText.trim();
-    if (!text) return;
-    const items = text.split(/[;；,，\n]+/).map((s) => s.trim()).filter(Boolean);
+    const items = parseAnnotationClasses(classesImportText);
+    if (items.length === 0) return;
     const existing = new Set(classesEditList);
     const merged = [...classesEditList];
     for (const item of items) {
@@ -102,7 +102,7 @@ const AnnotationListPage: React.FC = () => {
   const handleClassesSave = async () => {
     if (classesEditId === null) return;
     try {
-      await updateAnnotation(classesEditId, { classes: JSON.stringify(classesEditList) });
+      await updateAnnotation(classesEditId, { classes: serializeAnnotationClasses(classesEditList) });
       message.success('类别已保存');
       setClassesModalOpen(false);
       fetch(); // 刷新列表
@@ -144,7 +144,9 @@ const AnnotationListPage: React.FC = () => {
     }
     setCreating(true);
     try {
-      const payload = selectedType?.supportsClasses ? formData : { ...formData, classes: undefined };
+      const payload = selectedType?.supportsClasses
+        ? { ...formData, classes: serializeAnnotationClasses(formData.classes) }
+        : { ...formData, classes: undefined };
       await createAnnotation(payload);
       message.success(tc('msg.createSuccess'));
       setCreateOpen(false);

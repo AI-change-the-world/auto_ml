@@ -8,8 +8,8 @@ export function useKeyboardShortcuts() {
   const toggleSelectedVisibility = useAnnotationStore((s) => s.toggleSelectedVisibility);
   const clearSelection = useAnnotationStore((s) => s.clearSelection);
 
-  const nextFile = useDatasetStore((s) => s.nextFile);
-  const prevFile = useDatasetStore((s) => s.prevFile);
+  const nextSample = useDatasetStore((s) => s.nextSample);
+  const prevSample = useDatasetStore((s) => s.prevSample);
   const saveCurrentAnnotation = useDatasetStore((s) => s.saveCurrentAnnotation);
 
   useEffect(() => {
@@ -27,11 +27,11 @@ export function useKeyboardShortcuts() {
           break;
         case 'q':
           e.preventDefault();
-          prevFile();
+          prevSample();
           break;
         case 'e':
           e.preventDefault();
-          nextFile();
+          nextSample();
           break;
         case 's':
           if (e.ctrlKey || e.metaKey) {
@@ -57,5 +57,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleMode, deleteSelected, toggleSelectedVisibility, clearSelection, nextFile, prevFile, saveCurrentAnnotation]);
+  }, [toggleMode, deleteSelected, toggleSelectedVisibility, clearSelection, nextSample, prevSample, saveCurrentAnnotation]);
 }

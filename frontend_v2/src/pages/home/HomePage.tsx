@@ -277,9 +277,9 @@ const HomePage: React.FC = () => {
             <div className="flex min-h-[32px] items-center gap-2">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-slate-950">{t('recentDatasets')}</h2>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                {/* <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
                   {t('recentCount')}
-                </span>
+                </span> */}
               </div>
             </div>
 
@@ -337,9 +337,9 @@ const HomePage: React.FC = () => {
             <div className="flex min-h-[32px] items-center gap-2">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-slate-950">{t('recentAnnotations')}</h2>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
+                {/* <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
                   {t('recentCount')}
-                </span>
+                </span> */}
               </div>
             </div>
 

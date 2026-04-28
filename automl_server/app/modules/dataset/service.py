@@ -3,6 +3,7 @@
 """
 import io
 import json
+import mimetypes
 import os
 import uuid
 import zipfile
@@ -17,7 +18,17 @@ from app.common.constants import DataType, DatasetScenarioType
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
-from .schemas import DatasetCreate, DatasetUpdate, DatasetResponse, FilePreviewResponse, FileContentResponse
+from .schemas import (
+    AssetResponse,
+    DatasetCreate,
+    DatasetUpdate,
+    DatasetResponse,
+    FilePreviewResponse,
+    FileContentResponse,
+    SampleItemCreate,
+    SampleItemUpdate,
+    SampleItemResponse,
+)
 
 # 支持的压缩包扩展名
 ARCHIVE_EXTENSIONS = {'.zip', '.tar', '.tar.gz',
@@ -179,6 +190,90 @@ class DatasetService:
         # 软删除
         return await crud.delete_dataset(db, dataset_id)
 
+    async def list_sample_items(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+        page: int = 1,
+        page_size: int = 100,
+        item_type: Optional[str] = None,
+    ) -> tuple[list[SampleItemResponse], int]:
+        dataset = await crud.get_dataset_by_id(db, dataset_id)
+        if not dataset:
+            raise NotFoundException(f"Dataset {dataset_id} not found")
+
+        offset = (page - 1) * page_size
+        items, total = await crud.get_sample_items(db, dataset_id, offset, page_size, item_type)
+        return [await self._to_sample_response(db, item) for item in items], total
+
+    async def create_sample_item(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+        data: SampleItemCreate,
+    ) -> SampleItemResponse:
+        dataset = await crud.get_dataset_by_id(db, dataset_id)
+        if not dataset:
+            raise NotFoundException(f"Dataset {dataset_id} not found")
+
+        item_key = data.item_key.strip()
+        if await crud.get_sample_item_by_key(db, dataset_id, item_key):
+            raise BadRequestException(f"Sample item `{item_key}` already exists")
+
+        item = await crud.create_sample_item(
+            db,
+            dataset_id=dataset_id,
+            asset_id=None,
+            item_type=data.item_type.strip(),
+            item_key=item_key,
+            locator=self._dump_json(data.locator),
+            payload=self._dump_json(data.payload),
+            sort_order=0,
+        )
+        await crud.update_dataset_count(db, dataset_id, await crud.get_sample_item_count(db, dataset_id))
+        return await self._to_sample_response(db, item)
+
+    async def update_sample_item(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+        sample_item_id: int,
+        data: SampleItemUpdate,
+    ) -> SampleItemResponse:
+        item = await crud.get_sample_item_by_id(db, sample_item_id)
+        if not item or item.dataset_id != dataset_id:
+            raise NotFoundException(f"Sample item {sample_item_id} not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+        if "item_key" in update_data and update_data["item_key"]:
+            item_key = update_data["item_key"].strip()
+            existing = await crud.get_sample_item_by_key(db, dataset_id, item_key)
+            if existing and existing.id != sample_item_id:
+                raise BadRequestException(f"Sample item `{item_key}` already exists")
+            update_data["item_key"] = item_key
+        if "locator" in update_data:
+            update_data["locator"] = self._dump_json(update_data["locator"])
+        if "payload" in update_data:
+            update_data["payload"] = self._dump_json(update_data["payload"])
+
+        updated = await crud.update_sample_item(db, sample_item_id, **update_data)
+        if not updated:
+            raise NotFoundException(f"Sample item {sample_item_id} not found")
+        return await self._to_sample_response(db, updated)
+
+    async def delete_sample_item(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+        sample_item_id: int,
+    ) -> bool:
+        item = await crud.get_sample_item_by_id(db, sample_item_id)
+        if not item or item.dataset_id != dataset_id:
+            raise NotFoundException(f"Sample item {sample_item_id} not found")
+        deleted = await crud.delete_sample_item(db, sample_item_id)
+        await crud.update_dataset_count(db, dataset_id, await crud.get_sample_item_count(db, dataset_id))
+        return deleted
+
     async def upload_files(
         self,
         db: AsyncSession,
@@ -206,16 +301,19 @@ class DatasetService:
                 else:
                     # 普通文件直接上传
                     file_key = f"{dataset.save_path}/{filename}"
+                    mime_type = file.content_type or mimetypes.guess_type(filename)[0]
                     await self.s3.put_file(
                         file_key, content,
                         bucket_type="datasets",
-                        content_type=file.content_type,
+                        content_type=mime_type,
                     )
-                    await crud.create_dataset_file(
+                    await self._create_asset_backed_sample(
                         db,
-                        dataset_id=dataset_id,
-                        file_name=filename,
-                        save_path=file_key,
+                        dataset,
+                        filename,
+                        file_key,
+                        mime_type,
+                        len(content),
                     )
                     uploaded_count += 1
 
@@ -223,8 +321,8 @@ class DatasetService:
                 logger.error(f"Failed to upload file {file.filename}: {e}")
                 continue
 
-        # 更新文件数量
-        new_count = await crud.get_dataset_file_count(db, dataset_id)
+        # 更新样本数量
+        new_count = await crud.get_sample_item_count(db, dataset_id)
         await crud.update_dataset_count(db, dataset_id, new_count)
 
         logger.info(f"Uploaded {uploaded_count} files to dataset {dataset_id}")
@@ -237,6 +335,58 @@ class DatasetService:
             if lower.endswith(ext):
                 return True
         return False
+
+    async def _create_asset_backed_sample(
+        self,
+        db: AsyncSession,
+        dataset,
+        file_name: str,
+        save_path: str,
+        mime_type: Optional[str],
+        size_bytes: int,
+    ):
+        asset = await crud.create_asset(
+            db,
+            dataset_id=dataset.id,
+            asset_type=self._infer_asset_type(file_name, mime_type),
+            file_name=file_name,
+            save_path=save_path,
+            mime_type=mime_type,
+            size_bytes=size_bytes,
+            meta_json=None,
+        )
+        return await crud.create_sample_item(
+            db,
+            dataset_id=dataset.id,
+            asset_id=asset.id,
+            item_type=self._infer_sample_item_type(dataset, file_name, mime_type),
+            item_key=file_name,
+            locator=self._dump_json({"asset_path": save_path}),
+            payload=None,
+            sort_order=0,
+        )
+
+    def _infer_asset_type(self, file_name: str, mime_type: Optional[str]) -> str:
+        mime = (mime_type or "").lower()
+        ext = os.path.splitext(file_name.lower())[1]
+        if mime.startswith("image/") or ext in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".svg"}:
+            return "image"
+        if mime.startswith("video/") or ext in {".mp4", ".mov", ".avi", ".mkv", ".webm"}:
+            return "video"
+        if mime.startswith("audio/") or ext in {".mp3", ".wav", ".ogg", ".flac", ".aac"}:
+            return "audio"
+        if mime.startswith("text/") or ext in {".txt", ".md", ".json", ".jsonl", ".csv", ".yaml", ".yml"}:
+            return "text"
+        return "file"
+
+    def _infer_sample_item_type(self, dataset, file_name: str, mime_type: Optional[str]) -> str:
+        if dataset.scenario_type in {DatasetScenarioType.LLM_CONVERSATION, DatasetScenarioType.MLLM_CONVERSATION}:
+            return "conversation"
+
+        asset_type = self._infer_asset_type(file_name, mime_type)
+        if asset_type in {"image", "text", "video", "audio"}:
+            return asset_type
+        return "file"
 
     def _prepare_scenario_config(
         self,
@@ -295,6 +445,23 @@ class DatasetService:
             return None
         return json.dumps(config, ensure_ascii=False)
 
+    def _dump_json(self, payload: Optional[Dict[str, Any]]) -> Optional[str]:
+        if payload is None:
+            return None
+        return json.dumps(payload, ensure_ascii=False)
+
+    def _load_json(self, raw_payload) -> Optional[Dict[str, Any]]:
+        if not raw_payload:
+            return None
+        if isinstance(raw_payload, dict):
+            return raw_payload
+        try:
+            parsed = json.loads(raw_payload)
+        except (TypeError, json.JSONDecodeError):
+            logger.warning("Invalid JSON payload, returning empty value")
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
     def _load_scenario_config(self, raw_config) -> Optional[Dict[str, Any]]:
         if not raw_config:
             return None
@@ -322,6 +489,37 @@ class DatasetService:
             created_at=dataset.created_at,
             updated_at=dataset.updated_at,
         )
+
+    async def _to_sample_response(self, db: AsyncSession, item) -> SampleItemResponse:
+        asset_response = None
+        if item.asset_id:
+            asset = await crud.get_asset_by_id(db, item.asset_id)
+            if asset:
+                asset_response = AssetResponse.model_validate(asset)
+        return SampleItemResponse(
+            id=item.id,
+            dataset_id=item.dataset_id,
+            asset_id=item.asset_id,
+            item_type=item.item_type,
+            item_key=item.item_key,
+            locator=self._load_json(item.locator),
+            payload=self._load_json(item.payload),
+            sort_order=item.sort_order or 0,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+            asset=asset_response,
+        )
+
+    async def _get_asset_backed_sample(self, db: AsyncSession, dataset_id: int, sample_item_id: int):
+        item = await crud.get_sample_item_by_id(db, sample_item_id)
+        if not item or item.dataset_id != dataset_id:
+            raise NotFoundException(f"Sample item {sample_item_id} not found")
+        if not item.asset_id:
+            raise BadRequestException("Sample item is not backed by an asset")
+        asset = await crud.get_asset_by_id(db, item.asset_id)
+        if not asset:
+            raise NotFoundException(f"Asset for sample item {sample_item_id} not found")
+        return item, asset
 
     def _validate_dataset_type_and_scenario(self, data_type: int, scenario_type: int) -> None:
         if scenario_type == DatasetScenarioType.AERIAL_STITCH and data_type != DataType.IMAGE:
@@ -381,16 +579,15 @@ class DatasetService:
 
                     file_data = zf.read(info)
                     file_key = f"{dataset.save_path}/{base_name}"
+                    mime_type = mimetypes.guess_type(base_name)[0]
 
                     await self.s3.put_file(
-                        file_key, file_data, bucket_type="datasets"
+                        file_key,
+                        file_data,
+                        bucket_type="datasets",
+                        content_type=mime_type,
                     )
-                    await crud.create_dataset_file(
-                        db,
-                        dataset_id=dataset.id,
-                        file_name=base_name,
-                        save_path=file_key,
-                    )
+                    await self._create_asset_backed_sample(db, dataset, base_name, file_key, mime_type, len(file_data))
                     count += 1
         except zipfile.BadZipFile:
             logger.error("Invalid ZIP file")
@@ -436,16 +633,15 @@ class DatasetService:
 
                     file_data = f.read()
                     file_key = f"{dataset.save_path}/{base_name}"
+                    mime_type = mimetypes.guess_type(base_name)[0]
 
                     await self.s3.put_file(
-                        file_key, file_data, bucket_type="datasets"
+                        file_key,
+                        file_data,
+                        bucket_type="datasets",
+                        content_type=mime_type,
                     )
-                    await crud.create_dataset_file(
-                        db,
-                        dataset_id=dataset.id,
-                        file_name=base_name,
-                        save_path=file_key,
-                    )
+                    await self._create_asset_backed_sample(db, dataset, base_name, file_key, mime_type, len(file_data))
                     count += 1
         except (tarfile.TarError, Exception) as e:
             logger.error(f"Failed to extract tar: {e}")
@@ -461,136 +657,58 @@ class DatasetService:
                 return True
         return False
 
-    async def get_files(
+    async def preview_sample(
         self,
         db: AsyncSession,
         dataset_id: int,
-        page: int = 1,
-        page_size: int = 100
-    ) -> tuple[list, int]:
-        """获取数据集文件列表"""
-        dataset = await crud.get_dataset_by_id(db, dataset_id)
-        if not dataset:
-            raise NotFoundException(f"Dataset {dataset_id} not found")
-
-        offset = (page - 1) * page_size
-        files, total = await crud.get_dataset_files(db, dataset_id, offset, page_size)
-        return files, total
-
-    async def preview_file(
-        self,
-        db: AsyncSession,
-        dataset_id: int,
-        file_name: str
+        sample_item_id: int,
     ) -> FilePreviewResponse:
-        """预览文件（生成预签名 URL）"""
+        """预览样本关联资源（生成预签名 URL）"""
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
 
-        file_key = f"{dataset.save_path}/{file_name}"
+        item, asset = await self._get_asset_backed_sample(db, dataset_id, sample_item_id)
+        if not asset or not asset.save_path:
+            raise NotFoundException(f"Asset for sample item {sample_item_id} not found")
 
         # 检查文件是否存在
-        exists = await self.s3.file_exists(file_key, bucket_type="datasets")
+        exists = await self.s3.file_exists(asset.save_path, bucket_type="datasets")
         if not exists:
-            raise NotFoundException(f"File {file_name} not found")
+            raise NotFoundException(f"Asset for sample item {sample_item_id} not found")
 
         # 生成预签名 URL
-        presigned_url = await self.s3.get_presigned_url(file_key, bucket_type="datasets")
+        presigned_url = await self.s3.get_presigned_url(asset.save_path, bucket_type="datasets")
 
         return FilePreviewResponse(
-            file_name=file_name,
+            file_name=asset.file_name or item.item_key,
             presigned_url=presigned_url,
         )
 
-    async def get_file_content(
+    async def get_sample_content(
         self,
         db: AsyncSession,
         dataset_id: int,
-        file_name: str,
+        sample_item_id: int,
     ) -> FileContentResponse:
-        """读取文本文件内容"""
+        """读取样本关联文本资源内容"""
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
         if dataset.data_type != DataType.TEXT:
             raise BadRequestException("Only text datasets support reading file content")
 
-        file_record = await crud.get_dataset_file_by_name(db, dataset_id, file_name)
-        if not file_record or not file_record.save_path:
-            raise NotFoundException(f"File {file_name} not found")
+        item, asset = await self._get_asset_backed_sample(db, dataset_id, sample_item_id)
+        if not asset or not asset.save_path:
+            raise NotFoundException(f"Asset for sample item {sample_item_id} not found")
 
-        raw_bytes = await self.s3.get_file(file_record.save_path, bucket_type="datasets")
+        raw_bytes = await self.s3.get_file(asset.save_path, bucket_type="datasets")
         try:
             content = raw_bytes.decode("utf-8")
         except UnicodeDecodeError:
             content = raw_bytes.decode("utf-8", errors="replace")
 
-        return FileContentResponse(file_name=file_name, content=content)
-
-    async def delete_file(
-        self,
-        db: AsyncSession,
-        dataset_id: int,
-        file_id: int,
-    ) -> bool:
-        """删除数据集中的单个文件"""
-        dataset = await crud.get_dataset_by_id(db, dataset_id)
-        if not dataset:
-            raise NotFoundException(f"Dataset {dataset_id} not found")
-
-        file_record = await crud.get_dataset_file_by_id(db, file_id)
-        if not file_record or file_record.dataset_id != dataset_id:
-            raise NotFoundException(
-                f"File {file_id} not found in dataset {dataset_id}")
-
-        # 从 S3 删除
-        try:
-            if file_record.save_path:
-                await self.s3.delete_file(file_record.save_path, bucket_type="datasets")
-        except Exception as e:
-            logger.warning(
-                f"Failed to delete S3 file {file_record.save_path}: {e}")
-
-        # 软删除数据库记录
-        await crud.delete_dataset_file(db, file_id)
-
-        # 更新文件数量
-        new_count = await crud.get_dataset_file_count(db, dataset_id)
-        await crud.update_dataset_count(db, dataset_id, new_count)
-
-        logger.info(f"Deleted file {file_id} from dataset {dataset_id}")
-        return True
-
-    async def batch_delete_files(
-        self,
-        db: AsyncSession,
-        dataset_id: int,
-        file_ids: list[int],
-    ) -> int:
-        """批量删除数据集文件"""
-        dataset = await crud.get_dataset_by_id(db, dataset_id)
-        if not dataset:
-            raise NotFoundException(f"Dataset {dataset_id} not found")
-
-        # 逐个删除 S3 文件
-        for file_id in file_ids:
-            file_record = await crud.get_dataset_file_by_id(db, file_id)
-            if file_record and file_record.dataset_id == dataset_id and file_record.save_path:
-                try:
-                    await self.s3.delete_file(file_record.save_path, bucket_type="datasets")
-                except Exception as e:
-                    logger.warning(f"Failed to delete S3 file: {e}")
-
-        # 批量软删除
-        deleted = await crud.batch_delete_dataset_files(db, file_ids)
-
-        # 更新文件数量
-        new_count = await crud.get_dataset_file_count(db, dataset_id)
-        await crud.update_dataset_count(db, dataset_id, new_count)
-
-        logger.info(f"Batch deleted {deleted} files from dataset {dataset_id}")
-        return deleted
+        return FileContentResponse(file_name=asset.file_name or item.item_key, content=content)
 
 
 def get_dataset_service() -> DatasetService:

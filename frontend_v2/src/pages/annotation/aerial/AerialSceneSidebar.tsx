@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { buildAerialScenes, findSceneByFileName } from './utils';
+import { getSampleItemName } from '../../../utils/sampleItem';
 
 interface Props {
   activeSceneKey: string | null;
@@ -17,11 +18,12 @@ interface Props {
 }
 
 const AerialSceneSidebar: React.FC<Props> = ({ activeSceneKey, onSelectScene, onOpenMosaic }) => {
-  const { datasetFiles, currentFileIndex, loadFileAtIndex, loading } = useDatasetStore();
+  const { sampleItems, currentSampleIndex, loadSampleAtIndex, loading } = useDatasetStore();
   const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
 
-  const currentFileName = currentFileIndex >= 0 ? datasetFiles[currentFileIndex]?.file_name : undefined;
-  const scenes = useMemo(() => buildAerialScenes(datasetFiles), [datasetFiles]);
+  const currentSample = currentSampleIndex >= 0 ? sampleItems[currentSampleIndex] : undefined;
+  const currentFileName = currentSample ? getSampleItemName(currentSample) : undefined;
+  const scenes = useMemo(() => buildAerialScenes(sampleItems), [sampleItems]);
   const currentScene = useMemo(() => findSceneByFileName(scenes, currentFileName), [scenes, currentFileName]);
 
   React.useEffect(() => {
@@ -34,7 +36,7 @@ const AerialSceneSidebar: React.FC<Props> = ({ activeSceneKey, onSelectScene, on
     setExpandedKeys((prev) => ({ ...prev, [sceneKey]: !prev[sceneKey] }));
   };
 
-  if (datasetFiles.length === 0 && !loading) {
+  if (sampleItems.length === 0 && !loading) {
     return (
       <div style={{ width: 280, borderRight: '1px solid #f0f0f0', height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', fontWeight: 600 }}>航拍场景</div>
@@ -49,7 +51,7 @@ const AerialSceneSidebar: React.FC<Props> = ({ activeSceneKey, onSelectScene, on
     <div style={{ width: 280, borderRight: '1px solid #f0f0f0', height: '100%', display: 'flex', flexDirection: 'column', background: '#fcfcfd' }}>
       <div style={{ padding: '10px 14px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 600 }}>航拍场景</span>
-        <Badge count={datasetFiles.length} showZero style={{ backgroundColor: '#667eea' }} />
+        <Badge count={sampleItems.length} showZero style={{ backgroundColor: '#667eea' }} />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: 8 }}>
@@ -92,7 +94,7 @@ const AerialSceneSidebar: React.FC<Props> = ({ activeSceneKey, onSelectScene, on
                 <div style={{ borderTop: '1px solid #f6f7fb', padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <button
                     type="button"
-                    onClick={() => onOpenMosaic(scene.key, scene.tiles[0]?.file.file_name)}
+                    onClick={() => onOpenMosaic(scene.key, scene.tiles[0] ? getSampleItemName(scene.tiles[0].sample) : undefined)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -111,12 +113,13 @@ const AerialSceneSidebar: React.FC<Props> = ({ activeSceneKey, onSelectScene, on
                   </button>
 
                   {scene.tiles.map((tile) => {
-                    const isTileActive = tile.index === currentFileIndex;
+                    const sampleName = getSampleItemName(tile.sample);
+                    const isTileActive = tile.index === currentSampleIndex;
                     return (
                       <button
                         key={tile.key}
                         type="button"
-                        onClick={() => loadFileAtIndex(tile.index)}
+                        onClick={() => loadSampleAtIndex(tile.index)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -136,7 +139,7 @@ const AerialSceneSidebar: React.FC<Props> = ({ activeSceneKey, onSelectScene, on
                             r{String(tile.row).padStart(2, '0')} c{String(tile.col).padStart(2, '0')}
                           </div>
                           <div style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: 0.8 }}>
-                            {tile.file.file_name}
+                            {sampleName}
                           </div>
                         </div>
                       </button>

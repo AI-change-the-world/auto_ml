@@ -23,12 +23,16 @@ class Annotation(BaseEntity):
                         index=True, comment="关联数据集ID")
 
 
-class AnnotationFile(BaseEntity):
-    """标注文件实体"""
-    __tablename__ = "annotation_file"
+class AnnotationRecord(BaseEntity):
+    """标注记录实体，表示某个标注项目对一个 SampleItem 的标注结果。"""
+    __tablename__ = "annotation_record"
 
     annotation_id = Column(BigInteger, nullable=False,
                            index=True, comment="标注项目ID")
-    file_name = Column(String(255), nullable=False, comment="文件名")
-    save_path = Column(String(512), nullable=True, comment="存储路径")
-    content = Column(Text, nullable=True, comment="标注内容")
+    sample_item_id = Column(BigInteger, nullable=False,
+                            index=True, comment="样本ID")
+    annotation_type = Column(Integer, nullable=False,
+                             comment="标注类型快照")
+    status = Column(String(32), default="draft",
+                    comment="状态: draft/saved/reviewed")
+    content = Column(Text, nullable=True, comment="标注内容 JSON")

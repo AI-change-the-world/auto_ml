@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Dataset, DatasetFile
+from app.db.models import Dataset, Asset, SampleItem
 
 
 async def create_dataset(db: AsyncSession, **kwargs) -> Dataset:
@@ -95,104 +95,114 @@ async def update_dataset_count(db: AsyncSession, dataset_id: int, count: int):
     await db.execute(stmt)
 
 
-# ============ DatasetFile CRUD ============
+# ============ Asset / SampleItem CRUD ============
 
-async def create_dataset_file(db: AsyncSession, **kwargs) -> DatasetFile:
-    """创建数据集文件"""
-    file = DatasetFile(**kwargs)
-    db.add(file)
+async def create_asset(db: AsyncSession, **kwargs) -> Asset:
+    asset = Asset(**kwargs)
+    db.add(asset)
     await db.flush()
-    await db.refresh(file)
-    return file
+    await db.refresh(asset)
+    return asset
 
 
-async def get_dataset_files(
+async def get_asset_by_id(db: AsyncSession, asset_id: int) -> Optional[Asset]:
+    stmt = select(Asset).where(
+        Asset.id == asset_id,
+        Asset.is_deleted == False,
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def create_sample_item(db: AsyncSession, **kwargs) -> SampleItem:
+    item = SampleItem(**kwargs)
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return item
+
+
+async def get_sample_item_by_id(db: AsyncSession, sample_item_id: int) -> Optional[SampleItem]:
+    stmt = select(SampleItem).where(
+        SampleItem.id == sample_item_id,
+        SampleItem.is_deleted == False,
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_sample_item_by_key(
+    db: AsyncSession,
+    dataset_id: int,
+    item_key: str,
+) -> Optional[SampleItem]:
+    stmt = select(SampleItem).where(
+        SampleItem.dataset_id == dataset_id,
+        SampleItem.item_key == item_key,
+        SampleItem.is_deleted == False,
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_sample_items(
     db: AsyncSession,
     dataset_id: int,
     offset: int = 0,
-    limit: int = 100
-) -> tuple[List[DatasetFile], int]:
-    """获取数据集文件列表"""
+    limit: int = 100,
+    item_type: Optional[str] = None,
+) -> tuple[List[SampleItem], int]:
     conditions = [
-        DatasetFile.dataset_id == dataset_id,
-        DatasetFile.is_deleted == False
+        SampleItem.dataset_id == dataset_id,
+        SampleItem.is_deleted == False,
     ]
+    if item_type:
+        conditions.append(SampleItem.item_type == item_type)
 
-    # 总数
-    count_stmt = select(func.count()).select_from(
-        DatasetFile).where(*conditions)
+    count_stmt = select(func.count()).select_from(SampleItem).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()
-
-    # 分页
     stmt = (
-        select(DatasetFile)
+        select(SampleItem)
         .where(*conditions)
-        .order_by(DatasetFile.created_at.desc())
+        .order_by(SampleItem.sort_order.asc(), SampleItem.created_at.desc())
         .offset(offset)
         .limit(limit)
     )
     result = await db.execute(stmt)
-    items = list(result.scalars().all())
-
-    return items, total
+    return list(result.scalars().all()), total
 
 
-async def get_dataset_file_count(db: AsyncSession, dataset_id: int) -> int:
-    """获取数据集文件数量"""
+async def get_sample_item_count(db: AsyncSession, dataset_id: int) -> int:
     stmt = (
         select(func.count())
-        .select_from(DatasetFile)
+        .select_from(SampleItem)
         .where(
-            DatasetFile.dataset_id == dataset_id,
-            DatasetFile.is_deleted == False
+            SampleItem.dataset_id == dataset_id,
+            SampleItem.is_deleted == False,
         )
     )
     result = await db.execute(stmt)
     return result.scalar()
 
 
-async def get_dataset_file_by_id(db: AsyncSession, file_id: int) -> Optional[DatasetFile]:
-    """根据 ID 获取数据集文件"""
-    stmt = select(DatasetFile).where(
-        DatasetFile.id == file_id,
-        DatasetFile.is_deleted == False
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
+async def update_sample_item(db: AsyncSession, sample_item_id: int, **kwargs) -> Optional[SampleItem]:
+    item = await get_sample_item_by_id(db, sample_item_id)
+    if not item:
+        return None
+    for key, value in kwargs.items():
+        if value is not None:
+            setattr(item, key, value)
+    await db.flush()
+    await db.refresh(item)
+    return item
 
 
-async def get_dataset_file_by_name(
-    db: AsyncSession,
-    dataset_id: int,
-    file_name: str,
-) -> Optional[DatasetFile]:
-    """根据数据集 ID 和文件名获取文件"""
-    stmt = select(DatasetFile).where(
-        DatasetFile.dataset_id == dataset_id,
-        DatasetFile.file_name == file_name,
-        DatasetFile.is_deleted == False,
-    )
-    result = await db.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def delete_dataset_file(db: AsyncSession, file_id: int) -> bool:
-    """软删除数据集文件"""
+async def delete_sample_item(db: AsyncSession, sample_item_id: int) -> bool:
     stmt = (
-        update(DatasetFile)
-        .where(DatasetFile.id == file_id)
+        update(SampleItem)
+        .where(SampleItem.id == sample_item_id)
         .values(is_deleted=True)
     )
     result = await db.execute(stmt)
     return result.rowcount > 0
 
-
-async def batch_delete_dataset_files(db: AsyncSession, file_ids: list[int]) -> int:
-    """批量软删除数据集文件"""
-    stmt = (
-        update(DatasetFile)
-        .where(DatasetFile.id.in_(file_ids))
-        .values(is_deleted=True)
-    )
-    result = await db.execute(stmt)
-    return result.rowcount
