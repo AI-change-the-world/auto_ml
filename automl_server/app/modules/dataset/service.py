@@ -209,13 +209,14 @@ class DatasetService:
         page: int = 1,
         page_size: int = 100,
         item_type: Optional[str] = None,
+        keyword: Optional[str] = None,
     ) -> tuple[list[SampleItemResponse], int]:
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
 
         offset = (page - 1) * page_size
-        items, total = await crud.get_sample_items(db, dataset_id, offset, page_size, item_type)
+        items, total = await crud.get_sample_items(db, dataset_id, offset, page_size, item_type, keyword)
         return [await self._to_sample_response(db, item) for item in items], total
 
     async def create_sample_item(

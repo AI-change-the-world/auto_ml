@@ -4,6 +4,7 @@ import { Spin, Typography } from 'antd';
 import { useDatasetStore } from '../../stores/datasetStore';
 import { useAnnotationStore } from '../../stores/annotationStore';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import ImageCanvas from './components/ImageCanvas';
 import AnnotationList from './components/AnnotationList';
 import FileList from './components/FileList';
@@ -15,9 +16,11 @@ const AnnotationPage: React.FC = () => {
   const { annotationId } = useParams<{ annotationId: string }>();
   const { loadAnnotationProject, annotationProject, loading } = useDatasetStore();
   const reset = useAnnotationStore((s) => s.reset);
+  const modified = useAnnotationStore((s) => s.modified);
 
   // 快捷键
   useKeyboardShortcuts();
+  useUnsavedChangesGuard(modified);
 
   // 加载标注项目
   useEffect(() => {
@@ -31,18 +34,6 @@ const AnnotationPage: React.FC = () => {
       reset();
     };
   }, [annotationId]);
-
-  // 离开前提示保存
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const { modified } = useAnnotationStore.getState();
-      if (modified) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
 
   if (!annotationId) {
     return (

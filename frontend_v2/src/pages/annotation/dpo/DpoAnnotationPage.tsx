@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Empty, Input, Spin, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DownloadOutlined, SaveOutlined } from '@ant-design/icons';
-import { exportDpoAnnotation, getAnnotation, getAnnotationRecords, saveAnnotationRecord } from '../../../api/annotation';
+import { exportDpoAnnotation, getAnnotation, getAnnotationRecordsBySamples, saveAnnotationRecord } from '../../../api/annotation';
 import { getDataset, getDatasetSamples } from '../../../api/dataset';
 import { AnnotationType, type AnnotationProject, type AnnotationRecord, type Dataset, type SampleItem } from '../../../types';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -61,9 +62,7 @@ interface DpoSampleState {
   startedAt: number;
 }
 
-const PAGE_SIZE = 12;
-const FETCH_PAGE_SIZE = 500;
-
+const LIST_PAGE_SIZE = 20;
 const REASON_TAGS = [
   '更准确',
   '更完整',
@@ -104,6 +103,7 @@ const DpoAnnotationPage: React.FC = () => {
   const { annotationId } = useParams<{ annotationId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [project, setProject] = useState<AnnotationProject | null>(null);
@@ -111,11 +111,94 @@ const DpoAnnotationPage: React.FC = () => {
   const [samples, setSamples] = useState<SampleItem[]>([]);
   const [sampleStates, setSampleStates] = useState<Record<number, DpoSampleState>>({});
   const [activeSampleId, setActiveSampleId] = useState<number | null>(null);
+  const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(1);
-  const initializedRef = useRef(false);
+  const [totalSamples, setTotalSamples] = useState(0);
 
   const annotationNumericId = Number(annotationId);
+
+  const buildSampleState = useCallback((sample: SampleItem, record?: AnnotationRecord): DpoSampleState | null => {
+    const payload = parseDpoPayload(sample);
+    const responses = (payload?.responses || []).slice(0, 2) as DpoResponseItem[];
+    if (!payload || responses.length < 2) return null;
+
+    const displayOrder = sortResponsesForDisplay(sample.id, responses);
+    const saved = normalizeRecordContent(record);
+    const decision = (saved?.decision as DpoDecision) ?? null;
+    const reason = typeof saved?.reason === 'string' ? saved.reason : '';
+    const reasonTags = Array.isArray(saved?.reason_tags)
+      ? saved.reason_tags.filter((item): item is string => typeof item === 'string')
+      : [];
+
+    return {
+      displayOrder,
+      decision,
+      reason,
+      reasonTags,
+      savedSnapshot: createSavedSnapshot(decision, reason, reasonTags),
+      startedAt: Date.now(),
+    };
+  }, []);
+
+  const loadSamplePage = useCallback(async (
+    annotationProjectId: number,
+    datasetId: number,
+    nextPage: number,
+    currentKeyword: string,
+  ) => {
+    setPageLoading(true);
+    try {
+      const result = await getDatasetSamples(
+        datasetId,
+        nextPage,
+        LIST_PAGE_SIZE,
+        'preference',
+        currentKeyword.trim() || undefined,
+      );
+      const pageItems = (result?.items || []).filter((sample) => {
+        const payload = parseDpoPayload(sample);
+        return Boolean(payload?.responses && payload.responses.length >= 2);
+      });
+      const pageSampleIds = pageItems.map((sample) => sample.id);
+      const pageRecords = pageSampleIds.length > 0
+        ? await getAnnotationRecordsBySamples(annotationProjectId, pageSampleIds)
+        : [];
+      const nextRecordMap: Record<number, AnnotationRecord> = {};
+      pageRecords.forEach((record) => {
+        nextRecordMap[record.sample_item_id] = record;
+      });
+
+      setSamples(pageItems);
+      setTotalSamples(result?.total || 0);
+      setSampleStates((prev) => {
+        const merged = { ...prev };
+        pageItems.forEach((sample) => {
+          const current = merged[sample.id];
+          const currentSnapshot = current
+            ? createSavedSnapshot(current.decision, current.reason, current.reasonTags)
+            : null;
+          if (current && currentSnapshot !== current.savedSnapshot) {
+            return;
+          }
+          const built = buildSampleState(sample, nextRecordMap[sample.id]);
+          if (built) {
+            merged[sample.id] = built;
+          }
+        });
+        return merged;
+      });
+      setActiveSampleId((prev) => {
+        if (prev && pageItems.some((sample) => sample.id === prev)) return prev;
+        return pageItems[0]?.id ?? null;
+      });
+    } catch (error) {
+      console.error('Failed to load DPO samples', error);
+      message.error('加载 DPO 样本失败');
+    } finally {
+      setPageLoading(false);
+    }
+  }, [buildSampleState]);
 
   const loadProject = useCallback(async () => {
     if (!annotationId || Number.isNaN(annotationNumericId)) {
@@ -137,71 +220,17 @@ const DpoAnnotationPage: React.FC = () => {
         return;
       }
 
-      const fetchAllPages = async <T,>(
-        loader: (page: number, pageSize: number) => Promise<{ items: T[]; total: number } | undefined>,
-      ) => {
-        const items: T[] = [];
-        let currentPage = 1;
-        let total = 0;
-        do {
-          const result = await loader(currentPage, FETCH_PAGE_SIZE);
-          const pageItems = result?.items || [];
-          total = result?.total || 0;
-          items.push(...pageItems);
-          if (pageItems.length < FETCH_PAGE_SIZE) break;
-          currentPage += 1;
-        } while (items.length < total);
-        return items;
-      };
-
-      const [datasetDetail, allSamples, allRecords] = await Promise.all([
-        getDataset(annotation.dataset_id),
-        fetchAllPages((page, pageSize) => getDatasetSamples(annotation.dataset_id!, page, pageSize, 'preference')),
-        fetchAllPages((page, pageSize) => getAnnotationRecords(annotation.id, page, pageSize)),
-      ]);
-
-      const recordMap = new Map<number, AnnotationRecord>(
-        allRecords
-          .filter((record) => typeof record.sample_item_id === 'number')
-          .map((record) => [record.sample_item_id, record]),
-      );
-
-      const validSamples = allSamples.filter((sample) => {
-        const payload = parseDpoPayload(sample);
-        return payload?.responses && Array.isArray(payload.responses) && payload.responses.length >= 2;
-      });
-
-      const nextStates: Record<number, DpoSampleState> = {};
-      validSamples.forEach((sample) => {
-        const payload = parseDpoPayload(sample);
-        const responses = (payload?.responses || []).slice(0, 2) as DpoResponseItem[];
-        const displayOrder = sortResponsesForDisplay(sample.id, responses);
-        const saved = normalizeRecordContent(recordMap.get(sample.id));
-        const decision = (saved?.decision as DpoDecision) ?? null;
-        const reason = typeof saved?.reason === 'string' ? saved.reason : '';
-        const reasonTags = Array.isArray(saved?.reason_tags)
-          ? saved.reason_tags.filter((item): item is string => typeof item === 'string')
-          : [];
-        nextStates[sample.id] = {
-          displayOrder,
-          decision,
-          reason,
-          reasonTags,
-          savedSnapshot: createSavedSnapshot(decision, reason, reasonTags),
-          startedAt: Date.now(),
-        };
-      });
+      const datasetDetail = await getDataset(annotation.dataset_id);
 
       setProject(annotation);
       setDataset(datasetDetail);
-      setSamples(validSamples);
-      setSampleStates(nextStates);
-      setActiveSampleId((prev) => {
-        if (prev && validSamples.some((sample) => sample.id === prev)) return prev;
-        return validSamples[0]?.id ?? null;
-      });
+      setSamples([]);
+      setSampleStates({});
+      setActiveSampleId(null);
+      setTotalSamples(0);
       setPage(1);
-      initializedRef.current = true;
+      setKeyword('');
+      setKeywordInput('');
     } catch (error) {
       console.error('Failed to load DPO annotation project', error);
       message.error('加载 DPO 标注项目失败');
@@ -214,21 +243,11 @@ const DpoAnnotationPage: React.FC = () => {
     void loadProject();
   }, [loadProject]);
 
-  const filteredSamples = useMemo(() => {
-    if (!keyword.trim()) return samples;
-    const normalized = keyword.trim().toLowerCase();
-    return samples.filter((sample) => sample.item_key.toLowerCase().includes(normalized));
-  }, [keyword, samples]);
-
-  const pagedSamples = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredSamples.slice(start, start + PAGE_SIZE);
-  }, [filteredSamples, page]);
-
   useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(filteredSamples.length / PAGE_SIZE));
-    if (page > maxPage) setPage(maxPage);
-  }, [filteredSamples.length, page]);
+    if (!project?.dataset_id || !dataset) return;
+    if (loading) return;
+    void loadSamplePage(project.id, project.dataset_id, page, keyword);
+  }, [dataset, keyword, loadSamplePage, loading, page, project?.dataset_id, project?.id]);
 
   const activeSample = useMemo(
     () => samples.find((sample) => sample.id === activeSampleId) ?? null,
@@ -248,6 +267,7 @@ const DpoAnnotationPage: React.FC = () => {
       createSavedSnapshot(state.decision, state.reason, state.reasonTags) === state.savedSnapshot ? count : count + 1
     ), 0);
   }, [sampleStates]);
+  useUnsavedChangesGuard(dirtyCount > 0);
 
   const updateActiveState = (updater: (current: DpoSampleState) => DpoSampleState) => {
     if (!activeSampleId) return;
@@ -280,11 +300,10 @@ const DpoAnnotationPage: React.FC = () => {
     });
   };
 
-  const handleSave = async (targetSampleId?: number, moveToNext = false) => {
-    const sampleId = targetSampleId ?? activeSampleId;
-    if (!project || !sampleId) return;
-    const sample = samples.find((item) => item.id === sampleId);
-    const state = sampleStates[sampleId];
+  const handleSave = async (moveToNext = false) => {
+    if (!project || !activeSampleId) return;
+    const sample = samples.find((item) => item.id === activeSampleId);
+    const state = sampleStates[activeSampleId];
     const payload = sample ? parseDpoPayload(sample) : null;
     if (!sample || !state || !payload) return;
     if (!state.decision) {
@@ -308,7 +327,7 @@ const DpoAnnotationPage: React.FC = () => {
       const content: DpoRecordContent = {
         version: 1,
         format: 'dpo_preference',
-        sample_item_id: sampleId,
+        sample_item_id: activeSampleId,
         decision: state.decision,
         chosen_response_id: chosenResponseId,
         rejected_response_id: rejectedResponseId,
@@ -322,17 +341,17 @@ const DpoAnnotationPage: React.FC = () => {
       };
 
       await saveAnnotationRecord(project.id, {
-        sample_item_id: sampleId,
+        sample_item_id: activeSampleId,
         content: content as unknown as Record<string, unknown>,
         status: 'saved',
       });
 
       setSampleStates((prev) => {
-        const current = prev[sampleId];
+        const current = prev[activeSampleId];
         if (!current) return prev;
         return {
           ...prev,
-          [sampleId]: {
+          [activeSampleId]: {
             ...current,
             savedSnapshot: createSavedSnapshot(current.decision, current.reason, current.reasonTags),
             startedAt: Date.now(),
@@ -342,9 +361,13 @@ const DpoAnnotationPage: React.FC = () => {
       message.success('保存成功');
 
       if (moveToNext) {
-        const currentIndex = filteredSamples.findIndex((item) => item.id === sampleId);
-        const nextSample = filteredSamples[currentIndex + 1];
-        if (nextSample) setActiveSampleId(nextSample.id);
+        const currentIndex = samples.findIndex((item) => item.id === activeSampleId);
+        const nextSample = samples[currentIndex + 1];
+        if (nextSample) {
+          setActiveSampleId(nextSample.id);
+        } else if (page * LIST_PAGE_SIZE < totalSamples) {
+          setPage((value) => value + 1);
+        }
       }
     } catch (error) {
       console.error('Failed to save DPO annotation', error);
@@ -396,13 +419,13 @@ const DpoAnnotationPage: React.FC = () => {
         handleSelectDecision('skip');
       } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
-        void handleSave(undefined, true);
+        void handleSave(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSampleId, filteredSamples, handleSave]);
+  }, [activeSampleId, samples, handleSave]);
 
   if (loading) {
     return (
@@ -430,22 +453,36 @@ const DpoAnnotationPage: React.FC = () => {
           <Title level={4} style={{ margin: 0 }}>{project.name}</Title>
           <Text type="secondary">{dataset.name}</Text>
           <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Tag color="blue">{samples.length} 条样本</Tag>
+            <Tag color="blue">{totalSamples} 条样本</Tag>
             <Tag color={dirtyCount > 0 ? 'orange' : 'green'}>{dirtyCount > 0 ? `${dirtyCount} 未保存` : '已保存'}</Tag>
           </div>
           <Input
             style={{ marginTop: 12 }}
             placeholder="搜索样本"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
+            value={keywordInput}
+            onChange={(event) => setKeywordInput(event.target.value)}
+            onPressEnter={() => {
+              setPage(1);
+              setKeyword(keywordInput.trim());
+            }}
+            allowClear
+            onClear={() => {
+              setKeywordInput('');
+              setKeyword('');
+              setPage(1);
+            }}
           />
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {pagedSamples.length === 0 ? (
+          {pageLoading ? (
+            <div style={{ paddingTop: 48, textAlign: 'center' }}>
+              <Spin />
+            </div>
+          ) : samples.length === 0 ? (
             <Empty style={{ marginTop: 48 }} description="暂无可标注样本" />
           ) : (
-            pagedSamples.map((sample) => {
+            samples.map((sample) => {
               const state = sampleStates[sample.id];
               const isActive = sample.id === activeSampleId;
               const isSaved = state ? createSavedSnapshot(state.decision, state.reason, state.reasonTags) === state.savedSnapshot : false;
@@ -485,11 +522,11 @@ const DpoAnnotationPage: React.FC = () => {
           )}
         </div>
 
-        {filteredSamples.length > PAGE_SIZE && (
+        {totalSamples > LIST_PAGE_SIZE && (
           <div style={{ padding: 12, borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
             <Button size="small" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</Button>
             <Text type="secondary">第 {page} 页</Text>
-            <Button size="small" disabled={page * PAGE_SIZE >= filteredSamples.length} onClick={() => setPage((value) => value + 1)}>下一页</Button>
+            <Button size="small" disabled={page * LIST_PAGE_SIZE >= totalSamples} onClick={() => setPage((value) => value + 1)}>下一页</Button>
           </div>
         )}
       </aside>
@@ -508,7 +545,7 @@ const DpoAnnotationPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>导出 JSONL</Button>
-                <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void handleSave(undefined, true)}>
+                <Button type="primary" icon={<SaveOutlined />} loading={saving} onClick={() => void handleSave(true)}>
                   保存并下一条
                 </Button>
               </div>
@@ -618,16 +655,18 @@ const DpoAnnotationPage: React.FC = () => {
                 <Text type="secondary">快捷键：A 左侧，D 右侧，W 平局，S 跳过，Ctrl+Enter 保存</Text>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button onClick={() => {
-                    const currentIndex = filteredSamples.findIndex((item) => item.id === activeSample.id);
-                    const previous = filteredSamples[currentIndex - 1];
+                    const currentIndex = samples.findIndex((item) => item.id === activeSample.id);
+                    const previous = samples[currentIndex - 1];
                     if (previous) setActiveSampleId(previous.id);
+                    else if (page > 1) setPage((value) => Math.max(1, value - 1));
                   }}>
                     上一条
                   </Button>
                   <Button onClick={() => {
-                    const currentIndex = filteredSamples.findIndex((item) => item.id === activeSample.id);
-                    const next = filteredSamples[currentIndex + 1];
+                    const currentIndex = samples.findIndex((item) => item.id === activeSample.id);
+                    const next = samples[currentIndex + 1];
                     if (next) setActiveSampleId(next.id);
+                    else if (page * LIST_PAGE_SIZE < totalSamples) setPage((value) => value + 1);
                   }}>
                     下一条
                   </Button>

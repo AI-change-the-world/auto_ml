@@ -151,6 +151,7 @@ async def get_sample_items(
     offset: int = 0,
     limit: int = 100,
     item_type: Optional[str] = None,
+    keyword: Optional[str] = None,
 ) -> tuple[List[SampleItem], int]:
     conditions = [
         SampleItem.dataset_id == dataset_id,
@@ -158,6 +159,8 @@ async def get_sample_items(
     ]
     if item_type:
         conditions.append(SampleItem.item_type == item_type)
+    if keyword:
+        conditions.append(SampleItem.item_key.ilike(f"%{keyword.strip()}%"))
 
     count_stmt = select(func.count()).select_from(SampleItem).where(*conditions)
     total = (await db.execute(count_stmt)).scalar()

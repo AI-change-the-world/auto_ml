@@ -37,6 +37,7 @@ import { buildClassificationRecordContent, getRecordClassIds } from '../../../ut
 import { parseAnnotationClasses } from '../../../utils/annotationClasses';
 import { normalizeClassificationLabelIds } from '../../../utils/classification';
 import { getSampleItemName, isImageSampleItem } from '../../../utils/sampleItem';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 
 const { Title, Text } = Typography;
 
@@ -228,6 +229,11 @@ const ClassificationAnnotationPage: React.FC = () => {
       return JSON.stringify(current) === JSON.stringify(saved) ? count : count + 1;
     }, 0);
   }, [sampleItems, savedBySample, selectedBySample]);
+  const classesDirty = useMemo(
+    () => JSON.stringify(classes) !== JSON.stringify(parseAnnotationClasses(project?.classes)),
+    [classes, project?.classes],
+  );
+  useUnsavedChangesGuard(dirtyCount > 0 || classesDirty);
 
   const activeSample = activeSampleId ? sampleItems.find((sample) => sample.id === activeSampleId) : undefined;
   const activeSampleName = activeSample ? getSampleItemName(activeSample) : null;

@@ -1,9 +1,10 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, Routes, Route, unstable_HistoryRouter as HistoryRouter } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import { useTranslation } from 'react-i18next';
+import { appHistory } from './router/appHistory';
 
 import MainLayout from './layouts/MainLayout';
 import AnnotationLayout from './layouts/AnnotationLayout';
@@ -39,7 +40,7 @@ const App: React.FC = () => {
         },
       }}
     >
-      <BrowserRouter>
+      <HistoryRouter history={appHistory}>
         <Routes>
           {/* 主布局路由 */}
           <Route element={<MainLayout />}>
@@ -70,7 +71,7 @@ const App: React.FC = () => {
           <Route path="/annotation/:annotationId" element={<Navigate to="/annotations" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
+      </HistoryRouter>
     </ConfigProvider>
   );
 };

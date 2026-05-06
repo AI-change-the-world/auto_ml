@@ -95,10 +95,11 @@ async def list_sample_items(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=500),
     item_type: str = Query(default=None),
+    keyword: str = Query(default=None),
     db: AsyncSession = Depends(get_db),
     service: DatasetService = Depends(get_dataset_service),
 ):
-    items, total = await service.list_sample_items(db, dataset_id, page, page_size, item_type)
+    items, total = await service.list_sample_items(db, dataset_id, page, page_size, item_type, keyword)
     return Result.ok(PageResult.create(items, total, page, page_size))
 
 

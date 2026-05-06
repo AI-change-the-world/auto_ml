@@ -201,6 +201,24 @@ class AnnotationService:
         ) if records else []
         return items, total
 
+    async def list_annotation_records_by_sample_ids(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        sample_item_ids: list[int],
+    ) -> list[AnnotationRecordResponse]:
+        ann = await crud.get_annotation_by_id(db, annotation_id)
+        if not ann:
+            raise NotFoundException(f"Annotation {annotation_id} not found")
+        normalized_ids = [item for item in dict.fromkeys(sample_item_ids) if item > 0]
+        if not normalized_ids:
+            return []
+        records = await crud.get_annotation_records_by_sample_ids(db, annotation_id, normalized_ids)
+        items = await asyncio.gather(
+            *(self._build_annotation_record_response(record) for record in records)
+        ) if records else []
+        return items
+
     async def export_dpo_records(
         self,
         db: AsyncSession,

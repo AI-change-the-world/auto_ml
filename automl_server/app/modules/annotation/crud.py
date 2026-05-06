@@ -101,6 +101,26 @@ async def get_annotation_records(
     return list(result.scalars().all()), total
 
 
+async def get_annotation_records_by_sample_ids(
+    db: AsyncSession,
+    annotation_id: int,
+    sample_item_ids: list[int],
+) -> List[AnnotationRecord]:
+    if not sample_item_ids:
+        return []
+    stmt = (
+        select(AnnotationRecord)
+        .where(
+            AnnotationRecord.annotation_id == annotation_id,
+            AnnotationRecord.sample_item_id.in_(sample_item_ids),
+            AnnotationRecord.is_deleted == False,
+        )
+        .order_by(AnnotationRecord.sample_item_id.asc())
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def update_annotation_record(
     db: AsyncSession,
     record_id: int,

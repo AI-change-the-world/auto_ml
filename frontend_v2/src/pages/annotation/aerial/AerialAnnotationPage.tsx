@@ -7,6 +7,7 @@ import ImageCanvas from '../components/ImageCanvas';
 import AnnotationList from '../components/AnnotationList';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { useAnnotationStore } from '../../../stores/annotationStore';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import AerialSceneSidebar from './AerialSceneSidebar';
 import AerialMosaicNavigator from './AerialMosaicNavigator';
 import { buildAerialScenes, findSceneByFileName } from './utils';
@@ -27,8 +28,11 @@ const AerialAnnotationPage: React.FC = () => {
     loadSampleByName,
   } = useDatasetStore();
   const reset = useAnnotationStore((s) => s.reset);
+  const modified = useAnnotationStore((s) => s.modified);
   const [activeSceneKey, setActiveSceneKey] = useState<string | null>(null);
   const [mosaicOpen, setMosaicOpen] = useState(false);
+
+  useUnsavedChangesGuard(modified);
 
   useEffect(() => {
     if (annotationId) {

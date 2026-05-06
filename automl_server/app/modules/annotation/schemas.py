@@ -65,6 +65,10 @@ class AnnotationRecordResponse(BaseModel):
     updated_at: datetime
 
 
+class AnnotationRecordBatchQuery(BaseModel):
+    sample_item_ids: List[int] = Field(default_factory=list)
+
+
 class AnnotationAssistRequest(BaseModel):
     sample_item_id: int
     pipeline_id: Optional[str] = None
