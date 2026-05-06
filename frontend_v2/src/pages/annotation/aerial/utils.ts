@@ -1,4 +1,5 @@
-import type { DatasetFile } from '../../../types';
+import type { SampleItem } from '../../../types';
+import { getSampleItemName } from '../../../utils/sampleItem';
 
 export interface AerialSceneTile {
   key: string;
@@ -6,7 +7,7 @@ export interface AerialSceneTile {
   row: number;
   col: number;
   index: number;
-  file: DatasetFile;
+  sample: SampleItem;
   parsed: boolean;
 }
 
@@ -46,11 +47,12 @@ export function parseAerialTileName(fileName: string) {
   };
 }
 
-export function buildAerialScenes(datasetFiles: DatasetFile[]): AerialScene[] {
+export function buildAerialScenes(sampleItems: SampleItem[]): AerialScene[] {
   const sceneMap = new Map<string, AerialScene>();
 
-  datasetFiles.forEach((file, index) => {
-    const parsed = parseAerialTileName(file.file_name);
+  sampleItems.forEach((sample, index) => {
+    const sampleName = getSampleItemName(sample);
+    const parsed = parseAerialTileName(sampleName);
     const sceneKey = parsed?.sceneKey ?? UNGROUPED_SCENE_KEY;
     const sceneLabel = parsed?.sceneLabel ?? '未分组文件';
 
@@ -68,12 +70,12 @@ export function buildAerialScenes(datasetFiles: DatasetFile[]): AerialScene[] {
     const scene = sceneMap.get(sceneKey)!;
     const fallbackRow = scene.tiles.length + 1;
     const tile: AerialSceneTile = {
-      key: `${sceneKey}:${file.id}`,
+      key: `${sceneKey}:${sample.id}`,
       sceneKey,
       row: parsed?.row ?? fallbackRow,
       col: parsed?.col ?? 1,
       index,
-      file,
+      sample,
       parsed: Boolean(parsed),
     };
     scene.tiles.push(tile);
@@ -93,7 +95,7 @@ export function buildAerialScenes(datasetFiles: DatasetFile[]): AerialScene[] {
       tiles: [...scene.tiles].sort((a, b) => {
         if (a.row !== b.row) return a.row - b.row;
         if (a.col !== b.col) return a.col - b.col;
-        return a.file.file_name.localeCompare(b.file.file_name);
+        return getSampleItemName(a.sample).localeCompare(getSampleItemName(b.sample));
       }),
       rows: Math.max(scene.rows, 1),
       cols: Math.max(scene.cols, 1),
@@ -111,7 +113,7 @@ export function findSceneByFileName(
 ): AerialScene | null {
   if (!fileName) return scenes[0] ?? null;
   for (const scene of scenes) {
-    if (scene.tiles.some((tile) => tile.file.file_name === fileName)) {
+    if (scene.tiles.some((tile) => getSampleItemName(tile.sample) === fileName)) {
       return scene;
     }
   }

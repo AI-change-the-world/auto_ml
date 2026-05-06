@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import ModelInferenceLog
+from app.utils.annotation_classes import parse_annotation_classes
 from app.utils.http_client import HttpClient
 from . import crud
 from .schemas import (
@@ -138,7 +139,7 @@ class DeployService:
                 "backend": "onnxruntime",
                 "device": data.device,
                 "version": data.version,
-                "class_names": self._parse_classes(getattr(model, "class_names", None)),
+                "class_names": parse_annotation_classes(getattr(model, "class_names", None)),
             }
 
             response = await self.http_client.post("/deploy", json=deploy_request)
@@ -251,17 +252,6 @@ class DeployService:
         if model_type in {"detection", "detection_bbox", None, ""}:
             return "detection_bbox"
         return str(model_type)
-
-    def _parse_classes(self, raw_classes: Optional[str]) -> list[str]:
-        if not raw_classes:
-            return []
-        try:
-            parsed = json.loads(raw_classes)
-            if isinstance(parsed, list):
-                return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:
-            pass
-        return [item.strip() for item in raw_classes.split(",") if item.strip()]
 
     async def get_deploy_status(self, db: AsyncSession, model_id: int) -> DeployStatusResponse:
         """获取部署状态"""

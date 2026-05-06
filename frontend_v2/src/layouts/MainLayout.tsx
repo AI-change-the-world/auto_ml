@@ -1,28 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  HomeOutlined,
-  SearchOutlined,
-  TagsOutlined,
-  ExperimentOutlined,
   CloudServerOutlined,
-  SettingOutlined,
-  QuestionCircleOutlined,
   DownOutlined,
-  RightOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
   EditOutlined,
+  ExperimentOutlined,
+  GlobalOutlined,
+  HomeOutlined,
+  MenuOutlined,
+  QuestionCircleOutlined,
+  SearchOutlined,
+  SettingOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { listAnnotations } from '../api/annotation';
-import { listTasks } from '../api/task';
 import { getDeploymentOverview } from '../api/deploy';
-import type { AnnotationProject, TaskResponse, DeploymentOverviewItem } from '../types';
+import { listTasks } from '../api/task';
+import {
+  ANNOTATIONS_CHANGED_EVENT,
+  TASKS_CHANGED_EVENT,
+} from '../utils/projectEvents';
+import type { AnnotationProject, DeploymentOverviewItem, TaskResponse } from '../types';
 
-/* ─── types ─── */
 interface NavItem {
   key: string;
   icon: React.ReactNode;
@@ -30,44 +32,56 @@ interface NavItem {
   children?: { key: string; label: string; icon?: React.ReactNode; badge?: string }[];
 }
 
-/* ─── component ─── */
-
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation('common');
 
-  // 动态加载标注项目列表
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
-  // 动态加载训练任务列表
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
-  // 动态加载部署列表
   const [deploymentProjects, setDeploymentProjects] = useState<DeploymentOverviewItem[]>([]);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    '/annotations': true,
+    '/tasks': true,
+    '/deploy': true,
+  });
+
+  const refreshAnnotations = useCallback(() => {
+    listAnnotations(1, 50).then((res) => {
+      setAnnotationProjects(res.items || []);
+    }).catch(() => { });
+  }, []);
+
+  const refreshTasks = useCallback(() => {
+    listTasks(1, 50).then((res) => {
+      setTaskProjects(res.items || []);
+    }).catch(() => { });
+  }, []);
+
   const refreshDeployments = useCallback(() => {
     getDeploymentOverview(true).then((res) => {
       setDeploymentProjects((res?.items || []).filter((item) => (
-        item.is_deployed
-        && item.runtime_status?.status === 'running'
+        item.is_deployed && item.runtime_status?.status === 'running'
       )));
     }).catch(() => { });
   }, []);
 
   useEffect(() => {
-    listAnnotations(1, 50).then((res) => {
-      setAnnotationProjects(res.items || []);
-    }).catch(() => { });
-    listTasks(1, 50).then((res) => {
-      setTaskProjects(res.items || []);
-    }).catch(() => { });
+    refreshAnnotations();
+    refreshTasks();
     refreshDeployments();
-  }, [location.pathname, refreshDeployments]); // 路由变化时刷新（如新建项目后返回）
+  }, [location.pathname, refreshAnnotations, refreshDeployments, refreshTasks]);
 
   useEffect(() => {
+    window.addEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
+    window.addEventListener(TASKS_CHANGED_EVENT, refreshTasks);
     window.addEventListener('automl:deployments-changed', refreshDeployments);
     return () => {
+      window.removeEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
+      window.removeEventListener(TASKS_CHANGED_EVENT, refreshTasks);
       window.removeEventListener('automl:deployments-changed', refreshDeployments);
     };
-  }, [refreshDeployments]);
+  }, [refreshAnnotations, refreshDeployments, refreshTasks]);
 
   const startTour = useCallback(() => {
     const driverObj = driver({
@@ -85,57 +99,49 @@ const MainLayout: React.FC = () => {
         {
           element: '[data-tour="nav-home"]',
           popover: {
-            title: '🏠 首页总览',
-            description: '这里显示平台概况：数据集、标注、模型等统计信息，快速了解项目状态',
+            title: '首页总览',
+            description: '这里显示平台概况：数据集、标注、模型等统计信息。',
             side: 'right', align: 'start',
           },
         },
         {
           element: '[data-tour="nav-browse"]',
           popover: {
-            title: '📂 数据集管理',
-            description: '上传图片、视频或文本数据集，支持 ZIP/TAR 批量导入。数据集是一切工作的基础',
+            title: '数据集管理',
+            description: '上传图片、视频或文本数据集，支持批量导入。',
             side: 'right', align: 'start',
           },
         },
         {
           element: '[data-tour="nav-annotation"]',
           popover: {
-            title: '🏷️ 图像标注',
-            description: '创建标注项目，支持 BBox、OBB旋转框和 Polygon 多边形标注。\n标注完成后可直接用于模型训练',
+            title: '标注项目',
+            description: '创建标注项目并进入工作台。',
             side: 'right', align: 'start',
           },
         },
         {
           element: '[data-tour="nav-training"]',
           popover: {
-            title: '🧪 模型训练',
-            description: '选择数据集和基础模型，一键启动训练任务。\n支持 YOLO 等主流目标检测模型',
+            title: '训练任务',
+            description: '选择数据集和模型，查看训练进度。',
             side: 'right', align: 'start',
           },
         },
         {
           element: '[data-tour="nav-deploy"]',
           popover: {
-            title: '☁️ 模型部署',
-            description: '将训练好的模型部署为在线服务，提供 REST API 接口进行推理调用',
+            title: '模型部署',
+            description: '查看在线部署与推理服务实例。',
             side: 'right', align: 'start',
           },
         },
         {
           element: '[data-tour="lang-toggle"]',
           popover: {
-            title: '🌐 语言切换',
-            description: '支持中文/English 双语切换，系统界面实时切换语言',
+            title: '语言切换',
+            description: '支持中文和 English 双语切换。',
             side: 'bottom', align: 'end',
-          },
-        },
-        {
-          element: '[data-tour="example-link"]',
-          popover: {
-            title: '💡 交互式示例',
-            description: '点击此处进入交互式标注演示，体验完整的目标检测标注工作流',
-            side: 'right', align: 'start',
           },
         },
       ],
@@ -157,7 +163,7 @@ const MainLayout: React.FC = () => {
       children: annotationProjects.map((p) => ({
         key: `/annotations/${p.id}/label`,
         label: p.name,
-        icon: <EditOutlined style={{ color: '#8b5cf6' }} />,
+        icon: <EditOutlined className="text-violet-500" />,
       })),
     },
     {
@@ -167,7 +173,7 @@ const MainLayout: React.FC = () => {
       children: taskProjects.map((task) => ({
         key: `/tasks/${task.id}`,
         label: `任务 #${task.id}`,
-        icon: <ExperimentOutlined style={{ color: '#ef4444' }} />,
+        icon: <ExperimentOutlined className="text-rose-500" />,
       })),
     },
     {
@@ -177,24 +183,12 @@ const MainLayout: React.FC = () => {
       children: deploymentProjects.map((item) => ({
         key: `/deploy/${item.model_id}`,
         label: item.model_name || `模型 #${item.model_id}`,
-        icon: <CloudServerOutlined style={{ color: item.runtime_status.healthy ? '#10b981' : '#f59e0b' }} />,
+        icon: <CloudServerOutlined className={item.runtime_status.healthy ? 'text-emerald-500' : 'text-amber-500'} />,
         badge: item.deployment_port ? `:${item.deployment_port}` : undefined,
       })),
     },
   ];
 
-  const bottomItems = [
-    { key: '/settings', icon: <SettingOutlined />, label: t('nav.settings') },
-    { key: '/example-dataset', icon: <QuestionCircleOutlined />, label: t('nav.help'), tour: 'example-link' },
-  ];
-  const [collapsed, setCollapsed] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    '/annotations': true,
-    '/tasks': true,
-    '/deploy': true,
-  });
-
-  // Auto-expand based on route
   useEffect(() => {
     for (const item of myProjectsNav) {
       if (location.pathname.startsWith(item.key)) {
@@ -205,452 +199,195 @@ const MainLayout: React.FC = () => {
 
   const isActive = (key: string) => {
     if (key === '/') return location.pathname === '/';
-    return location.pathname === key || location.pathname.startsWith(key + '/');
+    return location.pathname === key || location.pathname.startsWith(`${key}/`);
   };
 
-  const toggleExpand = (key: string) => {
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const sidebarWidth = collapsed ? 56 : 220;
-
-  const navItemStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: collapsed ? '8px 0' : '7px 12px',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontSize: 14,
-    color: active ? '#4f6ef7' : '#333',
-    background: active ? '#eef2ff' : 'transparent',
-    fontWeight: active ? 600 : 400,
-    transition: 'all 0.15s',
-    justifyContent: collapsed ? 'center' : undefined,
-    whiteSpace: 'nowrap' as const,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    marginBottom: 1,
-  });
+  const pageTitle = (() => {
+    if (location.pathname === '/') return t('nav.home');
+    if (location.pathname.startsWith('/datasets')) return t('nav.datasets');
+    if (location.pathname.startsWith('/annotations')) return t('nav.annotation');
+    if (location.pathname.startsWith('/tasks')) return t('nav.training');
+    if (location.pathname.startsWith('/deploy')) return t('nav.deploy');
+    if (location.pathname.startsWith('/settings')) return t('nav.settings');
+    return t('nav.home');
+  })();
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', background: '#fff' }}>
-      {/* ─── Sidebar ─── */}
-      <aside
-        style={{
-          width: sidebarWidth,
-          minWidth: sidebarWidth,
-          borderRight: '1px solid #eee',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-          background: '#fff',
-          transition: 'width 0.2s, min-width 0.2s',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Logo */}
+    <div className="flex h-screen overflow-hidden bg-[#f8fafc] text-slate-800 antialiased">
+      <aside className="relative z-10 flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
         <div
-          style={{
-            height: 52,
-            display: 'flex',
-            alignItems: 'center',
-            padding: collapsed ? '0 14px' : '0 16px',
-            cursor: 'pointer',
-            borderBottom: '1px solid #f5f5f5',
-            gap: 10,
-            justifyContent: collapsed ? 'center' : undefined,
-          }}
+          className="flex h-16 cursor-pointer items-center border-b border-slate-100 px-6"
           onClick={() => navigate('/')}
         >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #4f6ef7 0%, #7c3aed 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: 14,
-              flexShrink: 0,
-            }}
-          >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-lg font-bold text-white shadow-sm">
             A
           </div>
-          {!collapsed && (
-            <span style={{ fontWeight: 700, fontSize: 16, color: '#111', letterSpacing: -0.5 }}>
-              AutoML
-            </span>
-          )}
+          <span className="ml-3 text-lg font-bold tracking-tight text-slate-900">AutoML</span>
         </div>
 
-        {/* Search bar */}
-        {!collapsed && (
-          <div style={{ padding: '10px 12px 6px' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '7px 10px',
-                background: '#f7f7f8',
-                borderRadius: 8,
-                color: '#999',
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
-            >
-              <SearchOutlined style={{ fontSize: 12 }} />
-              <span>{t('nav.search')}</span>
-              <span
-                style={{
-                  marginLeft: 'auto',
-                  fontSize: 10,
-                  color: '#ccc',
-                  border: '1px solid #e5e5e5',
-                  borderRadius: 4,
-                  padding: '0 4px',
-                  lineHeight: '18px',
-                }}
-              >
-                Ctrl K
-              </span>
+        <div className="px-4 py-5">
+          <div className="relative group">
+            <SearchOutlined className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 transition-colors group-focus-within:text-indigo-500" />
+            <input
+              type="text"
+              readOnly
+              placeholder={t('nav.search')}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-12 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+              Ctrl K
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Top nav */}
-        <nav style={{ padding: '4px 8px', overflow: 'hidden' }}>
+        <nav className="flex-1 overflow-y-auto px-3">
           {[
-            { key: '/', icon: <HomeOutlined />, label: t('nav.home'), tour: 'nav-home' },
-            { key: '/datasets', icon: <SearchOutlined />, label: t('nav.browse'), tour: 'nav-browse' },
+            { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
+            { key: '/datasets', icon: <SearchOutlined className="text-[18px]" />, label: t('nav.browse'), tour: 'nav-browse' },
           ].map((item) => {
             const active = isActive(item.key);
             return (
-              <div
+              <button
                 key={item.key}
+                type="button"
                 data-tour={item.tour}
                 onClick={() => navigate(item.key)}
-                style={navItemStyle(active)}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.background = '#f7f7f8';
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.background = 'transparent';
-                }}
+                className={`group mb-1 flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`}
               >
-                <span style={{ fontSize: 16, display: 'flex', flexShrink: 0 }}>{item.icon}</span>
-                {!collapsed && <span>{item.label}</span>}
+                <span className={`mr-3 ${active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            );
+          })}
+
+          <div className="px-3 pb-2 pt-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('nav.myProjects')}</p>
+          </div>
+
+          {myProjectsNav.map((group) => {
+            const active = isActive(group.key);
+            const tourMap: Record<string, string> = {
+              '/annotations': 'nav-annotation',
+              '/tasks': 'nav-training',
+              '/deploy': 'nav-deploy',
+            };
+            return (
+              <div key={group.key} className="mt-2 space-y-1" data-tour={tourMap[group.key]}>
+                <button
+                  type="button"
+                  onClick={() => navigate(group.key)}
+                  className={`group flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+                    active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="mr-3 text-slate-400">{group.icon}</span>
+                  <span className="flex-1 font-medium">{group.label}</span>
+                  {group.children && group.children.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setExpanded((prev) => ({ ...prev, [group.key]: !prev[group.key] }));
+                      }}
+                      className="flex h-5 w-5 items-center justify-center text-[10px] text-slate-400"
+                    >
+                      <DownOutlined className={expanded[group.key] ? '' : '-rotate-90'} />
+                    </button>
+                  ) : null}
+                </button>
+
+                {group.children && group.children.length > 0 && expanded[group.key] ? (
+                  <div className="space-y-1">
+                    {group.children.map((child) => (
+                      <button
+                        key={child.key}
+                        type="button"
+                        onClick={() => navigate(child.key)}
+                        className="flex w-full items-center rounded-xl px-10 py-2 text-left text-xs text-slate-500 transition-colors hover:bg-slate-50"
+                      >
+                        <span className="mr-2 flex items-center">{child.icon}</span>
+                        <span className="flex-1 truncate">{child.label}</span>
+                        {child.badge ? <span className="text-[11px] text-slate-400">{child.badge}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {group.children && group.children.length === 0 ? (
+                  <p className="px-10 py-1 text-xs text-slate-400">
+                    {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
+                  </p>
+                ) : null}
               </div>
             );
           })}
         </nav>
 
-        {/* My Projects tree */}
-        {!collapsed && (
-          <div style={{ padding: '8px 8px 0' }}>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#999',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-                padding: '4px 12px 6px',
-              }}
+        <div className="space-y-1 border-t border-slate-100 p-4">
+          {[
+            { key: '/settings', icon: <SettingOutlined className="text-[16px]" />, label: t('nav.settings') },
+            { key: '/example-dataset', icon: <QuestionCircleOutlined className="text-[16px]" />, label: t('nav.help'), tour: 'example-link' },
+          ].map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              data-tour={item.tour}
+              onClick={() => navigate(item.key)}
+              className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition-colors hover:bg-slate-50"
             >
-              {t('nav.myProjects')}
-            </div>
+              <span className="mr-3 text-slate-400">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
 
-            {myProjectsNav.map((group) => {
-              const isExp = expanded[group.key] ?? false;
-              const groupActive = isActive(group.key);
-              const tourMap: Record<string, string> = {
-                '/annotations': 'nav-annotation', '/tasks': 'nav-training',
-                '/deploy': 'nav-deploy',
-              };
-              return (
-                <div key={group.key} data-tour={tourMap[group.key]}>
-                  {/* Group header */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '7px 12px',
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      fontSize: 14,
-                      color: groupActive ? '#4f6ef7' : '#333',
-                      fontWeight: groupActive ? 600 : 400,
-                      background: groupActive && !group.children?.length ? '#eef2ff' : 'transparent',
-                    }}
-                    onClick={() => {
-                      if (group.children && group.children.length > 0) {
-                        toggleExpand(group.key);
-                      }
-                      navigate(group.key);
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!groupActive) e.currentTarget.style.background = '#f7f7f8';
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!groupActive || (group.children && group.children.length > 0))
-                        e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <span style={{ fontSize: 15, display: 'flex', flexShrink: 0 }}>
-                      {group.icon}
-                    </span>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {group.label}
-                    </span>
-                    {group.children && group.children.length > 0 && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          color: '#bbb',
-                          display: 'flex',
-                          transition: 'transform 0.2s',
-                          transform: isExp ? 'rotate(0deg)' : 'rotate(-90deg)',
-                        }}
-                      >
-                        <DownOutlined />
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Children */}
-                  {group.children && group.children.length > 0 && (
-                    <div
-                      className="sidebar-tree-children"
-                      style={{ maxHeight: isExp ? Math.min(group.children.length, 10) * 40 : 0 }}
-                    >
-                      {group.children.map((child) => (
-                        <div
-                          key={child.key}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                            padding: '6px 12px 6px 36px',
-                            fontSize: 13,
-                            color: '#555',
-                            cursor: 'pointer',
-                            borderRadius: 6,
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#f7f7f8';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                          onClick={() => navigate(child.key)}
-                        >
-                          <span style={{ fontSize: 13, display: 'flex', flexShrink: 0 }}>
-                            {child.icon}
-                          </span>
-                          <span
-                            style={{
-                              flex: 1,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {child.label}
-                          </span>
-                          {child.badge && (
-                            <span style={{ fontSize: 11, color: '#bbb' }}>{child.badge}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Empty state */}
-                  {group.children && group.children.length === 0 && isExp && (
-                    <div
-                      style={{
-                        padding: '4px 12px 6px 36px',
-                        fontSize: 12,
-                        color: '#ccc',
-                      }}
-                    >
-                      {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* Bottom nav */}
-        <div style={{ borderTop: '1px solid #f5f5f5', padding: '6px 8px' }}>
-          {bottomItems.map((item) => {
-            const active = isActive(item.key);
-            return (
-              <div
-                key={item.key}
-                data-tour={item.tour}
-                onClick={() => {
-                  if (item.key === '/settings' || item.key === '/example-dataset') navigate(item.key);
-                }}
-                style={navItemStyle(active)}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.background = '#f7f7f8';
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <span style={{ fontSize: 15, display: 'flex', flexShrink: 0 }}>{item.icon}</span>
-                {!collapsed && <span>{item.label}</span>}
+          <div className="mt-4 flex cursor-pointer items-center justify-between px-2 pt-4 group">
+            <div className="flex items-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-sm font-semibold text-white shadow-sm ring-2 ring-white">
+                A
               </div>
-            );
-          })}
-        </div>
-
-        {/* User area */}
-        <div
-          style={{
-            borderTop: '1px solid #f5f5f5',
-            padding: collapsed ? '10px 8px' : '10px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            justifyContent: collapsed ? 'center' : undefined,
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #f97316, #ef4444)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 700,
-              flexShrink: 0,
-            }}
-          >
-            A
-          </div>
-          {!collapsed && (
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: '#111',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                AutoML
-              </div>
+              <span className="ml-3 text-sm font-medium text-slate-700 transition-colors group-hover:text-indigo-600">AutoML</span>
             </div>
-          )}
-          {!collapsed && (
-            <span
-              style={{ fontSize: 12, color: '#ccc', cursor: 'pointer', padding: 4, display: 'flex' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setCollapsed(true);
-              }}
-            >
-              <MenuFoldOutlined />
-            </span>
-          )}
+            <MenuOutlined className="text-sm text-slate-400" />
+          </div>
         </div>
       </aside>
 
-      {/* ─── Main Content ─── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Top bar */}
-        <header
-          style={{
-            height: 48,
-            borderBottom: '1px solid #f0f0f0',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 20px',
-            gap: 12,
-            flexShrink: 0,
-            background: '#fff',
-          }}
-        >
-          {collapsed && (
-            <MenuUnfoldOutlined
-              style={{ fontSize: 16, color: '#666', cursor: 'pointer' }}
-              onClick={() => setCollapsed(false)}
-            />
-          )}
-          <RightOutlined style={{ fontSize: 10, color: '#ddd' }} />
-          <span style={{ fontSize: 14, color: '#555', fontWeight: 500 }}>
-            {location.pathname === '/' && t('nav.home')}
-            {location.pathname.startsWith('/datasets') && t('nav.datasets')}
-            {location.pathname.startsWith('/annotations') && t('nav.annotation')}
-            {location.pathname.startsWith('/tasks') && t('nav.training')}
-            {location.pathname.startsWith('/deploy') && t('nav.deploy')}
-            {location.pathname.startsWith('/settings') && t('nav.settings')}
-          </span>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <main className="relative flex h-full flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-8 backdrop-blur-md">
+          <div className="flex items-center text-sm">
+            <span className="mr-2 text-slate-400">›</span>
+            <span className="font-medium text-slate-600">{pageTitle}</span>
+          </div>
+          <div className="flex items-center space-x-4">
             <button
+              type="button"
               onClick={startTour}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 32, height: 32, borderRadius: '50%',
-                border: '1px solid #e5e7eb', background: '#f9fafb',
-                color: '#666', fontSize: 14, cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#4f6ef7'; e.currentTarget.style.color = '#4f6ef7'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#666'; }}
-              title="新手引导"
+              className="text-slate-400 transition-colors hover:text-slate-600"
             >
-              <QuestionCircleOutlined />
+              <QuestionCircleOutlined className="text-lg" />
             </button>
             <button
+              type="button"
               data-tour="lang-toggle"
               onClick={toggleLanguage}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '4px 12px',
-                border: '1px solid #e5e7eb',
-                borderRadius: 6,
-                background: '#f9fafb',
-                color: '#374151',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.borderColor = '#4f6ef7'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+              className="flex items-center space-x-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
             >
-              🌐 {i18n.language === 'en' ? '中文' : 'English'}
+              <GlobalOutlined className="text-sm text-indigo-500" />
+              <span>{i18n.language === 'en' ? '中文' : 'English'}</span>
             </button>
           </div>
         </header>
 
-        <main style={{ flex: 1, overflow: 'auto', background: '#fafafa' }}>
+        <div className="flex-1 overflow-y-auto">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

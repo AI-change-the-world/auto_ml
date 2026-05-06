@@ -3,21 +3,22 @@ import { List, Typography, Spin, Empty } from 'antd';
 import { FileImageOutlined } from '@ant-design/icons';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { useAnnotationStore } from '../../../stores/annotationStore';
+import { getSampleItemName } from '../../../utils/sampleItem';
 
 const { Text } = Typography;
 
 const FileList: React.FC = () => {
-  const { datasetFiles, currentFileIndex, loadFileAtIndex, loading } = useDatasetStore();
+  const { sampleItems, currentSampleIndex, loadSampleAtIndex, loading } = useDatasetStore();
   const { modified } = useAnnotationStore();
   const { saveCurrentAnnotation } = useDatasetStore();
 
   const handleClick = async (index: number) => {
-    if (index === currentFileIndex) return;
+    if (index === currentSampleIndex) return;
     // 自动保存
     if (modified) {
       await saveCurrentAnnotation();
     }
-    await loadFileAtIndex(index);
+    await loadSampleAtIndex(index);
   };
 
   return (
@@ -25,23 +26,24 @@ const FileList: React.FC = () => {
       <div style={{ padding: '8px 12px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontWeight: 600 }}>文件列表</span>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {datasetFiles.length > 0 ? `${currentFileIndex + 1}/${datasetFiles.length}` : '0/0'}
+          {sampleItems.length > 0 ? `${currentSampleIndex + 1}/${sampleItems.length}` : '0/0'}
         </Text>
       </div>
 
       <div style={{ flex: 1, overflow: 'auto' }}>
-        {loading && datasetFiles.length === 0 ? (
+        {loading && sampleItems.length === 0 ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <Spin />
           </div>
-        ) : datasetFiles.length === 0 ? (
+        ) : sampleItems.length === 0 ? (
           <Empty description="暂无文件" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ marginTop: 40 }} />
         ) : (
           <List
             size="small"
-            dataSource={datasetFiles}
+            dataSource={sampleItems}
             renderItem={(item, index) => {
-              const isActive = index === currentFileIndex;
+              const sampleName = getSampleItemName(item);
+              const isActive = index === currentSampleIndex;
               return (
                 <List.Item
                   key={item.id}
@@ -56,7 +58,7 @@ const FileList: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
                     <FileImageOutlined style={{ color: isActive ? '#1890ff' : '#999', flexShrink: 0 }} />
                     <Text
-                      ellipsis={{ tooltip: item.file_name }}
+                      ellipsis={{ tooltip: sampleName }}
                       style={{
                         fontSize: 12,
                         color: isActive ? '#1890ff' : undefined,
@@ -64,7 +66,7 @@ const FileList: React.FC = () => {
                         minWidth: 0,
                       }}
                     >
-                      {item.file_name}
+                      {sampleName}
                     </Text>
                   </div>
                 </List.Item>

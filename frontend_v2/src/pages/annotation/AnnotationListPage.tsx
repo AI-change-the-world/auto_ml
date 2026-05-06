@@ -15,7 +15,9 @@ import {
   isMllmConversationDataset,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
-import AnnotationProjectCard, { parseAnnotationClasses, renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
+import AnnotationProjectCard, { renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
+import { parseAnnotationClasses, serializeAnnotationClasses } from '../../utils/annotationClasses';
+import { emitAnnotationsChanged } from '../../utils/projectEvents';
 
 const isImageDataset = (dataset?: Dataset) => dataset?.data_type === 0;
 const isTextDataset = (dataset?: Dataset) => dataset?.data_type === 1;
@@ -84,9 +86,8 @@ const AnnotationListPage: React.FC = () => {
   };
 
   const handleClassesImport = () => {
-    const text = classesImportText.trim();
-    if (!text) return;
-    const items = text.split(/[;；,，\n]+/).map((s) => s.trim()).filter(Boolean);
+    const items = parseAnnotationClasses(classesImportText);
+    if (items.length === 0) return;
     const existing = new Set(classesEditList);
     const merged = [...classesEditList];
     for (const item of items) {
@@ -102,7 +103,7 @@ const AnnotationListPage: React.FC = () => {
   const handleClassesSave = async () => {
     if (classesEditId === null) return;
     try {
-      await updateAnnotation(classesEditId, { classes: JSON.stringify(classesEditList) });
+      await updateAnnotation(classesEditId, { classes: serializeAnnotationClasses(classesEditList) });
       message.success('类别已保存');
       setClassesModalOpen(false);
       fetch(); // 刷新列表
@@ -134,6 +135,10 @@ const AnnotationListPage: React.FC = () => {
     if (!formData.name.trim()) { message.warning(tc('msg.pleaseInputName')); return; }
     const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
     const selectedType = annotationTypeRegistry[formData.annotation_type ?? AnnotationType.Detection];
+    if (!selectedDataset) {
+      message.warning(tc('msg.pleaseSelectDataset'));
+      return;
+    }
     if (formData.annotation_type === AnnotationType.LLM && selectedDataset && !isLlmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
       message.warning('LLM 标注项目只能绑定 LLM 对话数据集');
       return;
@@ -144,9 +149,12 @@ const AnnotationListPage: React.FC = () => {
     }
     setCreating(true);
     try {
-      const payload = selectedType?.supportsClasses ? formData : { ...formData, classes: undefined };
+      const payload = selectedType?.supportsClasses
+        ? { ...formData, classes: serializeAnnotationClasses(formData.classes) }
+        : { ...formData, classes: undefined };
       await createAnnotation(payload);
       message.success(tc('msg.createSuccess'));
+      emitAnnotationsChanged();
       setCreateOpen(false);
       setFormData({ name: '', annotation_type: 0 });
       fetch();
@@ -158,7 +166,12 @@ const AnnotationListPage: React.FC = () => {
     e.stopPropagation();
     Modal.confirm({
       title: t('deleteTitle'), content: tc('msg.confirmDelete'), okButtonProps: { danger: true },
-      onOk: async () => { await deleteAnnotation(id); message.success(tc('msg.deleted')); fetch(); },
+      onOk: async () => {
+        await deleteAnnotation(id);
+        emitAnnotationsChanged();
+        message.success(tc('msg.deleted'));
+        fetch();
+      },
     });
   };
 

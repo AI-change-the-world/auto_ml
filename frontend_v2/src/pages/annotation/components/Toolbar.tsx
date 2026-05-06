@@ -32,7 +32,7 @@ const Toolbar: React.FC = () => {
     selectedUuid, deleteSelected, undo, redo, _history, _future,
     classes, setAnnotations, addAnnotation, addOrGetClassId,
   } = useAnnotationStore();
-  const { nextFile, prevFile, saveCurrentAnnotation, currentFileIndex, datasetFiles, loading, annotationProject } = useDatasetStore();
+  const { nextSample, prevSample, saveCurrentAnnotation, currentSampleIndex, sampleItems, loading, annotationProject } = useDatasetStore();
   const setDatasetState = useDatasetStore.setState;
   const [assistPipelines, setAssistPipelines] = React.useState<AnnotationAssistPipeline[]>([]);
   const [assistPipelineId, setAssistPipelineId] = React.useState<string | undefined>(undefined);
@@ -129,7 +129,7 @@ const Toolbar: React.FC = () => {
       message.warning('未加载标注项目');
       return;
     }
-    if (currentFileIndex < 0 || currentFileIndex >= datasetFiles.length) {
+    if (currentSampleIndex < 0 || currentSampleIndex >= sampleItems.length) {
       message.warning('未选择图片');
       return;
     }
@@ -142,10 +142,10 @@ const Toolbar: React.FC = () => {
       return;
     }
 
-    const currentFile = datasetFiles[currentFileIndex];
+    const currentSample = sampleItems[currentSampleIndex];
     try {
       const result = await assistCurrentAnnotation(annotationProject.id, {
-        file_name: currentFile.file_name,
+        sample_item_id: currentSample.id,
         pipeline_id: assistPipelineId,
         shape: currentShape,
         target_classes: classes,
@@ -338,21 +338,21 @@ const Toolbar: React.FC = () => {
         <Tooltip title="上一张 (Q)">
           <Button
             icon={<LeftOutlined />}
-            onClick={prevFile}
-            disabled={currentFileIndex <= 0 || loading}
+            onClick={prevSample}
+            disabled={currentSampleIndex <= 0 || loading}
             size="small"
           />
         </Tooltip>
 
         <span style={{ fontSize: 13, minWidth: 60, textAlign: 'center', display: 'inline-block' }}>
-          {datasetFiles.length > 0 ? `${currentFileIndex + 1} / ${datasetFiles.length}` : '-'}
+          {sampleItems.length > 0 ? `${currentSampleIndex + 1} / ${sampleItems.length}` : '-'}
         </span>
 
         <Tooltip title="下一张 (E)">
           <Button
             icon={<RightOutlined />}
-            onClick={nextFile}
-            disabled={currentFileIndex >= datasetFiles.length - 1 || loading}
+            onClick={nextSample}
+            disabled={currentSampleIndex >= sampleItems.length - 1 || loading}
             size="small"
           />
         </Tooltip>

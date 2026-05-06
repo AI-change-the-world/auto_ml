@@ -8,11 +8,11 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationRecordResponse,
+    AnnotationRecordSave,
     AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
     AnnotationResponse,
-    AnnotationFileResponse,
-    AnnotationFileSave,
 )
 from .service import get_annotation_service, AnnotationService
 
@@ -79,15 +79,27 @@ async def delete_annotation(
     return Result.ok(message="Annotation deleted successfully")
 
 
-@router.post("/{annotation_id}/file", response_model=Result[int], summary="保存标注文件")
-async def save_annotation_file(
+@router.get("/{annotation_id}/records", response_model=Result[PageResult[AnnotationRecordResponse]], summary="获取标注记录")
+async def list_annotation_records(
     annotation_id: int,
-    data: AnnotationFileSave,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     service: AnnotationService = Depends(get_annotation_service),
 ):
-    file_id = await service.save_annotation_file(db, annotation_id, data)
-    return Result.ok(file_id, "Annotation file saved")
+    records, total = await service.list_annotation_records(db, annotation_id, page, page_size)
+    return Result.ok(PageResult.create(records, total, page, page_size))
+
+
+@router.post("/{annotation_id}/records", response_model=Result[AnnotationRecordResponse], summary="保存标注记录")
+async def save_annotation_record(
+    annotation_id: int,
+    data: AnnotationRecordSave,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    record = await service.save_annotation_record(db, annotation_id, data)
+    return Result.ok(record, "Annotation record saved")
 
 
 @router.post("/{annotation_id}/assist/current", response_model=Result[AnnotationAssistResponse], summary="辅助标注当前图片")
@@ -110,16 +122,3 @@ async def list_assist_pipelines(
 ):
     result = await service.list_assist_pipelines(db, annotation_id, shape=shape)
     return Result.ok(result)
-
-
-@router.get("/{annotation_id}/files", response_model=Result[PageResult[AnnotationFileResponse]], summary="获取标注文件列表")
-async def get_annotation_files(
-    annotation_id: int,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
-    service: AnnotationService = Depends(get_annotation_service),
-):
-    files, total = await service.get_files(db, annotation_id, page, page_size)
-    items = [AnnotationFileResponse.model_validate(f) for f in files]
-    return Result.ok(PageResult.create(items, total, page, page_size))

@@ -8,10 +8,11 @@ export interface PreviewState {
 }
 
 export interface ConversationFileRow {
+  sampleItemId: number;
   fileName: string;
   messageCount: number;
   dirty: boolean;
   source: 'dataset' | 'manual';
 }
 
-export type ConversationEntriesByFile = Record<string, ConversationAnnotationEntry>;
+export type ConversationEntriesBySample = Record<number, ConversationAnnotationEntry>;

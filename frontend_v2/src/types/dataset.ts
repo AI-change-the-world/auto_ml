@@ -62,6 +62,45 @@ export interface Dataset {
   updated_at: string;
 }
 
+export interface Asset {
+  id: number;
+  dataset_id: number;
+  asset_type: string;
+  file_name: string;
+  save_path: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  meta_json: string | null;
+  created_at: string;
+}
+
+export interface SampleItem {
+  id: number;
+  dataset_id: number;
+  asset_id: number | null;
+  item_type: string;
+  item_key: string;
+  locator: Record<string, unknown> | null;
+  payload: Record<string, unknown> | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  asset?: Asset | null;
+}
+
+export interface SampleItemCreate {
+  item_type: string;
+  item_key: string;
+  locator?: Record<string, unknown> | null;
+  payload?: Record<string, unknown> | null;
+}
+
+export interface SampleItemUpdate {
+  item_key?: string;
+  locator?: Record<string, unknown> | null;
+  payload?: Record<string, unknown> | null;
+}
+
 export const DataTypeLabels: Record<number, string> = {
   0: '图像',
   1: '文本',
@@ -189,15 +228,6 @@ export function isLlmConversationDataset(dataType: number, scenarioType: number)
 
 export function isMllmConversationDataset(dataType: number, scenarioType: number): boolean {
   return dataType === 0 && scenarioType === DatasetScenarioType.MLLMConversation;
-}
-
-/** 数据集文件响应 */
-export interface DatasetFile {
-  id: number;
-  dataset_id: number;
-  file_name: string;
-  save_path: string | null;
-  created_at: string;
 }
 
 /** 文件预览响应 */

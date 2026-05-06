@@ -10,6 +10,7 @@ import {
 } from '../../../types';
 import type { Annotation, BBoxAnnotation, PolygonAnnotation, OBBAnnotation, Point } from '../../../types';
 import { parseYoloAnnotations } from '../../../utils/yolo';
+import { getRecordLabelText } from '../../../utils/annotationRecordContent';
 
 const MIN_BOX_SIZE = 5;
 const VERTEX_RADIUS = 4;
@@ -149,7 +150,7 @@ const ImageCanvas: React.FC = () => {
     updateAnnotation, setImageSize, changeMode,
   } = useAnnotationStore();
 
-  const { currentImageUrl, annotationFiles, datasetFiles, currentFileIndex, annotationProject } = useDatasetStore();
+  const { currentImageUrl, annotationRecords, sampleItems, currentSampleIndex, annotationProject } = useDatasetStore();
   const setAnnotations = useAnnotationStore((s) => s.setAnnotations);
   const undo = useAnnotationStore((s) => s.undo);
   const redo = useAnnotationStore((s) => s.redo);
@@ -214,12 +215,12 @@ const ImageCanvas: React.FC = () => {
   useEffect(() => {
     if (!image || isClassification || isPose) return;
     let hasExistingAnnotations = false;
-    if (datasetFiles.length > 0 && currentFileIndex >= 0) {
-      const file = datasetFiles[currentFileIndex];
-      const labelFileName = file.file_name.replace(/\.[^.]+$/, '.txt');
-      const annotationFile = annotationFiles.find((f) => f.file_name === labelFileName);
-      if (annotationFile?.content) {
-        const parsed = parseYoloAnnotations(annotationFile.content, image.naturalWidth, image.naturalHeight);
+    if (sampleItems.length > 0 && currentSampleIndex >= 0) {
+      const sample = sampleItems[currentSampleIndex];
+      const annotationRecord = annotationRecords.find((record) => record.sample_item_id === sample.id);
+      const labelText = getRecordLabelText(annotationRecord?.content);
+      if (labelText) {
+        const parsed = parseYoloAnnotations(labelText, image.naturalWidth, image.naturalHeight);
         setAnnotations(parsed);
         hasExistingAnnotations = parsed.length > 0;
       }
@@ -229,9 +230,9 @@ const ImageCanvas: React.FC = () => {
     }
   }, [
     image,
-    annotationFiles,
-    datasetFiles,
-    currentFileIndex,
+    annotationRecords,
+    sampleItems,
+    currentSampleIndex,
     isClassification,
     isPose,
     setAnnotations,

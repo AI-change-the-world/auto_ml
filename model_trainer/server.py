@@ -36,19 +36,43 @@ consumer_ready_event = threading.Event()
 consumer_last_error: Optional[Exception] = None
 
 
+class TrainingAsset(BaseModel):
+    id: Optional[int] = None
+    asset_type: Optional[str] = None
+    file_name: str
+    save_path: str
+    mime_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    meta: Optional[Dict[str, Any]] = None
+
+
+class TrainingAnnotationRecord(BaseModel):
+    id: Optional[int] = None
+    annotation_type: int
+    status: Optional[str] = None
+    content: Dict[str, Any] = Field(default_factory=dict)
+
+
+class TrainingSample(BaseModel):
+    sample_item_id: int
+    item_key: str
+    item_type: str
+    locator: Optional[Dict[str, Any]] = None
+    payload: Optional[Dict[str, Any]] = None
+    asset: TrainingAsset
+    annotation: TrainingAnnotationRecord
+
+
 class TrainingTask(BaseModel):
     class TrainingSource(BaseModel):
         dataset_id: int
         annotation_id: int
-        dataset_path: str
-        annotation_path: str
         source_order: int = 0
         source_name: Optional[str] = None
+        samples: List[TrainingSample] = Field(default_factory=list)
 
     task_id: int
     task_type: str
-    dataset_path: str
-    annotation_path: str
     sources: List[TrainingSource] = Field(default_factory=list)
     classes: Optional[List[str]] = None
     task_config: Dict[str, Any] = Field(default_factory=dict)
@@ -236,8 +260,6 @@ class TrainingDispatcher:
                 raise ValueError("classes is required for detection task")
             run_detection_task(
                 task_id=task.task_id,
-                dataset_path=task.dataset_path,
-                annotation_path=task.annotation_path,
                 sources=[source.model_dump() for source in task.sources],
                 classes=task.classes,
                 task_config=task.task_config,
@@ -248,8 +270,6 @@ class TrainingDispatcher:
         if task.task_type == "classification":
             run_classification_task(
                 task_id=task.task_id,
-                dataset_path=task.dataset_path,
-                annotation_path=task.annotation_path,
                 sources=[source.model_dump() for source in task.sources],
                 task_config=task.task_config,
                 cancel_event=cancel_event,
@@ -261,8 +281,6 @@ class TrainingDispatcher:
                 raise ValueError("classes is required for segmentation task")
             run_segmentation_task(
                 task_id=task.task_id,
-                dataset_path=task.dataset_path,
-                annotation_path=task.annotation_path,
                 sources=[source.model_dump() for source in task.sources],
                 classes=task.classes,
                 task_config=task.task_config,
@@ -414,22 +432,26 @@ def start_mq_consumer():
     """
     启动 MQ 消费者，从队列接收训练任务
 
-    消息格式:
-    {
-        "task_type": "detection" | "classification",
-        "task_id": 1,
-        "dataset_path": "...",
-        "annotation_path": "...",
-        "sources": [
-            {
-                "dataset_id": 1,
-                "annotation_id": 1,
-                "dataset_path": "...",
-                "annotation_path": "...",
-                "source_order": 0,
-                "source_name": "..."
-            }
-        ],
+	    消息格式:
+	    {
+	        "task_type": "detection" | "classification",
+	        "task_id": 1,
+	        "sources": [
+	            {
+	                "dataset_id": 1,
+	                "annotation_id": 1,
+	                "source_order": 0,
+	                "source_name": "...",
+	                "samples": [
+	                    {
+	                        "sample_item_id": 1,
+	                        "item_key": "image.jpg",
+	                        "asset": {"file_name": "image.jpg", "save_path": "datasets/.../image.jpg"},
+	                        "annotation": {"content": {"format": "yolo", "label_text": "..."}}
+	                    }
+	                ]
+	            }
+	        ],
         "classes": [...],  // detection only
         "task_config": {...}
     }

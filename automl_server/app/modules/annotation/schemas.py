@@ -1,6 +1,6 @@
 """标注 Schema"""
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -48,25 +48,25 @@ class AnnotationTypeDefinitionResponse(BaseModel):
     supports_classes: bool
 
 
-class AnnotationFileResponse(BaseModel):
+class AnnotationRecordSave(BaseModel):
+    sample_item_id: int
+    content: dict[str, Any] = Field(default_factory=dict)
+    status: str = "saved"
+
+
+class AnnotationRecordResponse(BaseModel):
     id: int
     annotation_id: int
-    file_name: str
-    save_path: Optional[str]
-    content: Optional[str]
+    sample_item_id: int
+    annotation_type: int
+    status: str
+    content: Optional[dict[str, Any]] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class AnnotationFileSave(BaseModel):
-    file_name: str
-    content: str
+    updated_at: datetime
 
 
 class AnnotationAssistRequest(BaseModel):
-    file_name: str
+    sample_item_id: int
     pipeline_id: Optional[str] = None
     shape: str = "bbox"
     target_classes: Optional[List[str]] = None
@@ -91,7 +91,8 @@ class AnnotationAssistItem(BaseModel):
 
 
 class AnnotationAssistResponse(BaseModel):
-    file_name: str
+    sample_item_id: int
+    item_key: str
     image_width: int
     image_height: int
     annotations: List[AnnotationAssistItem]

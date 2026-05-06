@@ -7,11 +7,17 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException, AppException
-from app.common.constants import TaskStatus, TaskType, AnnotationType
+from app.common.constants import TaskStatus, TaskType, AnnotationType, DataType
 from app.config.settings import get_settings
-from app.db.models import Dataset, Annotation
+from app.db.models import Dataset, Annotation, Asset, SampleItem, AnnotationRecord
 from app.mq.publisher import get_publisher
+from app.utils.annotation_classes import parse_annotation_classes
+from app.utils.annotation_record_storage import (
+    is_annotation_record_storage_path,
+    parse_annotation_record_payload,
+)
 from app.utils.http_client import HttpClient
+from app.utils.s3_delegate import get_s3_delegate
 from . import crud
 from .schemas import (
     TaskCreate,
@@ -28,6 +34,7 @@ DEFAULT_STALE_TIMEOUT_SECONDS = 2 * 60 * 60
 
 class TaskService:
     def __init__(self):
+        self.s3 = get_s3_delegate()
         self._publisher = None
         self._trainer_client = None
         self._trainer_client_base_url = None
@@ -104,17 +111,7 @@ class TaskService:
         if not isinstance(config, dict):
             raise BadRequestException("config must be a JSON object")
         classes = primary_source["classes"]
-        serialized_sources = [
-            {
-                "dataset_id": source["dataset_id"],
-                "annotation_id": source["annotation_id"],
-                "dataset_path": source["dataset_path"],
-                "annotation_path": source["annotation_path"],
-                "source_order": source["source_order"],
-                "source_name": source["source_name"],
-            }
-            for source in resolved_sources
-        ]
+        serialized_sources = [self._serialize_training_source(source) for source in resolved_sources]
         train_request = {
             "task_id": task.id,
             "task_type": (
@@ -124,8 +121,6 @@ class TaskService:
                 if data.task_type == TaskType.CLASSIFICATION
                 else "segmentation"
             ),
-            "dataset_path": primary_source["dataset_path"],
-            "annotation_path": primary_source["annotation_path"],
             "sources": serialized_sources,
             "classes": classes,
             "task_config": {
@@ -133,6 +128,7 @@ class TaskService:
                 "dataset_id": primary_source["dataset_id"],
                 "annotation_id": primary_source["annotation_id"],
                 "source_count": len(serialized_sources),
+                "sample_count": sum(len(source["samples"]) for source in resolved_sources),
                 "classes": classes,
             },
         }
@@ -223,17 +219,6 @@ class TaskService:
                 message=str(e),
             )
 
-    def _parse_classes(self, raw_classes: Optional[str]) -> List[str]:
-        if not raw_classes:
-            return []
-        try:
-            parsed = json.loads(raw_classes)
-            if isinstance(parsed, list):
-                return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:
-            pass
-        return [item.strip() for item in raw_classes.split(",") if item.strip()]
-
     async def _resolve_and_validate_sources(self, db: AsyncSession, data: TaskCreate) -> list[dict[str, Any]]:
         raw_sources = data.sources or []
         if not raw_sources:
@@ -276,36 +261,170 @@ class TaskService:
             if not annotation:
                 raise NotFoundException(f"Annotation {annotation_id} not found")
 
-            if not dataset.save_path:
-                raise BadRequestException(f"dataset save_path is empty: dataset_id={dataset_id}")
-            if not annotation.save_path:
-                raise BadRequestException(f"annotation save_path is empty: annotation_id={annotation_id}")
+            if dataset.data_type != DataType.IMAGE:
+                raise BadRequestException(f"training source dataset {dataset_id} must be an image dataset")
+            if annotation.dataset_id and annotation.dataset_id != dataset_id:
+                raise BadRequestException(
+                    f"annotation {annotation_id} is bound to dataset {annotation.dataset_id}, not {dataset_id}"
+                )
             if annotation.annotation_type != expected_annotation_type:
                 raise BadRequestException(
                     f"annotation {annotation_id} type mismatch: expected {int(expected_annotation_type)}, got {annotation.annotation_type}"
                 )
 
-            classes = self._parse_classes(annotation.classes)
-            if data.task_type in {TaskType.DETECTION, TaskType.SEGMENTATION} and not classes:
+            classes = parse_annotation_classes(annotation.classes)
+            if data.task_type in {TaskType.DETECTION, TaskType.CLASSIFICATION, TaskType.SEGMENTATION} and not classes:
                 raise BadRequestException(f"annotation {annotation_id} classes is empty")
             if normalized_classes is None:
                 normalized_classes = classes
             elif classes != normalized_classes:
                 raise BadRequestException("all sources must share the same normalized classes")
 
+            samples = await self._build_training_samples(db, dataset_id, annotation_id)
+            if not samples:
+                raise BadRequestException(
+                    f"training source dataset_id={dataset_id}, annotation_id={annotation_id} has no asset-backed annotated samples"
+                )
+
             resolved_sources.append({
                 "dataset_id": dataset_id,
                 "annotation_id": annotation_id,
-                "dataset_path": dataset.save_path,
-                "annotation_path": annotation.save_path,
                 "classes": classes,
                 "source_order": index,
                 "source_name": f"{dataset.name} / {annotation.name}",
+                "samples": samples,
             })
 
         if not resolved_sources:
             raise BadRequestException("at least one training source is required")
         return resolved_sources
+
+    async def _build_training_samples(
+        self,
+        db: AsyncSession,
+        dataset_id: int,
+        annotation_id: int,
+    ) -> list[dict[str, Any]]:
+        sample_result = await db.execute(
+            select(SampleItem)
+            .where(
+                SampleItem.dataset_id == dataset_id,
+                SampleItem.is_deleted == False,
+            )
+            .order_by(SampleItem.sort_order.asc(), SampleItem.created_at.asc(), SampleItem.id.asc())
+        )
+        sample_items = list(sample_result.scalars().all())
+        if not sample_items:
+            return []
+
+        record_result = await db.execute(
+            select(AnnotationRecord).where(
+                AnnotationRecord.annotation_id == annotation_id,
+                AnnotationRecord.is_deleted == False,
+            )
+        )
+        record_map = {
+            record.sample_item_id: record
+            for record in record_result.scalars().all()
+        }
+        asset_ids = sorted({
+            int(item.asset_id)
+            for item in sample_items
+            if item.asset_id
+        })
+        asset_map: dict[int, Asset] = {}
+        if asset_ids:
+            asset_result = await db.execute(
+                select(Asset).where(
+                    Asset.id.in_(asset_ids),
+                    Asset.is_deleted == False,
+                )
+            )
+            asset_map = {asset.id: asset for asset in asset_result.scalars().all()}
+
+        prepared_samples: list[tuple[SampleItem, AnnotationRecord, Asset]] = []
+        for item in sample_items:
+            record = record_map.get(item.id)
+            if not record:
+                continue
+            asset = asset_map.get(item.asset_id) if item.asset_id else None
+            if not asset or not asset.save_path:
+                continue
+            prepared_samples.append((item, record, asset))
+
+        if not prepared_samples:
+            return []
+
+        record_contents = await asyncio.gather(
+            *(
+                self._load_record_content(record.annotation_type, record.content)
+                for _, record, _ in prepared_samples
+            )
+        )
+
+        samples: list[dict[str, Any]] = []
+        for (item, record, asset), content in zip(prepared_samples, record_contents):
+            samples.append({
+                "sample_item_id": item.id,
+                "item_key": item.item_key,
+                "item_type": item.item_type,
+                "locator": self._load_json_object(item.locator),
+                "payload": self._load_json_object(item.payload),
+                "asset": {
+                    "id": asset.id,
+                    "asset_type": asset.asset_type,
+                    "file_name": asset.file_name,
+                    "save_path": asset.save_path,
+                    "mime_type": asset.mime_type,
+                    "size_bytes": asset.size_bytes,
+                    "meta": self._load_json_object(asset.meta_json),
+                },
+                "annotation": {
+                    "id": record.id,
+                    "annotation_type": record.annotation_type,
+                    "status": record.status,
+                    "content": content,
+                },
+            })
+        return samples
+
+    def _serialize_training_source(self, source: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "dataset_id": source["dataset_id"],
+            "annotation_id": source["annotation_id"],
+            "source_order": source["source_order"],
+            "source_name": source["source_name"],
+            "samples": source["samples"],
+        }
+
+    def _load_json_object(self, raw_value: Any) -> Optional[dict[str, Any]]:
+        if not raw_value:
+            return None
+        if isinstance(raw_value, dict):
+            return raw_value
+        try:
+            parsed = json.loads(raw_value)
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    async def _load_record_content(
+        self,
+        annotation_type: int,
+        content_path: Any,
+    ) -> dict[str, Any]:
+        if not is_annotation_record_storage_path(content_path):
+            return {}
+        try:
+            payload = await self.s3.get_file(content_path, bucket_type="annotations")
+        except Exception as e:
+            logger.warning(f"Failed to load annotation record content from {content_path}: {e}")
+            return {}
+        return parse_annotation_record_payload(
+            annotation_type,
+            payload,
+            source_path=content_path,
+        )
 
     async def _cancel_trainer_task(self, task_id: int):
         try:

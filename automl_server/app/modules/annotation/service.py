@@ -2,6 +2,7 @@
 import asyncio
 import json
 import mimetypes
+from datetime import datetime
 from typing import Any
 import uuid
 from typing import List, Optional
@@ -17,9 +18,16 @@ from app.common.constants import (
 )
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
-from app.db.models import DatasetFile
+from app.db.models import SampleItem
 from app.modules.dataset import crud as dataset_crud
 from app.mq.rpc_client import get_assist_rpc_client
+from app.utils.annotation_classes import parse_annotation_classes, serialize_annotation_classes
+from app.utils.annotation_record_storage import (
+    build_annotation_record_object_key,
+    is_annotation_record_storage_path,
+    parse_annotation_record_payload,
+    serialize_annotation_record_payload,
+)
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
 from .schemas import (
@@ -27,10 +35,11 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationRecordResponse,
+    AnnotationRecordSave,
     AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
     AnnotationResponse,
-    AnnotationFileSave,
 )
 
 
@@ -56,6 +65,7 @@ class AnnotationService:
 
     async def create_annotation(self, db: AsyncSession, data: AnnotationCreate) -> AnnotationResponse:
         await self._validate_annotation_dataset_link(db, data.annotation_type, data.dataset_id)
+        type_definition = get_annotation_type_definition(data.annotation_type)
 
         ann_uuid = str(uuid.uuid4())
         save_path = f"annotations/{ann_uuid}"
@@ -69,13 +79,14 @@ class AnnotationService:
             db,
             name=data.name,
             annotation_type=data.annotation_type,
-            classes=data.classes,
+            classes=serialize_annotation_classes(data.classes) if type_definition and type_definition.supports_classes else None,
             storage_type=data.storage_type,
             save_path=save_path,
             prompt=data.prompt,
             assist_pipeline=data.assist_pipeline,
             dataset_id=data.dataset_id,
         )
+        await self._persist_annotation_project(ann)
         logger.info(f"Annotation created: {ann.name}")
         return AnnotationResponse.model_validate(ann)
 
@@ -92,9 +103,20 @@ class AnnotationService:
 
     async def update_annotation(self, db: AsyncSession, annotation_id: int, data: AnnotationUpdate) -> AnnotationResponse:
         update_data = data.model_dump(exclude_unset=True)
+        if "classes" in update_data:
+            ann = await crud.get_annotation_by_id(db, annotation_id)
+            if not ann:
+                raise NotFoundException(f"Annotation {annotation_id} not found")
+            type_definition = get_annotation_type_definition(ann.annotation_type)
+            update_data["classes"] = (
+                serialize_annotation_classes(update_data["classes"])
+                if type_definition and type_definition.supports_classes
+                else None
+            )
         ann = await crud.update_annotation(db, annotation_id, **update_data)
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
+        await self._persist_annotation_project(ann)
         return AnnotationResponse.model_validate(ann)
 
     async def delete_annotation(self, db: AsyncSession, annotation_id: int) -> bool:
@@ -161,36 +183,77 @@ class AnnotationService:
             })
         return items
 
-    async def save_annotation_file(self, db: AsyncSession, annotation_id: int, data: AnnotationFileSave) -> int:
-        ann = await crud.get_annotation_by_id(db, annotation_id)
-        if not ann:
-            raise NotFoundException(f"Annotation {annotation_id} not found")
-
-        # 上传到 S3
-        file_key = f"{ann.save_path}/{data.file_name}"
-        await self.s3.put_file(file_key, data.content.encode(), bucket_type="annotations")
-
-        # 检查是否已存在
-        existing = await crud.get_annotation_file(db, annotation_id, data.file_name)
-        if existing:
-            await crud.update_annotation_file(db, existing.id, data.content)
-            return existing.id
-        else:
-            file = await crud.create_annotation_file(
-                db,
-                annotation_id=annotation_id,
-                file_name=data.file_name,
-                save_path=file_key,
-                content=data.content,
-            )
-            return file.id
-
-    async def get_files(self, db: AsyncSession, annotation_id: int, page: int = 1, page_size: int = 100) -> tuple[list, int]:
+    async def list_annotation_records(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> tuple[list[AnnotationRecordResponse], int]:
         ann = await crud.get_annotation_by_id(db, annotation_id)
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
         offset = (page - 1) * page_size
-        return await crud.get_annotation_files(db, annotation_id, offset, page_size)
+        records, total = await crud.get_annotation_records(db, annotation_id, offset, page_size)
+        items = await asyncio.gather(
+            *(self._build_annotation_record_response(record) for record in records)
+        ) if records else []
+        return items, total
+
+    async def save_annotation_record(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        data: AnnotationRecordSave,
+    ) -> AnnotationRecordResponse:
+        ann = await crud.get_annotation_by_id(db, annotation_id)
+        if not ann:
+            raise NotFoundException(f"Annotation {annotation_id} not found")
+        sample_item = await db.scalar(
+            select(SampleItem).where(
+                SampleItem.id == data.sample_item_id,
+                SampleItem.is_deleted == False,
+            )
+        )
+        if not sample_item:
+            raise NotFoundException(f"Sample item {data.sample_item_id} not found")
+        if ann.dataset_id and sample_item.dataset_id != ann.dataset_id:
+            raise BadRequestException("sample item does not belong to annotation dataset")
+        if not ann.save_path:
+            raise BadRequestException("annotation project save_path is empty")
+
+        object_key = build_annotation_record_object_key(
+            ann.save_path,
+            data.sample_item_id,
+            ann.annotation_type,
+        )
+        existing = await crud.get_annotation_record(db, annotation_id, data.sample_item_id)
+        if existing:
+            record = await crud.update_annotation_record(
+                db,
+                existing.id,
+                content=object_key,
+                status=data.status,
+                annotation_type=ann.annotation_type,
+            )
+        else:
+            record = await crud.create_annotation_record(
+                db,
+                annotation_id=annotation_id,
+                sample_item_id=data.sample_item_id,
+                annotation_type=ann.annotation_type,
+                status=data.status,
+                content=object_key,
+            )
+        await self._persist_annotation_record(ann, record, data.content)
+        return self._to_annotation_record_response(
+            record,
+            parse_annotation_record_payload(
+                ann.annotation_type,
+                data.content,
+                source_path=object_key,
+            ),
+        )
 
     async def assist_current_file(
         self,
@@ -206,7 +269,7 @@ class AnnotationService:
         if not ann.dataset_id or not ann.classes:
             raise BadRequestException("annotation assist requires dataset_id and non-empty classes")
 
-        classes = self._parse_classes(ann.classes)
+        classes = parse_annotation_classes(ann.classes)
         if not classes:
             raise BadRequestException("annotation assist requires non-empty classes")
         selected_classes = self._normalize_target_classes(data.target_classes, classes)
@@ -215,18 +278,24 @@ class AnnotationService:
         if shape != "bbox":
             raise BadRequestException("selected annotation assist pipeline currently only returns bbox annotations")
 
-        dataset_file = await db.scalar(
-            select(DatasetFile).where(
-                DatasetFile.dataset_id == ann.dataset_id,
-                DatasetFile.file_name == data.file_name,
-                DatasetFile.is_deleted == False,
+        sample_item = await db.scalar(
+            select(SampleItem).where(
+                SampleItem.id == data.sample_item_id,
+                SampleItem.dataset_id == ann.dataset_id,
+                SampleItem.is_deleted == False,
             )
         )
-        if not dataset_file or not dataset_file.save_path:
-            raise NotFoundException(f"Dataset file {data.file_name} not found")
+        if not sample_item:
+            raise NotFoundException(f"Sample item {data.sample_item_id} not found")
+        if not sample_item.asset_id:
+            raise BadRequestException("annotation assist requires an asset-backed sample")
+        asset = await dataset_crud.get_asset_by_id(db, sample_item.asset_id)
+        if not asset or not asset.save_path:
+            raise NotFoundException(f"Asset for sample {data.sample_item_id} not found")
 
-        image_bytes = await self.s3.get_file(dataset_file.save_path, bucket_type="datasets")
-        mime_type = mimetypes.guess_type(data.file_name)[0] or "image/jpeg"
+        image_bytes = await self.s3.get_file(asset.save_path, bucket_type="datasets")
+        file_name = asset.file_name or sample_item.item_key
+        mime_type = asset.mime_type or mimetypes.guess_type(file_name)[0] or "image/jpeg"
         image_base64 = self._to_data_url(image_bytes, mime_type)
 
         request_payload = {
@@ -240,7 +309,9 @@ class AnnotationService:
                 "metadata": {
                     "annotation_id": annotation_id,
                     "dataset_id": ann.dataset_id,
-                    "file_name": data.file_name,
+                    "sample_item_id": sample_item.id,
+                    "item_key": sample_item.item_key,
+                    "file_name": file_name,
                     "shape": shape,
                     "pipeline_id": pipeline.id,
                 },
@@ -250,7 +321,7 @@ class AnnotationService:
         logger.info(
             "Assist annotation request annotation_id=%s file=%s pipeline=%s shape=%s classes=%s prompt=%s",
             annotation_id,
-            data.file_name,
+            file_name,
             pipeline.id,
             shape,
             selected_classes,
@@ -295,7 +366,8 @@ class AnnotationService:
             )
 
         return AnnotationAssistResponse(
-            file_name=data.file_name,
+            sample_item_id=sample_item.id,
+            item_key=sample_item.item_key,
             image_width=int(result.get("image_width", 0) or 0),
             image_height=int(result.get("image_height", 0) or 0),
             annotations=items,
@@ -445,16 +517,89 @@ class AnnotationService:
                 return candidate
         return {"annotations": [], "raw": {"pipeline_payload": payload}}
 
-    def _parse_classes(self, raw_classes: Optional[str]) -> List[str]:
-        if not raw_classes:
-            return []
+    async def _build_annotation_record_response(self, record) -> AnnotationRecordResponse:
+        content = await self._load_annotation_record_content(record.annotation_type, record.content)
+        return self._to_annotation_record_response(record, content)
+
+    async def _load_annotation_record_content(
+        self,
+        annotation_type: int,
+        content_path: Any,
+    ) -> dict[str, Any] | None:
+        if not is_annotation_record_storage_path(content_path):
+            return None
         try:
-            parsed = json.loads(raw_classes)
-            if isinstance(parsed, list):
-                return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:
-            pass
-        return [item.strip() for item in raw_classes.split(",") if item.strip()]
+            payload = await self.s3.get_file(content_path, bucket_type="annotations")
+        except Exception as e:
+            logger.warning(f"Failed to load annotation record content from {content_path}: {e}")
+            return None
+        return parse_annotation_record_payload(
+            annotation_type,
+            payload,
+            source_path=content_path,
+        )
+
+    def _to_annotation_record_response(
+        self,
+        record,
+        content: dict[str, Any] | None = None,
+    ) -> AnnotationRecordResponse:
+        return AnnotationRecordResponse(
+            id=record.id,
+            annotation_id=record.annotation_id,
+            sample_item_id=record.sample_item_id,
+            annotation_type=record.annotation_type,
+            status=record.status,
+            content=content,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    async def _persist_annotation_project(self, ann) -> None:
+        if not ann.save_path:
+            return
+        payload = {
+            "id": ann.id,
+            "name": ann.name,
+            "annotation_type": ann.annotation_type,
+            "classes": parse_annotation_classes(ann.classes),
+            "storage_type": ann.storage_type,
+            "dataset_id": ann.dataset_id,
+            "prompt": ann.prompt,
+            "assist_pipeline": ann.assist_pipeline,
+            "created_at": self._json_time(ann.created_at),
+            "updated_at": self._json_time(ann.updated_at),
+        }
+        await self.s3.put_file(
+            f"{ann.save_path}/project.json",
+            json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8"),
+            bucket_type="annotations",
+            content_type="application/json",
+        )
+
+    async def _persist_annotation_record(
+        self,
+        ann,
+        record,
+        content: dict[str, Any],
+    ) -> None:
+        if not ann.save_path or not record.content:
+            return
+        payload_bytes, content_type = serialize_annotation_record_payload(
+            record.annotation_type,
+            content,
+        )
+        await self.s3.put_file(
+            record.content,
+            payload_bytes,
+            bucket_type="annotations",
+            content_type=content_type,
+        )
+
+    def _json_time(self, value: Any) -> str | None:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value) if value is not None else None
 
     def _to_data_url(self, data: bytes, mime_type: str) -> str:
         import base64
@@ -471,7 +616,7 @@ class AnnotationService:
             raise BadRequestException(f"unsupported annotation type: {annotation_type}")
 
         if dataset_id is None:
-            return
+            raise BadRequestException("annotation project requires dataset_id")
 
         dataset = await dataset_crud.get_dataset_by_id(db, dataset_id)
         if not dataset:

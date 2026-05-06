@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 
 from app.common import Result
 from app.config.database import get_db
-from app.db.models import Dataset, DatasetFile, Annotation, Task, AvailableModel
+from app.db.models import Dataset, Annotation, Task, AvailableModel
 from app.modules.annotation.service import AnnotationService, get_annotation_service
 
 router = APIRouter(prefix="/home", tags=["首页"])

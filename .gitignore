@@ -221,3 +221,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 example.html
+/.vscode
+.vscode/settings.json
+
+nacos-data/

@@ -16,11 +16,7 @@ from ultralytics.engine.trainer import BaseTrainer
 
 from core.dataset import (
     cleanup_temp_dir,
-    download_dataset_from_s3,
-    download_training_sources_from_s3,
-    merge_classification_sources,
-    merge_detection_sources,
-    merge_segmentation_sources,
+    materialize_training_manifest,
     prepare_classification_dataset,
     prepare_detection_dataset,
     prepare_segmentation_dataset,
@@ -192,8 +188,6 @@ class TrainingCallback:
 
 def _train_detection_model(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
@@ -202,7 +196,6 @@ def _train_detection_model(
     """内部函数：训练目标检测模型"""
     temp_folder = None
     train_dir = None
-    source_downloads = None
 
     try:
         # 更新任务状态为进行中
@@ -211,17 +204,10 @@ def _train_detection_model(
         publish_task_log(
             task_id, "[pre-train] Starting detection model training...", SERVICE_NAME)
 
-        # 下载数据集
         publish_task_log(
-            task_id, "[pre-train] Downloading dataset from S3...", SERVICE_NAME)
-        if sources:
-            source_downloads = download_training_sources_from_s3(sources)
-            temp_folder = merge_detection_sources(source_downloads)
-        else:
-            temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
-
-        if not temp_folder:
-            raise ValueError("Failed to download dataset")
+            task_id, "[pre-train] Materializing samples from training manifest...", SERVICE_NAME)
+        materialized = materialize_training_manifest(sources or [], "detection", classes)
+        temp_folder = materialized.root_dir
 
         model_name = task_config.get("name", "yolo11n.pt")
         requested_label_format = task_config.get(
@@ -357,16 +343,10 @@ def _train_detection_model(
             cleanup_temp_dir(train_dir)
         if temp_folder and os.path.exists(temp_folder):
             cleanup_temp_dir(temp_folder)
-        if source_downloads:
-            for source in source_downloads:
-                if os.path.exists(source.local_root):
-                    cleanup_temp_dir(source.local_root)
 
 
 def _train_classification_model(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
@@ -375,7 +355,6 @@ def _train_classification_model(
     temp_folder = None
     train_dir = None
     classes = task_config.get("classes") or []
-    source_downloads = None
 
     try:
         # 更新任务状态为进行中
@@ -384,26 +363,11 @@ def _train_classification_model(
         publish_task_log(
             task_id, "[pre-train] Starting classification model training...", SERVICE_NAME)
 
-        # 下载数据集
         publish_task_log(
-            task_id, "[pre-train] Downloading dataset from S3...", SERVICE_NAME)
-        if sources:
-            source_downloads = download_training_sources_from_s3(sources)
-            temp_folder, class_info = merge_classification_sources(source_downloads)
-        else:
-            temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
-
-            if not temp_folder:
-                raise ValueError("Failed to download dataset")
-
-            # 加载类别信息
-            classes_json_path = os.path.join(
-                temp_folder, "annotations", "classes.json")
-            if not os.path.exists(classes_json_path):
-                raise FileNotFoundError("classes.json not found")
-
-            with open(classes_json_path, "r", encoding="utf-8") as f:
-                class_info = json.load(f)
+            task_id, "[pre-train] Materializing samples from training manifest...", SERVICE_NAME)
+        materialized = materialize_training_manifest(sources or [], "classification", classes)
+        temp_folder = materialized.root_dir
+        class_info = materialized.class_info
 
         # 准备训练数据
         publish_task_log(
@@ -515,16 +479,10 @@ def _train_classification_model(
             cleanup_temp_dir(train_dir)
         if temp_folder and os.path.exists(temp_folder):
             cleanup_temp_dir(temp_folder)
-        if source_downloads:
-            for source in source_downloads:
-                if os.path.exists(source.local_root):
-                    cleanup_temp_dir(source.local_root)
 
 
 def _train_segmentation_model(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
@@ -532,21 +490,14 @@ def _train_segmentation_model(
 ):
     temp_folder = None
     train_dir = None
-    source_downloads = None
 
     try:
         publish_task_status(task_id, TaskStatus.RUNNING, SERVICE_NAME, "Starting segmentation training")
         publish_task_log(task_id, "[pre-train] Starting segmentation model training...", SERVICE_NAME)
 
-        publish_task_log(task_id, "[pre-train] Downloading dataset from S3...", SERVICE_NAME)
-        if sources:
-            source_downloads = download_training_sources_from_s3(sources)
-            temp_folder = merge_segmentation_sources(source_downloads)
-        else:
-            temp_folder = download_dataset_from_s3(dataset_path, annotation_path)
-
-        if not temp_folder:
-            raise ValueError("Failed to download dataset")
+        publish_task_log(task_id, "[pre-train] Materializing samples from training manifest...", SERVICE_NAME)
+        materialized = materialize_training_manifest(sources or [], "segmentation", classes)
+        temp_folder = materialized.root_dir
 
         model_name = task_config.get("name", "yolo11n-seg.pt")
 
@@ -639,16 +590,10 @@ def _train_segmentation_model(
             cleanup_temp_dir(train_dir)
         if temp_folder and os.path.exists(temp_folder):
             cleanup_temp_dir(temp_folder)
-        if source_downloads:
-            for source in source_downloads:
-                if os.path.exists(source.local_root):
-                    cleanup_temp_dir(source.local_root)
 
 
 def train_detection(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
@@ -659,8 +604,6 @@ def train_detection(
         target=run_detection_task,
         kwargs={
             "task_id": task_id,
-            "dataset_path": dataset_path,
-            "annotation_path": annotation_path,
             "sources": sources,
             "classes": classes,
             "task_config": task_config,
@@ -674,8 +617,6 @@ def train_detection(
 
 def train_classification(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
@@ -685,8 +626,6 @@ def train_classification(
         target=run_classification_task,
         kwargs={
             "task_id": task_id,
-            "dataset_path": dataset_path,
-            "annotation_path": annotation_path,
             "sources": sources,
             "task_config": task_config,
             "cancel_event": cancel_event,
@@ -699,8 +638,6 @@ def train_classification(
 
 def run_detection_task(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
@@ -709,8 +646,6 @@ def run_detection_task(
     """同步执行目标检测训练任务"""
     _train_detection_model(
         task_id=task_id,
-        dataset_path=dataset_path,
-        annotation_path=annotation_path,
         sources=sources,
         classes=classes,
         task_config=task_config,
@@ -720,8 +655,6 @@ def run_detection_task(
 
 def run_classification_task(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     task_config: Dict[str, Any],
     cancel_event: Optional[threading.Event] = None,
@@ -729,8 +662,6 @@ def run_classification_task(
     """同步执行分类训练任务"""
     _train_classification_model(
         task_id=task_id,
-        dataset_path=dataset_path,
-        annotation_path=annotation_path,
         sources=sources,
         task_config=task_config,
         cancel_event=cancel_event,
@@ -739,8 +670,6 @@ def run_classification_task(
 
 def run_segmentation_task(
     task_id: int,
-    dataset_path: str,
-    annotation_path: str,
     sources: Optional[List[Dict[str, Any]]],
     classes: List[str],
     task_config: Dict[str, Any],
@@ -748,8 +677,6 @@ def run_segmentation_task(
 ):
     _train_segmentation_model(
         task_id=task_id,
-        dataset_path=dataset_path,
-        annotation_path=annotation_path,
         sources=sources,
         classes=classes,
         task_config=task_config,

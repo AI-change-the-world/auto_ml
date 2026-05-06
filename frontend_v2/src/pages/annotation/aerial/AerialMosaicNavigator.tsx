@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppstoreOutlined,
 } from '@ant-design/icons';
-import { previewFile } from '../../../api/dataset';
+import { previewSample } from '../../../api/dataset';
 import type { AerialScene } from './utils';
-import type { AnnotationFile } from '../../../types';
+import type { AnnotationRecord } from '../../../types';
+import { getRecordLabelText } from '../../../utils/annotationRecordContent';
+import { getSampleItemName } from '../../../utils/sampleItem';
 
 interface Props {
   scene: AerialScene | null;
@@ -13,7 +15,7 @@ interface Props {
   currentFileName?: string;
   onSelectFileName: (fileName: string) => void;
   height?: number | string;
-  annotationFiles?: AnnotationFile[];
+  annotationRecords?: AnnotationRecord[];
 }
 
 const AerialMosaicNavigator: React.FC<Props> = ({
@@ -23,7 +25,7 @@ const AerialMosaicNavigator: React.FC<Props> = ({
   currentFileName,
   onSelectFileName,
   height = 420,
-  annotationFiles = [],
+  annotationRecords = [],
 }) => {
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [tileAspectRatio, setTileAspectRatio] = useState(1);
@@ -35,17 +37,18 @@ const AerialMosaicNavigator: React.FC<Props> = ({
 
     const loadScenePreviews = async () => {
       if (!scene || !datasetId) return;
-      const missingTiles = scene.tiles.filter((tile) => !previewUrls[tile.file.file_name]);
+      const missingTiles = scene.tiles.filter((tile) => !previewUrls[getSampleItemName(tile.sample)]);
       if (missingTiles.length === 0) return;
 
       const results = await Promise.all(
         missingTiles.map(async (tile) => {
+          const sampleName = getSampleItemName(tile.sample);
           try {
-            const response = await previewFile(datasetId, tile.file.file_name);
-            return [tile.file.file_name, response.presigned_url] as const;
+            const response = await previewSample(datasetId, tile.sample.id);
+            return [sampleName, response.presigned_url] as const;
           } catch (error) {
-            console.error('Failed to load aerial tile preview', tile.file.file_name, error);
-            return [tile.file.file_name, ''] as const;
+            console.error('Failed to load aerial tile preview', sampleName, error);
+            return [sampleName, ''] as const;
           }
         }),
       );
@@ -85,7 +88,7 @@ const AerialMosaicNavigator: React.FC<Props> = ({
   useEffect(() => {
     if (!scene) return;
     const firstPreviewUrl = scene.tiles
-      .map((tile) => previewUrls[tile.file.file_name])
+      .map((tile) => previewUrls[getSampleItemName(tile.sample)])
       .find(Boolean);
     if (!firstPreviewUrl) return;
 
@@ -104,18 +107,10 @@ const AerialMosaicNavigator: React.FC<Props> = ({
     };
   }, [scene, previewUrls]);
 
-  if (!scene) {
-    return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-        暂无场景可预览
-      </div>
-    );
-  }
-
-  const tileMap = new Map(scene.tiles.map((tile) => [`${tile.row}-${tile.col}`, tile]));
+  const tileMap = new Map((scene?.tiles || []).map((tile) => [`${tile.row}-${tile.col}`, tile]));
   const cells = [];
-  for (let row = 1; row <= Math.max(scene.rows, 1); row += 1) {
-    for (let col = 1; col <= Math.max(scene.cols, 1); col += 1) {
+  for (let row = 1; row <= Math.max(scene?.rows || 1, 1); row += 1) {
+    for (let col = 1; col <= Math.max(scene?.cols || 1, 1); col += 1) {
       cells.push({ row, col, tile: tileMap.get(`${row}-${col}`) });
     }
   }
@@ -123,16 +118,16 @@ const AerialMosaicNavigator: React.FC<Props> = ({
   const normalizedOverlap = Math.min(Math.max(overlapRatio, 0), 0.6);
   const stepX = 1 - normalizedOverlap;
   const stepY = 1 - normalizedOverlap;
-  const totalWidthUnits = 1 + Math.max(scene.cols - 1, 0) * stepX;
-  const totalHeightUnits = 1 + Math.max(scene.rows - 1, 0) * stepY;
+  const totalWidthUnits = 1 + Math.max((scene?.cols || 1) - 1, 0) * stepX;
+  const totalHeightUnits = 1 + Math.max((scene?.rows || 1) - 1, 0) * stepY;
   const tileWidthPercent = 100 / totalWidthUnits;
   const tileHeightPercent = 100 / totalHeightUnits;
   const sceneAspectRatio = tileAspectRatio * totalWidthUnits / totalHeightUnits;
   const tileAnnotationCount = new Map(
-    annotationFiles.map((annotationFile) => {
-      const normalized = annotationFile.content?.trim() ?? '';
+    annotationRecords.map((record) => {
+      const normalized = getRecordLabelText(record.content).trim();
       const count = normalized ? normalized.split(/\n+/).filter(Boolean).length : 0;
-      return [annotationFile.file_name, count];
+      return [record.sample_item_id, count];
     }),
   );
 
@@ -157,6 +152,14 @@ const AerialMosaicNavigator: React.FC<Props> = ({
       height: widthPx / sceneAspectRatio,
     };
   }, [viewportSize, sceneAspectRatio]);
+
+  if (!scene) {
+    return (
+      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+        暂无场景可预览
+      </div>
+    );
+  }
 
   return (
     <div style={{ height, background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -192,20 +195,20 @@ const AerialMosaicNavigator: React.FC<Props> = ({
           }}
         >
           {cells.map(({ row, col, tile }) => {
-            const isActive = tile?.file.file_name === currentFileName;
+            const sampleName = tile ? getSampleItemName(tile.sample) : '';
+            const isActive = sampleName === currentFileName;
             const isEmpty = !tile;
             const left = (((col - 1) * stepX) / totalWidthUnits) * 100;
             const top = (((row - 1) * stepY) / totalHeightUnits) * 100;
-            const previewUrl = tile ? previewUrls[tile.file.file_name] : undefined;
-            const labelFileName = tile?.file.file_name.replace(/\.[^.]+$/, '.txt');
-            const annotatedCount = labelFileName ? (tileAnnotationCount.get(labelFileName) ?? 0) : 0;
+            const previewUrl = tile ? previewUrls[sampleName] : undefined;
+            const annotatedCount = tile ? (tileAnnotationCount.get(tile.sample.id) ?? 0) : 0;
 
             return (
               <button
                 key={`${row}-${col}`}
                 type="button"
                 disabled={!tile}
-                onClick={() => tile && onSelectFileName(tile.file.file_name)}
+                onClick={() => tile && onSelectFileName(sampleName)}
                 style={{
                   position: 'absolute',
                   left: `${left}%`,
@@ -236,7 +239,7 @@ const AerialMosaicNavigator: React.FC<Props> = ({
                 {previewUrl && tile ? (
                   <img
                     src={previewUrl}
-                    alt={tile.file.file_name}
+                    alt={sampleName}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', filter: isActive ? 'none' : 'saturate(0.92)' }}
                   />
                 ) : (

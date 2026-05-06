@@ -9,8 +9,8 @@ export type {
   YoloLabel,
   AnnotationProject,
   AnnotationTypeDefinition,
-  AnnotationFile,
-  AnnotationFileSaveRequest,
+  AnnotationRecord,
+  AnnotationRecordSaveRequest,
   AnnotationAssistRequest,
   AnnotationAssistResponse,
   AnnotationAssistItem,
@@ -41,7 +41,10 @@ export {
 } from './annotation';
 export type {
   Dataset,
-  DatasetFile,
+  Asset,
+  SampleItem,
+  SampleItemCreate,
+  SampleItemUpdate,
   FilePreviewResponse,
   FileContentResponse,
   DatasetCreate,

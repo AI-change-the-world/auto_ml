@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type ConversationAnnotationMode = 'llm' | 'mllm';
 export type ConversationMessageRole = 'user' | 'assistant';
-const CONVERSATION_ANNOTATION_SUFFIX = '.annotation.json';
 
 export interface ConversationMessage {
   id: string;
@@ -25,18 +24,6 @@ interface ConversationAnnotationDocument {
   mode: ConversationAnnotationMode;
   system_prompt?: string;
   messages: StoredConversationMessage[];
-}
-
-export function buildConversationAnnotationFileName(fileName: string): string {
-  return `${fileName}${CONVERSATION_ANNOTATION_SUFFIX}`;
-}
-
-export function parseConversationAnnotationFileName(fileName: string): string | null {
-  const trimmed = fileName.trim();
-  if (!trimmed.endsWith(CONVERSATION_ANNOTATION_SUFFIX)) {
-    return null;
-  }
-  return trimmed.slice(0, -CONVERSATION_ANNOTATION_SUFFIX.length) || null;
 }
 
 export function createConversationMessage(

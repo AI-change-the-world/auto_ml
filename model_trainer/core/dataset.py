@@ -1,4 +1,3 @@
-import json
 import os
 import random
 import shutil
@@ -34,14 +33,10 @@ class PreparedSegmentationDataset:
 
 
 @dataclass
-class DownloadedTrainingSource:
-    dataset_id: int
-    annotation_id: int
-    dataset_path: str
-    annotation_path: str
-    local_root: str
-    source_order: int = 0
-    source_name: Optional[str] = None
+class MaterializedTrainingDataset:
+    root_dir: str
+    class_info: Dict[str, str]
+    samples: int = 0
 
 
 def _clamp01(value: float) -> float:
@@ -150,255 +145,147 @@ def _normalize_detection_label_file(
         f.write("\n".join(normalized_lines))
 
 
-def download_dataset_from_s3(
-    dataset_path: str, annotation_path: str, temp_root: str = "./runs"
-) -> Optional[str]:
-    """从 S3 下载数据集和标注文件"""
+def materialize_training_manifest(
+    sources: List[Dict[str, object]],
+    task_type: str,
+    class_names: Optional[List[str]] = None,
+    temp_root: str = "./runs",
+) -> MaterializedTrainingDataset:
+    """Create the trainer-local dataset layout from sample/record manifest payloads."""
+    if not sources:
+        raise ValueError("training sources manifest is empty")
+
+    root_dir = os.path.abspath(tempfile.mkdtemp(prefix=f"manifest_{task_type}_", dir=temp_root))
+    images_dir = os.path.join(root_dir, "dataset")
+    labels_dir = os.path.join(root_dir, "annotations")
+    os.makedirs(images_dir, exist_ok=True)
+    os.makedirs(labels_dir, exist_ok=True)
+
     cfg = get_s3_config()
-
-    if not dataset_path or not annotation_path:
-        return None
-
-    import uuid
-    folder_name = str(uuid.uuid4())
-    temp_folder = os.path.join(temp_root, folder_name)
-    os.makedirs(temp_folder, exist_ok=True)
-
-    temp_dataset_path = os.path.join(temp_folder, "dataset")
-    temp_annotation_path = os.path.join(temp_folder, "annotations")
-    os.makedirs(temp_dataset_path, exist_ok=True)
-    os.makedirs(temp_annotation_path, exist_ok=True)
-
-    dataset_prefix = dataset_path.rstrip("/") + "/"
-    annotation_prefix = annotation_path.rstrip("/") + "/"
+    class_info: Dict[str, str] = {}
+    materialized_count = 0
 
     try:
-        # 下载数据集
-        from utils.config import get_s3_operator
-        dataset_op = get_s3_operator(cfg.datasets_bucket_name)
-        annotation_op = get_s3_operator(cfg.annotations_bucket_name)
-        downloaded_dataset_files = 0
-        downloaded_annotation_files = 0
+        for source_index, source in enumerate(sources):
+            source_order = int(source.get("source_order") or source_index)
+            dataset_id = int(source.get("dataset_id") or 0)
+            annotation_id = int(source.get("annotation_id") or 0)
+            samples = source.get("samples") or []
+            if not isinstance(samples, list):
+                continue
 
-        for item in dataset_op.list(dataset_prefix):
-            if Path(item.path).suffix != "":
-                file_name = Path(item.path).name
-                download_from_s3(
-                    item.path,
-                    os.path.join(temp_dataset_path, file_name),
-                    cfg.datasets_bucket_name
-                )
-                downloaded_dataset_files += 1
+            for sample in samples:
+                if not isinstance(sample, dict):
+                    continue
+                asset = sample.get("asset") if isinstance(sample.get("asset"), dict) else {}
+                annotation = sample.get("annotation") if isinstance(sample.get("annotation"), dict) else {}
+                content = annotation.get("content") if isinstance(annotation, dict) else {}
+                save_path = str(asset.get("save_path") or "").strip()
+                if not save_path:
+                    continue
 
-        # 下载标注文件
-        for item in annotation_op.list(annotation_prefix):
-            if Path(item.path).suffix != "":
-                file_name = Path(item.path).name
-                download_from_s3(
-                    item.path,
-                    os.path.join(temp_annotation_path, file_name),
-                    cfg.annotations_bucket_name
+                sample_id = int(sample.get("sample_item_id") or 0)
+                original_name = str(asset.get("file_name") or sample.get("item_key") or f"sample_{sample_id}.jpg")
+                image_name = _build_manifest_image_name(
+                    source_order=source_order,
+                    dataset_id=dataset_id,
+                    annotation_id=annotation_id,
+                    sample_id=sample_id,
+                    original_name=original_name,
                 )
-                downloaded_annotation_files += 1
+                image_path = os.path.join(images_dir, image_name)
+
+                if task_type == "classification":
+                    class_name = _extract_class_name(content, class_names or [])
+                    if class_name is None:
+                        continue
+                    download_from_s3(save_path, image_path, cfg.datasets_bucket_name)
+                    class_info[image_name] = class_name
+                else:
+                    label_text = _extract_label_text(content)
+                    download_from_s3(save_path, image_path, cfg.datasets_bucket_name)
+                    label_path = os.path.join(labels_dir, Path(image_name).stem + ".txt")
+                    with open(label_path, "w", encoding="utf-8") as f:
+                        f.write(label_text)
+
+                materialized_count += 1
+
+        if materialized_count == 0:
+            raise ValueError("No valid samples found in training manifest")
+        if task_type == "classification" and not class_info:
+            raise ValueError("No valid classified samples found in training manifest")
 
         logger.info(
-            "Downloaded training assets from S3: "
-            f"dataset_bucket={cfg.datasets_bucket_name}, dataset_prefix={dataset_prefix}, files={downloaded_dataset_files}; "
-            f"annotation_bucket={cfg.annotations_bucket_name}, annotation_prefix={annotation_prefix}, files={downloaded_annotation_files}"
+            f"Materialized training manifest: task_type={task_type}, sources={len(sources)}, "
+            f"samples={materialized_count}, root={root_dir}"
         )
-
-        return temp_folder
-    except Exception as e:
-        logger.error(f"Error downloading dataset: {e}")
-        # 清理临时目录
-        if os.path.exists(temp_folder):
-            shutil.rmtree(temp_folder)
-        raise
-
-
-def download_training_sources_from_s3(
-    sources: List[Dict[str, object]],
-    temp_root: str = "./runs",
-) -> List[DownloadedTrainingSource]:
-    downloaded: List[DownloadedTrainingSource] = []
-    try:
-        for index, source in enumerate(sources):
-            dataset_path = str(source.get("dataset_path") or "").strip()
-            annotation_path = str(source.get("annotation_path") or "").strip()
-            local_root = download_dataset_from_s3(dataset_path, annotation_path, temp_root=temp_root)
-            if not local_root:
-                raise ValueError(
-                    f"Failed to download training source: dataset_path={dataset_path}, annotation_path={annotation_path}"
-                )
-            downloaded.append(
-                DownloadedTrainingSource(
-                    dataset_id=int(source.get("dataset_id") or 0),
-                    annotation_id=int(source.get("annotation_id") or 0),
-                    dataset_path=dataset_path,
-                    annotation_path=annotation_path,
-                    local_root=local_root,
-                    source_order=int(source.get("source_order") or index),
-                    source_name=str(source.get("source_name") or f"source_{index}"),
-                )
-            )
-        return downloaded
+        return MaterializedTrainingDataset(
+            root_dir=root_dir,
+            class_info=class_info,
+            samples=materialized_count,
+        )
     except Exception:
-        for item in downloaded:
-            cleanup_temp_dir(item.local_root)
+        cleanup_temp_dir(root_dir)
         raise
 
 
-def merge_detection_sources(
-    sources: List[DownloadedTrainingSource],
-    temp_root: str = "./runs",
+def _build_manifest_image_name(
+    source_order: int,
+    dataset_id: int,
+    annotation_id: int,
+    sample_id: int,
+    original_name: str,
 ) -> str:
-    merged_root = os.path.abspath(tempfile.mkdtemp(prefix="merge_det_", dir=temp_root))
-    images_dir = os.path.join(merged_root, "dataset")
-    labels_dir = os.path.join(merged_root, "annotations")
-    os.makedirs(images_dir, exist_ok=True)
-    os.makedirs(labels_dir, exist_ok=True)
-
-    pair_count = 0
-    for source in sources:
-        source_images_dir = os.path.join(source.local_root, "dataset")
-        source_labels_dir = os.path.join(source.local_root, "annotations")
-        if not os.path.isdir(source_images_dir) or not os.path.isdir(source_labels_dir):
-            raise ValueError(
-                f"Invalid downloaded detection source: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
-            )
-
-        for fname in sorted(os.listdir(source_images_dir)):
-            if not fname.lower().endswith((".jpg", ".jpeg", ".png")):
-                continue
-            stem = Path(fname).stem
-            label_name = stem + ".txt"
-            source_label_path = os.path.join(source_labels_dir, label_name)
-            if not os.path.exists(source_label_path):
-                continue
-            merged_stem = f"s{source.source_order}_d{source.dataset_id}_a{source.annotation_id}_{stem}"
-            image_ext = Path(fname).suffix
-            merged_image_name = merged_stem + image_ext
-            merged_label_name = merged_stem + ".txt"
-            shutil.copy(
-                os.path.join(source_images_dir, fname),
-                os.path.join(images_dir, merged_image_name),
-            )
-            shutil.copy(
-                source_label_path,
-                os.path.join(labels_dir, merged_label_name),
-            )
-            pair_count += 1
-
-    if pair_count == 0:
-        cleanup_temp_dir(merged_root)
-        raise ValueError("No valid image-label pairs found after merging detection sources")
-
-    logger.info(
-        f"Merged detection sources: source_count={len(sources)}, pairs={pair_count}, root={merged_root}"
-    )
-    return merged_root
+    path = Path(original_name)
+    suffix = path.suffix or ".jpg"
+    stem = _safe_file_stem(path.stem or f"sample_{sample_id}")
+    return f"s{source_order}_d{dataset_id}_a{annotation_id}_i{sample_id}_{stem}{suffix}"
 
 
-def merge_classification_sources(
-    sources: List[DownloadedTrainingSource],
-    temp_root: str = "./runs",
-) -> tuple[str, Dict[str, str]]:
-    merged_root = os.path.abspath(tempfile.mkdtemp(prefix="merge_cls_", dir=temp_root))
-    images_dir = os.path.join(merged_root, "dataset")
-    os.makedirs(images_dir, exist_ok=True)
-    merged_class_info: Dict[str, str] = {}
-
-    image_count = 0
-    for source in sources:
-        source_images_dir = os.path.join(source.local_root, "dataset")
-        source_annotations_dir = os.path.join(source.local_root, "annotations")
-        classes_json_path = os.path.join(source_annotations_dir, "classes.json")
-        if not os.path.isdir(source_images_dir):
-            raise ValueError(
-                f"Invalid downloaded classification source: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
-            )
-        if not os.path.exists(classes_json_path):
-            raise FileNotFoundError(
-                f"classification source missing classes.json: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
-            )
-
-        with open(classes_json_path, "r", encoding="utf-8") as f:
-            class_info = json.load(f)
-        if not isinstance(class_info, dict):
-            raise ValueError(
-                f"classification classes.json must be a mapping: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
-            )
-
-        for fname, class_name in class_info.items():
-            source_path = os.path.join(source_images_dir, fname)
-            if not os.path.exists(source_path):
-                continue
-            stem = Path(fname).stem
-            image_ext = Path(fname).suffix
-            merged_name = f"s{source.source_order}_d{source.dataset_id}_a{source.annotation_id}_{stem}{image_ext}"
-            shutil.copy(source_path, os.path.join(images_dir, merged_name))
-            merged_class_info[merged_name] = str(class_name)
-            image_count += 1
-
-    if image_count == 0:
-        cleanup_temp_dir(merged_root)
-        raise ValueError("No valid classified images found after merging classification sources")
-
-    logger.info(
-        f"Merged classification sources: source_count={len(sources)}, images={image_count}, root={merged_root}"
-    )
-    return merged_root, merged_class_info
+def _safe_file_stem(value: str) -> str:
+    chars = [ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in value.strip()]
+    return "".join(chars).strip("._") or "sample"
 
 
-def merge_segmentation_sources(
-    sources: List[DownloadedTrainingSource],
-    temp_root: str = "./runs",
-) -> str:
-    merged_root = os.path.abspath(tempfile.mkdtemp(prefix="merge_seg_", dir=temp_root))
-    images_dir = os.path.join(merged_root, "dataset")
-    labels_dir = os.path.join(merged_root, "annotations")
-    os.makedirs(images_dir, exist_ok=True)
-    os.makedirs(labels_dir, exist_ok=True)
+def _extract_label_text(content: object) -> str:
+    if isinstance(content, dict):
+        value = content.get("label_text") or content.get("yolo") or content.get("content") or ""
+        return str(value).strip() if value is not None else ""
+    if isinstance(content, str):
+        return content.strip()
+    return ""
 
-    pair_count = 0
-    for source in sources:
-      source_images_dir = os.path.join(source.local_root, "dataset")
-      source_labels_dir = os.path.join(source.local_root, "annotations")
-      if not os.path.isdir(source_images_dir) or not os.path.isdir(source_labels_dir):
-          raise ValueError(
-              f"Invalid downloaded segmentation source: dataset_id={source.dataset_id}, annotation_id={source.annotation_id}"
-          )
 
-      for fname in sorted(os.listdir(source_images_dir)):
-          if not fname.lower().endswith((".jpg", ".jpeg", ".png")):
-              continue
-          stem = Path(fname).stem
-          label_name = stem + ".txt"
-          source_label_path = os.path.join(source_labels_dir, label_name)
-          if not os.path.exists(source_label_path):
-              continue
-          merged_stem = f"s{source.source_order}_d{source.dataset_id}_a{source.annotation_id}_{stem}"
-          image_ext = Path(fname).suffix
-          merged_image_name = merged_stem + image_ext
-          merged_label_name = merged_stem + ".txt"
-          shutil.copy(
-              os.path.join(source_images_dir, fname),
-              os.path.join(images_dir, merged_image_name),
-          )
-          shutil.copy(
-              source_label_path,
-              os.path.join(labels_dir, merged_label_name),
-          )
-          pair_count += 1
+def _extract_class_name(content: object, class_names: List[str]) -> Optional[str]:
+    if isinstance(content, dict):
+        direct_name = content.get("class_name") or content.get("label")
+        if isinstance(direct_name, str) and direct_name.strip():
+            return direct_name.strip()
 
-    if pair_count == 0:
-        cleanup_temp_dir(merged_root)
-        raise ValueError("No valid image-label pairs found after merging segmentation sources")
+        class_id_value = content.get("class_id")
+        class_ids_value = content.get("class_ids")
+        if isinstance(class_ids_value, list) and class_ids_value:
+            class_id_value = class_ids_value[0]
+        if class_id_value is not None:
+            return _class_name_from_id(class_id_value, class_names)
 
-    logger.info(
-        f"Merged segmentation sources: source_count={len(sources)}, pairs={pair_count}, root={merged_root}"
-    )
-    return merged_root
+        label_text = _extract_label_text(content)
+        if label_text:
+            return _class_name_from_id(label_text.split()[0], class_names)
+
+    if isinstance(content, (str, int, float)):
+        return _class_name_from_id(content, class_names)
+    return None
+
+
+def _class_name_from_id(value: object, class_names: List[str]) -> Optional[str]:
+    try:
+        class_id = int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None
+    if class_id < 0 or class_id >= len(class_names):
+        return None
+    return class_names[class_id]
 
 
 def prepare_detection_dataset(

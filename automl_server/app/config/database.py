@@ -53,7 +53,7 @@ async def init_db():
     async with engine.begin() as conn:
         # 导入所有模型以确保它们被注册
         from app.db.models import (
-            Dataset, DatasetFile, Annotation, AnnotationFile,
+            Dataset, Asset, SampleItem, Annotation, AnnotationRecord,
             Task, TaskLog, TaskSource, BaseModels,
             AvailableModel, ModelInferenceLog
         )

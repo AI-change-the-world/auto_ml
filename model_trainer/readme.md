@@ -76,8 +76,33 @@ GET /health
 {
   "task_id": 1,
   "task_type": "detection",
-  "dataset_path": "datasets/dataset_1",
-  "annotation_path": "annotations/anno_1",
+  "sources": [
+    {
+      "dataset_id": 1,
+      "annotation_id": 1,
+      "source_order": 0,
+      "source_name": "dataset / annotation",
+      "samples": [
+        {
+          "sample_item_id": 101,
+          "item_key": "image-001.jpg",
+          "item_type": "image",
+          "asset": {
+            "file_name": "image-001.jpg",
+            "save_path": "datasets/.../image-001.jpg",
+            "asset_type": "image"
+          },
+          "annotation": {
+            "annotation_type": 0,
+            "content": {
+              "format": "yolo",
+              "label_text": "0 0.500000 0.500000 0.250000 0.250000"
+            }
+          }
+        }
+      ]
+    }
+  ],
   "classes": ["person", "car", "dog"],
   "task_config": {
     "name": "yolo11n.pt",

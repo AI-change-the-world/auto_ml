@@ -2,27 +2,25 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Card, Empty, Input, Modal, Space, Spin, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
-import { getAnnotation, saveAnnotationFile } from '../../../api/annotation';
-import { getDataset, getDatasetFileContent, previewFile } from '../../../api/dataset';
-import { AnnotationType, type AnnotationProject, type Dataset, DataTypeLabels } from '../../../types';
-import { isImageFileName, isTextFileName } from '../../../utils/file';
+import { getAnnotation, getAnnotationRecords, saveAnnotationRecord } from '../../../api/annotation';
+import { createDatasetSample, getDataset, getDatasetSampleContent, getDatasetSamples, previewSample } from '../../../api/dataset';
+import { AnnotationType, type AnnotationProject, type Dataset, DataTypeLabels, type SampleItem } from '../../../types';
 import {
-  buildConversationAnnotationFileName,
   createEmptyConversationAnnotationEntry,
   createConversationMessage,
-  parseConversationAnnotationFileName,
   parseConversationAnnotationContent,
   serializeConversationAnnotationContent,
   type ConversationAnnotationMode,
 } from '../../../utils/conversationAnnotation';
-import { loadAllAnnotationFiles, loadAllDatasetFiles } from './data';
 import ConversationEditorModal from './components/ConversationEditorModal';
 import ConversationFileListCard from './components/ConversationFileListCard';
-import type { ConversationEntriesByFile, ConversationFileRow, PreviewState } from './types';
+import type { ConversationEntriesBySample, ConversationFileRow, PreviewState } from './types';
 
 const { Title, Text } = Typography;
 
 const PAGE_SIZE = 12;
+
+const getSampleDisplayName = (sample: SampleItem) => sample.asset?.file_name || sample.item_key;
 
 const ConversationAnnotationPage: React.FC = () => {
   const { annotationId } = useParams<{ annotationId: string }>();
@@ -31,15 +29,14 @@ const ConversationAnnotationPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [project, setProject] = useState<AnnotationProject | null>(null);
   const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [sourceFiles, setSourceFiles] = useState<Array<{ id: number; file_name: string }>>([]);
-  const [sampleFiles, setSampleFiles] = useState<Array<{ id: number; file_name: string }>>([]);
-  const [entriesByFile, setEntriesByFile] = useState<ConversationEntriesByFile>({});
-  const [savedByFile, setSavedByFile] = useState<ConversationEntriesByFile>({});
+  const [sampleItems, setSampleItems] = useState<SampleItem[]>([]);
+  const [entriesBySample, setEntriesBySample] = useState<ConversationEntriesBySample>({});
+  const [savedBySample, setSavedBySample] = useState<ConversationEntriesBySample>({});
   const [previewByFile, setPreviewByFile] = useState<Record<string, PreviewState>>({});
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(1);
-  const [activeFileName, setActiveFileName] = useState<string | null>(null);
-  const [focusedFileName, setFocusedFileName] = useState<string | null>(null);
+  const [activeSampleId, setActiveSampleId] = useState<number | null>(null);
+  const [focusedSampleId, setFocusedSampleId] = useState<number | null>(null);
   const [draftRole, setDraftRole] = useState<'user' | 'assistant'>('user');
   const [draftContent, setDraftContent] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -48,38 +45,34 @@ const ConversationAnnotationPage: React.FC = () => {
 
   const annotationNumericId = Number(annotationId);
   const mode: ConversationAnnotationMode = project?.annotation_type === AnnotationType.LLM ? 'llm' : 'mllm';
-  const allowedFileNames = useMemo(() => new Set(
-    sourceFiles
-      .filter((file) => mode === 'llm' ? isTextFileName(file.file_name) : isImageFileName(file.file_name))
-      .map((file) => file.file_name),
-  ), [sourceFiles, mode]);
 
-  const loadFilePreview = useCallback(async (datasetId: number, fileName: string, previewMode: ConversationAnnotationMode) => {
+  const loadSamplePreview = useCallback(async (datasetId: number, sample: SampleItem, previewMode: ConversationAnnotationMode) => {
+    const sampleName = getSampleDisplayName(sample);
     setPreviewByFile((state) => {
-      const current = state[fileName];
+      const current = state[sampleName];
       if (current?.loading || current?.url || current?.textContent) return state;
-      return { ...state, [fileName]: { loading: true } };
+      return { ...state, [sampleName]: { loading: true } };
     });
 
     try {
       if (previewMode === 'llm') {
-        const response = await getDatasetFileContent(datasetId, fileName);
+        const response = await getDatasetSampleContent(datasetId, sample.id);
         setPreviewByFile((state) => ({
           ...state,
-          [fileName]: { loading: false, textContent: response.content },
+          [sampleName]: { loading: false, textContent: response.content },
         }));
       } else {
-        const response = await previewFile(datasetId, fileName);
+        const response = await previewSample(datasetId, sample.id);
         setPreviewByFile((state) => ({
           ...state,
-          [fileName]: { loading: false, url: response.presigned_url },
+          [sampleName]: { loading: false, url: response.presigned_url },
         }));
       }
     } catch (error) {
       console.error('Failed to load preview', error);
       setPreviewByFile((state) => ({
         ...state,
-        [fileName]: { loading: false, error: '预览加载失败' },
+        [sampleName]: { loading: false, error: '预览加载失败' },
       }));
     }
   }, []);
@@ -104,44 +97,32 @@ const ConversationAnnotationPage: React.FC = () => {
         return;
       }
 
-      const [datasetDetail, datasetResult, annotationResult] = await Promise.all([
+      const [datasetDetail, sampleResult, recordResult] = await Promise.all([
         getDataset(annotation.dataset_id),
-        loadAllDatasetFiles(annotation.dataset_id),
-        loadAllAnnotationFiles(annotation.id),
+        getDatasetSamples(annotation.dataset_id, 1, 500, 'conversation'),
+        getAnnotationRecords(annotation.id, 1, 500),
       ]);
 
-      const allowedFiles = datasetResult.filter((file) => (
-        annotation.annotation_type === AnnotationType.LLM
-          ? isTextFileName(file.file_name)
-          : isImageFileName(file.file_name)
-      ));
-      const annotationMap = new Map(
-        annotationResult.map((file) => [file.file_name, parseConversationAnnotationContent(file.content)]),
+      const samples = sampleResult?.items || [];
+      const recordMap = new Map(
+        (recordResult?.items || []).filter((record) => record.sample_item_id !== null).map((record) => [record.sample_item_id, record.content]),
       );
-      const initialEntriesByFile: ConversationEntriesByFile = {};
-
-      allowedFiles.forEach((file) => {
-        initialEntriesByFile[file.file_name] = annotationMap.get(buildConversationAnnotationFileName(file.file_name)) || createEmptyConversationAnnotationEntry();
-      });
-      annotationResult.forEach((file) => {
-        const sampleName = parseConversationAnnotationFileName(file.file_name);
-        if (!sampleName || initialEntriesByFile[sampleName]) return;
-        initialEntriesByFile[sampleName] = parseConversationAnnotationContent(file.content);
+      const initialEntriesBySample: ConversationEntriesBySample = {};
+      samples.forEach((sample) => {
+        const recordContent = recordMap.get(sample.id);
+        initialEntriesBySample[sample.id] = recordContent
+          ? parseConversationAnnotationContent(JSON.stringify(recordContent))
+          : createEmptyConversationAnnotationEntry();
       });
 
       setProject(annotation);
       setDataset(datasetDetail);
-      const mergedFileNames = new Set<string>([
-        ...allowedFiles.map((file) => file.file_name),
-        ...Object.keys(initialEntriesByFile),
-      ]);
-      setSourceFiles(allowedFiles);
-      setSampleFiles(Array.from(mergedFileNames).map((fileName, index) => ({ id: -(index + 1), file_name: fileName })));
-      setEntriesByFile(initialEntriesByFile);
-      setSavedByFile(initialEntriesByFile);
+      setSampleItems(samples);
+      setEntriesBySample(initialEntriesBySample);
+      setSavedBySample(initialEntriesBySample);
       setPreviewByFile({});
-      setActiveFileName(null);
-      setFocusedFileName(null);
+      setActiveSampleId(null);
+      setFocusedSampleId(null);
       setModalOpen(false);
       setCreateSampleOpen(false);
       setNewSampleName('');
@@ -158,9 +139,13 @@ const ConversationAnnotationPage: React.FC = () => {
     void loadProject();
   }, [loadProject]);
 
+  const sourceSampleIds = useMemo(() => new Set(
+    sampleItems.filter((sample) => sample.asset_id).map((sample) => sample.id),
+  ), [sampleItems]);
+
   const filteredFiles = useMemo(() => (
-    sampleFiles.filter((file) => !keyword || file.file_name.toLowerCase().includes(keyword.toLowerCase()))
-  ), [sampleFiles, keyword]);
+    sampleItems.filter((sample) => !keyword || getSampleDisplayName(sample).toLowerCase().includes(keyword.toLowerCase()))
+  ), [getSampleDisplayName, sampleItems, keyword]);
 
   const pagedFiles = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
@@ -169,15 +154,15 @@ const ConversationAnnotationPage: React.FC = () => {
 
   useEffect(() => {
     if (!dataset?.id) return;
-    const targetFileNames = new Set(pagedFiles.map((file) => file.file_name));
-    if (activeFileName) {
-      targetFileNames.add(activeFileName);
+    const targetSamples = new Map(pagedFiles.filter((sample) => sample.asset_id).map((sample) => [sample.id, sample]));
+    const activeSample = activeSampleId ? sampleItems.find((sample) => sample.id === activeSampleId) : undefined;
+    if (activeSample?.asset_id) {
+      targetSamples.set(activeSample.id, activeSample);
     }
-    targetFileNames.forEach((fileName) => {
-      if (!allowedFileNames.has(fileName)) return;
-      void loadFilePreview(dataset.id, fileName, mode);
+    targetSamples.forEach((sample) => {
+      void loadSamplePreview(dataset.id, sample, mode);
     });
-  }, [activeFileName, allowedFileNames, dataset?.id, loadFilePreview, mode, pagedFiles]);
+  }, [activeSampleId, dataset?.id, loadSamplePreview, mode, pagedFiles, sampleItems]);
 
   useEffect(() => {
     const maxPage = Math.max(1, Math.ceil(filteredFiles.length / PAGE_SIZE));
@@ -185,57 +170,62 @@ const ConversationAnnotationPage: React.FC = () => {
   }, [filteredFiles.length, page]);
 
   const rows: ConversationFileRow[] = useMemo(() => (
-    pagedFiles.map((file) => {
-      const current = entriesByFile[file.file_name] || createEmptyConversationAnnotationEntry();
-      const saved = savedByFile[file.file_name] || createEmptyConversationAnnotationEntry();
+    pagedFiles.map((sample) => {
+      const current = entriesBySample[sample.id] || createEmptyConversationAnnotationEntry();
+      const saved = savedBySample[sample.id] || createEmptyConversationAnnotationEntry();
       return {
-        fileName: file.file_name,
+        sampleItemId: sample.id,
+        fileName: getSampleDisplayName(sample),
         messageCount: current.messages.length,
         dirty: JSON.stringify(current) !== JSON.stringify(saved),
-        source: allowedFileNames.has(file.file_name) ? 'dataset' : 'manual',
+        source: sourceSampleIds.has(sample.id) ? 'dataset' : 'manual',
       };
     })
-  ), [allowedFileNames, entriesByFile, pagedFiles, savedByFile]);
+  ), [entriesBySample, getSampleDisplayName, pagedFiles, savedBySample, sourceSampleIds]);
 
   useEffect(() => {
     if (rows.length === 0) {
-      setFocusedFileName(null);
+      setFocusedSampleId(null);
       return;
     }
-    if (!focusedFileName || !rows.some((row) => row.fileName === focusedFileName)) {
-      setFocusedFileName(rows[0].fileName);
+    if (!focusedSampleId || !rows.some((row) => row.sampleItemId === focusedSampleId)) {
+      setFocusedSampleId(rows[0].sampleItemId);
     }
-  }, [focusedFileName, rows]);
+  }, [focusedSampleId, rows]);
 
   const dirtyCount = useMemo(() => (
-    sampleFiles.reduce((count, file) => {
-      const current = JSON.stringify(entriesByFile[file.file_name] || createEmptyConversationAnnotationEntry());
-      const saved = JSON.stringify(savedByFile[file.file_name] || createEmptyConversationAnnotationEntry());
+    sampleItems.reduce((count, sample) => {
+      const current = JSON.stringify(entriesBySample[sample.id] || createEmptyConversationAnnotationEntry());
+      const saved = JSON.stringify(savedBySample[sample.id] || createEmptyConversationAnnotationEntry());
       return current === saved ? count : count + 1;
     }, 0)
-  ), [entriesByFile, sampleFiles, savedByFile]);
+  ), [entriesBySample, sampleItems, savedBySample]);
 
-  const activeEntry = activeFileName ? entriesByFile[activeFileName] || createEmptyConversationAnnotationEntry() : createEmptyConversationAnnotationEntry();
-  const activeSaved = activeFileName ? savedByFile[activeFileName] || createEmptyConversationAnnotationEntry() : createEmptyConversationAnnotationEntry();
+  const activeSample = activeSampleId ? sampleItems.find((sample) => sample.id === activeSampleId) : undefined;
+  const activeFileName = activeSample ? getSampleDisplayName(activeSample) : null;
+  const activeEntry = activeSampleId ? entriesBySample[activeSampleId] || createEmptyConversationAnnotationEntry() : createEmptyConversationAnnotationEntry();
+  const activeSaved = activeSampleId ? savedBySample[activeSampleId] || createEmptyConversationAnnotationEntry() : createEmptyConversationAnnotationEntry();
   const activeDirty = JSON.stringify(activeEntry) !== JSON.stringify(activeSaved);
-  const activeIndex = activeFileName ? filteredFiles.findIndex((file) => file.file_name === activeFileName) : -1;
+  const activeIndex = activeSampleId ? filteredFiles.findIndex((sample) => sample.id === activeSampleId) : -1;
 
-  const openEditor = (fileName: string) => {
-    setActiveFileName(fileName);
-    setFocusedFileName(fileName);
+  const openEditor = (sampleItemId: number) => {
+    const sample = sampleItems.find((item) => item.id === sampleItemId);
+    if (!sample) return;
+    setActiveSampleId(sampleItemId);
+    setFocusedSampleId(sampleItemId);
     setDraftRole('user');
     setDraftContent('');
     setModalOpen(true);
-    if (dataset?.id && allowedFileNames.has(fileName)) {
-      void loadFilePreview(dataset.id, fileName, mode);
+    if (dataset?.id && sample.asset_id) {
+      void loadSamplePreview(dataset.id, sample, mode);
     }
   };
 
   const openRelativeEditor = (offset: -1 | 1) => {
     if (activeIndex < 0) return;
-    const nextFile = filteredFiles[activeIndex + offset];
-    if (!nextFile) return;
-    openEditor(nextFile.file_name);
+    const nextSample = filteredFiles[activeIndex + offset];
+    if (!nextSample) return;
+    openEditor(nextSample.id);
   };
 
   useEffect(() => {
@@ -259,36 +249,47 @@ const ConversationAnnotationPage: React.FC = () => {
       }
 
       if (rows.length === 0) return;
-      const currentIndex = rows.findIndex((row) => row.fileName === focusedFileName);
+      const currentIndex = rows.findIndex((row) => row.sampleItemId === focusedSampleId);
       const safeIndex = currentIndex >= 0 ? currentIndex : 0;
 
       if (event.key === 'ArrowDown') {
         event.preventDefault();
-        setFocusedFileName(rows[Math.min(rows.length - 1, safeIndex + 1)].fileName);
+        setFocusedSampleId(rows[Math.min(rows.length - 1, safeIndex + 1)].sampleItemId);
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
-        setFocusedFileName(rows[Math.max(0, safeIndex - 1)].fileName);
+        setFocusedSampleId(rows[Math.max(0, safeIndex - 1)].sampleItemId);
       } else if (event.key === 'Enter') {
         event.preventDefault();
-        openEditor(rows[safeIndex].fileName);
+        openEditor(rows[safeIndex].sampleItemId);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeIndex, filteredFiles, focusedFileName, modalOpen, rows]);
+  }, [activeIndex, filteredFiles, focusedSampleId, modalOpen, rows]);
 
-  const saveCurrentFile = async (fileName: string) => {
+  const buildRecordContent = (entry: ReturnType<typeof createEmptyConversationAnnotationEntry>) => (
+    JSON.parse(serializeConversationAnnotationContent(mode, entry)) as Record<string, unknown>
+  );
+
+  const buildSavePayload = (sample: SampleItem, entry: ReturnType<typeof createEmptyConversationAnnotationEntry>) => ({
+    sample_item_id: sample.id,
+    content: buildRecordContent(entry),
+    status: 'saved',
+  });
+
+  const saveCurrentSample = async (sampleItemId: number) => {
     if (!project) return;
+    const sample = sampleItems.find((item) => item.id === sampleItemId);
+    if (!sample) return;
+    const displayName = sample ? getSampleDisplayName(sample) : String(sampleItemId);
     try {
-      await saveAnnotationFile(project.id, {
-        file_name: buildConversationAnnotationFileName(fileName),
-        content: serializeConversationAnnotationContent(mode, entriesByFile[fileName] || createEmptyConversationAnnotationEntry()),
-      });
-      setSavedByFile((state) => ({ ...state, [fileName]: entriesByFile[fileName] || createEmptyConversationAnnotationEntry() }));
-      message.success(`已保存 ${fileName}`);
+      const entry = entriesBySample[sampleItemId] || createEmptyConversationAnnotationEntry();
+      await saveAnnotationRecord(project.id, buildSavePayload(sample, entry));
+      setSavedBySample((state) => ({ ...state, [sampleItemId]: entry }));
+      message.success(`已保存 ${displayName}`);
     } catch (error) {
       console.error('Failed to save conversation annotation', error);
-      message.error(`保存失败: ${fileName}`);
+      message.error(`保存失败: ${displayName}`);
     }
   };
 
@@ -296,16 +297,14 @@ const ConversationAnnotationPage: React.FC = () => {
     if (!project) return;
     setSaving(true);
     try {
-      for (const file of sampleFiles) {
-        const current = JSON.stringify(entriesByFile[file.file_name] || createEmptyConversationAnnotationEntry());
-        const saved = JSON.stringify(savedByFile[file.file_name] || createEmptyConversationAnnotationEntry());
+      for (const sample of sampleItems) {
+        const entry = entriesBySample[sample.id] || createEmptyConversationAnnotationEntry();
+        const current = JSON.stringify(entry);
+        const saved = JSON.stringify(savedBySample[sample.id] || createEmptyConversationAnnotationEntry());
         if (current === saved) continue;
-        await saveAnnotationFile(project.id, {
-          file_name: buildConversationAnnotationFileName(file.file_name),
-          content: serializeConversationAnnotationContent(mode, entriesByFile[file.file_name] || createEmptyConversationAnnotationEntry()),
-        });
+        await saveAnnotationRecord(project.id, buildSavePayload(sample, entry));
       }
-      setSavedByFile(entriesByFile);
+      setSavedBySample(entriesBySample);
       message.success('全部对话标注已保存');
     } catch (error) {
       console.error('Failed to save all conversation annotations', error);
@@ -317,13 +316,13 @@ const ConversationAnnotationPage: React.FC = () => {
 
   const addMessage = () => {
     const content = draftContent.trim();
-    if (!activeFileName || !content) return;
-    setEntriesByFile((state) => ({
+    if (!activeSampleId || !content) return;
+    setEntriesBySample((state) => ({
       ...state,
-      [activeFileName]: {
-        ...(state[activeFileName] || createEmptyConversationAnnotationEntry()),
+      [activeSampleId]: {
+        ...(state[activeSampleId] || createEmptyConversationAnnotationEntry()),
         messages: [
-          ...((state[activeFileName]?.messages) || []),
+          ...((state[activeSampleId]?.messages) || []),
           createConversationMessage(draftRole, content),
         ],
       },
@@ -332,58 +331,74 @@ const ConversationAnnotationPage: React.FC = () => {
   };
 
   const deleteMessage = (messageId: string) => {
-    if (!activeFileName) return;
-    setEntriesByFile((state) => ({
+    if (!activeSampleId) return;
+    setEntriesBySample((state) => ({
       ...state,
-      [activeFileName]: {
-        ...(state[activeFileName] || createEmptyConversationAnnotationEntry()),
-        messages: ((state[activeFileName]?.messages) || []).filter((item) => item.id !== messageId),
+      [activeSampleId]: {
+        ...(state[activeSampleId] || createEmptyConversationAnnotationEntry()),
+        messages: ((state[activeSampleId]?.messages) || []).filter((item) => item.id !== messageId),
       },
     }));
   };
 
   const updateMessage = (messageId: string, content: string) => {
     const nextContent = content.trim();
-    if (!activeFileName || !nextContent) return;
-    setEntriesByFile((state) => ({
+    if (!activeSampleId || !nextContent) return;
+    setEntriesBySample((state) => ({
       ...state,
-      [activeFileName]: {
-        ...(state[activeFileName] || createEmptyConversationAnnotationEntry()),
-        messages: ((state[activeFileName]?.messages) || []).map((item) => (
+      [activeSampleId]: {
+        ...(state[activeSampleId] || createEmptyConversationAnnotationEntry()),
+        messages: ((state[activeSampleId]?.messages) || []).map((item) => (
           item.id === messageId ? { ...item, content: nextContent } : item
         )),
       },
     }));
   };
 
-  const updateSystemPrompt = (fileName: string, systemPrompt: string) => {
-    setEntriesByFile((state) => ({
+  const updateSystemPrompt = (sampleItemId: number, systemPrompt: string) => {
+    setEntriesBySample((state) => ({
       ...state,
-      [fileName]: {
-        ...(state[fileName] || createEmptyConversationAnnotationEntry()),
+      [sampleItemId]: {
+        ...(state[sampleItemId] || createEmptyConversationAnnotationEntry()),
         systemPrompt,
       },
     }));
   };
 
-  const createManualSample = () => {
+  const createManualSample = async () => {
+    if (!dataset) return;
     const sampleName = newSampleName.trim();
     if (!sampleName) {
       message.warning('请输入样本名称');
       return;
     }
-    if (entriesByFile[sampleName]) {
+    if (sampleItems.some((sample) => getSampleDisplayName(sample) === sampleName)) {
       message.warning('样本名称已存在');
       return;
     }
 
-    setSampleFiles((state) => [{ id: -(state.length + 1), file_name: sampleName }, ...state]);
-    setEntriesByFile((state) => ({ ...state, [sampleName]: createEmptyConversationAnnotationEntry() }));
-    setSavedByFile((state) => ({ ...state, [sampleName]: createEmptyConversationAnnotationEntry() }));
-    setCreateSampleOpen(false);
-    setNewSampleName('');
-    setPage(1);
-    openEditor(sampleName);
+    try {
+      const sample = await createDatasetSample(dataset.id, {
+        item_type: 'conversation',
+        item_key: sampleName,
+        payload: { mode },
+      });
+      if (!sample) return;
+      setSampleItems((state) => [sample, ...state]);
+      setEntriesBySample((state) => ({ ...state, [sample.id]: createEmptyConversationAnnotationEntry() }));
+      setSavedBySample((state) => ({ ...state, [sample.id]: createEmptyConversationAnnotationEntry() }));
+      setCreateSampleOpen(false);
+      setNewSampleName('');
+      setPage(1);
+      setActiveSampleId(sample.id);
+      setFocusedSampleId(sample.id);
+      setDraftRole('user');
+      setDraftContent('');
+      setModalOpen(true);
+    } catch (error) {
+      console.error('Failed to create conversation sample', error);
+      message.error('创建样本失败');
+    }
   };
 
   if (!annotationId || Number.isNaN(annotationNumericId)) {
@@ -415,7 +430,7 @@ const ConversationAnnotationPage: React.FC = () => {
             <Space size={12} wrap align="start">
               <Card size="small" style={{ minWidth: 140, borderRadius: 16, background: '#fafbff' }}>
                 <Text type="secondary">数据条目</Text>
-                <div style={{ fontSize: 24, fontWeight: 700 }}>{sampleFiles.length}</div>
+                <div style={{ fontSize: 24, fontWeight: 700 }}>{sampleItems.length}</div>
               </Card>
               <Card size="small" style={{ minWidth: 140, borderRadius: 16, background: '#fffdf7' }}>
                 <Text type="secondary">未保存</Text>
@@ -444,17 +459,17 @@ const ConversationAnnotationPage: React.FC = () => {
             </Space>
           </Card>
         ) : (
-          <ConversationFileListCard
-            rows={rows}
-            mode={mode}
-            focusedFileName={focusedFileName}
-            total={filteredFiles.length}
-            page={page}
-            pageSize={PAGE_SIZE}
-            onPageChange={setPage}
-            onOpen={openEditor}
-            onFocus={setFocusedFileName}
-          />
+            <ConversationFileListCard
+              rows={rows}
+              mode={mode}
+              focusedSampleItemId={focusedSampleId}
+              total={filteredFiles.length}
+              page={page}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+              onOpen={openEditor}
+              onFocus={setFocusedSampleId}
+            />
         )}
       </Space>
 
@@ -465,7 +480,7 @@ const ConversationAnnotationPage: React.FC = () => {
         activeDirty={activeDirty}
         activeIndex={activeIndex}
         totalCount={filteredFiles.length}
-        hasSourceFile={activeFileName ? allowedFileNames.has(activeFileName) : false}
+        hasSourceFile={activeSampleId ? sourceSampleIds.has(activeSampleId) : false}
         mode={mode}
         preview={activeFileName ? previewByFile[activeFileName] : undefined}
         draftRole={draftRole}
@@ -474,15 +489,15 @@ const ConversationAnnotationPage: React.FC = () => {
         onDraftRoleChange={setDraftRole}
         onDraftContentChange={setDraftContent}
         onUpdateSystemPrompt={(value) => {
-          if (!activeFileName) return;
-          updateSystemPrompt(activeFileName, value);
+          if (!activeSampleId) return;
+          updateSystemPrompt(activeSampleId, value);
         }}
         onUpdateMessage={updateMessage}
         onDeleteMessage={deleteMessage}
         onAddMessage={addMessage}
         onSaveCurrent={() => {
-          if (!activeFileName) return;
-          void saveCurrentFile(activeFileName);
+          if (!activeSampleId) return;
+          void saveCurrentSample(activeSampleId);
         }}
         onOpenPrevious={() => openRelativeEditor(-1)}
         onOpenNext={() => openRelativeEditor(1)}

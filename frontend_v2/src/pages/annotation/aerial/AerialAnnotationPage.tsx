@@ -10,6 +10,7 @@ import { useAnnotationStore } from '../../../stores/annotationStore';
 import AerialSceneSidebar from './AerialSceneSidebar';
 import AerialMosaicNavigator from './AerialMosaicNavigator';
 import { buildAerialScenes, findSceneByFileName } from './utils';
+import { getSampleItemName } from '../../../utils/sampleItem';
 
 const { Title } = Typography;
 
@@ -19,11 +20,11 @@ const AerialAnnotationPage: React.FC = () => {
     loadAnnotationProject,
     annotationProject,
     dataset,
-    datasetFiles,
-    annotationFiles,
-    currentFileIndex,
+    sampleItems,
+    annotationRecords,
+    currentSampleIndex,
     loading,
-    loadFileByName,
+    loadSampleByName,
   } = useDatasetStore();
   const reset = useAnnotationStore((s) => s.reset);
   const [activeSceneKey, setActiveSceneKey] = useState<string | null>(null);
@@ -41,8 +42,9 @@ const AerialAnnotationPage: React.FC = () => {
     };
   }, [annotationId, loadAnnotationProject, reset]);
 
-  const currentFileName = currentFileIndex >= 0 ? datasetFiles[currentFileIndex]?.file_name : undefined;
-  const scenes = useMemo(() => buildAerialScenes(datasetFiles), [datasetFiles]);
+  const currentSample = currentSampleIndex >= 0 ? sampleItems[currentSampleIndex] : undefined;
+  const currentFileName = currentSample ? getSampleItemName(currentSample) : undefined;
+  const scenes = useMemo(() => buildAerialScenes(sampleItems), [sampleItems]);
   const detectedScene = useMemo(() => findSceneByFileName(scenes, currentFileName), [scenes, currentFileName]);
   const activeScene = useMemo(
     () => scenes.find((scene) => scene.key === activeSceneKey) ?? detectedScene,
@@ -77,7 +79,7 @@ const AerialAnnotationPage: React.FC = () => {
             setActiveSceneKey(sceneKey);
             setMosaicOpen(true);
             if (firstFileName && firstFileName !== currentFileName) {
-              loadFileByName(firstFileName);
+              loadSampleByName(firstFileName);
             }
           }}
         />
@@ -139,10 +141,10 @@ const AerialAnnotationPage: React.FC = () => {
           overlapRatio={dataset?.scenario_config?.stitching?.default_overlap_ratio}
           currentFileName={currentFileName}
           onSelectFileName={async (fileName) => {
-            await loadFileByName(fileName);
+            await loadSampleByName(fileName);
             setMosaicOpen(false);
           }}
-          annotationFiles={annotationFiles}
+          annotationRecords={annotationRecords}
           height="100%"
         />
       </Modal>

@@ -2,7 +2,7 @@
 数据集 Pydantic Schema
 """
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -51,21 +51,49 @@ class DatasetResponse(BaseModel):
         from_attributes = True
 
 
-class DatasetFileResponse(BaseModel):
-    """数据集文件响应"""
+class AssetResponse(BaseModel):
+    """原始资源响应"""
     id: int
     dataset_id: int
+    asset_type: str
     file_name: str
     save_path: Optional[str]
+    mime_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    meta_json: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
 
 
-class DatasetDetailResponse(DatasetResponse):
-    """数据集详情响应（包含文件列表）"""
-    files: List[DatasetFileResponse] = []
+class SampleItemCreate(BaseModel):
+    """创建无文件样本请求"""
+    item_type: str = Field(..., min_length=1, max_length=32)
+    item_key: str = Field(..., min_length=1, max_length=255)
+    locator: Optional[Dict[str, Any]] = None
+    payload: Optional[Dict[str, Any]] = None
+
+
+class SampleItemUpdate(BaseModel):
+    item_key: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    locator: Optional[Dict[str, Any]] = None
+    payload: Optional[Dict[str, Any]] = None
+
+
+class SampleItemResponse(BaseModel):
+    """数据集样本响应"""
+    id: int
+    dataset_id: int
+    asset_id: Optional[int]
+    item_type: str
+    item_key: str
+    locator: Optional[Dict[str, Any]] = None
+    payload: Optional[Dict[str, Any]] = None
+    sort_order: int = 0
+    created_at: datetime
+    updated_at: datetime
+    asset: Optional[AssetResponse] = None
 
 
 class FilePreviewResponse(BaseModel):
@@ -79,7 +107,3 @@ class FileContentResponse(BaseModel):
     file_name: str
     content: str
 
-
-class BatchDeleteRequest(BaseModel):
-    """批量删除请求"""
-    file_ids: List[int] = Field(..., min_length=1, description="要删除的文件ID列表")

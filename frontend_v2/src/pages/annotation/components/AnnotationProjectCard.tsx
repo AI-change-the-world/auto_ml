@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import type { TFunction } from 'i18next';
 import type { AnnotationProject, AnnotationTypeModel } from '../../../types';
+import { parseAnnotationClasses } from '../../../utils/annotationClasses';
 
 const colorMap: Record<string, { bg: string; fg: string }> = {
   blue: { bg: '#eef2ff', fg: '#4f6ef7' },
@@ -21,19 +22,6 @@ const colorMap: Record<string, { bg: string; fg: string }> = {
   purple: { bg: '#faf5ff', fg: '#9333ea' },
   geekblue: { bg: '#eef2ff', fg: '#1d4ed8' },
   cyan: { bg: '#ecfeff', fg: '#0891b2' },
-};
-
-export const parseAnnotationClasses = (rawClasses: string | null): string[] => {
-  if (!rawClasses) return [];
-  try {
-    const parsed = JSON.parse(rawClasses);
-    if (Array.isArray(parsed)) {
-      return parsed.map((item) => String(item).trim()).filter(Boolean);
-    }
-  } catch {
-    return rawClasses.split(/[;；,，]/).map((item) => item.trim()).filter(Boolean);
-  }
-  return [];
 };
 
 export const renderAnnotationTypeIcon = (
