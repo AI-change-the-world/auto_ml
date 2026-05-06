@@ -11,6 +11,7 @@ import {
   DataTypeLabels,
   DefaultAnnotationTypeRegistry,
   createAnnotationTypeRegistry,
+  isDpoPreferenceDataset,
   isLlmConversationDataset,
   isMllmConversationDataset,
 } from '../../types';
@@ -30,11 +31,16 @@ const getAllowedAnnotationTypes = (dataset?: Dataset): number[] => {
       AnnotationType.Segmentation,
       AnnotationType.MLLM,
       AnnotationType.LLM,
+      AnnotationType.DPO,
     ];
   }
 
   if (isLlmConversationDataset(dataset.data_type, dataset.scenario_type)) {
     return [AnnotationType.LLM];
+  }
+
+  if (isDpoPreferenceDataset(dataset.data_type, dataset.scenario_type)) {
+    return [AnnotationType.DPO];
   }
 
   if (isMllmConversationDataset(dataset.data_type, dataset.scenario_type)) {
@@ -51,7 +57,7 @@ const getAllowedAnnotationTypes = (dataset?: Dataset): number[] => {
   }
 
   if (isTextDataset(dataset)) {
-    return [AnnotationType.LLM];
+    return [AnnotationType.LLM, AnnotationType.DPO];
   }
 
   return [];
@@ -145,6 +151,10 @@ const AnnotationListPage: React.FC = () => {
     }
     if (formData.annotation_type === AnnotationType.MLLM && selectedDataset && !isMllmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
       message.warning('MLLM 标注项目只能绑定 MLLM 对话数据集');
+      return;
+    }
+    if (formData.annotation_type === AnnotationType.DPO && selectedDataset && !isDpoPreferenceDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
+      message.warning('DPO 标注项目只能绑定 DPO 偏好数据集');
       return;
     }
     setCreating(true);

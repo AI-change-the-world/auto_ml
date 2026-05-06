@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import uuid
+from datetime import datetime
 import zipfile
 import tarfile
 from typing import Any, Dict, List, Optional
@@ -76,6 +77,17 @@ DEFAULT_MLLM_CONVERSATION_CONFIG: Dict[str, Any] = {
         "result_format": "json",
         "roles": ["system", "user", "assistant"],
         "primary_input": "image",
+    }
+}
+
+DEFAULT_DPO_PREFERENCE_CONFIG: Dict[str, Any] = {
+    "preference": {
+        "mode": "dpo",
+        "result_format": "json",
+        "comparison_type": "pairwise",
+        "primary_input": "text",
+        "allow_tie": True,
+        "allow_skip": True,
     }
 }
 
@@ -292,6 +304,11 @@ class DatasetService:
                 content = await file.read()
                 filename = file.filename or "unknown"
 
+                if dataset.scenario_type == DatasetScenarioType.DPO_PREFERENCE:
+                    imported_count = await self._import_dpo_file(db, dataset, content, filename)
+                    uploaded_count += imported_count
+                    continue
+
                 # 检查是否为压缩包
                 if self._is_archive(filename):
                     count = await self._extract_and_upload(
@@ -382,6 +399,8 @@ class DatasetService:
     def _infer_sample_item_type(self, dataset, file_name: str, mime_type: Optional[str]) -> str:
         if dataset.scenario_type in {DatasetScenarioType.LLM_CONVERSATION, DatasetScenarioType.MLLM_CONVERSATION}:
             return "conversation"
+        if dataset.scenario_type == DatasetScenarioType.DPO_PREFERENCE:
+            return "preference"
 
         asset_type = self._infer_asset_type(file_name, mime_type)
         if asset_type in {"image", "text", "video", "audio"}:
@@ -430,6 +449,19 @@ class DatasetService:
             if not config:
                 return DEFAULT_MLLM_CONVERSATION_CONFIG
             normalized = json.loads(json.dumps(DEFAULT_MLLM_CONVERSATION_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        if scenario_type == DatasetScenarioType.DPO_PREFERENCE:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("DPO preference scenario only supports text datasets")
+            if not config:
+                return DEFAULT_DPO_PREFERENCE_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_DPO_PREFERENCE_CONFIG))
             for key, value in config.items():
                 if isinstance(value, dict) and isinstance(normalized.get(key), dict):
                     normalized[key].update(value)
@@ -528,6 +560,8 @@ class DatasetService:
             raise BadRequestException("LLM conversation scenario only supports text datasets")
         if scenario_type == DatasetScenarioType.MLLM_CONVERSATION and data_type != DataType.IMAGE:
             raise BadRequestException("MLLM conversation scenario only supports image datasets")
+        if scenario_type == DatasetScenarioType.DPO_PREFERENCE and data_type != DataType.TEXT:
+            raise BadRequestException("DPO preference scenario only supports text datasets")
 
     async def _extract_and_upload(
         self,
@@ -709,6 +743,149 @@ class DatasetService:
             content = raw_bytes.decode("utf-8", errors="replace")
 
         return FileContentResponse(file_name=asset.file_name or item.item_key, content=content)
+
+    async def _import_dpo_file(
+        self,
+        db: AsyncSession,
+        dataset,
+        content: bytes,
+        file_name: str,
+    ) -> int:
+        ext = os.path.splitext(file_name.lower())[1]
+        if ext != ".jsonl":
+            raise BadRequestException("DPO preference dataset only supports .jsonl import")
+
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise BadRequestException(f"Failed to decode JSONL file as utf-8: {exc}") from exc
+
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            raise BadRequestException("DPO JSONL file is empty")
+
+        validated_items: list[dict[str, Any]] = []
+        seen_item_keys: set[str] = set()
+        for index, line in enumerate(lines, start=1):
+            try:
+                raw_item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise BadRequestException(f"Invalid JSONL at line {index}: {exc}") from exc
+            item = self._normalize_dpo_payload(raw_item, line_no=index)
+            item_key = item["item_key"]
+            if item_key in seen_item_keys:
+                raise BadRequestException(f"Duplicate item_key `{item_key}` at line {index}")
+            if await crud.get_sample_item_by_key(db, dataset.id, item_key):
+                raise BadRequestException(f"Sample item `{item_key}` already exists")
+            seen_item_keys.add(item_key)
+            validated_items.append(item)
+
+        for item in validated_items:
+            await crud.create_sample_item(
+                db,
+                dataset_id=dataset.id,
+                asset_id=None,
+                item_type="preference",
+                item_key=item["item_key"],
+                locator=None,
+                payload=self._dump_json(item["payload"]),
+                sort_order=0,
+            )
+
+        await crud.update_dataset_count(db, dataset.id, await crud.get_sample_item_count(db, dataset.id))
+        return len(validated_items)
+
+    def _normalize_dpo_payload(self, raw_item: Any, line_no: int) -> dict[str, Any]:
+        if not isinstance(raw_item, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} must be an object")
+
+        item_key = str(raw_item.get("item_key") or "").strip()
+        if not item_key:
+            raise BadRequestException(f"DPO JSONL line {line_no} missing item_key")
+
+        prompt = raw_item.get("prompt")
+        if not isinstance(prompt, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} missing prompt object")
+
+        messages = prompt.get("messages")
+        if not isinstance(messages, list) or not messages:
+            raise BadRequestException(f"DPO JSONL line {line_no} prompt.messages must be a non-empty list")
+
+        normalized_messages: list[dict[str, str]] = []
+        has_user_message = False
+        for message in messages:
+            if not isinstance(message, dict):
+                raise BadRequestException(f"DPO JSONL line {line_no} has invalid prompt message")
+            role = str(message.get("role") or "").strip()
+            content = str(message.get("content") or "")
+            if role not in {"system", "user", "assistant"}:
+                raise BadRequestException(f"DPO JSONL line {line_no} has unsupported prompt role `{role}`")
+            if role == "user":
+                has_user_message = True
+            normalized_messages.append({
+                "role": role,
+                "content": content,
+            })
+        if not has_user_message:
+            raise BadRequestException(f"DPO JSONL line {line_no} prompt.messages must contain at least one user message")
+
+        responses = raw_item.get("responses")
+        if not isinstance(responses, list) or len(responses) != 2:
+            raise BadRequestException(f"DPO JSONL line {line_no} responses must contain exactly 2 items")
+
+        normalized_responses: list[dict[str, Any]] = []
+        seen_response_ids: set[str] = set()
+        contents: list[str] = []
+        for response in responses:
+            if not isinstance(response, dict):
+                raise BadRequestException(f"DPO JSONL line {line_no} has invalid response item")
+            response_id = str(response.get("response_id") or "").strip()
+            if not response_id:
+                raise BadRequestException(f"DPO JSONL line {line_no} response_id is required")
+            if response_id in seen_response_ids:
+                raise BadRequestException(f"DPO JSONL line {line_no} duplicate response_id `{response_id}`")
+            seen_response_ids.add(response_id)
+            content = response.get("content")
+            if not isinstance(content, str):
+                raise BadRequestException(f"DPO JSONL line {line_no} response.content must be a string")
+            contents.append(content.strip())
+            metadata = response.get("metadata")
+            if metadata is not None and not isinstance(metadata, dict):
+                raise BadRequestException(f"DPO JSONL line {line_no} response.metadata must be an object")
+            normalized_responses.append({
+                "response_id": response_id,
+                "content": content,
+                "model_id": str(response.get("model_id") or "").strip() or None,
+                "metadata": metadata if isinstance(metadata, dict) else {},
+            })
+
+        if not any(contents):
+            raise BadRequestException(f"DPO JSONL line {line_no} responses cannot both be empty")
+        if contents[0] == contents[1]:
+            raise BadRequestException(f"DPO JSONL line {line_no} responses cannot be identical")
+
+        reference = raw_item.get("reference")
+        if reference is not None and not isinstance(reference, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} reference must be an object")
+        tags = raw_item.get("tags")
+        if tags is not None and (not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags)):
+            raise BadRequestException(f"DPO JSONL line {line_no} tags must be a string array")
+
+        return {
+            "item_key": item_key,
+            "payload": {
+                "version": 1,
+                "format": "dpo_preference_sample",
+                "prompt": {
+                    "system_prompt": str(prompt.get("system_prompt") or ""),
+                    "messages": normalized_messages,
+                },
+                "responses": normalized_responses,
+                "reference": reference if isinstance(reference, dict) else None,
+                "tags": tags if isinstance(tags, list) else [],
+                "imported_at": datetime.utcnow().isoformat(),
+            },
+        }
 
 
 def get_dataset_service() -> DatasetService:

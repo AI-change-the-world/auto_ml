@@ -44,6 +44,14 @@ export interface DatasetScenarioConfig {
     roles?: string[];
     primary_input?: 'text' | 'image';
   };
+  preference?: {
+    mode?: 'dpo';
+    result_format?: 'json';
+    comparison_type?: 'pairwise';
+    primary_input?: 'text';
+    allow_tie?: boolean;
+    allow_skip?: boolean;
+  };
   [key: string]: unknown;
 }
 
@@ -120,6 +128,7 @@ export const DatasetScenarioType = {
   AerialStitch: 1,
   LLMConversation: 2,
   MLLMConversation: 3,
+  DPOPreference: 4,
 } as const;
 
 export type DatasetScenarioTypeValue =
@@ -130,6 +139,7 @@ export const DatasetScenarioLabels: Record<number, string> = {
   [DatasetScenarioType.AerialStitch]: '无人机航拍/拼接',
   [DatasetScenarioType.LLMConversation]: 'LLM 对话标注',
   [DatasetScenarioType.MLLMConversation]: 'MLLM 对话标注',
+  [DatasetScenarioType.DPOPreference]: 'DPO 偏好标注',
 };
 
 export const createDefaultAerialScenarioConfig = (): DatasetScenarioConfig => ({
@@ -174,6 +184,17 @@ export const createDefaultMllmScenarioConfig = (): DatasetScenarioConfig => ({
   },
 });
 
+export const createDefaultDpoScenarioConfig = (): DatasetScenarioConfig => ({
+  preference: {
+    mode: 'dpo',
+    result_format: 'json',
+    comparison_type: 'pairwise',
+    primary_input: 'text',
+    allow_tie: true,
+    allow_skip: true,
+  },
+});
+
 export function getDatasetScenarioOptions(dataType: number): Array<{ value: number; label: string }> {
   if (dataType === 0) {
     return [
@@ -187,6 +208,7 @@ export function getDatasetScenarioOptions(dataType: number): Array<{ value: numb
     return [
       { value: DatasetScenarioType.Normal, label: '普通文本' },
       { value: DatasetScenarioType.LLMConversation, label: DatasetScenarioLabels[DatasetScenarioType.LLMConversation] },
+      { value: DatasetScenarioType.DPOPreference, label: DatasetScenarioLabels[DatasetScenarioType.DPOPreference] },
     ];
   }
 
@@ -216,6 +238,9 @@ export function createDefaultScenarioConfig(
   if (scenarioType === DatasetScenarioType.LLMConversation && dataType === 1) {
     return createDefaultLlmScenarioConfig();
   }
+  if (scenarioType === DatasetScenarioType.DPOPreference && dataType === 1) {
+    return createDefaultDpoScenarioConfig();
+  }
   if (scenarioType === DatasetScenarioType.MLLMConversation && dataType === 0) {
     return createDefaultMllmScenarioConfig();
   }
@@ -228,6 +253,10 @@ export function isLlmConversationDataset(dataType: number, scenarioType: number)
 
 export function isMllmConversationDataset(dataType: number, scenarioType: number): boolean {
   return dataType === 0 && scenarioType === DatasetScenarioType.MLLMConversation;
+}
+
+export function isDpoPreferenceDataset(dataType: number, scenarioType: number): boolean {
+  return dataType === 1 && scenarioType === DatasetScenarioType.DPOPreference;
 }
 
 /** 文件预览响应 */

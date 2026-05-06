@@ -35,6 +35,7 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationExportItem,
     AnnotationRecordResponse,
     AnnotationRecordSave,
     AnnotationTypeDefinitionResponse,
@@ -199,6 +200,76 @@ class AnnotationService:
             *(self._build_annotation_record_response(record) for record in records)
         ) if records else []
         return items, total
+
+    async def export_dpo_records(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+    ) -> list[AnnotationExportItem]:
+        ann = await crud.get_annotation_by_id(db, annotation_id)
+        if not ann:
+            raise NotFoundException(f"Annotation {annotation_id} not found")
+        if ann.annotation_type != AnnotationType.DPO:
+            raise BadRequestException("only DPO annotation project supports export")
+        if not ann.dataset_id:
+            raise BadRequestException("annotation project has no dataset")
+
+        exported_items: list[AnnotationExportItem] = []
+        offset = 0
+        page_size = 500
+        while True:
+            records, _ = await crud.get_annotation_records(db, annotation_id, offset, page_size)
+            if not records:
+                break
+            for record in records:
+                content = await self._load_annotation_record_content(record.annotation_type, record.content)
+                if not isinstance(content, dict):
+                    continue
+                decision = str(content.get("decision") or "").strip().lower()
+                if decision not in {"left", "right"}:
+                    continue
+                if content.get("skip") is True or content.get("tie") is True:
+                    continue
+
+                sample_item = await db.scalar(
+                    select(SampleItem).where(
+                        SampleItem.id == record.sample_item_id,
+                        SampleItem.dataset_id == ann.dataset_id,
+                        SampleItem.is_deleted == False,
+                    )
+                )
+                if not sample_item:
+                    continue
+                sample_payload = self._load_dpo_sample_payload(sample_item.payload)
+                if not sample_payload:
+                    continue
+                response_map = {
+                    str(item.get("response_id")): str(item.get("content") or "")
+                    for item in sample_payload.get("responses", [])
+                    if isinstance(item, dict)
+                }
+                chosen_response_id = str(content.get("chosen_response_id") or "").strip()
+                rejected_response_id = str(content.get("rejected_response_id") or "").strip()
+                chosen = response_map.get(chosen_response_id)
+                rejected = response_map.get(rejected_response_id)
+                if chosen is None or rejected is None:
+                    continue
+                exported_items.append(
+                    AnnotationExportItem(
+                        prompt=sample_payload.get("prompt") or {},
+                        chosen=chosen,
+                        rejected=rejected,
+                        chosen_response_id=chosen_response_id,
+                        rejected_response_id=rejected_response_id,
+                        sample_item_id=sample_item.id,
+                        annotation_id=annotation_id,
+                        reason=str(content.get("reason") or "").strip() or None,
+                    )
+                )
+            if len(records) < page_size:
+                break
+            offset += page_size
+        return exported_items
 
     async def save_annotation_record(
         self,
@@ -630,6 +701,21 @@ class AnnotationService:
             dataset.data_type != DataType.IMAGE or dataset.scenario_type != DatasetScenarioType.MLLM_CONVERSATION
         ):
             raise BadRequestException("MLLM annotation project can only bind MLLM conversation datasets")
+        if annotation_type == AnnotationType.DPO and (
+            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.DPO_PREFERENCE
+        ):
+            raise BadRequestException("DPO annotation project can only bind DPO preference datasets")
+
+    def _load_dpo_sample_payload(self, raw_payload: Any) -> dict[str, Any] | None:
+        if not raw_payload:
+            return None
+        if isinstance(raw_payload, dict):
+            return raw_payload
+        try:
+            parsed = json.loads(raw_payload)
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
 
 
 async def get_annotation_service():

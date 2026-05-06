@@ -183,6 +183,7 @@ export enum AnnotationType {
   MLLM = 3,
   Pose = 4,
   LLM = 5,
+  DPO = 6,
 }
 
 export interface AnnotationTypeDefinition {
@@ -259,6 +260,14 @@ export const DEFAULT_ANNOTATION_TYPE_DEFINITIONS: AnnotationTypeDefinition[] = [
     label: 'LLM',
     color: 'geekblue',
     icon_key: 'llm',
+    supports_classes: false,
+  },
+  {
+    value: AnnotationType.DPO,
+    code: 'dpo',
+    label: 'DPO',
+    color: 'gold',
+    icon_key: 'dpo',
     supports_classes: false,
   },
 ];

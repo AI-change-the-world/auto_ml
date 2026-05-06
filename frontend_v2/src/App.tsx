@@ -17,6 +17,7 @@ import AnnotationWorkbenchRouter from './pages/annotation/AnnotationWorkbenchRou
 import AerialAnnotationPage from './pages/annotation/aerial/AerialAnnotationPage';
 import ClassificationAnnotationPage from './pages/annotation/classification/ClassificationAnnotationPage';
 import ConversationAnnotationPage from './pages/annotation/conversation/ConversationAnnotationPage';
+import DpoAnnotationPage from './pages/annotation/dpo/DpoAnnotationPage';
 import TaskListPage from './pages/task/TaskListPage';
 import TaskDetailPage from './pages/task/TaskDetailPage';
 import DeployPage from './pages/deploy/DeployPage';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
             <Route path="/annotations/:annotationId/label/classification" element={<ClassificationAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/llm" element={<ConversationAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/mllm" element={<ConversationAnnotationPage />} />
+            <Route path="/annotations/:annotationId/label/dpo" element={<DpoAnnotationPage />} />
           </Route>
 
           {/* 兼容旧路由 */}

@@ -58,11 +58,13 @@ export {
   DatasetScenarioType,
   DatasetScenarioLabels,
   createDefaultAerialScenarioConfig,
+  createDefaultDpoScenarioConfig,
   createDefaultLlmScenarioConfig,
   createDefaultMllmScenarioConfig,
   getDatasetScenarioOptions,
   getDatasetScenarioLabel,
   createDefaultScenarioConfig,
+  isDpoPreferenceDataset,
   isLlmConversationDataset,
   isMllmConversationDataset,
 } from './dataset';

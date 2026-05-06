@@ -77,3 +77,11 @@ export async function listAnnotationAssistPipelines(annotationId: number, shape?
   });
   return res.data.data;
 }
+
+/** 导出 DPO 标注结果 */
+export async function exportDpoAnnotation(annotationId: number) {
+  const res = await apiClient.get(`/annotation/${annotationId}/export/dpo`, {
+    responseType: 'blob',
+  });
+  return res.data as Blob;
+}

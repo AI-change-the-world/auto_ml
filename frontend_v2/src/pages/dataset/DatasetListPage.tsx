@@ -18,6 +18,7 @@ import {
   getDatasetScenarioOptions,
   getDatasetScenarioLabel,
   createDefaultScenarioConfig,
+  isDpoPreferenceDataset,
   isLlmConversationDataset,
   isMllmConversationDataset,
 } from '../../types';
@@ -49,6 +50,7 @@ const DatasetListPage: React.FC = () => {
   const isAerialScenario = currentScenarioType === DatasetScenarioType.AerialStitch;
   const isLlmScenario = isLlmConversationDataset(currentDataType, currentScenarioType);
   const isMllmScenario = isMllmConversationDataset(currentDataType, currentScenarioType);
+  const isDpoScenario = isDpoPreferenceDataset(currentDataType, currentScenarioType);
 
   const fetchDatasets = useCallback(async () => {
     setLoading(true);
@@ -242,6 +244,17 @@ const DatasetListPage: React.FC = () => {
                 <div>标注结果按 JSON 保存，适合多轮对话式标注。</div>
                 <div style={{ marginTop: 4, color: '#94a3b8' }}>
                   {isLlmScenario ? '建议上传 txt、md、json 等文本文件。' : '建议上传图像文件，标注时逐张补充对话。'}
+                </div>
+              </div>
+            )}
+            {isDpoScenario && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#fffdf4', border: '1px solid #fde68a', color: '#713f12', fontSize: 12, lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                  DPO 偏好数据集
+                </div>
+                <div>用于同一 prompt 下两条候选回复的偏好标注。首期只支持文本 JSONL 导入。</div>
+                <div style={{ marginTop: 4, color: '#a16207' }}>
+                  建议上传 `.jsonl` 文件，每行包含 `item_key`、`prompt`、`responses` 两条回复。
                 </div>
               </div>
             )}

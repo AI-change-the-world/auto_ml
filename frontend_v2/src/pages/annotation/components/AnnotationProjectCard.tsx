@@ -5,6 +5,7 @@ import {
   DeleteOutlined,
   DeploymentUnitOutlined,
   GatewayOutlined,
+  SwapOutlined,
   MessageOutlined,
   PictureOutlined,
   RobotOutlined,
@@ -41,6 +42,8 @@ export const renderAnnotationTypeIcon = (
       return <RobotOutlined style={iconStyle} />;
     case 'llm':
       return <MessageOutlined style={iconStyle} />;
+    case 'dpo':
+      return <SwapOutlined style={iconStyle} />;
     case 'pose':
       return <DeploymentUnitOutlined style={iconStyle} />;
     default:

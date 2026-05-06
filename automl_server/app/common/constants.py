@@ -26,6 +26,7 @@ class DatasetScenarioType(IntEnum):
     AERIAL_STITCH = 1
     LLM_CONVERSATION = 2
     MLLM_CONVERSATION = 3
+    DPO_PREFERENCE = 4
 
 
 class AnnotationType(IntEnum):
@@ -36,6 +37,7 @@ class AnnotationType(IntEnum):
     MLLM = 3
     POSE = 4
     LLM = 5
+    DPO = 6
 
 
 @dataclass(frozen=True)
@@ -96,6 +98,14 @@ ANNOTATION_TYPE_DEFINITIONS: tuple[AnnotationTypeDefinition, ...] = (
         label="LLM",
         color="geekblue",
         icon_key="llm",
+        supports_classes=False,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.DPO,
+        code="dpo",
+        label="DPO",
+        color="gold",
+        icon_key="dpo",
         supports_classes=False,
     ),
 )

@@ -20,9 +20,10 @@ import {
 } from '@ant-design/icons';
 import { getDataset, getDatasetSamples, uploadDatasetFiles, previewSample, deleteDataset, deleteDatasetSample } from '../../api/dataset';
 import type { Dataset, SampleItem } from '../../types';
-import { DataTypeLabels, DatasetScenarioType, getDatasetScenarioLabel, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
+import { DataTypeLabels, DatasetScenarioType, getDatasetScenarioLabel, isDpoPreferenceDataset, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { isImageFileName } from '../../utils/file';
+import { getDatasetUploadRule, splitAcceptedFiles } from '../../utils/datasetUpload';
 
 /** 获取文件图标 */
 const getFileIcon = (fileName: string) => {
@@ -83,7 +84,13 @@ const DatasetDetailPage: React.FC = () => {
   }, [samples, datasetId]);
 
   const handleUpload = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
+    if (!fileList || fileList.length === 0 || !dataset) return;
+    const files = Array.from(fileList);
+    const { accepted, rejected, rule } = splitAcceptedFiles(dataset, files);
+    if (rejected.length > 0) {
+      message.warning(t('uploadTypeInvalid', { types: rule.description || '-' }));
+    }
+    if (accepted.length === 0) return;
     setUploading(true);
     setUploadProgress(0);
     try {
@@ -91,10 +98,10 @@ const DatasetDetailPage: React.FC = () => {
       const timer = setInterval(() => {
         setUploadProgress((p) => Math.min(p + 10, 90));
       }, 500);
-      const uploadedCount = await uploadDatasetFiles(datasetId, Array.from(fileList));
+      const uploadedCount = await uploadDatasetFiles(datasetId, accepted);
       clearInterval(timer);
       setUploadProgress(100);
-      message.success(t('uploadSuccess', { count: uploadedCount ?? fileList.length }));
+      message.success(t('uploadSuccess', { count: uploadedCount ?? accepted.length }));
       setSelectedIds(new Set());
       fetchData();
     } catch { message.error(tc('msg.uploadFailed')); }
@@ -175,7 +182,9 @@ const DatasetDetailPage: React.FC = () => {
   const isImageDataset = dataset.data_type === 0;
   const isLlmDataset = isLlmConversationDataset(dataset.data_type, dataset.scenario_type);
   const isMllmDataset = isMllmConversationDataset(dataset.data_type, dataset.scenario_type);
+  const isDpoDataset = isDpoPreferenceDataset(dataset.data_type, dataset.scenario_type);
   const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
+  const uploadRule = getDatasetUploadRule(dataset);
 
   const tabs = [
     { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: samples.length },
@@ -190,6 +199,7 @@ const DatasetDetailPage: React.FC = () => {
         ref={fileInputRef}
         type="file"
         multiple
+        accept={uploadRule.accept}
         style={{ display: 'none' }}
         onChange={(e) => { handleUpload(e.target.files); e.target.value = ''; }}
       />
@@ -281,6 +291,17 @@ const DatasetDetailPage: React.FC = () => {
         </div>
       )}
 
+      {isDpoDataset && (
+        <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'linear-gradient(135deg, #fffdf4, #fff7ed)', border: '1px solid #fde68a', color: '#713f12' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
+            DPO 偏好数据集
+          </div>
+          <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+            上传 `.jsonl` 文件后，系统会按每行一条偏好样本导入，生成 `preference` 类型样本。
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #eee', marginTop: 20, marginBottom: 20 }}>
         {tabs.map((tab) => (
@@ -330,7 +351,9 @@ const DatasetDetailPage: React.FC = () => {
               <>
                 <CloudUploadOutlined style={{ fontSize: 28, color: isDragOver ? '#4f6ef7' : '#ccc', marginBottom: 8 }} />
                 <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{t('dropUpload')}</p>
-                <p style={{ fontSize: 11, color: '#bbb', margin: '4px 0 0' }}>{t('dropLimit')}</p>
+                <p style={{ fontSize: 11, color: '#bbb', margin: '4px 0 0' }}>
+                  {uploadRule.description || (isDpoDataset ? '.jsonl' : t('dropLimit'))}
+                </p>
               </>
             )}
           </div>
