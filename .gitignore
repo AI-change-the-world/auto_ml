@@ -223,3 +223,5 @@ __marimo__/
 example.html
 /.vscode
 .vscode/settings.json
+
+nacos-data/

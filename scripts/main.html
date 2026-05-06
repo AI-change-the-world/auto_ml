@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoML 控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-800 antialiased flex h-screen overflow-hidden">
+
+    <!-- 左侧边栏 -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col h-full flex-shrink-0 relative z-10">
+        <!-- Logo -->
+        <div class="h-16 flex items-center px-6 border-b border-slate-100">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">A</div>
+            <span class="ml-3 font-bold text-lg tracking-tight">AutoML</span>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="px-4 py-5">
+            <div class="relative group">
+                <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input type="text" placeholder="搜索..." class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-9 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-400">
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 bg-slate-200 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-medium">Ctrl K</div>
+            </div>
+        </div>
+
+        <!-- 导航菜单 -->
+        <nav class="flex-1 px-3 space-y-1 overflow-y-auto">
+            <a href="#" class="flex items-center px-3 py-2.5 bg-indigo-50 text-indigo-700 rounded-xl font-medium text-sm transition-colors group">
+                <svg class="w-5 h-5 mr-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                首页
+            </a>
+            <a href="#" class="flex items-center px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
+                <svg class="w-5 h-5 mr-3 text-slate-400 group-hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                浏览
+            </a>
+
+            <div class="pt-6 pb-2 px-3">
+                <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">我的项目</p>
+            </div>
+            
+            <div class="space-y-1">
+                <a href="#" class="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-xl text-sm transition-colors group">
+                    <svg class="w-4 h-4 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                    标注
+                </a>
+                <p class="px-10 text-xs text-slate-400 py-1">暂无内容</p>
+            </div>
+            
+            <div class="space-y-1 mt-2">
+                <a href="#" class="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-xl text-sm transition-colors group">
+                    <svg class="w-4 h-4 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                    训练
+                </a>
+                <p class="px-10 text-xs text-slate-400 py-1">暂无内容</p>
+            </div>
+
+            <div class="space-y-1 mt-2">
+                <a href="#" class="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-xl text-sm transition-colors group">
+                    <svg class="w-4 h-4 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                    部署
+                </a>
+                <p class="px-10 text-xs text-slate-400 py-1">暂无活跃部署</p>
+            </div>
+        </nav>
+
+        <!-- 底部设置 & 用户 -->
+        <div class="p-4 border-t border-slate-100 space-y-1">
+            <a href="#" class="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-xl text-sm transition-colors">
+                <svg class="w-4 h-4 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                设置
+            </a>
+            <a href="#" class="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-xl text-sm transition-colors">
+                <svg class="w-4 h-4 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                帮助
+            </a>
+            <div class="mt-4 pt-4 flex items-center justify-between px-2 cursor-pointer group">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white font-semibold text-sm shadow-sm ring-2 ring-white">A</div>
+                    <span class="ml-3 font-medium text-sm text-slate-700 group-hover:text-indigo-600 transition-colors">AutoML</span>
+                </div>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 右侧主体内容 -->
+    <main class="flex-1 flex flex-col h-full relative">
+        <!-- 顶部 Header -->
+        <header class="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-20">
+            <div class="flex items-center text-sm">
+                <svg class="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <span class="text-slate-600 font-medium">首页</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+                <button class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                    <span>English</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 核心滚动区域 -->
+        <div class="flex-1 overflow-y-auto">
+            <!-- 限制最大宽度，保证在大屏上不散架 -->
+            <div class="max-w-[1400px] mx-auto p-8 space-y-6">
+                
+                <!-- 页面标题 & 操作按钮 -->
+                <div class="flex items-center justify-between mb-8">
+                    <div class="flex items-center space-x-3">
+                        <div class="p-2 bg-indigo-50 rounded-xl text-indigo-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        </div>
+                        <h1 class="text-2xl font-bold text-slate-800 tracking-tight">控制台</h1>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl font-medium shadow-md shadow-indigo-200 transition-all flex items-center space-x-2">
+                            <span>查看数据集</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </button>
+                        <button class="px-5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-medium transition-all flex items-center space-x-2">
+                            <span>进入标注</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 概览大卡片 -->
+                <div class="bg-white rounded-2xl p-8 border border-slate-100 shadow-sm">
+                    <div class="flex flex-col lg:flex-row justify-between lg:items-center gap-8">
+                        
+                        <!-- 左侧文案 -->
+                        <div class="flex-1">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-600 mb-4 border border-blue-100">
+                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-2"></span>
+                                AutoML Workspace
+                            </span>
+                            <h2 class="text-xl font-bold text-slate-900 mb-2">当前平台概览</h2>
+                            <p class="text-slate-500 text-sm">统一管理图像、文本、视频和音频数据集，直接进入标注、训练与部署。</p>
+                            
+                            <!-- 任务状态小药丸，提上来融合在文本下方 -->
+                            <div class="mt-6 flex flex-wrap items-center gap-3">
+                                <div class="flex items-center text-sm text-slate-600">
+                                    <svg class="w-4 h-4 mr-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                    任务与部署
+                                </div>
+                                <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200"><span class="font-bold mr-1">0</span> 训练任务</span>
+                                <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-xs font-medium border border-emerald-100"><span class="font-bold mr-1">0</span> 运行中</span>
+                                <span class="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium border border-blue-100"><span class="font-bold mr-1">0</span> 已完成</span>
+                                <span class="px-3 py-1 rounded-full bg-purple-50 text-purple-600 text-xs font-medium border border-purple-100"><span class="font-bold mr-1">0</span> 在线部署</span>
+                            </div>
+                        </div>
+
+                        <!-- 右侧数据方块 -->
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full lg:w-auto">
+                            <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100/50 hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-sm font-medium text-slate-500">数据集</span>
+                                    <div class="p-1.5 bg-orange-100 text-orange-600 rounded-lg">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="text-3xl font-bold text-slate-800">1</div>
+                            </div>
+                            <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100/50 hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-sm font-medium text-slate-500">样本总量</span>
+                                    <div class="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="text-3xl font-bold text-slate-800">1</div>
+                            </div>
+                            <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100/50 hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-sm font-medium text-slate-500">标注项目</span>
+                                    <div class="p-1.5 bg-purple-100 text-purple-600 rounded-lg">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="text-3xl font-bold text-slate-800">0</div>
+                            </div>
+                            <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100/50 hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="text-sm font-medium text-slate-500">模型库</span>
+                                    <div class="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                                    </div>
+                                </div>
+                                <div class="text-3xl font-bold text-slate-800">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 三栏布局：数据集、项目、自动标注 -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- 卡片 1: 最近数据集 -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col h-[320px]">
+                        <h3 class="text-base font-bold text-slate-900 mb-4">最近数据集</h3>
+                        <div class="flex-1 overflow-y-auto">
+                            <!-- 数据集条目 -->
+                            <div class="group flex items-center p-3 hover:bg-slate-50 rounded-xl border border-transparent hover:border-slate-100 transition-all cursor-pointer">
+                                <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-500 flex-shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                </div>
+                                <div class="ml-4 flex-1">
+                                    <div class="flex items-center space-x-2">
+                                        <h4 class="font-medium text-slate-800">1</h4>
+                                        <span class="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">图像</span>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-1">1 条样本 · 创建于 04/30 10:08</p>
+                                </div>
+                                <svg class="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 卡片 2: 最近标注项目 -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col h-[320px]">
+                        <h3 class="text-base font-bold text-slate-900 mb-4">最近标注项目</h3>
+                        <!-- 空状态 -->
+                        <div class="flex-1 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center bg-slate-50/50">
+                            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 mb-3 text-slate-400">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                            </div>
+                            <p class="font-medium text-slate-700">还没有标注项目</p>
+                            <p class="text-sm text-slate-400 mt-1">创建第一个项目</p>
+                        </div>
+                    </div>
+
+                    <!-- 卡片 3: 自动标注 Pipeline -->
+                    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col h-[320px]">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base font-bold text-slate-900">自动标注 Pipeline</h3>
+                            <span class="text-xs px-2 py-1 bg-indigo-50 text-indigo-600 rounded-full font-medium">2 条能力</span>
+                        </div>
+                        <div class="flex-1 overflow-y-auto space-y-3">
+                            <!-- Pipeline 1 -->
+                            <div class="group p-4 border border-slate-100 rounded-xl hover:border-indigo-200 hover:shadow-sm hover:bg-indigo-50/30 transition-all cursor-pointer">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="font-semibold text-sm text-slate-800">直接理解 BBox + 预览图</h4>
+                                    <svg class="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <span class="text-[10px] px-2 py-0.5 border border-slate-200 text-slate-500 rounded bg-white">检测</span>
+                                    <span class="text-[10px] px-2 py-0.5 border border-slate-200 text-slate-500 rounded bg-white">BBOX</span>
+                                </div>
+                            </div>
+                            <!-- Pipeline 2 -->
+                            <div class="group p-4 border border-slate-100 rounded-xl hover:border-indigo-200 hover:shadow-sm hover:bg-indigo-50/30 transition-all cursor-pointer">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h4 class="font-semibold text-sm text-slate-800">生成白框并提取 BBox</h4>
+                                    <svg class="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <span class="text-[10px] px-2 py-0.5 border border-slate-200 text-slate-500 rounded bg-white">检测</span>
+                                    <span class="text-[10px] px-2 py-0.5 border border-slate-200 text-slate-500 rounded bg-white">BBOX</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
