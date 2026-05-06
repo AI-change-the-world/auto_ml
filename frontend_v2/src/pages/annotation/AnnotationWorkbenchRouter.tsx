@@ -31,6 +31,14 @@ const AnnotationWorkbenchRouter: React.FC = () => {
           workbench = 'llm';
         } else if (annotation.annotation_type === AnnotationType.DPO) {
           workbench = 'dpo';
+        } else if (annotation.annotation_type === AnnotationType.DpoPairwise) {
+          workbench = 'dpo-pairwise';
+        } else if (annotation.annotation_type === AnnotationType.DpoBestOfN) {
+          workbench = 'dpo-best-of-n';
+        } else if (annotation.annotation_type === AnnotationType.DpoReferenceChoice) {
+          workbench = 'dpo-reference';
+        } else if (annotation.annotation_type === AnnotationType.DpoMultiTurn) {
+          workbench = 'dpo-multi-turn';
         } else if (annotation.annotation_type === AnnotationType.MLLM) {
           workbench = 'mllm';
         } else if (annotation.dataset_id) {

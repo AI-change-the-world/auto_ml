@@ -15,6 +15,8 @@ from app.common.constants import (
     DatasetScenarioType,
     get_annotation_type_definition,
     get_annotation_type_definitions,
+    is_dpo_annotation_type,
+    is_dpo_dataset_scenario,
 )
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
@@ -223,11 +225,11 @@ class AnnotationService:
         self,
         db: AsyncSession,
         annotation_id: int,
-    ) -> list[AnnotationExportItem]:
+    ) -> tuple[list[AnnotationExportItem], str]:
         ann = await crud.get_annotation_by_id(db, annotation_id)
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
-        if ann.annotation_type != AnnotationType.DPO:
+        if not is_dpo_annotation_type(ann.annotation_type):
             raise BadRequestException("only DPO annotation project supports export")
         if not ann.dataset_id:
             raise BadRequestException("annotation project has no dataset")
@@ -266,28 +268,43 @@ class AnnotationService:
                     for item in sample_payload.get("responses", [])
                     if isinstance(item, dict)
                 }
-                chosen_response_id = str(content.get("chosen_response_id") or "").strip()
-                rejected_response_id = str(content.get("rejected_response_id") or "").strip()
+                chosen_response_id = str(
+                    content.get("selected_response_id")
+                    or content.get("chosen_response_id")
+                    or ""
+                ).strip()
+                rejected_response_ids = [
+                    str(item).strip()
+                    for item in content.get("rejected_response_ids", []) or []
+                    if str(item).strip()
+                ]
+                legacy_rejected_response_id = str(content.get("rejected_response_id") or "").strip()
+                if not rejected_response_ids and legacy_rejected_response_id:
+                    rejected_response_ids = [legacy_rejected_response_id]
                 chosen = response_map.get(chosen_response_id)
-                rejected = response_map.get(rejected_response_id)
-                if chosen is None or rejected is None:
+                if chosen is None:
                     continue
-                exported_items.append(
-                    AnnotationExportItem(
-                        prompt=sample_payload.get("prompt") or {},
-                        chosen=chosen,
-                        rejected=rejected,
-                        chosen_response_id=chosen_response_id,
-                        rejected_response_id=rejected_response_id,
-                        sample_item_id=sample_item.id,
-                        annotation_id=annotation_id,
-                        reason=str(content.get("reason") or "").strip() or None,
+
+                for rejected_response_id in rejected_response_ids:
+                    rejected = response_map.get(rejected_response_id)
+                    if rejected is None or rejected_response_id == chosen_response_id:
+                        continue
+                    exported_items.append(
+                        AnnotationExportItem(
+                            prompt=sample_payload.get("prompt") or {},
+                            chosen=chosen,
+                            rejected=rejected,
+                            chosen_response_id=chosen_response_id,
+                            rejected_response_id=rejected_response_id,
+                            sample_item_id=sample_item.id,
+                            annotation_id=annotation_id,
+                            reason=str(content.get("reason") or "").strip() or None,
+                        )
                     )
-                )
             if len(records) < page_size:
                 break
             offset += page_size
-        return exported_items
+        return exported_items, self._build_dpo_export_name(ann.annotation_type)
 
     async def save_annotation_record(
         self,
@@ -720,9 +737,25 @@ class AnnotationService:
         ):
             raise BadRequestException("MLLM annotation project can only bind MLLM conversation datasets")
         if annotation_type == AnnotationType.DPO and (
-            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.DPO_PREFERENCE
+            dataset.data_type != DataType.TEXT or not is_dpo_dataset_scenario(dataset.scenario_type)
         ):
-            raise BadRequestException("DPO annotation project can only bind DPO preference datasets")
+            raise BadRequestException("DPO annotation project can only bind DPO datasets")
+        if annotation_type == AnnotationType.DPO_PAIRWISE and (
+            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.DPO_PAIRWISE
+        ):
+            raise BadRequestException("DPO pairwise annotation project can only bind DPO pairwise datasets")
+        if annotation_type == AnnotationType.DPO_BEST_OF_N and (
+            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.DPO_BEST_OF_N
+        ):
+            raise BadRequestException("DPO best_of_n annotation project can only bind DPO best_of_n datasets")
+        if annotation_type == AnnotationType.DPO_REFERENCE_CHOICE and (
+            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.DPO_REFERENCE_CHOICE
+        ):
+            raise BadRequestException("DPO reference choice annotation project can only bind DPO reference choice datasets")
+        if annotation_type == AnnotationType.DPO_MULTI_TURN and (
+            dataset.data_type != DataType.TEXT or dataset.scenario_type != DatasetScenarioType.DPO_MULTI_TURN
+        ):
+            raise BadRequestException("DPO multi_turn annotation project can only bind DPO multi_turn datasets")
 
     def _load_dpo_sample_payload(self, raw_payload: Any) -> dict[str, Any] | None:
         if not raw_payload:
@@ -734,6 +767,17 @@ class AnnotationService:
         except (TypeError, json.JSONDecodeError):
             return None
         return parsed if isinstance(parsed, dict) else None
+
+    def _build_dpo_export_name(self, annotation_type: int) -> str:
+        if annotation_type == AnnotationType.DPO_PAIRWISE:
+            return "dpo_pairwise_annotation"
+        if annotation_type == AnnotationType.DPO_BEST_OF_N:
+            return "dpo_best_of_n_annotation"
+        if annotation_type == AnnotationType.DPO_REFERENCE_CHOICE:
+            return "dpo_reference_annotation"
+        if annotation_type == AnnotationType.DPO_MULTI_TURN:
+            return "dpo_multi_turn_annotation"
+        return "dpo_annotation"
 
 
 async def get_annotation_service():

@@ -112,9 +112,9 @@ async def export_dpo_records(
     db: AsyncSession = Depends(get_db),
     service: AnnotationService = Depends(get_annotation_service),
 ):
-    items = await service.export_dpo_records(db, annotation_id)
+    items, export_name = await service.export_dpo_records(db, annotation_id)
     lines = [json.dumps(item.model_dump(mode="json"), ensure_ascii=False) for item in items]
-    file_name = f"dpo_annotation_{annotation_id}.jsonl"
+    file_name = f"{export_name}_{annotation_id}.jsonl"
     return Response(
         content=("\n".join(lines)).encode("utf-8"),
         media_type="application/jsonl; charset=utf-8",

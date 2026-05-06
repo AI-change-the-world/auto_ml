@@ -27,6 +27,10 @@ class DatasetScenarioType(IntEnum):
     LLM_CONVERSATION = 2
     MLLM_CONVERSATION = 3
     DPO_PREFERENCE = 4
+    DPO_PAIRWISE = 5
+    DPO_BEST_OF_N = 6
+    DPO_REFERENCE_CHOICE = 7
+    DPO_MULTI_TURN = 8
 
 
 class AnnotationType(IntEnum):
@@ -38,6 +42,10 @@ class AnnotationType(IntEnum):
     POSE = 4
     LLM = 5
     DPO = 6
+    DPO_PAIRWISE = 7
+    DPO_BEST_OF_N = 8
+    DPO_REFERENCE_CHOICE = 9
+    DPO_MULTI_TURN = 10
 
 
 @dataclass(frozen=True)
@@ -103,7 +111,39 @@ ANNOTATION_TYPE_DEFINITIONS: tuple[AnnotationTypeDefinition, ...] = (
     AnnotationTypeDefinition(
         value=AnnotationType.DPO,
         code="dpo",
-        label="DPO",
+        label="DPO 兼容",
+        color="gold",
+        icon_key="dpo",
+        supports_classes=False,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.DPO_PAIRWISE,
+        code="dpo_pairwise",
+        label="DPO 二选一",
+        color="gold",
+        icon_key="dpo",
+        supports_classes=False,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.DPO_BEST_OF_N,
+        code="dpo_best_of_n",
+        label="DPO 多选一",
+        color="gold",
+        icon_key="dpo",
+        supports_classes=False,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.DPO_REFERENCE_CHOICE,
+        code="dpo_reference_choice",
+        label="DPO 参考增强",
+        color="gold",
+        icon_key="dpo",
+        supports_classes=False,
+    ),
+    AnnotationTypeDefinition(
+        value=AnnotationType.DPO_MULTI_TURN,
+        code="dpo_multi_turn",
+        label="DPO 多轮对话",
         color="gold",
         icon_key="dpo",
         supports_classes=False,
@@ -120,6 +160,51 @@ def get_annotation_type_definition(annotation_type: int) -> AnnotationTypeDefini
         if definition.value == annotation_type:
             return definition
     return None
+
+
+LEGACY_DPO_DATASET_SCENARIOS: tuple[int, ...] = (
+    DatasetScenarioType.DPO_PREFERENCE,
+)
+
+SPLIT_DPO_DATASET_SCENARIOS: tuple[int, ...] = (
+    DatasetScenarioType.DPO_PAIRWISE,
+    DatasetScenarioType.DPO_BEST_OF_N,
+    DatasetScenarioType.DPO_REFERENCE_CHOICE,
+    DatasetScenarioType.DPO_MULTI_TURN,
+)
+
+DPO_DATASET_SCENARIOS: tuple[int, ...] = (
+    *LEGACY_DPO_DATASET_SCENARIOS,
+    *SPLIT_DPO_DATASET_SCENARIOS,
+)
+
+LEGACY_DPO_ANNOTATION_TYPES: tuple[int, ...] = (
+    AnnotationType.DPO,
+)
+
+SPLIT_DPO_ANNOTATION_TYPES: tuple[int, ...] = (
+    AnnotationType.DPO_PAIRWISE,
+    AnnotationType.DPO_BEST_OF_N,
+    AnnotationType.DPO_REFERENCE_CHOICE,
+    AnnotationType.DPO_MULTI_TURN,
+)
+
+DPO_ANNOTATION_TYPES: tuple[int, ...] = (
+    *LEGACY_DPO_ANNOTATION_TYPES,
+    *SPLIT_DPO_ANNOTATION_TYPES,
+)
+
+
+def is_dpo_dataset_scenario(scenario_type: int) -> bool:
+    return scenario_type in DPO_DATASET_SCENARIOS
+
+
+def is_split_dpo_dataset_scenario(scenario_type: int) -> bool:
+    return scenario_type in SPLIT_DPO_DATASET_SCENARIOS
+
+
+def is_dpo_annotation_type(annotation_type: int) -> bool:
+    return annotation_type in DPO_ANNOTATION_TYPES
 
 
 class TaskType(IntEnum):

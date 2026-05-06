@@ -20,7 +20,18 @@ import {
 } from '@ant-design/icons';
 import { getDataset, getDatasetSamples, uploadDatasetFiles, previewSample, deleteDataset, deleteDatasetSample } from '../../api/dataset';
 import type { Dataset, SampleItem } from '../../types';
-import { DataTypeLabels, DatasetScenarioType, getDatasetScenarioLabel, isDpoPreferenceDataset, isLlmConversationDataset, isMllmConversationDataset } from '../../types';
+import {
+  DataTypeLabels,
+  DatasetScenarioType,
+  getDatasetScenarioLabel,
+  isAnyDpoDataset,
+  isDpoBestOfNDataset,
+  isDpoMultiTurnDataset,
+  isDpoPairwiseDataset,
+  isDpoReferenceChoiceDataset,
+  isLlmConversationDataset,
+  isMllmConversationDataset,
+} from '../../types';
 import { useTranslation } from 'react-i18next';
 import { isImageFileName } from '../../utils/file';
 import { getDatasetUploadRule, splitAcceptedFiles } from '../../utils/datasetUpload';
@@ -40,6 +51,70 @@ const getFileIcon = (fileName: string) => {
     return <FileTextOutlined style={{ color: '#16a34a' }} />;
   return <FileOutlined style={{ color: '#999' }} />;
 };
+
+function getDpoScenarioGuide(dataset: Dataset) {
+  if (isDpoPairwiseDataset(dataset.data_type, dataset.scenario_type)) {
+    return {
+      title: '二选一 JSONL 结构',
+      requiredFields: ['item_key', 'prompt.messages', 'responses[2]'],
+      notes: [
+        'responses 必须恰好 2 条',
+        '每条 response 需要唯一 response_id',
+        '适合标准 A/B 偏好标注',
+      ],
+      example: '{"item_key":"case_001","prompt":{"messages":[{"role":"user","content":"..."}]},"responses":[{"response_id":"a","content":"..."},{"response_id":"b","content":"..."}]}',
+    };
+  }
+
+  if (isDpoBestOfNDataset(dataset.data_type, dataset.scenario_type)) {
+    return {
+      title: '多选一 JSONL 结构',
+      requiredFields: ['item_key', 'prompt.messages', 'responses[3~6]'],
+      notes: [
+        'responses 需要 3 到 6 条',
+        '导出会按 winner_vs_all 展开',
+        '适合多个候选回复中选最佳',
+      ],
+      example: '{"item_key":"case_002","task_type":"best_of_n","prompt":{"messages":[{"role":"user","content":"..."}]},"responses":[{"response_id":"a","content":"..."},{"response_id":"b","content":"..."},{"response_id":"c","content":"..."}]}',
+    };
+  }
+
+  if (isDpoReferenceChoiceDataset(dataset.data_type, dataset.scenario_type)) {
+    return {
+      title: '参考增强 JSONL 结构',
+      requiredFields: ['item_key', 'prompt.messages', 'responses[2~4]', 'reference'],
+      notes: [
+        '必须包含 reference 作为判断依据',
+        '适合事实型或标准答案明确的任务',
+        '可额外提供 rubric 指定判定重点',
+      ],
+      example: '{"item_key":"case_003","prompt":{"messages":[{"role":"user","content":"..."}]},"responses":[{"response_id":"a","content":"..."},{"response_id":"b","content":"..."}],"reference":{"content":"标准答案..."}}',
+    };
+  }
+
+  if (isDpoMultiTurnDataset(dataset.data_type, dataset.scenario_type)) {
+    return {
+      title: '多轮对话 JSONL 结构',
+      requiredFields: ['item_key', 'prompt.messages', 'responses[2~4]'],
+      notes: [
+        'prompt.messages 需要包含多轮上下文',
+        '重点判断是否承接历史对话',
+        '适合客服、助手、连续任务对话场景',
+      ],
+      example: '{"item_key":"case_004","prompt":{"messages":[{"role":"user","content":"..."},{"role":"assistant","content":"..."},{"role":"user","content":"..."}]},"responses":[{"response_id":"a","content":"..."},{"response_id":"b","content":"..."}]}',
+    };
+  }
+
+  return {
+    title: 'DPO JSONL 结构',
+    requiredFields: ['item_key', 'prompt.messages', 'responses'],
+    notes: [
+      '旧 DPO 数据集兼容二选一和多选一',
+      '建议后续新建时改用细分 DPO 子场景',
+    ],
+    example: '{"item_key":"case_legacy","prompt":{"messages":[{"role":"user","content":"..."}]},"responses":[{"response_id":"a","content":"..."},{"response_id":"b","content":"..."}]}',
+  };
+}
 
 const DatasetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -182,9 +257,10 @@ const DatasetDetailPage: React.FC = () => {
   const isImageDataset = dataset.data_type === 0;
   const isLlmDataset = isLlmConversationDataset(dataset.data_type, dataset.scenario_type);
   const isMllmDataset = isMllmConversationDataset(dataset.data_type, dataset.scenario_type);
-  const isDpoDataset = isDpoPreferenceDataset(dataset.data_type, dataset.scenario_type);
+  const isDpoDataset = isAnyDpoDataset(dataset.data_type, dataset.scenario_type);
   const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
   const uploadRule = getDatasetUploadRule(dataset);
+  const dpoGuide = isDpoDataset ? getDpoScenarioGuide(dataset) : null;
 
   const tabs = [
     { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: samples.length },
@@ -294,11 +370,32 @@ const DatasetDetailPage: React.FC = () => {
       {isDpoDataset && (
         <div style={{ marginTop: 16, padding: 16, borderRadius: 12, background: 'linear-gradient(135deg, #fffdf4, #fff7ed)', border: '1px solid #fde68a', color: '#713f12' }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
-            DPO 偏好数据集
+            {getDatasetScenarioLabel(dataset.data_type, dataset.scenario_type)}
           </div>
           <div style={{ fontSize: 13, lineHeight: 1.7 }}>
-            上传 `.jsonl` 文件后，系统会按每行一条偏好样本导入，生成 `preference` 类型样本。
+            上传 `.jsonl` 文件后，系统会按当前 DPO 子场景导入结构化偏好样本，生成 `preference` 类型样本。
           </div>
+          {dpoGuide && (
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: '#fff', border: '1px solid #fed7aa', color: '#7c2d12' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{dpoGuide.title}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                {dpoGuide.requiredFields.map((field) => (
+                  <span key={field} style={{ padding: '2px 8px', borderRadius: 999, background: '#fff7ed', border: '1px solid #fdba74', fontSize: 12 }}>
+                    {field}
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, lineHeight: 1.6, marginBottom: 8 }}>
+                {dpoGuide.notes.map((note) => (
+                  <div key={note}>{note}</div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: '#9a3412', marginBottom: 4 }}>一行示例</div>
+              <pre style={{ margin: 0, padding: 10, borderRadius: 6, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 11, color: '#7c2d12', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                {dpoGuide.example}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 

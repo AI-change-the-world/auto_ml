@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Empty, Input, Spin, Tag, Typography, message } from 'antd';
-import { ArrowLeftOutlined, DownloadOutlined, SaveOutlined } from '@ant-design/icons';
+import { Alert, Button, Empty, Input, Space, Spin, Tag, Typography, message } from 'antd';
+import { ArrowLeftOutlined, CheckCircleFilled, DownloadOutlined, SaveOutlined, StarFilled } from '@ant-design/icons';
 import { exportDpoAnnotation, getAnnotation, getAnnotationRecordsBySamples, saveAnnotationRecord } from '../../../api/annotation';
 import { getDataset, getDatasetSamples } from '../../../api/dataset';
 import { AnnotationType, type AnnotationProject, type AnnotationRecord, type Dataset, type SampleItem } from '../../../types';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
+import type { DpoWorkbenchMode } from './DpoAnnotationWorkbench';
 
 const { Title, Text, Paragraph } = Typography;
 
-type DpoDecision = 'left' | 'right' | 'tie' | 'skip' | null;
+type DpoDecision = 'left' | 'right' | 'selected' | 'tie' | 'skip' | null;
 
 interface DpoPromptMessage {
   role: string;
@@ -26,6 +27,8 @@ interface DpoResponseItem {
 interface DpoSamplePayload {
   version?: number;
   format?: string;
+  task_type?: 'pairwise' | 'best_of_n';
+  export_strategy?: 'winner_vs_all';
   prompt?: {
     system_prompt?: string;
     messages?: DpoPromptMessage[];
@@ -34,6 +37,10 @@ interface DpoSamplePayload {
   reference?: {
     content?: string;
   } | null;
+  rubric?: {
+    focus?: string[];
+    guidance?: string;
+  } | null;
   tags?: string[];
 }
 
@@ -41,9 +48,12 @@ interface DpoRecordContent {
   version: number;
   format: 'dpo_preference';
   sample_item_id: number;
-  decision: 'left' | 'right' | 'tie' | 'skip';
+  task_type: 'pairwise' | 'best_of_n';
+  decision: 'left' | 'right' | 'selected' | 'tie' | 'skip';
+  selected_response_id: string | null;
   chosen_response_id: string | null;
   rejected_response_id: string | null;
+  rejected_response_ids: string[];
   tie: boolean;
   skip: boolean;
   reason: string;
@@ -53,9 +63,18 @@ interface DpoRecordContent {
   annotated_at: string;
 }
 
+interface DpoModeMeta {
+  title: string;
+  badge: string;
+  intro: string;
+  promptTitle: string;
+  decisionTitle: string;
+}
+
 interface DpoSampleState {
-  displayOrder: [DpoResponseItem, DpoResponseItem];
+  displayOrder: DpoResponseItem[];
   decision: DpoDecision;
+  selectedResponseId: string | null;
   reason: string;
   reasonTags: string[];
   savedSnapshot: string;
@@ -77,13 +96,15 @@ function parseDpoPayload(sample: SampleItem): DpoSamplePayload | null {
   return payload as DpoSamplePayload;
 }
 
-function sortResponsesForDisplay(sampleId: number, responses: DpoResponseItem[]): [DpoResponseItem, DpoResponseItem] {
-  if (responses.length < 2) {
-    const fallback = responses[0] ?? { response_id: 'missing', content: '' };
-    return [fallback, fallback];
+function sortResponsesForDisplay(sampleId: number, responses: DpoResponseItem[]): DpoResponseItem[] {
+  if (responses.length <= 1) {
+    return responses;
   }
-  const [first, second] = responses;
-  return sampleId % 2 === 0 ? [second, first] : [first, second];
+  const rotatedIndex = sampleId % responses.length;
+  return [
+    ...responses.slice(rotatedIndex),
+    ...responses.slice(0, rotatedIndex),
+  ];
 }
 
 function normalizeRecordContent(record: AnnotationRecord | undefined): Partial<DpoRecordContent> | null {
@@ -91,15 +112,78 @@ function normalizeRecordContent(record: AnnotationRecord | undefined): Partial<D
   return record.content as Partial<DpoRecordContent>;
 }
 
-function createSavedSnapshot(decision: DpoDecision, reason: string, reasonTags: string[]) {
+function createSavedSnapshot(decision: DpoDecision, selectedResponseId: string | null, reason: string, reasonTags: string[]) {
   return JSON.stringify({
     decision,
+    selectedResponseId,
     reason: reason.trim(),
     reasonTags: [...reasonTags].sort(),
   });
 }
 
-const DpoAnnotationPage: React.FC = () => {
+function getDpoModeMeta(mode: DpoWorkbenchMode, candidateCount: number, activeTaskType: 'pairwise' | 'best_of_n'): DpoModeMeta {
+  if (mode === 'pairwise') {
+    return {
+      title: 'DPO 二选一标注',
+      badge: 'A/B 偏好',
+      intro: '直接比较两条候选回复，判断哪一条更好。',
+      promptTitle: '输入与上下文',
+      decisionTitle: '偏好判断',
+    };
+  }
+
+  if (mode === 'best_of_n') {
+    return {
+      title: 'DPO 多选一标注',
+      badge: `N 选 1 · ${candidateCount} 个候选`,
+      intro: '从多条候选回复中选出最佳答案，导出时会按 Winner vs All 展开。',
+      promptTitle: '输入与上下文',
+      decisionTitle: '最佳回复判断',
+    };
+  }
+
+  if (mode === 'reference_choice') {
+    return {
+      title: 'DPO 参考增强标注',
+      badge: '参考增强',
+      intro: '优先依据参考答案或规则说明判断候选回复的事实准确性与一致性。',
+      promptTitle: '问题与参考信息',
+      decisionTitle: '参考增强判断',
+    };
+  }
+
+  if (mode === 'multi_turn') {
+    return {
+      title: 'DPO 多轮对话标注',
+      badge: '多轮对话',
+      intro: '结合完整对话历史，判断候选回复是否承接上下文、保持一致。',
+      promptTitle: '对话历史',
+      decisionTitle: '多轮对话判断',
+    };
+  }
+
+  return {
+    title: 'DPO 偏好标注',
+    badge: activeTaskType === 'best_of_n' ? `N 选 1 · ${candidateCount} 个候选` : 'A/B 偏好',
+    intro: '兼容旧 DPO 项目，按样本中的任务类型进行偏好标注。',
+    promptTitle: '输入与上下文',
+    decisionTitle: '偏好判断',
+  };
+}
+
+function getDpoExportFileName(mode: DpoWorkbenchMode, annotationId: number) {
+  if (mode === 'pairwise') return `dpo_pairwise_annotation_${annotationId}.jsonl`;
+  if (mode === 'best_of_n') return `dpo_best_of_n_annotation_${annotationId}.jsonl`;
+  if (mode === 'reference_choice') return `dpo_reference_annotation_${annotationId}.jsonl`;
+  if (mode === 'multi_turn') return `dpo_multi_turn_annotation_${annotationId}.jsonl`;
+  return `dpo_annotation_${annotationId}.jsonl`;
+}
+
+interface DpoAnnotationPageProps {
+  mode?: DpoWorkbenchMode;
+}
+
+const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }) => {
   const { annotationId } = useParams<{ annotationId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -120,12 +204,17 @@ const DpoAnnotationPage: React.FC = () => {
 
   const buildSampleState = useCallback((sample: SampleItem, record?: AnnotationRecord): DpoSampleState | null => {
     const payload = parseDpoPayload(sample);
-    const responses = (payload?.responses || []).slice(0, 2) as DpoResponseItem[];
+    const responses = (payload?.responses || []).slice(0, 6) as DpoResponseItem[];
     if (!payload || responses.length < 2) return null;
 
     const displayOrder = sortResponsesForDisplay(sample.id, responses);
     const saved = normalizeRecordContent(record);
-    const decision = (saved?.decision as DpoDecision) ?? null;
+    const decision = ((saved?.decision === 'selected' ? 'selected' : saved?.decision) as DpoDecision) ?? null;
+    const selectedResponseId = typeof saved?.selected_response_id === 'string'
+      ? saved.selected_response_id
+      : typeof saved?.chosen_response_id === 'string'
+        ? saved.chosen_response_id
+        : null;
     const reason = typeof saved?.reason === 'string' ? saved.reason : '';
     const reasonTags = Array.isArray(saved?.reason_tags)
       ? saved.reason_tags.filter((item): item is string => typeof item === 'string')
@@ -134,9 +223,10 @@ const DpoAnnotationPage: React.FC = () => {
     return {
       displayOrder,
       decision,
+      selectedResponseId,
       reason,
       reasonTags,
-      savedSnapshot: createSavedSnapshot(decision, reason, reasonTags),
+      savedSnapshot: createSavedSnapshot(decision, selectedResponseId, reason, reasonTags),
       startedAt: Date.now(),
     };
   }, []);
@@ -176,7 +266,7 @@ const DpoAnnotationPage: React.FC = () => {
         pageItems.forEach((sample) => {
           const current = merged[sample.id];
           const currentSnapshot = current
-            ? createSavedSnapshot(current.decision, current.reason, current.reasonTags)
+            ? createSavedSnapshot(current.decision, current.selectedResponseId, current.reason, current.reasonTags)
             : null;
           if (current && currentSnapshot !== current.savedSnapshot) {
             return;
@@ -209,7 +299,16 @@ const DpoAnnotationPage: React.FC = () => {
     setLoading(true);
     try {
       const annotation = await getAnnotation(annotationNumericId);
-      if (annotation.annotation_type !== AnnotationType.DPO) {
+      const allowedAnnotationTypes = mode === 'legacy'
+        ? [AnnotationType.DPO]
+        : mode === 'pairwise'
+          ? [AnnotationType.DpoPairwise]
+          : mode === 'best_of_n'
+            ? [AnnotationType.DpoBestOfN]
+            : mode === 'reference_choice'
+              ? [AnnotationType.DpoReferenceChoice]
+              : [AnnotationType.DpoMultiTurn];
+      if (!allowedAnnotationTypes.includes(annotation.annotation_type)) {
         message.error('当前项目不是 DPO 标注项目');
         navigate('/annotations', { replace: true });
         return;
@@ -259,15 +358,24 @@ const DpoAnnotationPage: React.FC = () => {
 
   const activeDirty = useMemo(() => {
     if (!activeSampleId || !activeState) return false;
-    return createSavedSnapshot(activeState.decision, activeState.reason, activeState.reasonTags) !== activeState.savedSnapshot;
+    return createSavedSnapshot(activeState.decision, activeState.selectedResponseId, activeState.reason, activeState.reasonTags) !== activeState.savedSnapshot;
   }, [activeSampleId, activeState]);
 
   const dirtyCount = useMemo(() => {
     return Object.values(sampleStates).reduce((count, state) => (
-      createSavedSnapshot(state.decision, state.reason, state.reasonTags) === state.savedSnapshot ? count : count + 1
+      createSavedSnapshot(state.decision, state.selectedResponseId, state.reason, state.reasonTags) === state.savedSnapshot ? count : count + 1
     ), 0);
   }, [sampleStates]);
   useUnsavedChangesGuard(dirtyCount > 0);
+
+  const activeTaskType = mode === 'best_of_n'
+    ? 'best_of_n'
+    : activePayload?.task_type === 'best_of_n'
+      ? 'best_of_n'
+      : 'pairwise';
+  const modeMeta = getDpoModeMeta(mode, activePayload?.responses?.length || 0, activeTaskType);
+  const isReferenceMode = mode === 'reference_choice';
+  const isMultiTurnMode = mode === 'multi_turn';
 
   const updateActiveState = (updater: (current: DpoSampleState) => DpoSampleState) => {
     if (!activeSampleId) return;
@@ -285,6 +393,21 @@ const DpoAnnotationPage: React.FC = () => {
     updateActiveState((current) => ({
       ...current,
       decision,
+      selectedResponseId: decision === 'left'
+        ? current.displayOrder[0]?.response_id ?? null
+        : decision === 'right'
+          ? current.displayOrder[1]?.response_id ?? null
+          : decision === 'tie' || decision === 'skip'
+            ? null
+            : current.selectedResponseId,
+    }));
+  };
+
+  const handleSelectResponse = (responseId: string) => {
+    updateActiveState((current) => ({
+      ...current,
+      decision: 'selected',
+      selectedResponseId: responseId,
     }));
   };
 
@@ -306,20 +429,30 @@ const DpoAnnotationPage: React.FC = () => {
     const state = sampleStates[activeSampleId];
     const payload = sample ? parseDpoPayload(sample) : null;
     if (!sample || !state || !payload) return;
-    if (!state.decision) {
+    if (!state.decision || (activeTaskType === 'best_of_n' && state.decision === 'selected' && !state.selectedResponseId)) {
       message.warning('请先选择偏好结果');
       return;
     }
 
-    const [left, right] = state.displayOrder;
+    const displayOrder = state.displayOrder;
+    const [left, right] = displayOrder;
     let chosenResponseId: string | null = null;
     let rejectedResponseId: string | null = null;
+    let rejectedResponseIds: string[] = [];
     if (state.decision === 'left') {
       chosenResponseId = left.response_id;
       rejectedResponseId = right.response_id;
+      rejectedResponseIds = [right.response_id];
     } else if (state.decision === 'right') {
       chosenResponseId = right.response_id;
       rejectedResponseId = left.response_id;
+      rejectedResponseIds = [left.response_id];
+    } else if (state.decision === 'selected' && state.selectedResponseId) {
+      chosenResponseId = state.selectedResponseId;
+      rejectedResponseIds = displayOrder
+        .map((item) => item.response_id)
+        .filter((responseId) => responseId !== state.selectedResponseId);
+      rejectedResponseId = rejectedResponseIds[0] ?? null;
     }
 
     setSaving(true);
@@ -328,14 +461,17 @@ const DpoAnnotationPage: React.FC = () => {
         version: 1,
         format: 'dpo_preference',
         sample_item_id: activeSampleId,
+        task_type: activeTaskType,
         decision: state.decision,
+        selected_response_id: chosenResponseId,
         chosen_response_id: chosenResponseId,
         rejected_response_id: rejectedResponseId,
+        rejected_response_ids: rejectedResponseIds,
         tie: state.decision === 'tie',
         skip: state.decision === 'skip',
         reason: state.reason.trim(),
         reason_tags: state.reasonTags,
-        display_order: [left.response_id, right.response_id],
+        display_order: displayOrder.map((item) => item.response_id),
         duration_ms: Math.max(0, Date.now() - state.startedAt),
         annotated_at: new Date().toISOString(),
       };
@@ -353,7 +489,7 @@ const DpoAnnotationPage: React.FC = () => {
           ...prev,
           [activeSampleId]: {
             ...current,
-            savedSnapshot: createSavedSnapshot(current.decision, current.reason, current.reasonTags),
+            savedSnapshot: createSavedSnapshot(current.decision, current.selectedResponseId, current.reason, current.reasonTags),
             startedAt: Date.now(),
           },
         };
@@ -385,7 +521,7 @@ const DpoAnnotationPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `dpo_annotation_${project.id}.jsonl`;
+      link.download = getDpoExportFileName(mode, project.id);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -407,10 +543,10 @@ const DpoAnnotationPage: React.FC = () => {
 
       if (event.key.toLowerCase() === 'a') {
         event.preventDefault();
-        handleSelectDecision('left');
+        if (activeTaskType === 'pairwise') handleSelectDecision('left');
       } else if (event.key.toLowerCase() === 'd') {
         event.preventDefault();
-        handleSelectDecision('right');
+        if (activeTaskType === 'pairwise') handleSelectDecision('right');
       } else if (event.key.toLowerCase() === 'w') {
         event.preventDefault();
         handleSelectDecision('tie');
@@ -425,7 +561,7 @@ const DpoAnnotationPage: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSampleId, samples, handleSave]);
+  }, [activeSampleId, activeTaskType, samples, handleSave]);
 
   if (loading) {
     return (
@@ -485,7 +621,7 @@ const DpoAnnotationPage: React.FC = () => {
             samples.map((sample) => {
               const state = sampleStates[sample.id];
               const isActive = sample.id === activeSampleId;
-              const isSaved = state ? createSavedSnapshot(state.decision, state.reason, state.reasonTags) === state.savedSnapshot : false;
+              const isSaved = state ? createSavedSnapshot(state.decision, state.selectedResponseId, state.reason, state.reasonTags) === state.savedSnapshot : false;
               return (
                 <button
                   key={sample.id}
@@ -512,6 +648,7 @@ const DpoAnnotationPage: React.FC = () => {
                   <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
                     {state?.decision === 'left' && '偏好左侧'}
                     {state?.decision === 'right' && '偏好右侧'}
+                    {state?.decision === 'selected' && state.selectedResponseId && `已选 ${state.selectedResponseId}`}
                     {state?.decision === 'tie' && '平局'}
                     {state?.decision === 'skip' && '跳过'}
                     {!state?.decision && '未判断'}
@@ -540,8 +677,18 @@ const DpoAnnotationPage: React.FC = () => {
           <div style={{ maxWidth: 1400, margin: '0 auto', padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
               <div>
-                <Title level={4} style={{ margin: 0 }}>DPO 偏好标注</Title>
+                <Title level={4} style={{ margin: 0 }}>{modeMeta.title}</Title>
                 <Text type="secondary">{activeSample.item_key}</Text>
+                <div style={{ marginTop: 8 }}>
+                  <Space size={8} wrap>
+                    <Tag color={activeTaskType === 'best_of_n' ? 'gold' : 'blue'}>
+                      {modeMeta.badge}
+                    </Tag>
+                    {activePayload.export_strategy === 'winner_vs_all' && activeTaskType === 'best_of_n' ? (
+                      <Tag color="processing">导出为 Winner vs All</Tag>
+                    ) : null}
+                  </Space>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Button icon={<DownloadOutlined />} loading={exporting} onClick={handleExport}>导出 JSONL</Button>
@@ -559,7 +706,8 @@ const DpoAnnotationPage: React.FC = () => {
             )}
 
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-              <Text type="secondary">Prompt</Text>
+              <Text type="secondary">{modeMeta.promptTitle}</Text>
+              <Paragraph style={{ margin: '8px 0 0', color: '#64748b' }}>{modeMeta.intro}</Paragraph>
               {activePayload.prompt?.system_prompt ? (
                 <div style={{ marginTop: 10, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                   <Text strong>System</Text>
@@ -573,7 +721,13 @@ const DpoAnnotationPage: React.FC = () => {
                     style={{
                       padding: 12,
                       borderRadius: 8,
-                      background: messageItem.role === 'user' ? '#eef2ff' : '#f8fafc',
+                      background: isMultiTurnMode
+                        ? messageItem.role === 'user'
+                          ? '#eff6ff'
+                          : '#f8fafc'
+                        : messageItem.role === 'user'
+                          ? '#eef2ff'
+                          : '#f8fafc',
                       border: '1px solid #e5e7eb',
                     }}
                   >
@@ -583,19 +737,60 @@ const DpoAnnotationPage: React.FC = () => {
                 ))}
               </div>
               {activePayload.reference?.content ? (
-                <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: '#fffbea', border: '1px solid #fde68a' }}>
-                  <Text strong>参考答案</Text>
+                <div style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: isReferenceMode ? '#fff7ed' : '#fffbea',
+                  border: `1px solid ${isReferenceMode ? '#fdba74' : '#fde68a'}`,
+                }}>
+                  <Text strong>{isReferenceMode ? '标准答案 / 参考依据' : '参考答案'}</Text>
                   <Paragraph style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap' }}>{activePayload.reference.content}</Paragraph>
                 </div>
               ) : null}
+              {activePayload.rubric?.guidance || (activePayload.rubric?.focus && activePayload.rubric.focus.length > 0) ? (
+                <div style={{ marginTop: 12 }}>
+                  <Alert
+                    type={isReferenceMode ? 'warning' : 'info'}
+                    showIcon
+                    message={isReferenceMode ? '优先判定依据' : '判定标准'}
+                    description={(
+                      <div>
+                        {activePayload.rubric?.guidance ? (
+                          <div style={{ marginBottom: activePayload.rubric.focus?.length ? 8 : 0, whiteSpace: 'pre-wrap' }}>
+                            {activePayload.rubric.guidance}
+                          </div>
+                        ) : null}
+                        {activePayload.rubric?.focus?.length ? (
+                          <Space size={[6, 6]} wrap>
+                            {activePayload.rubric.focus.map((item) => (
+                              <Tag key={item}>{item}</Tag>
+                            ))}
+                          </Space>
+                        ) : null}
+                      </div>
+                    )}
+                  />
+                </div>
+              ) : null}
+              {isMultiTurnMode && (
+                <div style={{ marginTop: 12, padding: 12, borderRadius: 8, background: '#f8fafc', border: '1px dashed #cbd5e1' }}>
+                  <Text strong>多轮对话关注点</Text>
+                  <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {['承接上下文', '前后说法一致', '记住用户约束', '回答最后一轮问题'].map((item) => (
+                      <Tag key={item}>{item}</Tag>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: activeTaskType === 'pairwise' ? '1fr 1fr' : 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
               {activeState.displayOrder.map((response, index) => {
                 const isLeft = index === 0;
-                const selected =
-                  (isLeft && activeState.decision === 'left') ||
-                  (!isLeft && activeState.decision === 'right');
+                const selected = activeTaskType === 'pairwise'
+                  ? (isLeft && activeState.decision === 'left') || (!isLeft && activeState.decision === 'right')
+                  : activeState.selectedResponseId === response.response_id;
                 return (
                   <div
                     key={response.response_id}
@@ -608,11 +803,34 @@ const DpoAnnotationPage: React.FC = () => {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                      <Tag color={selected ? 'blue' : 'default'}>{isLeft ? '回答 A' : '回答 B'}</Tag>
-                      <Button size="small" type={selected ? 'primary' : 'default'} onClick={() => handleSelectDecision(isLeft ? 'left' : 'right')}>
-                        选择这个
+                      <Space size={8} wrap>
+                        <Tag color={selected ? 'blue' : 'default'}>
+                          {activeTaskType === 'pairwise' ? (isLeft ? '回答 A' : '回答 B') : `候选 ${index + 1}`}
+                        </Tag>
+                        {response.model_id ? <Tag>{response.model_id}</Tag> : null}
+                        {selected ? <Tag color="success" icon={<CheckCircleFilled />}>当前已选</Tag> : null}
+                      </Space>
+                      <Button
+                        size="small"
+                        type={selected ? 'primary' : 'default'}
+                        icon={selected ? <StarFilled /> : undefined}
+                        onClick={() => activeTaskType === 'pairwise'
+                          ? handleSelectDecision(isLeft ? 'left' : 'right')
+                          : handleSelectResponse(response.response_id)}
+                      >
+                        {activeTaskType === 'pairwise' ? '选择这个' : '设为最佳'}
                       </Button>
                     </div>
+                    {isReferenceMode && (
+                      <div style={{ marginBottom: 12, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e5e7eb', fontSize: 12, color: '#64748b' }}>
+                        请优先对照上方参考答案，关注事实是否准确、是否遗漏关键信息。
+                      </div>
+                    )}
+                    {isMultiTurnMode && (
+                      <div style={{ marginBottom: 12, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e5e7eb', fontSize: 12, color: '#64748b' }}>
+                        请结合完整对话历史判断该回复是否真正回答了最后一轮问题，并与前文保持一致。
+                      </div>
+                    )}
                     <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>{response.content || '空回复'}</Paragraph>
                   </div>
                 );
@@ -621,13 +839,27 @@ const DpoAnnotationPage: React.FC = () => {
 
             <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginTop: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                <Text strong>判断结果</Text>
+                <Text strong>{modeMeta.decisionTitle}</Text>
                 <Text type={activeDirty ? 'warning' : 'secondary'}>{activeDirty ? '当前有未保存修改' : '当前已保存'}</Text>
               </div>
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                <Button type={activeState.decision === 'left' ? 'primary' : 'default'} onClick={() => handleSelectDecision('left')}>偏好左侧</Button>
-                <Button type={activeState.decision === 'right' ? 'primary' : 'default'} onClick={() => handleSelectDecision('right')}>偏好右侧</Button>
+                {activeTaskType === 'pairwise' ? (
+                  <>
+                    <Button type={activeState.decision === 'left' ? 'primary' : 'default'} onClick={() => handleSelectDecision('left')}>偏好左侧</Button>
+                    <Button type={activeState.decision === 'right' ? 'primary' : 'default'} onClick={() => handleSelectDecision('right')}>偏好右侧</Button>
+                  </>
+                ) : (
+                  <Tag color={activeState.selectedResponseId ? 'success' : 'default'}>
+                    {activeState.selectedResponseId
+                      ? `当前最佳：${activeState.selectedResponseId}`
+                      : isReferenceMode
+                        ? '请结合参考答案从上方候选中选择最佳回复'
+                        : isMultiTurnMode
+                          ? '请结合完整对话历史从上方候选中选择最佳回复'
+                          : '请从上方候选中选择最佳回复'}
+                  </Tag>
+                )}
                 <Button type={activeState.decision === 'tie' ? 'primary' : 'default'} onClick={() => handleSelectDecision('tie')}>平局</Button>
                 <Button type={activeState.decision === 'skip' ? 'primary' : 'default'} onClick={() => handleSelectDecision('skip')}>跳过</Button>
               </div>
@@ -652,7 +884,11 @@ const DpoAnnotationPage: React.FC = () => {
               />
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                <Text type="secondary">快捷键：A 左侧，D 右侧，W 平局，S 跳过，Ctrl+Enter 保存</Text>
+                <Text type="secondary">
+                  {activeTaskType === 'pairwise'
+                    ? '快捷键：A 左侧，D 右侧，W 平局，S 跳过，Ctrl+Enter 保存'
+                    : '快捷键：W 平局，S 跳过，Ctrl+Enter 保存'}
+                </Text>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Button onClick={() => {
                     const currentIndex = samples.findIndex((item) => item.id === activeSample.id);

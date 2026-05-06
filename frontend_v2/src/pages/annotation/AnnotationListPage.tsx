@@ -11,57 +11,20 @@ import {
   DataTypeLabels,
   DefaultAnnotationTypeRegistry,
   createAnnotationTypeRegistry,
-  isDpoPreferenceDataset,
-  isLlmConversationDataset,
-  isMllmConversationDataset,
+  getDatasetScenarioLabel,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
 import AnnotationProjectCard, { renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
 import { parseAnnotationClasses, serializeAnnotationClasses } from '../../utils/annotationClasses';
 import { emitAnnotationsChanged } from '../../utils/projectEvents';
-
-const isImageDataset = (dataset?: Dataset) => dataset?.data_type === 0;
-const isTextDataset = (dataset?: Dataset) => dataset?.data_type === 1;
-
-const getAllowedAnnotationTypes = (dataset?: Dataset): number[] => {
-  if (!dataset) {
-    return [
-      AnnotationType.Detection,
-      AnnotationType.Classification,
-      AnnotationType.Segmentation,
-      AnnotationType.MLLM,
-      AnnotationType.LLM,
-      AnnotationType.DPO,
-    ];
-  }
-
-  if (isLlmConversationDataset(dataset.data_type, dataset.scenario_type)) {
-    return [AnnotationType.LLM];
-  }
-
-  if (isDpoPreferenceDataset(dataset.data_type, dataset.scenario_type)) {
-    return [AnnotationType.DPO];
-  }
-
-  if (isMllmConversationDataset(dataset.data_type, dataset.scenario_type)) {
-    return [AnnotationType.MLLM];
-  }
-
-  if (isImageDataset(dataset)) {
-    return [
-      AnnotationType.Detection,
-      AnnotationType.Classification,
-      AnnotationType.Segmentation,
-      AnnotationType.MLLM,
-    ];
-  }
-
-  if (isTextDataset(dataset)) {
-    return [AnnotationType.LLM, AnnotationType.DPO];
-  }
-
-  return [];
-};
+import {
+  AnnotationCategoryDefinitions,
+  getAllowedAnnotationTypesForDataset,
+  getCompatibleDatasetsForAnnotationType,
+  getAnnotationCategoryDefinition,
+  getAnnotationTypePreset,
+  isDatasetCompatibleWithAnnotationType,
+} from '../../utils/annotationCompatibility';
 
 const AnnotationListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -75,6 +38,7 @@ const AnnotationListPage: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [formData, setFormData] = useState<AnnotationCreate>({ name: '', annotation_type: 0 });
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState<'image' | 'conversation' | 'preference'>('image');
   const [annotationTypeRegistry, setAnnotationTypeRegistry] = useState(DefaultAnnotationTypeRegistry);
 
   // ─── Classes 编辑 Modal ───
@@ -145,16 +109,8 @@ const AnnotationListPage: React.FC = () => {
       message.warning(tc('msg.pleaseSelectDataset'));
       return;
     }
-    if (formData.annotation_type === AnnotationType.LLM && selectedDataset && !isLlmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
-      message.warning('LLM 标注项目只能绑定 LLM 对话数据集');
-      return;
-    }
-    if (formData.annotation_type === AnnotationType.MLLM && selectedDataset && !isMllmConversationDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
-      message.warning('MLLM 标注项目只能绑定 MLLM 对话数据集');
-      return;
-    }
-    if (formData.annotation_type === AnnotationType.DPO && selectedDataset && !isDpoPreferenceDataset(selectedDataset.data_type, selectedDataset.scenario_type)) {
-      message.warning('DPO 标注项目只能绑定 DPO 偏好数据集');
+    if (!isDatasetCompatibleWithAnnotationType(selectedDataset, formData.annotation_type ?? AnnotationType.Detection)) {
+      message.warning('当前标注类型与所选数据集不兼容，请重新选择');
       return;
     }
     setCreating(true);
@@ -167,6 +123,7 @@ const AnnotationListPage: React.FC = () => {
       emitAnnotationsChanged();
       setCreateOpen(false);
       setFormData({ name: '', annotation_type: 0 });
+      setSelectedCategoryKey('image');
       fetch();
     } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
@@ -186,10 +143,16 @@ const AnnotationListPage: React.FC = () => {
   };
 
   const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
-  const availableAnnotationTypes = getAllowedAnnotationTypes(selectedDataset)
+  const selectedCategory = getAnnotationCategoryDefinition(selectedCategoryKey);
+  const categoryAnnotationTypes = (selectedCategory?.annotationTypes ?? [])
     .map((value) => annotationTypeRegistry[value])
     .filter((item) => item !== undefined);
+  const compatibleDatasets = getCompatibleDatasetsForAnnotationType(
+    datasets,
+    formData.annotation_type,
+  );
   const selectedAnnotationType = annotationTypeRegistry[formData.annotation_type ?? AnnotationType.Detection];
+  const selectedTypePreset = getAnnotationTypePreset(formData.annotation_type ?? AnnotationType.Detection);
 
   return (
     <div className="page-container">
@@ -303,48 +266,134 @@ const AnnotationListPage: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal title={t('newAnnotation')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
+      <Modal title={t('newAnnotation')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); setSelectedCategoryKey('image'); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.name')}</label>
             <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('annotationType')}</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {availableAnnotationTypes.map((typeModel) => (
-                <button key={typeModel.value} onClick={() => setFormData({ ...formData, annotation_type: typeModel.value, classes: typeModel.supportsClasses ? formData.classes : undefined })} style={{
-                  padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
-                  border: formData.annotation_type === typeModel.value ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
-                  background: formData.annotation_type === typeModel.value ? '#eef2ff' : '#fff',
-                  color: formData.annotation_type === typeModel.value ? '#4f6ef7' : '#666',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }} disabled={typeModel.value === AnnotationType.Pose}>
-                  {renderAnnotationTypeIcon(typeModel.iconKey, formData.annotation_type === typeModel.value ? '#4f6ef7' : '#8c8c8c', 14)}
-                  <span>{typeModel.value === AnnotationType.Pose ? `${typeModel.label} (占位)` : typeModel.label}</span>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 8 }}>标注大类</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+              {AnnotationCategoryDefinitions.map((category) => (
+                <button
+                  key={category.key}
+                  onClick={() => {
+                    const nextType = category.annotationTypes[0] ?? AnnotationType.Detection;
+                    const nextDataset = datasets.find((item) => formData.dataset_id === item.id);
+                    const nextCompatible = nextDataset && isDatasetCompatibleWithAnnotationType(nextDataset, nextType)
+                      ? formData.dataset_id
+                      : undefined;
+                    setSelectedCategoryKey(category.key);
+                    setFormData({
+                      ...formData,
+                      annotation_type: nextType,
+                      dataset_id: nextCompatible,
+                      classes: annotationTypeRegistry[nextType]?.supportsClasses ? formData.classes : undefined,
+                    });
+                  }}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    border: selectedCategoryKey === category.key ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                    background: selectedCategoryKey === category.key ? '#eef2ff' : '#fff',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600, color: selectedCategoryKey === category.key ? '#4f6ef7' : '#0f172a', marginBottom: 2 }}>
+                    {category.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                    {category.description}
+                  </div>
                 </button>
               ))}
             </div>
           </div>
           <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 8 }}>{t('annotationType')}</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {categoryAnnotationTypes.map((typeModel) => {
+                const preset = getAnnotationTypePreset(typeModel.value);
+                const selected = formData.annotation_type === typeModel.value;
+                return (
+                  <button
+                    key={typeModel.value}
+                    onClick={() => {
+                      const nextCompatibleDatasets = getCompatibleDatasetsForAnnotationType(datasets, typeModel.value);
+                      const nextDatasetId = nextCompatibleDatasets.some((item) => item.id === formData.dataset_id)
+                        ? formData.dataset_id
+                        : nextCompatibleDatasets[0]?.id;
+                      setFormData({
+                        ...formData,
+                        annotation_type: typeModel.value,
+                        dataset_id: nextDatasetId,
+                        classes: typeModel.supportsClasses ? formData.classes : undefined,
+                      });
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      border: selected ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                      background: selected ? '#eef2ff' : '#fff',
+                      color: '#334155',
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                    }}
+                    disabled={typeModel.value === AnnotationType.Pose}
+                  >
+                    <span style={{ marginTop: 2 }}>
+                      {renderAnnotationTypeIcon(typeModel.iconKey, selected ? '#4f6ef7' : '#8c8c8c', 14)}
+                    </span>
+                    <span style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: selected ? '#4f6ef7' : '#0f172a', marginBottom: 2 }}>
+                        {typeModel.value === AnnotationType.Pose ? `${typeModel.label} (占位)` : typeModel.label}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                        {preset?.description}
+                      </div>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {selectedTypePreset && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontSize: 12, lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>数据集要求</div>
+                <div>{selectedTypePreset.datasetHint}</div>
+              </div>
+            )}
+          </div>
+          <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('linkedDataset')}</label>
             <Select placeholder={t('selectDataset')} allowClear style={{ width: '100%' }} value={formData.dataset_id}
               onChange={(v) => {
-                const nextDataset = datasets.find((item) => item.id === v);
-                const nextAllowedTypes = getAllowedAnnotationTypes(nextDataset);
+                const nextDataset = compatibleDatasets.find((item) => item.id === v);
+                const nextAllowedTypes = getAllowedAnnotationTypesForDataset(nextDataset)
+                  .filter((value) => selectedCategory?.annotationTypes.includes(value) ?? true);
                 let nextAnnotationType = formData.annotation_type ?? AnnotationType.Detection;
                 if (!nextAllowedTypes.includes(nextAnnotationType)) {
                   nextAnnotationType = nextAllowedTypes[0] ?? AnnotationType.Detection;
                 }
                 setFormData({ ...formData, dataset_id: v, annotation_type: nextAnnotationType });
               }}
-              options={datasets.map((ds) => ({ label: `${ds.name} · ${DataTypeLabels[ds.data_type] ?? '未知'}`, value: ds.id }))}
+              options={compatibleDatasets.map((ds) => ({
+                label: `${ds.name} · ${DataTypeLabels[ds.data_type] ?? '未知'} · ${getDatasetScenarioLabel(ds.data_type, ds.scenario_type)}`,
+                value: ds.id,
+              }))}
             />
-            {selectedDataset && (formData.annotation_type === AnnotationType.LLM || formData.annotation_type === AnnotationType.MLLM) && (
+            {compatibleDatasets.length === 0 && (
+              <div style={{ marginTop: 6, fontSize: 12, color: '#b45309' }}>
+                当前没有与该标注类型兼容的数据集，请先创建对应类型的数据集。
+              </div>
+            )}
+            {selectedDataset && (
               <div style={{ marginTop: 6, fontSize: 12, color: '#888' }}>
-                当前数据集类型：{DataTypeLabels[selectedDataset.data_type] ?? '未知'}
+                当前数据集类型：{DataTypeLabels[selectedDataset.data_type] ?? '未知'} / {getDatasetScenarioLabel(selectedDataset.data_type, selectedDataset.scenario_type)}
               </div>
             )}
           </div>

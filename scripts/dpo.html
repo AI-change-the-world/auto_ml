@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DPO标注形式体验 | 除A/B测试外的五种模式</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 拖拽时的半透明效果 */
+    .dragging {
+      opacity: 0.5;
+      transform: scale(0.98);
+      transition: transform 0.15s ease;
+    }
+    .drag-over {
+      border-color: #6366f1 !important;
+      background-color: #eef2ff !important;
+      transition: background-color 0.2s ease;
+    }
+    /* 选中卡片高亮 */
+    .card-selected {
+      border: 2px solid #4f46e5;
+      background-color: #eef2ff;
+      box-shadow: 0 0 0 2px rgba(79,70,229,0.3);
+    }
+    /* 评分滑条样式 */
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #d1d5db;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4f46e5;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .tab-btn.active {
+      background-color: #4f46e5;
+      color: white;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <!-- 头部 -->
+  <header class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-6xl mx-auto px-4 py-5 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">DPO 偏好标注 · 形式体验</h1>
+        <p class="text-sm text-gray-500 mt-1">不含经典 A/B 测试，展示另五种生产级标注界面</p>
+      </div>
+      <div class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full font-medium">
+        模拟标注员视图
+      </div>
+    </div>
+  </header>
+
+  <!-- Tab 导航 -->
+  <div class="max-w-6xl mx-auto px-4 pt-6 pb-2">
+    <nav class="flex flex-wrap gap-2" role="tablist">
+      <button class="tab-btn active px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition" onclick="switchTab('multi')">① 多元选择 (N选1)</button>
+      <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition" onclick="switchTab('rank')">② 排序 (Ranking)</button>
+      <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition" onclick="switchTab('scores')">③ 多维独立评分</button>
+      <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition" onclick="switchTab('reference')">④ 参考增强型</button>
+      <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-semibold bg-white text-gray-700 border border-gray-200 hover:bg-gray-100 transition" onclick="switchTab('multiturn')">⑤ 多轮对话偏好</button>
+    </nav>
+  </div>
+
+  <!-- 主内容区 -->
+  <main class="max-w-6xl mx-auto px-4 pb-12">
+    
+    <!-- ========== 1. 多元选择 (N选1) ========== -->
+    <section id="tab-multi" class="tab-content mt-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs">N选1</span>
+            从四个候选回复中选择最佳答案
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">请仔细阅读提示和所有回复，选择一个最优的。可附加快捷原因标签。</p>
+        </div>
+
+        <!-- Prompt 区 -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+          <div class="flex items-start gap-3">
+            <span class="text-xs font-bold text-gray-400 bg-gray-200 px-2 py-1 rounded mt-0.5">提示</span>
+            <div>
+              <p class="text-gray-800 font-medium">请解释什么是量子纠缠，并举例说明。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 四个回复卡片网格 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="multi-cards-container">
+          <!-- 卡片 A -->
+          <div class="multi-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition" data-response="A" onclick="selectMulti('A')">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 A</span>
+            </div>
+            <p class="text-gray-700 text-sm">量子纠缠是量子力学中的一种现象，两个或多个粒子相互作用后，每个粒子的量子态不能单独描述，只能描述整体系统。例如，一对纠缠光子，无论相隔多远，测量一个光子的偏振状态会瞬间确定另一个的状态。</p>
+          </div>
+          <!-- 卡片 B -->
+          <div class="multi-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition" data-response="B" onclick="selectMulti('B')">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 B</span>
+            </div>
+            <p class="text-gray-700 text-sm">量子纠缠就是两个粒子像双胞胎一样有心灵感应，一个动另一个也跟着动。比如你向左转，另一个不管多远也向左转。</p>
+          </div>
+          <!-- 卡片 C -->
+          <div class="multi-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition" data-response="C" onclick="selectMulti('C')">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 C</span>
+            </div>
+            <p class="text-gray-700 text-sm">量子纠缠是一种纯理论概念，目前没有任何实际应用，只在实验室极端条件下存在。例如纠缠态的制备非常困难，无法用于通信。</p>
+          </div>
+          <!-- 卡片 D -->
+          <div class="multi-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition" data-response="D" onclick="selectMulti('D')">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 D</span>
+            </div>
+            <p class="text-gray-700 text-sm">量子纠缠是指两个粒子在量子态上存在关联，即使空间分离。经典例子：爱因斯坦-波多尔斯基-罗森佯谬中的EPR对，一个粒子的测量会立即影响另一个，违反了定域实在论。</p>
+          </div>
+        </div>
+
+        <!-- 快捷原因标签 (可选) -->
+        <div class="mb-5">
+          <p class="text-sm font-medium text-gray-700 mb-2">快捷原因（可多选）：</p>
+          <div class="flex flex-wrap gap-2" id="multi-tags">
+            <label class="inline-flex items-center gap-1 text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200"><input type="checkbox" value="准确"> 准确</label>
+            <label class="inline-flex items-center gap-1 text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200"><input type="checkbox" value="详细"> 详细</label>
+            <label class="inline-flex items-center gap-1 text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200"><input type="checkbox" value="简洁"> 简洁</label>
+            <label class="inline-flex items-center gap-1 text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200"><input type="checkbox" value="逻辑清晰"> 逻辑清晰</label>
+            <label class="inline-flex items-center gap-1 text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200"><input type="checkbox" value="举例恰当"> 举例恰当</label>
+            <label class="inline-flex items-center gap-1 text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200"><input type="checkbox" value="事实错误"> 事实错误</label>
+          </div>
+        </div>
+
+        <!-- 操作区 -->
+        <div class="flex items-center justify-between border-t pt-4">
+          <span class="text-sm text-gray-500" id="multi-selected-hint">尚未选择</span>
+          <button class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition" onclick="submitMulti()">提交标注</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 2. 排序 (Ranking) ========== -->
+    <section id="tab-rank" class="tab-content mt-4 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-xs">排序</span>
+            将回复从好到差拖拽排序
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">拖拽卡片调整顺序，最上方为最佳。可点击 🔼🔽 微调。</p>
+        </div>
+
+        <!-- Prompt -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-5 border border-gray-200">
+          <div class="flex items-start gap-3">
+            <span class="text-xs font-bold text-gray-400 bg-gray-200 px-2 py-1 rounded mt-0.5">提示</span>
+            <p class="text-gray-800 font-medium">如何用通俗易懂的方式向小学生解释“人工智能”？</p>
+          </div>
+        </div>
+
+        <!-- 可拖拽排序列表 -->
+        <div class="space-y-3 mb-6" id="rank-list">
+          <!-- 条目将通过JS动态渲染，但为了简单直接写结构并绑定事件 -->
+          <div class="rank-item flex items-center gap-3 bg-white border-2 border-gray-200 rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow transition" draggable="true" data-response="R1">
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveUp(this)">▲</div>
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveDown(this)">▼</div>
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ①</span>
+            <p class="text-sm text-gray-700 flex-1">人工智能就像教电脑学习，就像老师教小朋友认字一样。给它看很多猫的图片，它就学会了什么是猫。</p>
+          </div>
+          <div class="rank-item flex items-center gap-3 bg-white border-2 border-gray-200 rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow transition" draggable="true" data-response="R2">
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveUp(this)">▲</div>
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveDown(this)">▼</div>
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ②</span>
+            <p class="text-sm text-gray-700 flex-1">人工智能是复杂的算法集合，通过神经网络进行模式识别，涉及深度学习、强化学习等技术。</p>
+          </div>
+          <div class="rank-item flex items-center gap-3 bg-white border-2 border-gray-200 rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow transition" draggable="true" data-response="R3">
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveUp(this)">▲</div>
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveDown(this)">▼</div>
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ③</span>
+            <p class="text-sm text-gray-700 flex-1">人工智能就是让机器能像人一样思考，比如语音助手可以听懂你说话并回答问题，就像和一个聪明的机器人聊天。</p>
+          </div>
+          <div class="rank-item flex items-center gap-3 bg-white border-2 border-gray-200 rounded-lg p-4 cursor-grab active:cursor-grabbing hover:shadow transition" draggable="true" data-response="R4">
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveUp(this)">▲</div>
+            <div class="text-gray-300 text-lg cursor-pointer select-none" onclick="moveDown(this)">▼</div>
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ④</span>
+            <p class="text-sm text-gray-700 flex-1">人工智能就是电脑程序，没啥特别的，和普通软件一样。</p>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center border-t pt-4">
+          <span class="text-sm text-gray-500" id="rank-order-hint">当前顺序：① ② ③ ④</span>
+          <button class="bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-amber-700 transition" onclick="submitRank()">提交排序</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 3. 多维独立评分 ========== -->
+    <section id="tab-scores" class="tab-content mt-4 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs">多维评分</span>
+            对每个回复在五个维度上单独打分 (1-5)
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">维度：正确性、帮助性、安全性、流畅度、指令遵循度。最终偏好由加权总分自动计算。</p>
+        </div>
+
+        <!-- Prompt -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
+          <div class="flex items-start gap-3">
+            <span class="text-xs font-bold text-gray-400 bg-gray-200 px-2 py-1 rounded mt-0.5">提示</span>
+            <p class="text-gray-800 font-medium">请写一首关于秋天的短诗，不超过四行。</p>
+          </div>
+        </div>
+
+        <!-- 两个回复的评分区 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <!-- 回复 A -->
+          <div class="border border-gray-200 rounded-lg p-4">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded mb-2 inline-block">回复 A</span>
+            <p class="text-gray-700 text-sm mt-2 mb-4 italic">“秋风起，叶飘落，<br>金黄满地似诉说。<br>丰收季节心欢畅，<br>一年辛劳终有获。”</p>
+            <div class="space-y-3">
+              <div><label class="text-xs font-medium text-gray-600">正确性</label><input type="range" min="1" max="5" value="3" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">3</span></div>
+              <div><label class="text-xs font-medium text-gray-600">帮助性</label><input type="range" min="1" max="5" value="4" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">4</span></div>
+              <div><label class="text-xs font-medium text-gray-600">安全性</label><input type="range" min="1" max="5" value="5" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">5</span></div>
+              <div><label class="text-xs font-medium text-gray-600">流畅度</label><input type="range" min="1" max="5" value="4" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">4</span></div>
+              <div><label class="text-xs font-medium text-gray-600">指令遵循</label><input type="range" min="1" max="5" value="5" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">5</span></div>
+            </div>
+          </div>
+          <!-- 回复 B -->
+          <div class="border border-gray-200 rounded-lg p-4">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded mb-2 inline-block">回复 B</span>
+            <p class="text-gray-700 text-sm mt-2 mb-4 italic">“秋天到了天气凉，<br>树叶变黄往下扬。<br>我喜欢这个季节，<br>因为可以穿新衣裳。”</p>
+            <div class="space-y-3">
+              <div><label class="text-xs font-medium text-gray-600">正确性</label><input type="range" min="1" max="5" value="3" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">3</span></div>
+              <div><label class="text-xs font-medium text-gray-600">帮助性</label><input type="range" min="1" max="5" value="2" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">2</span></div>
+              <div><label class="text-xs font-medium text-gray-600">安全性</label><input type="range" min="1" max="5" value="4" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">4</span></div>
+              <div><label class="text-xs font-medium text-gray-600">流畅度</label><input type="range" min="1" max="5" value="3" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">3</span></div>
+              <div><label class="text-xs font-medium text-gray-600">指令遵循</label><input type="range" min="1" max="5" value="3" class="w-full" oninput="this.nextElementSibling.textContent=this.value"><span class="text-xs text-gray-500 ml-2">3</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end border-t pt-4">
+          <button class="bg-emerald-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition" onclick="submitScores()">提交评分</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 4. 参考增强型偏好 ========== -->
+    <section id="tab-reference" class="tab-content mt-4 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <span class="bg-sky-100 text-sky-700 px-2 py-0.5 rounded text-xs">参考增强</span>
+            基于标准答案选择最准确的回复（三选一）
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">参考文本提供事实依据，降低主观性。请重点对比事实准确性。</p>
+        </div>
+
+        <!-- 参考信息 -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5">
+          <div class="flex items-start gap-2">
+            <span class="text-blue-600 text-lg">📘</span>
+            <div>
+              <h3 class="text-sm font-semibold text-blue-800 mb-1">参考 / 标准答案</h3>
+              <p class="text-sm text-blue-900">ChatGPT 是由 OpenAI 开发的大型语言模型，基于 GPT 架构，于2022年11月首次发布。它在大量文本数据上训练，能够生成连贯且相关的对话。它属于生成式预训练变换器家族，通过人类反馈强化学习（RLHF）进行微调。重要版本包括 GPT-3.5 和 GPT-4。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prompt -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-5 border border-gray-200">
+          <div class="flex items-start gap-3">
+            <span class="text-xs font-bold text-gray-400 bg-gray-200 px-2 py-1 rounded mt-0.5">提示</span>
+            <p class="text-gray-800 font-medium">ChatGPT 是什么？它使用了哪些技术？</p>
+          </div>
+        </div>
+
+        <!-- 三个回复，单选最佳 -->
+        <div class="space-y-3 mb-6" id="ref-cards">
+          <div class="ref-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow transition" data-response="ref-A" onclick="selectRef('ref-A')">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ❶</span>
+            <p class="text-sm text-gray-700 mt-2">ChatGPT 是 OpenAI 的对话式 AI，基于 GPT-3.5 和 GPT-4 架构，通过 RLHF 优化，发布于2022年底。</p>
+          </div>
+          <div class="ref-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow transition" data-response="ref-B" onclick="selectRef('ref-B')">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ❷</span>
+            <p class="text-sm text-gray-700 mt-2">ChatGPT 是谷歌开发的聊天机器人，使用 BERT 模型，主要靠规则引擎工作。</p>
+          </div>
+          <div class="ref-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow transition" data-response="ref-C" onclick="selectRef('ref-C')">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 ❸</span>
+            <p class="text-sm text-gray-700 mt-2">ChatGPT 是一款智能助手，由 OpenAI 开发，基于 Transformer 架构，通过大量互联网文本预训练，并利用人类反馈进行对齐。</p>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center border-t pt-4">
+          <span class="text-sm text-gray-500" id="ref-selected-hint">尚未选择</span>
+          <button class="bg-sky-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-sky-700 transition" onclick="submitRef()">提交选择</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 5. 多轮对话偏好 ========== -->
+    <section id="tab-multiturn" class="tab-content mt-4 hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <span class="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">多轮对话</span>
+            基于完整对话历史，评判最终回复的优劣
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">对话历史保留上下文，需要关注一致性、记忆性和承上启下能力。</p>
+        </div>
+
+        <!-- 对话历史展示 -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200 space-y-4">
+          <div class="flex gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold shrink-0">U</div>
+            <div class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 shadow-sm max-w-[80%]">我想买一台适合编程的笔记本电脑，有什么推荐？</div>
+          </div>
+          <div class="flex gap-2.5 justify-end">
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2 text-sm text-gray-800 shadow-sm max-w-[80%]">可以考虑 MacBook Pro 14（M4 芯片），内存建议 32GB 以上，或者 ThinkPad X1 Carbon。</div>
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold shrink-0">AI</div>
+          </div>
+          <div class="flex gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold shrink-0">U</div>
+            <div class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 shadow-sm max-w-[80%]">这些大概多少钱？预算有限。</div>
+          </div>
+          <div class="flex gap-2.5 justify-end">
+            <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2 text-sm text-gray-800 shadow-sm max-w-[80%]">MacBook Pro 14 起售价约 12,999 元，ThinkPad X1 Carbon 约 9,999 元。如果预算有限，也可以看看 MacBook Air 或小新 Pro 系列。</div>
+            <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-bold shrink-0">AI</div>
+          </div>
+          <div class="flex gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold shrink-0">U</div>
+            <div class="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-800 shadow-sm max-w-[80%]">那 MacBook Air 编程够用吗？</div>
+          </div>
+          <!-- 最后这条是待评估回复的分界线 -->
+          <div class="border-t border-dashed border-gray-300 pt-3 mt-2 text-xs text-gray-400 text-center">▼ 以下为两个不同的模型回复，请结合上述对话评判 ▼</div>
+        </div>
+
+        <!-- 两个最终回复对比（上下排列） -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="mt-cards">
+          <div class="mt-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow transition" data-response="mt-A" onclick="selectMT('mt-A')">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 α</span>
+            <p class="text-sm text-gray-700 mt-2">完全够用，M2 芯片编译速度很快，而且续航长。不过需要注意，如果涉及容器化开发或虚拟机，16GB 内存可能会紧张，建议尽量选 24GB 版本。</p>
+          </div>
+          <div class="mt-card border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow transition" data-response="mt-B" onclick="selectMT('mt-B')">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">回复 β</span>
+            <p class="text-sm text-gray-700 mt-2">编程用任何电脑都可以，预算有限就买便宜的 Windows 本，没必要纠结品牌。</p>
+          </div>
+        </div>
+
+        <div class="flex justify-between items-center border-t pt-4">
+          <span class="text-sm text-gray-500" id="mt-selected-hint">尚未选择</span>
+          <button class="bg-purple-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700 transition" onclick="submitMT()">提交选择</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ---------- Tab 切换 ----------
+    function switchTab(tabId) {
+      // 隐藏所有内容
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      // 显示目标
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+      // 更新按钮状态
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      // 找到对应的按钮并激活（通过遍历，触发事件的按钮）
+      const buttons = document.querySelectorAll('.tab-btn');
+      buttons.forEach(btn => {
+        if (btn.textContent.includes(getTabName(tabId))) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    function getTabName(id) {
+      const map = {
+        'multi': '多元选择',
+        'rank': '排序',
+        'scores': '多维独立评分',
+        'reference': '参考增强型',
+        'multiturn': '多轮对话偏好'
+      };
+      return map[id] || id;
+    }
+
+    // ---------- 1. 多元选择逻辑 ----------
+    let selectedMulti = null;
+    window.selectMulti = function(responseId) {
+      // 清除之前选中
+      document.querySelectorAll('#multi-cards-container .multi-card').forEach(card => card.classList.remove('card-selected'));
+      // 高亮当前
+      const card = document.querySelector(`#multi-cards-container .multi-card[data-response="${responseId}"]`);
+      if (card) {
+        card.classList.add('card-selected');
+        selectedMulti = responseId;
+        document.getElementById('multi-selected-hint').textContent = `已选择：回复 ${responseId}`;
+      }
+    }
+    window.submitMulti = function() {
+      if (!selectedMulti) return alert('请先选择一个最佳回复！');
+      const tags = Array.from(document.querySelectorAll('#multi-tags input:checked')).map(cb => cb.value);
+      const result = { winner: selectedMulti, tags: tags, timestamp: new Date().toISOString() };
+      alert('提交成功！\n' + JSON.stringify(result, null, 2));
+    }
+
+    // ---------- 2. 排序逻辑 (拖拽 + 箭头) ----------
+    const rankList = document.getElementById('rank-list');
+    let dragSrc = null;
+
+    // 拖拽事件
+    rankList.addEventListener('dragstart', function(e) {
+      if (e.target.classList.contains('rank-item')) {
+        dragSrc = e.target;
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
+      }
+    });
+    rankList.addEventListener('dragend', function(e) {
+      if (e.target.classList.contains('rank-item')) {
+        e.target.classList.remove('dragging');
+        dragSrc = null;
+        // 移除所有drag-over
+        document.querySelectorAll('.rank-item').forEach(item => item.classList.remove('drag-over'));
+      }
+    });
+    rankList.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      const target = e.target.closest('.rank-item');
+      if (target && target !== dragSrc) {
+        target.classList.add('drag-over');
+      }
+    });
+    rankList.addEventListener('dragleave', function(e) {
+      const target = e.target.closest('.rank-item');
+      if (target) target.classList.remove('drag-over');
+    });
+    rankList.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const target = e.target.closest('.rank-item');
+      if (target && target !== dragSrc && dragSrc) {
+        target.classList.remove('drag-over');
+        // 插入拖动元素到目标之前
+        rankList.insertBefore(dragSrc, target);
+        updateRankOrderHint();
+      }
+    });
+
+    // 上下移动箭头
+    window.moveUp = function(arrow) {
+      const item = arrow.closest('.rank-item');
+      const prev = item.previousElementSibling;
+      if (prev && prev.classList.contains('rank-item')) {
+        rankList.insertBefore(item, prev);
+        updateRankOrderHint();
+      }
+    };
+    window.moveDown = function(arrow) {
+      const item = arrow.closest('.rank-item');
+      const next = item.nextElementSibling;
+      if (next && next.classList.contains('rank-item')) {
+        rankList.insertBefore(next, item);
+        updateRankOrderHint();
+      }
+    };
+
+    function updateRankOrderHint() {
+      const items = document.querySelectorAll('#rank-list .rank-item');
+      const order = Array.from(items).map(item => item.dataset.response).join(' → ');
+      document.getElementById('rank-order-hint').textContent = `当前顺序：${order}`;
+    }
+
+    window.submitRank = function() {
+      const items = document.querySelectorAll('#rank-list .rank-item');
+      const ranking = Array.from(items).map(item => item.dataset.response);
+      alert('排序提交成功！\n' + JSON.stringify({ ranking: ranking }, null, 2));
+    }
+
+    // ---------- 3. 多维评分提交 ----------
+    window.submitScores = function() {
+      const scoreBlocks = document.querySelectorAll('#tab-scores .grid > div');
+      const results = [];
+      scoreBlocks.forEach(block => {
+        const label = block.querySelector('span').textContent.trim();
+        const sliders = block.querySelectorAll('input[type=range]');
+        const scores = {};
+        sliders.forEach(slider => {
+          const dim = slider.previousElementSibling.textContent.trim();
+          scores[dim] = parseInt(slider.value);
+        });
+        results.push({ response: label, scores: scores });
+      });
+      alert('评分提交成功！\n' + JSON.stringify(results, null, 2));
+    }
+
+    // ---------- 4. 参考增强选择 ----------
+    let selectedRef = null;
+    window.selectRef = function(id) {
+      document.querySelectorAll('#ref-cards .ref-card').forEach(card => card.classList.remove('card-selected'));
+      const card = document.querySelector(`#ref-cards .ref-card[data-response="${id}"]`);
+      if (card) {
+        card.classList.add('card-selected');
+        selectedRef = id;
+        document.getElementById('ref-selected-hint').textContent = `已选择：${id}`;
+      }
+    }
+    window.submitRef = function() {
+      if (!selectedRef) return alert('请基于参考选择一个最佳回复');
+      alert('提交成功！\n' + JSON.stringify({ winner: selectedRef, grounded: true }, null, 2));
+    }
+
+    // ---------- 5. 多轮对话选择 ----------
+    let selectedMT = null;
+    window.selectMT = function(id) {
+      document.querySelectorAll('#mt-cards .mt-card').forEach(card => card.classList.remove('card-selected'));
+      const card = document.querySelector(`#mt-cards .mt-card[data-response="${id}"]`);
+      if (card) {
+        card.classList.add('card-selected');
+        selectedMT = id;
+        document.getElementById('mt-selected-hint').textContent = `已选择：回复 ${id.replace('mt-','')}`;
+      }
+    }
+    window.submitMT = function() {
+      if (!selectedMT) return alert('请选择一个最终回复');
+      alert('提交成功！\n' + JSON.stringify({ winner: selectedMT, context_turns: 4 }, null, 2));
+    }
+
+    // 初始化排序顺序显示
+    updateRankOrderHint();
+  </script>
+</body>
+</html>

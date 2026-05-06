@@ -1,7 +1,7 @@
 import type { Dataset } from '../types';
 import {
   DatasetScenarioType,
-  isDpoPreferenceDataset,
+  isAnyDpoDataset,
   isLlmConversationDataset,
   isMllmConversationDataset,
 } from '../types';
@@ -24,7 +24,7 @@ function withDot(extensions: string[]) {
 }
 
 export function getDatasetUploadRule(dataset: Dataset): DatasetUploadRule {
-  if (isDpoPreferenceDataset(dataset.data_type, dataset.scenario_type)) {
+  if (isAnyDpoDataset(dataset.data_type, dataset.scenario_type)) {
     return {
       accept: '.jsonl',
       extensions: ['jsonl'],

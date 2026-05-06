@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Input, Select } from 'antd';
+import { message, Spin, Modal, Input } from 'antd';
 import {
   PlusOutlined,
   DatabaseOutlined,
@@ -13,12 +13,14 @@ import {
 import { listDatasets, createDataset, deleteDataset } from '../../api/dataset';
 import type { Dataset, DatasetCreate } from '../../types';
 import {
+  DataTypeOptions,
   DataTypeLabels,
   DatasetScenarioType,
-  getDatasetScenarioOptions,
+  getDatasetScenarioDefinition,
+  getDatasetScenarioDefinitions,
   getDatasetScenarioLabel,
   createDefaultScenarioConfig,
-  isDpoPreferenceDataset,
+  isAnyDpoDataset,
   isLlmConversationDataset,
   isMllmConversationDataset,
 } from '../../types';
@@ -46,11 +48,12 @@ const DatasetListPage: React.FC = () => {
   const [formData, setFormData] = useState<DatasetCreate>(createInitialFormData());
   const currentDataType = formData.data_type ?? IMAGE_DATA_TYPE;
   const currentScenarioType = formData.scenario_type ?? DatasetScenarioType.Normal;
-  const scenarioOptions = getDatasetScenarioOptions(currentDataType);
+  const scenarioDefinitions = getDatasetScenarioDefinitions(currentDataType);
+  const currentScenarioDefinition = getDatasetScenarioDefinition(currentDataType, currentScenarioType);
   const isAerialScenario = currentScenarioType === DatasetScenarioType.AerialStitch;
   const isLlmScenario = isLlmConversationDataset(currentDataType, currentScenarioType);
   const isMllmScenario = isMllmConversationDataset(currentDataType, currentScenarioType);
-  const isDpoScenario = isDpoPreferenceDataset(currentDataType, currentScenarioType);
+  const isDpoScenario = isAnyDpoDataset(currentDataType, currentScenarioType);
 
   const fetchDatasets = useCallback(async () => {
     setLoading(true);
@@ -188,16 +191,16 @@ const DatasetListPage: React.FC = () => {
             <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('dataType')}</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {Object.entries(DataTypeLabels).map(([k, v]) => (
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 8 }}>{t('dataType')}</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+              {DataTypeOptions.map((option) => (
                 <button
-                  key={k}
+                  key={option.value}
                   onClick={() => {
-                    const nextDataType = Number(k);
-                    const nextScenarioOptions = getDatasetScenarioOptions(nextDataType);
-                    const currentAllowed = nextScenarioOptions.find((item) => item.value === (formData.scenario_type ?? DatasetScenarioType.Normal));
-                    const nextScenarioType = currentAllowed?.value ?? nextScenarioOptions[0]?.value ?? DatasetScenarioType.Normal;
+                    const nextDataType = option.value;
+                    const nextScenarioDefinitions = getDatasetScenarioDefinitions(nextDataType);
+                    const currentAllowed = nextScenarioDefinitions.find((item) => item.value === (formData.scenario_type ?? DatasetScenarioType.Normal));
+                    const nextScenarioType = currentAllowed?.value ?? nextScenarioDefinitions[0]?.value ?? DatasetScenarioType.Normal;
                     setFormData({
                       ...formData,
                       data_type: nextDataType,
@@ -206,27 +209,64 @@ const DatasetListPage: React.FC = () => {
                     });
                   }}
                   style={{
-                    padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
-                    border: formData.data_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
-                    background: formData.data_type === Number(k) ? '#eef2ff' : '#fff',
-                    color: formData.data_type === Number(k) ? '#4f6ef7' : '#666',
+                    padding: '10px 12px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
+                    border: formData.data_type === option.value ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                    background: formData.data_type === option.value ? '#eef2ff' : '#fff',
+                    color: formData.data_type === option.value ? '#4f6ef7' : '#334155',
+                    textAlign: 'left',
                   }}
-                >{v}</button>
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>{option.label}</div>
+                  <div style={{ fontSize: 12, color: formData.data_type === option.value ? '#4f6ef7' : '#94a3b8', lineHeight: 1.5 }}>
+                    {option.description}
+                  </div>
+                </button>
               ))}
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('scenarioType')}</label>
-            <Select
-              style={{ width: '100%' }}
-              value={currentScenarioType}
-              onChange={(value) => setFormData({
-                ...formData,
-                scenario_type: value,
-                scenario_config: createDefaultScenarioConfig(currentDataType, value),
-              })}
-              options={scenarioOptions}
-            />
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 8 }}>{t('scenarioType')}</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {scenarioDefinitions.map((scenario) => (
+                <button
+                  key={scenario.value}
+                  onClick={() => setFormData({
+                    ...formData,
+                    scenario_type: scenario.value,
+                    scenario_config: createDefaultScenarioConfig(currentDataType, scenario.value),
+                  })}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    border: currentScenarioType === scenario.value ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                    background: currentScenarioType === scenario.value ? '#eef2ff' : '#fff',
+                    color: '#334155',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: currentScenarioType === scenario.value ? '#4f6ef7' : '#0f172a' }}>
+                      {scenario.label}
+                    </span>
+                    <span style={{ fontSize: 12, color: currentScenarioType === scenario.value ? '#4f6ef7' : '#94a3b8' }}>
+                      {scenario.shortLabel}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>
+                    {scenario.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+            {currentScenarioDefinition && (
+              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontSize: 12, lineHeight: 1.7 }}>
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                  上传建议
+                </div>
+                <div>{currentScenarioDefinition.uploadHint}</div>
+              </div>
+            )}
             {isAerialScenario && (
               <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', fontSize: 12, lineHeight: 1.7 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#0f766e', fontWeight: 600, marginBottom: 2 }}>
@@ -254,7 +294,7 @@ const DatasetListPage: React.FC = () => {
                 </div>
                 <div>用于同一 prompt 下两条候选回复的偏好标注。首期只支持文本 JSONL 导入。</div>
                 <div style={{ marginTop: 4, color: '#a16207' }}>
-                  建议上传 `.jsonl` 文件，每行包含 `item_key`、`prompt`、`responses` 两条回复。
+                  建议上传 `.jsonl` 文件，结构需与当前 DPO 子场景匹配。
                 </div>
               </div>
             )}

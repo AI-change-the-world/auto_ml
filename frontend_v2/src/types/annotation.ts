@@ -184,6 +184,10 @@ export enum AnnotationType {
   Pose = 4,
   LLM = 5,
   DPO = 6,
+  DpoPairwise = 7,
+  DpoBestOfN = 8,
+  DpoReferenceChoice = 9,
+  DpoMultiTurn = 10,
 }
 
 export interface AnnotationTypeDefinition {
@@ -265,7 +269,39 @@ export const DEFAULT_ANNOTATION_TYPE_DEFINITIONS: AnnotationTypeDefinition[] = [
   {
     value: AnnotationType.DPO,
     code: 'dpo',
-    label: 'DPO',
+    label: 'DPO 兼容',
+    color: 'gold',
+    icon_key: 'dpo',
+    supports_classes: false,
+  },
+  {
+    value: AnnotationType.DpoPairwise,
+    code: 'dpo_pairwise',
+    label: 'DPO 二选一',
+    color: 'gold',
+    icon_key: 'dpo',
+    supports_classes: false,
+  },
+  {
+    value: AnnotationType.DpoBestOfN,
+    code: 'dpo_best_of_n',
+    label: 'DPO 多选一',
+    color: 'gold',
+    icon_key: 'dpo',
+    supports_classes: false,
+  },
+  {
+    value: AnnotationType.DpoReferenceChoice,
+    code: 'dpo_reference_choice',
+    label: 'DPO 参考增强',
+    color: 'gold',
+    icon_key: 'dpo',
+    supports_classes: false,
+  },
+  {
+    value: AnnotationType.DpoMultiTurn,
+    code: 'dpo_multi_turn',
+    label: 'DPO 多轮对话',
     color: 'gold',
     icon_key: 'dpo',
     supports_classes: false,

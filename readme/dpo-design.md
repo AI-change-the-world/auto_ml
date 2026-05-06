@@ -130,7 +130,8 @@
 
 ```json
 {
-  "version": 1,
+  "version": 2,
+  "task_type": "pairwise",
   "prompt": {
     "system_prompt": "你是一个有帮助的助手",
     "messages": [
@@ -158,6 +159,10 @@
   "reference": {
     "content": "若三角形为直角三角形，则两直角边平方和等于斜边平方"
   },
+  "rubric": {
+    "focus": ["正确性", "完整性"],
+    "guidance": "优先选择事实准确且表达完整的回复"
+  },
   "tags": ["math", "zh"]
 }
 ```
@@ -165,30 +170,48 @@
 字段约束：
 
 - `prompt.messages` 至少包含一条 `user` 消息。
-- `responses.length` 首期限定为 `2`。
+- `task_type`
+  - `pairwise`
+  - `best_of_n`
+- `responses.length` 标准范围为 `2` 到 `6``。
 - `response_id` 在当前 sample 内唯一。
-- 两条 `response.content` 不能同时为空。
-- 两条 `response.content` 完全一致时，默认视为无效样本，不进入标注。
+- 所有 `response.content` 不能同时为空。
+- 任意两个 `response.content` 完全一致时，默认视为无效样本，不进入标注。
 - `reference` 可选，仅用于辅助判断，不参与训练导出。
+- `rubric` 可选，仅用于辅助判断，不参与训练导出。
 
 ### 5.2 为什么首期只支持二元比较
 
-原初稿里有 `N 选 1`、排序、多维评分，这些设计本身没问题，但不适合作为首期。
+原初稿里有 `N 选 1`、排序、多维评分，这些设计本身没问题，但不能各自长成完全不同的数据集格式。
 
 原因：
 
 - 首期目标是最短路径产出 DPO 训练数据。
 - DPO 训练的核心格式本来就是 `chosen / rejected`。
-- 二元选择在界面、数据校验、导出、审核上都更简单。
-- 当前项目还没有复杂标注任务编排能力，首期不适合一次引入太多形式。
+- 当前已经有明确的 `N 选 1` 业务需求，如果底层样本模型只允许两条回复，后续扩展会比较被动。
+- 更稳的做法是数据集标准格式统一放宽到 2 到 6 个候选，但导出仍然收敛为训练可消费的 pairwise 结果。
 
-因此首期统一为：
+因此标准 DPO 数据集统一为：
 
 - 一条 prompt
-- 两条候选 response
-- 一个偏好结果
+- 2 到 6 条候选 response
+- 一个 `task_type`
+- 一个最终可回收为 `chosen / rejected` 的偏好结果
 
-后续如果需要排序或多选，再在同一框架上扩展。
+首轮前端支持：
+
+- `pairwise`
+- `best_of_n`
+
+对 `best_of_n` 样本，导出策略建议统一为：
+
+- `winner_vs_all`
+
+即标注员选出一个最佳回复后，导出为多条训练样本：
+
+- `winner vs response_2`
+- `winner vs response_3`
+- ...
 
 ## 5.3 标注结果模型
 
