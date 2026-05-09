@@ -241,7 +241,7 @@ const MainLayout: React.FC = () => {
             A
           </div>
           {!sidebarCollapsed ? (
-            <span className="ml-3 text-lg font-bold tracking-tight text-slate-900">AutoML</span>
+            <span className="sidebar-brand-text ml-3 tracking-tight text-slate-900">AutoML</span>
           ) : null}
         </div>
 
@@ -254,8 +254,8 @@ const MainLayout: React.FC = () => {
             >
               <SearchOutlined className="text-sm text-slate-400 transition-colors group-hover:text-slate-600" />
               <div className="ml-3 min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-slate-700">{t('assistant.entry')}</div>
-                <div className="truncate text-xs text-slate-400">{t('assistant.placeholder')}</div>
+                <div className="assistant-entry-title truncate text-slate-700">{t('assistant.entry')}</div>
+                <div className="assistant-entry-subtitle truncate text-slate-400">{t('assistant.placeholder')}</div>
               </div>
               <div className="ml-3 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
                 Ctrl K
@@ -288,7 +288,7 @@ const MainLayout: React.FC = () => {
                 data-tour={item.tour}
                 onClick={() => navigate(item.key)}
                 title={sidebarCollapsed ? item.label : undefined}
-                className={`group mb-1 flex w-full items-center rounded-xl text-left text-sm font-medium transition-colors ${
+                className={`group sidebar-nav-text mb-1 flex w-full items-center rounded-xl text-left transition-colors ${
                   active
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -304,7 +304,7 @@ const MainLayout: React.FC = () => {
 
           {!sidebarCollapsed ? (
             <div className="px-3 pb-2 pt-6">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('nav.myProjects')}</p>
+              <p className="sidebar-meta-text text-slate-400">{t('nav.myProjects')}</p>
             </div>
           ) : (
             <div className="px-2 pb-2 pt-5">
@@ -325,7 +325,7 @@ const MainLayout: React.FC = () => {
                   type="button"
                   onClick={() => navigate(group.key)}
                   title={sidebarCollapsed ? group.label : undefined}
-                  className={`group flex w-full items-center rounded-xl text-left text-sm transition-colors ${
+                  className={`group sidebar-nav-text flex w-full items-center rounded-xl text-left transition-colors ${
                     active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
                 >
@@ -352,7 +352,7 @@ const MainLayout: React.FC = () => {
                         key={child.key}
                         type="button"
                         onClick={() => navigate(child.key)}
-                        className="flex w-full items-center rounded-xl px-10 py-2 text-left text-xs text-slate-500 transition-colors hover:bg-slate-50"
+                        className="sidebar-subnav-text flex w-full items-center rounded-xl px-10 py-2 text-left text-slate-500 transition-colors hover:bg-slate-50"
                       >
                         <span className="mr-2 flex items-center">{child.icon}</span>
                         <span className="flex-1 truncate">{child.label}</span>
@@ -363,7 +363,7 @@ const MainLayout: React.FC = () => {
                 ) : null}
 
                 {!sidebarCollapsed && group.children && group.children.length === 0 ? (
-                  <p className="px-10 py-1 text-xs text-slate-400">
+                  <p className="sidebar-subnav-text px-10 py-1 text-slate-400">
                     {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
                   </p>
                 ) : null}
@@ -383,7 +383,7 @@ const MainLayout: React.FC = () => {
               data-tour={item.tour}
               onClick={() => navigate(item.key)}
               title={sidebarCollapsed ? item.label : undefined}
-              className={`flex w-full items-center rounded-xl text-left text-sm text-slate-600 transition-colors hover:bg-slate-50 ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
+              className={`sidebar-nav-text flex w-full items-center rounded-xl text-left text-slate-600 transition-colors hover:bg-slate-50 ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
             >
               <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{item.icon}</span>
               {!sidebarCollapsed ? item.label : null}
@@ -394,7 +394,7 @@ const MainLayout: React.FC = () => {
             <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
               {!sidebarCollapsed ? (
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Workspace</div>
+                  <div className="sidebar-meta-text text-slate-400">Workspace</div>
                 </div>
               ) : null}
               <button

@@ -230,12 +230,12 @@ const HomePage: React.FC = () => {
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-10 p-8 lg:flex-row lg:items-center">
             <div className="w-full flex-1 self-start">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+              <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 {t('heroTag')}
               </div>
-              <h2 className="mt-5 text-[36px] font-bold tracking-tight text-slate-900">{t('heroTitle')}</h2>
-              <p className="mt-3 max-w-xl text-sm leading-7 text-slate-500">{t('heroSubtitle')}</p>
+              <h2 className="section-title mt-5 tracking-tight">{t('heroTitle')}</h2>
+              <p className="body-text mt-3 max-w-xl text-slate-500">{t('heroSubtitle')}</p>
             </div>
 
             <div className="grid w-full grid-cols-2 gap-4 lg:w-[500px]">
@@ -245,8 +245,8 @@ const HomePage: React.FC = () => {
                   className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-5 transition-all hover:bg-slate-50/80"
                 >
                   <div>
-                    <p className="mb-1 text-sm font-medium text-slate-500">{item.label}</p>
-                    <p className="text-[40px] font-bold leading-none text-slate-900">{item.value}</p>
+                    <p className="body-text-sm mb-1 font-medium text-slate-500">{item.label}</p>
+                    <p className="metric-value-lg text-slate-900">{item.value}</p>
                   </div>
                   <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${overviewToneMap[index]}`}>
                     {item.icon}
@@ -257,7 +257,7 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="border-t border-slate-100 bg-slate-50/50 px-8 py-6">
-            <div className="mb-6 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <div className="card-title mb-6 flex items-center gap-2 text-slate-800">
               <CloudServerOutlined className="h-5 w-5 text-slate-500" />
               {t('taskOverview')}
             </div>
@@ -267,11 +267,11 @@ const HomePage: React.FC = () => {
                   key={item.key}
                   className={`pt-4 md:px-6 md:pt-0 ${index === 0 ? 'md:pl-0 pt-0' : ''}`}
                 >
-                  <div className="mb-2 flex items-center gap-2 text-sm text-slate-500">
+                  <div className="body-text mb-2 flex items-center gap-2 text-slate-500">
                     <span className={`h-2.5 w-2.5 rounded-full ${item.accent}`} />
                     {item.label}
                   </div>
-                  <p className="ml-[18px] text-3xl font-bold text-slate-900">{item.value}</p>
+                  <p className="metric-value-sm ml-[18px] text-slate-900">{item.value}</p>
                 </div>
               ))}
             </div>
