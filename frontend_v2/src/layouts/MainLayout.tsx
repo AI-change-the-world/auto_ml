@@ -2,14 +2,16 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  AppstoreOutlined,
   CloudServerOutlined,
   DownOutlined,
   EditOutlined,
   ExperimentOutlined,
   GlobalOutlined,
   HomeOutlined,
-  MenuOutlined,
+  LeftOutlined,
   QuestionCircleOutlined,
+  RightOutlined,
   SearchOutlined,
   SettingOutlined,
   TagsOutlined,
@@ -18,12 +20,14 @@ import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { listAnnotations } from '../api/annotation';
 import { getDeploymentOverview } from '../api/deploy';
+import { getHomeStats } from '../api/home';
 import { listTasks } from '../api/task';
+import WorkbenchAssistantModal from '../components/WorkbenchAssistantModal';
 import {
   ANNOTATIONS_CHANGED_EVENT,
   TASKS_CHANGED_EVENT,
 } from '../utils/projectEvents';
-import type { AnnotationProject, DeploymentOverviewItem, TaskResponse } from '../types';
+import type { AnnotationProject, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
 
 interface NavItem {
   key: string;
@@ -40,6 +44,10 @@ const MainLayout: React.FC = () => {
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
   const [deploymentProjects, setDeploymentProjects] = useState<DeploymentOverviewItem[]>([]);
+  const [homeStats, setHomeStats] = useState<HomeStats | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     '/annotations': true,
     '/tasks': true,
@@ -66,11 +74,21 @@ const MainLayout: React.FC = () => {
     }).catch(() => { });
   }, []);
 
+  const refreshHomeStats = useCallback(() => {
+    setAssistantLoading(true);
+    getHomeStats().then((res) => {
+      setHomeStats(res);
+    }).catch(() => { }).finally(() => {
+      setAssistantLoading(false);
+    });
+  }, []);
+
   useEffect(() => {
     refreshAnnotations();
     refreshTasks();
     refreshDeployments();
-  }, [location.pathname, refreshAnnotations, refreshDeployments, refreshTasks]);
+    refreshHomeStats();
+  }, [location.pathname, refreshAnnotations, refreshDeployments, refreshHomeStats, refreshTasks]);
 
   useEffect(() => {
     window.addEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
@@ -214,36 +232,53 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f8fafc] text-slate-800 antialiased">
-      <aside className="relative z-10 flex h-full w-64 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
+      <aside className={`relative z-10 flex h-full flex-shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ${sidebarCollapsed ? 'w-[84px]' : 'w-64'}`}>
         <div
-          className="flex h-16 cursor-pointer items-center border-b border-slate-100 px-6"
+          className={`flex h-16 cursor-pointer items-center border-b border-slate-100 ${sidebarCollapsed ? 'justify-center px-3' : 'px-6'}`}
           onClick={() => navigate('/')}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-lg font-bold text-white shadow-sm">
             A
           </div>
-          <span className="ml-3 text-lg font-bold tracking-tight text-slate-900">AutoML</span>
+          {!sidebarCollapsed ? (
+            <span className="ml-3 text-lg font-bold tracking-tight text-slate-900">AutoML</span>
+          ) : null}
         </div>
 
-        <div className="px-4 py-5">
-          <div className="relative group">
-            <SearchOutlined className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 transition-colors group-focus-within:text-indigo-500" />
-            <input
-              type="text"
-              readOnly
-              placeholder={t('nav.search')}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-12 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-              Ctrl K
-            </div>
+        {!sidebarCollapsed ? (
+          <div className="px-4 py-5">
+            <button
+              type="button"
+              onClick={() => setAssistantOpen(true)}
+              className="group flex w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition-colors hover:border-slate-300 hover:bg-white"
+            >
+              <SearchOutlined className="text-sm text-slate-400 transition-colors group-hover:text-slate-600" />
+              <div className="ml-3 min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-slate-700">{t('assistant.entry')}</div>
+                <div className="truncate text-xs text-slate-400">{t('assistant.placeholder')}</div>
+              </div>
+              <div className="ml-3 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                Ctrl K
+              </div>
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="px-3 py-4">
+            <button
+              type="button"
+              onClick={() => setAssistantOpen(true)}
+              title={t('assistant.entry')}
+              className="flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-700"
+            >
+              <SearchOutlined className="text-[16px]" />
+            </button>
+          </div>
+        )}
 
-        <nav className="flex-1 overflow-y-auto px-3">
+        <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
           {[
             { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
-            { key: '/datasets', icon: <SearchOutlined className="text-[18px]" />, label: t('nav.browse'), tour: 'nav-browse' },
+            { key: '/datasets', icon: <AppstoreOutlined className="text-[18px]" />, label: t('nav.browse'), tour: 'nav-browse' },
           ].map((item) => {
             const active = isActive(item.key);
             return (
@@ -252,23 +287,30 @@ const MainLayout: React.FC = () => {
                 type="button"
                 data-tour={item.tour}
                 onClick={() => navigate(item.key)}
-                className={`group mb-1 flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`group mb-1 flex w-full items-center rounded-xl text-left text-sm font-medium transition-colors ${
                   active
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
+                } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'}`}
               >
-                <span className={`mr-3 ${active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                <span className={`${sidebarCollapsed ? '' : 'mr-3'} ${active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
                   {item.icon}
                 </span>
-                {item.label}
+                {!sidebarCollapsed ? item.label : null}
               </button>
             );
           })}
 
-          <div className="px-3 pb-2 pt-6">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('nav.myProjects')}</p>
-          </div>
+          {!sidebarCollapsed ? (
+            <div className="px-3 pb-2 pt-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t('nav.myProjects')}</p>
+            </div>
+          ) : (
+            <div className="px-2 pb-2 pt-5">
+              <div className="border-t border-slate-100" />
+            </div>
+          )}
 
           {myProjectsNav.map((group) => {
             const active = isActive(group.key);
@@ -282,13 +324,14 @@ const MainLayout: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(group.key)}
-                  className={`group flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+                  title={sidebarCollapsed ? group.label : undefined}
+                  className={`group flex w-full items-center rounded-xl text-left text-sm transition-colors ${
                     active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
+                  } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
                 >
-                  <span className="mr-3 text-slate-400">{group.icon}</span>
-                  <span className="flex-1 font-medium">{group.label}</span>
-                  {group.children && group.children.length > 0 ? (
+                  <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{group.icon}</span>
+                  {!sidebarCollapsed ? <span className="flex-1 font-medium">{group.label}</span> : null}
+                  {!sidebarCollapsed && group.children && group.children.length > 0 ? (
                     <button
                       type="button"
                       onClick={(event) => {
@@ -302,7 +345,7 @@ const MainLayout: React.FC = () => {
                   ) : null}
                 </button>
 
-                {group.children && group.children.length > 0 && expanded[group.key] ? (
+                {!sidebarCollapsed && group.children && group.children.length > 0 && expanded[group.key] ? (
                   <div className="space-y-1">
                     {group.children.map((child) => (
                       <button
@@ -319,7 +362,7 @@ const MainLayout: React.FC = () => {
                   </div>
                 ) : null}
 
-                {group.children && group.children.length === 0 ? (
+                {!sidebarCollapsed && group.children && group.children.length === 0 ? (
                   <p className="px-10 py-1 text-xs text-slate-400">
                     {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
                   </p>
@@ -329,7 +372,7 @@ const MainLayout: React.FC = () => {
           })}
         </nav>
 
-        <div className="space-y-1 border-t border-slate-100 p-4">
+        <div className={`space-y-1 border-t border-slate-100 ${sidebarCollapsed ? 'p-2' : 'p-4'}`}>
           {[
             { key: '/settings', icon: <SettingOutlined className="text-[16px]" />, label: t('nav.settings') },
             { key: '/example-dataset', icon: <QuestionCircleOutlined className="text-[16px]" />, label: t('nav.help'), tour: 'example-link' },
@@ -339,21 +382,30 @@ const MainLayout: React.FC = () => {
               type="button"
               data-tour={item.tour}
               onClick={() => navigate(item.key)}
-              className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition-colors hover:bg-slate-50"
+              title={sidebarCollapsed ? item.label : undefined}
+              className={`flex w-full items-center rounded-xl text-left text-sm text-slate-600 transition-colors hover:bg-slate-50 ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
             >
-              <span className="mr-3 text-slate-400">{item.icon}</span>
-              {item.label}
+              <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{item.icon}</span>
+              {!sidebarCollapsed ? item.label : null}
             </button>
           ))}
 
-          <div className="mt-4 flex cursor-pointer items-center justify-between px-2 pt-4 group">
-            <div className="flex items-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 text-sm font-semibold text-white shadow-sm ring-2 ring-white">
-                A
-              </div>
-              <span className="ml-3 text-sm font-medium text-slate-700 transition-colors group-hover:text-indigo-600">AutoML</span>
+          <div className={`mt-4 border-t border-slate-100 pt-3 ${sidebarCollapsed ? '' : 'px-1'}`}>
+            <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
+              {!sidebarCollapsed ? (
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Workspace</div>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed((prev) => !prev)}
+                title={sidebarCollapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+                className={`flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-700 ${sidebarCollapsed ? 'w-full' : 'w-9'}`}
+              >
+                {sidebarCollapsed ? <RightOutlined className="text-[13px]" /> : <LeftOutlined className="text-[13px]" />}
+              </button>
             </div>
-            <MenuOutlined className="text-sm text-slate-400" />
           </div>
         </div>
       </aside>
@@ -388,6 +440,16 @@ const MainLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+      <WorkbenchAssistantModal
+        open={assistantOpen}
+        loading={assistantLoading}
+        onClose={() => setAssistantOpen(false)}
+        onNavigate={(path) => navigate(path)}
+        stats={homeStats}
+        annotations={annotationProjects}
+        tasks={taskProjects}
+        deployments={deploymentProjects}
+      />
     </div>
   );
 };

@@ -74,9 +74,16 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div className="page-container" style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-        <SettingOutlined /> {t('title')}
-      </h1>
+      <div className="page-header">
+        <div className="page-title-block">
+          <div className="page-title-icon">
+            <SettingOutlined />
+          </div>
+          <div>
+            <h1 className="page-title">{t('title')}</h1>
+          </div>
+        </div>
+      </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('systemInfo')}</h3>

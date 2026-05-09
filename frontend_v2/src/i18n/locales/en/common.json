@@ -9,12 +9,45 @@
         "tools": "Tools",
         "settings": "Settings",
         "help": "Help",
+        "collapseSidebar": "Collapse sidebar",
+        "expandSidebar": "Expand sidebar",
         "myProjects": "MY PROJECTS",
         "noActiveDeploy": "No active deployments",
         "search": "Search...",
         "exampleDataset": "Example Dataset",
         "exampleProject": "Example Project",
         "datasets": "Datasets"
+    },
+    "assistant": {
+        "entry": "Workbench assistant",
+        "title": "Workbench Assistant",
+        "subtitle": "For workspace status, recent projects, and fast navigation",
+        "placeholder": "Try: how many datasets do we have? any running training tasks?",
+        "send": "Send",
+        "clear": "Clear",
+        "syncing": "Syncing current workspace status…",
+        "open": "Open",
+        "unsupported": "I currently work best for datasets, annotations, training, deployment status, and fast page navigation.",
+        "welcomeTitle": "Ask about the current workspace",
+        "welcomeBody": "This version focuses on status lookup, recent project lookup, and quick workbench jumps.",
+        "suggestions": {
+            "datasetCount": "How many datasets do we have?",
+            "runningTasks": "Are any training tasks running?",
+            "latestAnnotation": "What is the latest annotation project?",
+            "openDeploy": "Take me to the deploy page",
+            "dpoStart": "How do I start DPO annotation?"
+        },
+        "actions": {
+            "datasets": "Open datasets",
+            "annotations": "Open annotations",
+            "tasks": "Open training",
+            "deploy": "Open deploy",
+            "settings": "Open settings",
+            "latestDataset": "Open latest dataset",
+            "latestAnnotation": "Open latest annotation",
+            "latestTask": "Open latest task",
+            "latestDeployment": "Open latest deployment"
+        }
     },
     "action": {
         "create": "Create",

@@ -545,12 +545,15 @@ const DeployPage: React.FC = () => {
 
   return (
     <div className="page-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-            <CloudServerOutlined /> {t('title')}
-          </h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
+      <div className="page-header">
+        <div className="page-title-block">
+          <div className="page-title-icon">
+            <CloudServerOutlined />
+          </div>
+          <div>
+            <h1 className="page-title">{t('title')}</h1>
+            <p className="page-subtitle">{t('subtitle')}</p>
+          </div>
         </div>
         <button
           onClick={() => void fetchModels()}

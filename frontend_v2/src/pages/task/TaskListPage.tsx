@@ -376,9 +376,14 @@ const TaskListPage: React.FC = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><ExperimentOutlined /> {t('title')}</h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
+        <div className="page-title-block">
+          <div className="page-title-icon">
+            <ExperimentOutlined />
+          </div>
+          <div>
+            <h1 className="page-title">{t('title')}</h1>
+            <p className="page-subtitle">{t('subtitle')}</p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
