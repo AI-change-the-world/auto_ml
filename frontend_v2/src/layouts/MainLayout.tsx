@@ -36,10 +36,22 @@ interface NavItem {
   children?: { key: string; label: string; icon?: React.ReactNode; badge?: string }[];
 }
 
+function isEditableTarget(target: EventTarget | null) {
+  const element = target as HTMLElement | null;
+  if (!element) {
+    return false;
+  }
+  return element.tagName === 'INPUT'
+    || element.tagName === 'TEXTAREA'
+    || element.isContentEditable
+    || Boolean(element.closest('[contenteditable="true"], input, textarea'));
+}
+
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation('common');
+  const assistantShortcutLabel = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
 
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
@@ -89,6 +101,29 @@ const MainLayout: React.FC = () => {
     refreshDeployments();
     refreshHomeStats();
   }, [location.pathname, refreshAnnotations, refreshDeployments, refreshHomeStats, refreshTasks]);
+
+  useEffect(() => {
+    const handleAssistantShortcut = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+
+      const isOpenShortcut = (event.ctrlKey || event.metaKey)
+        && !event.altKey
+        && !event.shiftKey
+        && event.key.toLowerCase() === 'k';
+
+      if (!isOpenShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+      setAssistantOpen((prev) => !prev);
+    };
+
+    window.addEventListener('keydown', handleAssistantShortcut, true);
+    return () => window.removeEventListener('keydown', handleAssistantShortcut, true);
+  }, []);
 
   useEffect(() => {
     window.addEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
@@ -255,10 +290,10 @@ const MainLayout: React.FC = () => {
               <SearchOutlined className="text-sm text-slate-400 transition-colors group-hover:text-slate-600" />
               <div className="ml-3 min-w-0 flex-1">
                 <div className="assistant-entry-title truncate text-slate-700">{t('assistant.entry')}</div>
-                <div className="assistant-entry-subtitle truncate text-slate-400">{t('assistant.placeholder')}</div>
+                {/* <div className="assistant-entry-subtitle truncate text-slate-400">{t('assistant.placeholder')}</div> */}
               </div>
               <div className="ml-3 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                Ctrl K
+                {assistantShortcutLabel}
               </div>
             </button>
           </div>
@@ -288,11 +323,10 @@ const MainLayout: React.FC = () => {
                 data-tour={item.tour}
                 onClick={() => navigate(item.key)}
                 title={sidebarCollapsed ? item.label : undefined}
-                className={`group sidebar-nav-text mb-1 flex w-full items-center rounded-xl text-left transition-colors ${
-                  active
+                className={`group sidebar-nav-text mb-1 flex w-full items-center rounded-xl text-left transition-colors ${active
                     ? 'bg-indigo-50 text-indigo-700'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'}`}
+                  } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'}`}
               >
                 <span className={`${sidebarCollapsed ? '' : 'mr-3'} ${active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
                   {item.icon}
@@ -325,9 +359,8 @@ const MainLayout: React.FC = () => {
                   type="button"
                   onClick={() => navigate(group.key)}
                   title={sidebarCollapsed ? group.label : undefined}
-                  className={`group sidebar-nav-text flex w-full items-center rounded-xl text-left transition-colors ${
-                    active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
+                  className={`group sidebar-nav-text flex w-full items-center rounded-xl text-left transition-colors ${active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
                 >
                   <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{group.icon}</span>
                   {!sidebarCollapsed ? <span className="flex-1 font-medium">{group.label}</span> : null}
