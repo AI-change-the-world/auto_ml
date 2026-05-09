@@ -638,14 +638,14 @@ const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span className="body-text-sm" style={{ fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {sample.item_key}
                     </span>
-                    <span style={{ fontSize: 11, color: isSaved ? '#16a34a' : '#f59e0b' }}>
+                    <span className="tag-text" style={{ color: isSaved ? '#16a34a' : '#f59e0b' }}>
                       {isSaved ? '已保存' : '未保存'}
                     </span>
                   </div>
-                  <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
+                  <div className="caption-text" style={{ marginTop: 6, color: '#64748b' }}>
                     {state?.decision === 'left' && '偏好左侧'}
                     {state?.decision === 'right' && '偏好右侧'}
                     {state?.decision === 'selected' && state.selectedResponseId && `已选 ${state.selectedResponseId}`}
@@ -822,12 +822,12 @@ const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }
                       </Button>
                     </div>
                     {isReferenceMode && (
-                      <div style={{ marginBottom: 12, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e5e7eb', fontSize: 12, color: '#64748b' }}>
+                      <div className="caption-text" style={{ marginBottom: 12, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e5e7eb', color: '#64748b' }}>
                         请优先对照上方参考答案，关注事实是否准确、是否遗漏关键信息。
                       </div>
                     )}
                     {isMultiTurnMode && (
-                      <div style={{ marginBottom: 12, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e5e7eb', fontSize: 12, color: '#64748b' }}>
+                      <div className="caption-text" style={{ marginBottom: 12, padding: 10, borderRadius: 6, background: '#f8fafc', border: '1px solid #e5e7eb', color: '#64748b' }}>
                         请结合完整对话历史判断该回复是否真正回答了最后一轮问题，并与前文保持一致。
                       </div>
                     )}

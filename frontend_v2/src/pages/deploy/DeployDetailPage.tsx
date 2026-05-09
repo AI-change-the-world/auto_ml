@@ -74,8 +74,9 @@ const DeployDetailPage: React.FC = () => {
     return (
       <div style={{ padding: 24 }} className="page-container">
         <button
+          className="button-text"
           onClick={() => navigate('/deploy')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#666', cursor: 'pointer' }}
         >
           <ArrowLeftOutlined /> {tc('action.back')}
         </button>
@@ -94,27 +95,27 @@ const DeployDetailPage: React.FC = () => {
           >
             <ArrowLeftOutlined />
           </button>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <CloudServerOutlined /> {model.model_name || `Model #${model.model_id}`}
           </h1>
           {model.is_deployed ? (
-            <span style={{ padding: '2px 10px', fontSize: 12, borderRadius: 999, background: '#f0fdf4', color: '#16a34a', fontWeight: 600 }}>
+            <span className="tag-text" style={{ padding: '2px 10px', borderRadius: 999, background: '#f0fdf4', color: '#16a34a', fontWeight: 600 }}>
               {tc('status.deployed')}
             </span>
           ) : (
-            <span style={{ padding: '2px 10px', fontSize: 12, borderRadius: 999, background: '#f5f5f5', color: '#999', fontWeight: 600 }}>
+            <span className="tag-text" style={{ padding: '2px 10px', borderRadius: 999, background: '#f5f5f5', color: '#999', fontWeight: 600 }}>
               {tc('status.notDeployed')}
             </span>
           )}
           <span
             style={{
               padding: '2px 10px',
-              fontSize: 12,
               borderRadius: 999,
               background: model.runtime_status.healthy ? '#ecfdf5' : '#fff7ed',
               color: model.runtime_status.healthy ? '#15803d' : '#c2410c',
               fontWeight: 600,
             }}
+            className="tag-text"
           >
             {model.runtime_status.healthy
               ? t('runtimeHealthy', { defaultValue: '运行时正常' })
@@ -123,7 +124,8 @@ const DeployDetailPage: React.FC = () => {
         </div>
         <button
           onClick={() => void fetchDetail(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}
+          className="button-text"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', color: '#666', cursor: 'pointer' }}
         >
           <ReloadOutlined spin={refreshing} /> {tc('action.refresh')}
         </button>
@@ -143,8 +145,8 @@ const DeployDetailPage: React.FC = () => {
             { label: tc('label.updatedAt'), value: formatDateTime(model.updated_at) },
           ].map((item) => (
             <div key={item.label}>
-              <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>{item.label}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{item.value}</div>
+              <div className="info-label" style={{ marginBottom: 4 }}>{item.label}</div>
+              <div className="info-value">{item.value}</div>
             </div>
           ))}
         </div>
@@ -175,10 +177,10 @@ const DeployDetailPage: React.FC = () => {
         ].map((item) => (
           <div key={item.label} style={metricStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ fontSize: 12, color: '#64748b' }}>{item.label}</div>
+              <div className="info-label">{item.label}</div>
               {item.icon}
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: '#0f172a' }}>{item.value}</div>
+            <div className="metric-value-lg" style={{ color: '#0f172a' }}>{item.value}</div>
           </div>
         ))}
       </div>
@@ -186,10 +188,10 @@ const DeployDetailPage: React.FC = () => {
       <div style={{ ...cardStyle, overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{t('activityLogsTitle', { defaultValue: '最近调用记录' })}</div>
-            <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>{t('activityLogsDesc', { defaultValue: '当前部署实例最近 20 条推理调用。' })}</div>
+            <div className="card-title" style={{ color: '#111827' }}>{t('activityLogsTitle', { defaultValue: '最近调用记录' })}</div>
+            <div className="caption-text" style={{ marginTop: 4, color: '#64748b' }}>{t('activityLogsDesc', { defaultValue: '当前部署实例最近 20 条推理调用。' })}</div>
           </div>
-          <span style={{ fontSize: 12, color: '#94a3b8' }}>
+          <span className="caption-text" style={{ color: '#94a3b8' }}>
             {t('last24hCount', { defaultValue: '近24h调用' })}: {activity?.metrics.last_24h_count ?? 0}
           </span>
         </div>
@@ -209,10 +211,10 @@ const DeployDetailPage: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <span
+                      className="tag-text"
                       style={{
                         padding: '3px 8px',
                         borderRadius: 999,
-                        fontSize: 11,
                         fontWeight: 700,
                         color: log.success ? '#15803d' : '#b91c1c',
                         background: log.success ? '#dcfce7' : '#fee2e2',
@@ -220,26 +222,26 @@ const DeployDetailPage: React.FC = () => {
                     >
                       {log.success ? t('requestSuccess', { defaultValue: '成功' }) : t('requestFailed', { defaultValue: '失败' })}
                     </span>
-                    <span style={{ padding: '3px 8px', borderRadius: 999, fontSize: 11, fontWeight: 700, color: '#1d4ed8', background: '#dbeafe' }}>
+                    <span className="tag-text" style={{ padding: '3px 8px', borderRadius: 999, fontWeight: 700, color: '#1d4ed8', background: '#dbeafe' }}>
                       {log.request_type || '-'}
                     </span>
                     {log.client_ip && (
-                      <span style={{ padding: '3px 8px', borderRadius: 999, fontSize: 11, color: '#475569', background: '#f1f5f9' }}>
+                      <span className="tag-text" style={{ padding: '3px 8px', borderRadius: 999, color: '#475569', background: '#f1f5f9' }}>
                         {log.client_ip}
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>{formatDateTime(log.created_at)}</div>
+                  <div className="caption-text" style={{ color: '#64748b' }}>{formatDateTime(log.created_at)}</div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', marginTop: 10, fontSize: 12, color: '#475569' }}>
+                <div className="caption-text" style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', marginTop: 10, color: '#475569' }}>
                   <span>{t('resultCount', { defaultValue: '结果数量' })}: <strong style={{ color: '#111827' }}>{log.result_count}</strong></span>
                   <span>{t('durationMs', { defaultValue: '耗时(ms)' })}: <strong style={{ color: '#111827' }}>{log.duration_ms ?? '-'}</strong></span>
                   <span>{t('imageSize', { defaultValue: '图像尺寸' })}: <strong style={{ color: '#111827' }}>{log.image_width && log.image_height ? `${log.image_width} × ${log.image_height}` : '-'}</strong></span>
                 </div>
 
                 {!log.success && log.error_message && (
-                  <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#fff', color: '#9a3412', fontSize: 12, border: '1px solid #fed7aa' }}>
+                  <div className="caption-text" style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, background: '#fff', color: '#9a3412', border: '1px solid #fed7aa' }}>
                     {log.error_message}
                   </div>
                 )}
@@ -247,7 +249,7 @@ const DeployDetailPage: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', fontSize: 13 }}>
+          <div className="body-text-sm" style={{ textAlign: 'center', padding: 48, color: '#94a3b8' }}>
             {t('activityLogsEmpty', { defaultValue: '当前实例还没有调用记录' })}
           </div>
         )}

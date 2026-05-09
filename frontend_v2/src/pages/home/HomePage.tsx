@@ -204,14 +204,13 @@ const HomePage: React.FC = () => {
             </div>
             <div>
               <h1 className="page-title">{t('title')}</h1>
-              <p className="page-subtitle">{t('heroSubtitle')}</p>
             </div>
           </div>
           <div className="flex space-x-3">
             <button
               type="button"
               onClick={() => navigate('/datasets')}
-              className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800"
+              className="button-text flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2.5 text-white transition-colors hover:bg-slate-800"
             >
               <span>{t('openDatasets')}</span>
               <ArrowRightOutlined className="h-4 w-4" />
@@ -219,7 +218,7 @@ const HomePage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/annotations')}
-              className="flex items-center space-x-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
+              className="button-text flex items-center space-x-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
             >
               <span>{t('openAnnotations')}</span>
               <ArrowRightOutlined className="h-4 w-4" />
@@ -230,12 +229,16 @@ const HomePage: React.FC = () => {
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-10 p-8 lg:flex-row lg:items-center">
             <div className="w-full flex-1 self-start">
-              <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                {t('heroTag')}
+              <div className="flex flex-col items-start gap-4">
+                <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  {t('heroTag')}
+                </div>
+                <div className="flex flex-col gap-3">
+                  <h2 className="section-title tracking-tight">{t('heroTitle')}</h2>
+                  <p className="body-text max-w-xl text-slate-500">{t('heroSubtitle')}</p>
+                </div>
               </div>
-              <h2 className="section-title mt-5 tracking-tight">{t('heroTitle')}</h2>
-              <p className="body-text mt-3 max-w-xl text-slate-500">{t('heroSubtitle')}</p>
             </div>
 
             <div className="grid w-full grid-cols-2 gap-4 lg:w-[500px]">
@@ -280,7 +283,7 @@ const HomePage: React.FC = () => {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-base font-bold text-slate-900">{t('recentDatasets')}</h3>
+            <h3 className="card-title mb-4">{t('recentDatasets')}</h3>
             <div className="flex-1 overflow-y-auto">
               {displayedDatasets.length === 0 ? (
                 <button
@@ -292,7 +295,7 @@ const HomePage: React.FC = () => {
                     <DatabaseOutlined className="h-6 w-6" />
                   </div>
                   <p className="font-medium text-slate-700">{t('emptyDatasets')}</p>
-                  <p className="mt-1 text-sm text-slate-400">{t('createFirstDataset')}</p>
+                  <p className="body-text-sm mt-1 text-slate-400">{t('createFirstDataset')}</p>
                 </button>
               ) : (
                 displayedDatasets.map((dataset) => {
@@ -311,11 +314,11 @@ const HomePage: React.FC = () => {
                       <div className="ml-4 flex-1 text-left">
                         <div className="flex items-center space-x-2">
                           <h4 className="truncate font-medium text-slate-800">{dataset.name}</h4>
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                          <span className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
                             {DataTypeLabels[dataset.data_type] ?? t('unknownType')}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="caption-text mt-1 text-slate-400">
                           {t('sampleCount', { count: formatNumber(dataset.count) })} · {t('createdAt', { date: formatDate(dataset.created_at, fallbackTimeText) })}
                         </p>
                       </div>
@@ -328,7 +331,7 @@ const HomePage: React.FC = () => {
           </section>
 
           <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-base font-bold text-slate-900">{t('recentAnnotations')}</h3>
+            <h3 className="card-title mb-4">{t('recentAnnotations')}</h3>
             {displayedAnnotations.length === 0 ? (
               <button
                 type="button"
@@ -339,7 +342,7 @@ const HomePage: React.FC = () => {
                   <FolderOpenOutlined className="h-6 w-6" />
                 </div>
                 <p className="font-medium text-slate-700">{t('emptyAnnotations')}</p>
-                <p className="mt-1 text-sm text-slate-400">{t('createFirstAnnotation')}</p>
+                <p className="body-text-sm mt-1 text-slate-400">{t('createFirstAnnotation')}</p>
               </button>
             ) : (
               <div className="flex-1 overflow-y-auto space-y-3">
@@ -360,11 +363,11 @@ const HomePage: React.FC = () => {
                       <div className="ml-4 flex-1 text-left">
                         <div className="flex items-center space-x-2">
                           <h4 className="truncate font-medium text-slate-800">{annotation.name}</h4>
-                          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                          <span className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
                             {AnnotationTypeLabels[annotation.annotation_type] ?? t('unknownType')}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="caption-text mt-1 text-slate-400">
                           {t('createdAt', { date: formatDate(annotation.created_at, fallbackTimeText) })}
                         </p>
                       </div>
@@ -378,14 +381,14 @@ const HomePage: React.FC = () => {
 
           <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">{t('pipelineOverview')}</h3>
-              <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600">
+              <h3 className="card-title">{t('pipelineOverview')}</h3>
+              <span className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
                 {t('pipelineCount', { count: assistPipelines.length })}
               </span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3">
               {displayedPipelines.length === 0 ? (
-                <div className="flex h-full items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-5 text-center text-sm text-slate-500">
+                <div className="body-text flex h-full items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-5 text-center text-slate-500">
                   {t('emptyPipelines')}
                 </div>
               ) : (
@@ -397,7 +400,7 @@ const HomePage: React.FC = () => {
                     className="group w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
                   >
                     <div className="mb-2 flex items-center justify-between">
-                      <h4 className="truncate text-sm font-semibold text-slate-800">{pipeline.name}</h4>
+                      <h4 className="body-text truncate font-semibold text-slate-800">{pipeline.name}</h4>
                       <ArrowRightOutlined className="h-4 w-4 text-slate-300 transition-colors group-hover:text-indigo-500" />
                     </div>
                     <div className="flex space-x-2">
@@ -406,7 +409,7 @@ const HomePage: React.FC = () => {
                         .map((type) => (
                           <span
                             key={`${pipeline.id}-type-${type}`}
-                            className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600"
+                            className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600"
                           >
                             {type === 0 ? t('pipelineTypeDetection') : (AnnotationTypeLabels[type] ?? t('unknownType'))}
                           </span>
@@ -416,7 +419,7 @@ const HomePage: React.FC = () => {
                         .map((shape) => (
                           <span
                             key={`${pipeline.id}-shape-${shape}`}
-                            className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600"
+                            className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600"
                           >
                             {shape.toUpperCase()}
                           </span>

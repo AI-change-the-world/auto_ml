@@ -205,23 +205,23 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
             <RobotOutlined />
           </div>
           <div>
-            <div className="text-base font-semibold text-slate-900">{t('assistant.title')}</div>
-            <div className="mt-0.5 text-xs text-slate-500">{t('assistant.subtitle')}</div>
+            <div className="modal-title">{t('assistant.title')}</div>
+            <div className="assistant-entry-subtitle mt-0.5 text-slate-500">{t('assistant.subtitle')}</div>
           </div>
         </div>
       )}
     >
       <div className="flex h-[72vh] min-h-[560px] gap-5">
         <div className="flex w-[240px] flex-shrink-0 flex-col rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <div className="text-sm font-semibold text-slate-900">{t('assistant.welcomeTitle')}</div>
-          <div className="mt-2 text-sm leading-6 text-slate-500">{t('assistant.welcomeBody')}</div>
+          <div className="card-title">{t('assistant.welcomeTitle')}</div>
+          <div className="body-text mt-2 text-slate-500">{t('assistant.welcomeBody')}</div>
           <div className="mt-5 flex flex-col gap-2">
             {suggestionTexts.map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"
                 onClick={() => submitQuestion(suggestion)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                className="body-text-sm rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
               >
                 {suggestion}
               </button>
@@ -235,7 +235,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
             {loading ? (
-              <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-500">
+              <div className="body-text flex h-full items-center justify-center gap-2 text-slate-500">
                 <Spin size="small" />
                 <span>{t('assistant.syncing')}</span>
               </div>
@@ -247,7 +247,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
               <div className="space-y-3">
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>
+                    <div className={`body-text max-w-[80%] rounded-xl px-4 py-3 ${message.role === 'user' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>
                       <div className="whitespace-pre-line">{message.content}</div>
                       {message.actions && message.actions.length > 0 ? (
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -262,7 +262,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
                                   action.onClick?.();
                                 }
                               }}
-                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
+                              className="tag-text inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
                             >
                               {action.label}
                               <ArrowRightOutlined />

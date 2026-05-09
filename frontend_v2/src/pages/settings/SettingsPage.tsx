@@ -86,7 +86,7 @@ const SettingsPage: React.FC = () => {
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('systemInfo')}</h3>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('systemInfo')}</h3>
         {[
           { label: t('platformName'), value: platformName },
           { label: t('version'), value: backendVersion },
@@ -94,24 +94,24 @@ const SettingsPage: React.FC = () => {
           { label: t('backendProxy'), value: apiBaseUrl, mono: true },
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 3 ? '1px solid #f8f8f8' : 'none' }}>
-            <span style={{ fontSize: 13, color: '#888' }}>{item.label}</span>
-            <span style={{ fontSize: 13, color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
+            <span className="body-text-sm" style={{ color: '#888' }}>{item.label}</span>
+            <span className="body-text-sm" style={{ color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
           </div>
         ))}
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('modules')}</h3>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('modules')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {modules.map((m, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fafafa', borderRadius: 8 }}>
-              <span style={{ fontSize: 13, color: '#555' }}>{m.name}</span>
+              <span className="body-text-sm" style={{ color: '#555' }}>{m.name}</span>
               {moduleStatusMap[m.key] === 'enabled' ? (
-                <span style={{ fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
+                <span className="caption-text" style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
               ) : moduleStatusMap[m.key] === 'unavailable' ? (
-                <span style={{ fontSize: 12, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
+                <span className="caption-text" style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
               ) : (
-                <span style={{ fontSize: 12, color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
+                <span className="caption-text" style={{ color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
               )}
             </div>
           ))}

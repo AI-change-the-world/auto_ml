@@ -564,11 +564,11 @@ const DeployPage: React.FC = () => {
             padding: '8px 14px',
             border: '1px solid #e5e5e5',
             borderRadius: 8,
-            fontSize: 13,
             background: '#fff',
             color: '#666',
             cursor: 'pointer',
           }}
+          className="button-text"
         >
           <ReloadOutlined /> {tc('action.refresh')}
         </button>
@@ -609,7 +609,7 @@ const DeployPage: React.FC = () => {
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.model_name || `Model #${m.model_id}`}</span>
+                    <span className="body-text" style={{ fontWeight: 500, color: '#111' }}>{m.model_name || `Model #${m.model_id}`}</span>
                     <button
                       onClick={() => {
                         setRenamingModel(m);
@@ -622,36 +622,36 @@ const DeployPage: React.FC = () => {
                         padding: '4px 8px',
                         border: '1px solid #e5e7eb',
                         borderRadius: 999,
-                        fontSize: 11,
                         background: '#fff',
                         color: '#4b5563',
                         cursor: 'pointer',
                       }}
+                      className="tag-text"
                     >
                       <EditOutlined /> {t('rename')}
                     </button>
-                    {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
+                    {m.model_type && <span className="tag-text" style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', borderRadius: 999 }}>{m.model_type}</span>}
                     {m.is_deployed ? (
-                      <span style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
                         <CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}
                       </span>
                     ) : (
-                      <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', fontSize: 11, borderRadius: 999 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', borderRadius: 999 }}>
                         {tc('status.notDeployed')}
                       </span>
                     )}
                     {previewMap[m.model_id] && (
-                      <span style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', fontSize: 11, borderRadius: 999 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', borderRadius: 999 }}>
                         {t('lastTest')}: {dayjs(previewMap[m.model_id]?.testedAt).format('HH:mm:ss')}
                       </span>
                     )}
                     {runtimeOffline && (
-                      <span style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
                         <ExclamationCircleOutlined style={{ fontSize: 10 }} /> {t('runtimeOffline', { defaultValue: '运行时离线' })}
                       </span>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999', marginTop: 2, flexWrap: 'wrap' }}>
+                  <div className="caption-text" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#999', marginTop: 2, flexWrap: 'wrap' }}>
                     {m.deployment_device && <span>{t('device')}: {m.deployment_device}</span>}
                     {m.deployment_port != null && <span>{t('port')}: {m.deployment_port}</span>}
                     {runtimeOffline && <span>{t('runtimeStatus', { defaultValue: '运行时状态' })}: {m.runtime_status.status || 'offline'}</span>}
@@ -800,7 +800,7 @@ const DeployPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalModels', { count: total })}</div>
+      <div className="body-text-sm" style={{ marginTop: 16, color: '#bbb', textAlign: 'center' }}>{t('totalModels', { count: total })}</div>
 
       <Drawer
         open={!!activePreview}

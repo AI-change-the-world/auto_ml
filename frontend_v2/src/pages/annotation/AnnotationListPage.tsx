@@ -168,9 +168,9 @@ const AnnotationListPage: React.FC = () => {
         </div>
         <button onClick={openCreate} style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
-          padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+          padding: '8px 16px', borderRadius: 8,
           background: '#4f6ef7', color: '#fff', border: 'none', cursor: 'pointer',
-        }}>
+        }} className="button-text">
           <PlusOutlined /> {t('newAnnotation')}
         </button>
       </div>
@@ -178,7 +178,8 @@ const AnnotationListPage: React.FC = () => {
       <div style={{ marginBottom: 20, position: 'relative', maxWidth: 360 }}>
         <SearchOutlined style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#bbb', fontSize: 13 }} />
         <input
-          style={{ width: '100%', padding: '8px 12px 8px 34px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, outline: 'none' }}
+          style={{ width: '100%', padding: '8px 12px 8px 34px', border: '1px solid #e5e5e5', borderRadius: 8, outline: 'none' }}
+          className="body-text-sm"
           placeholder={t('searchPlaceholder')}
           value={keyword} onChange={(e) => setKeyword(e.target.value)}
         />
@@ -189,7 +190,7 @@ const AnnotationListPage: React.FC = () => {
       ) : annotations.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 80, color: '#ccc' }}>
           <TagsOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-          <p style={{ fontSize: 14 }}>{t('empty')}</p>
+          <p className="empty-text">{t('empty')}</p>
         </div>
       ) : (
         <div className="card-grid">
@@ -208,11 +209,11 @@ const AnnotationListPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalAnnotations', { count: total })}</div>
+      <div className="body-text-sm" style={{ marginTop: 16, color: '#bbb', textAlign: 'center' }}>{t('totalAnnotations', { count: total })}</div>
 
       {/* ─── 编辑类别 Modal ─── */}
       <Modal
-        title="编辑类别"
+        title={<span className="modal-title">编辑类别</span>}
         open={classesModalOpen}
         onOk={handleClassesSave}
         onCancel={() => setClassesModalOpen(false)}
@@ -222,7 +223,7 @@ const AnnotationListPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
           {/* 批量导入 */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>批量导入</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>批量导入</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <Input.TextArea
                 rows={2}
@@ -232,9 +233,10 @@ const AnnotationListPage: React.FC = () => {
                 style={{ flex: 1 }}
               />
               <button
+                className="button-text"
                 onClick={handleClassesImport}
                 style={{
-                  padding: '4px 12px', borderRadius: 6, fontSize: 13, cursor: 'pointer',
+                  padding: '4px 12px', borderRadius: 6, cursor: 'pointer',
                   background: '#4f6ef7', color: '#fff', border: 'none', alignSelf: 'flex-end',
                 }}
               >
@@ -245,7 +247,7 @@ const AnnotationListPage: React.FC = () => {
 
           {/* 已有类别列表 */}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>当前类别 ({classesEditList.length})</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>当前类别 ({classesEditList.length})</label>
             {classesEditList.length > 0 ? (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 0' }}>
                 {classesEditList.map((cls, idx) => (
@@ -256,27 +258,27 @@ const AnnotationListPage: React.FC = () => {
                       e.preventDefault();
                       setClassesEditList(classesEditList.filter((_, i) => i !== idx));
                     }}
-                    style={{ fontSize: 12 }}
+                    className="caption-text"
                   >
                     {cls}
                   </Tag>
                 ))}
               </div>
             ) : (
-              <div style={{ padding: '8px 0', fontSize: 12, color: '#bbb' }}>暂无类别，请导入或在标注时自动生成</div>
+              <div className="caption-text" style={{ padding: '8px 0', color: '#bbb' }}>暂无类别，请导入或在标注时自动生成</div>
             )}
           </div>
         </div>
       </Modal>
 
-      <Modal title={t('newAnnotation')} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); setSelectedCategoryKey('image'); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
+      <Modal title={<span className="modal-title">{t('newAnnotation')}</span>} open={createOpen} onOk={handleCreate} onCancel={() => { setCreateOpen(false); setFormData({ name: '', annotation_type: 0 }); setSelectedCategoryKey('image'); }} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{tc('label.name')}</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{tc('label.name')}</label>
             <Input placeholder={t('inputName')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 8 }}>标注大类</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 8 }}>标注大类</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
               {AnnotationCategoryDefinitions.map((category) => (
                 <button
@@ -302,12 +304,12 @@ const AnnotationListPage: React.FC = () => {
                     border: selectedCategoryKey === category.key ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                     background: selectedCategoryKey === category.key ? '#eef2ff' : '#fff',
                     textAlign: 'left',
-                  }}
+                  }} className="button-text"
                 >
-                  <div style={{ fontSize: 13, fontWeight: 600, color: selectedCategoryKey === category.key ? '#4f6ef7' : '#0f172a', marginBottom: 2 }}>
+                  <div className="body-text-sm" style={{ fontWeight: 600, color: selectedCategoryKey === category.key ? '#4f6ef7' : '#0f172a', marginBottom: 2 }}>
                     {category.label}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                  <div className="caption-text" style={{ color: '#64748b', lineHeight: 1.5 }}>
                     {category.description}
                   </div>
                 </button>
@@ -315,7 +317,7 @@ const AnnotationListPage: React.FC = () => {
             </div>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 8 }}>{t('annotationType')}</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 8 }}>{t('annotationType')}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {categoryAnnotationTypes.map((typeModel) => {
                 const preset = getAnnotationTypePreset(typeModel.value);
@@ -346,17 +348,17 @@ const AnnotationListPage: React.FC = () => {
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: 10,
-                    }}
+                    }} className="button-text"
                     disabled={typeModel.value === AnnotationType.Pose}
                   >
                     <span style={{ marginTop: 2 }}>
                       {renderAnnotationTypeIcon(typeModel.iconKey, selected ? '#4f6ef7' : '#8c8c8c', 14)}
                     </span>
                     <span style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: selected ? '#4f6ef7' : '#0f172a', marginBottom: 2 }}>
+                      <div className="body-text-sm" style={{ fontWeight: 600, color: selected ? '#4f6ef7' : '#0f172a', marginBottom: 2 }}>
                         {typeModel.value === AnnotationType.Pose ? `${typeModel.label} (占位)` : typeModel.label}
                       </div>
-                      <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                      <div className="caption-text" style={{ color: '#64748b', lineHeight: 1.5 }}>
                         {preset?.description}
                       </div>
                     </span>
@@ -365,14 +367,14 @@ const AnnotationListPage: React.FC = () => {
               })}
             </div>
             {selectedTypePreset && (
-              <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', fontSize: 12, lineHeight: 1.7 }}>
-                <div style={{ fontWeight: 600, marginBottom: 2 }}>数据集要求</div>
+              <div className="caption-text" style={{ marginTop: 8, padding: 10, borderRadius: 8, background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', lineHeight: 1.7 }}>
+                <div className="body-text-sm" style={{ fontWeight: 600, marginBottom: 2 }}>数据集要求</div>
                 <div>{selectedTypePreset.datasetHint}</div>
               </div>
             )}
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('linkedDataset')}</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('linkedDataset')}</label>
             <Select placeholder={t('selectDataset')} allowClear style={{ width: '100%' }} value={formData.dataset_id}
               onChange={(v) => {
                 const nextDataset = compatibleDatasets.find((item) => item.id === v);
@@ -390,19 +392,19 @@ const AnnotationListPage: React.FC = () => {
               }))}
             />
             {compatibleDatasets.length === 0 && (
-              <div style={{ marginTop: 6, fontSize: 12, color: '#b45309' }}>
+              <div className="caption-text" style={{ marginTop: 6, color: '#b45309' }}>
                 当前没有与该标注类型兼容的数据集，请先创建对应类型的数据集。
               </div>
             )}
             {selectedDataset && (
-              <div style={{ marginTop: 6, fontSize: 12, color: '#888' }}>
+              <div className="caption-text" style={{ marginTop: 6, color: '#888' }}>
                 当前数据集类型：{DataTypeLabels[selectedDataset.data_type] ?? '未知'} / {getDatasetScenarioLabel(selectedDataset.data_type, selectedDataset.scenario_type)}
               </div>
             )}
           </div>
           {selectedAnnotationType?.supportsClasses && (
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('initialClasses')}</label>
+              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('initialClasses')}</label>
               <Input.TextArea rows={2} placeholder={t('classesPlaceholder')} value={formData.classes}
                 onChange={(e) => setFormData({ ...formData, classes: e.target.value })} />
             </div>
