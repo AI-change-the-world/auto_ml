@@ -86,6 +86,7 @@ export const useAnnotationStore = create<AnnotationStoreState>((set, get) => ({
     set((state) => ({
       ...pushHistory(state),
       annotations: [...state.annotations, newAnnotation],
+      selectedUuid: newAnnotation.uuid,
       modified: true,
     }));
   },

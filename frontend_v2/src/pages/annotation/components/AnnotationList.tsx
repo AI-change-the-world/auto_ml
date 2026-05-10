@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { List, Button, Tag, Popconfirm, Empty, Badge, AutoComplete, Input } from 'antd';
+import { List, Button, Tag, Empty, Badge, AutoComplete, Input, Modal } from 'antd';
 import {
   DeleteOutlined, EyeOutlined, EyeInvisibleOutlined,
   BorderOutlined, StarOutlined, GatewayOutlined,
@@ -8,6 +8,7 @@ import { useAnnotationStore } from '../../../stores/annotationStore';
 import { createClassificationAnnotation, getClassColor, AnnotationShape, AnnotationType } from '../../../types';
 import type { Annotation, PolygonAnnotation, OBBAnnotation } from '../../../types';
 import { useDatasetStore } from '../../../stores/datasetStore';
+import { getAnnotationDeleteConfirmEnabled } from '../../../utils/localSettings';
 
 const ShapeIcon: React.FC<{ shape: AnnotationShape }> = ({ shape }) => {
   switch (shape) {
@@ -87,6 +88,18 @@ const AnnotationList: React.FC = () => {
       addAnnotation(createClassificationAnnotation(classId));
     }
     setDefaultClassId(classId);
+  };
+
+  const confirmDelete = async (title: string, onDelete: () => Promise<void> | void) => {
+    if (!getAnnotationDeleteConfirmEnabled()) {
+      await onDelete();
+      return;
+    }
+    Modal.confirm({
+      title,
+      okButtonProps: { danger: true },
+      onOk: onDelete,
+    });
   };
 
   if (isClassification) {
@@ -246,22 +259,16 @@ const AnnotationList: React.FC = () => {
                     />
 
                     {/* 删除按钮 */}
-                    <Popconfirm
-                      title="确认删除？"
-                      onConfirm={(e) => {
-                        e?.stopPropagation();
-                        deleteAnnotation(item.uuid);
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void confirmDelete('确认删除？', () => deleteAnnotation(item.uuid));
                       }}
-                      onCancel={(e) => e?.stopPropagation()}
-                    >
-                      <Button
-                        type="text"
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </Popconfirm>
+                    />
                   </div>
                 </List.Item>
               );

@@ -14,6 +14,7 @@ import {
   getDatasetScenarioLabel,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { getAnnotationDeleteConfirmEnabled } from '../../utils/localSettings';
 import AnnotationProjectCard, { renderAnnotationTypeIcon } from './components/AnnotationProjectCard';
 import { parseAnnotationClasses, serializeAnnotationClasses } from '../../utils/annotationClasses';
 import { emitAnnotationsChanged } from '../../utils/projectEvents';
@@ -131,14 +132,19 @@ const AnnotationListPage: React.FC = () => {
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
+    const onDelete = async () => {
+      await deleteAnnotation(id);
+      emitAnnotationsChanged();
+      message.success(tc('msg.deleted'));
+      fetch();
+    };
+    if (!getAnnotationDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('deleteTitle'), content: tc('msg.confirmDelete'), okButtonProps: { danger: true },
-      onOk: async () => {
-        await deleteAnnotation(id);
-        emitAnnotationsChanged();
-        message.success(tc('msg.deleted'));
-        fetch();
-      },
+      onOk: onDelete,
     });
   };
 

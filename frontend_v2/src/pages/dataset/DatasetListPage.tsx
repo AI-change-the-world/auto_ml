@@ -25,6 +25,7 @@ import {
   isMllmConversationDataset,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { getDatasetDeleteConfirmEnabled } from '../../utils/localSettings';
 
 const createInitialFormData = (): DatasetCreate => ({
   name: '',
@@ -82,10 +83,19 @@ const DatasetListPage: React.FC = () => {
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
+    const onDelete = async () => {
+      await deleteDataset(id);
+      message.success(tc('msg.deleted'));
+      fetchDatasets();
+    };
+    if (!getDatasetDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('deleteTitle'), content: tc('msg.confirmDelete'),
       okButtonProps: { danger: true },
-      onOk: async () => { await deleteDataset(id); message.success(tc('msg.deleted')); fetchDatasets(); },
+      onOk: onDelete,
     });
   };
 

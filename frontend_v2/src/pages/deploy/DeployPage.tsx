@@ -19,6 +19,7 @@ import { getDeploymentOverview, deployModel, undeployModel, predictModel, getDep
 import { getClassColor } from '../../types';
 import type { DeploymentOverviewItem, InferenceDetectionResult, InferenceParams, InferencePredictResponse } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
+import { getDeployConfirmEnabled } from '../../utils/localSettings';
 
 type InferencePreviewEntry = {
   modelId: number;
@@ -339,27 +340,32 @@ const DeployPage: React.FC = () => {
   };
 
   const handleUndeploy = async (id: number) => {
+    const onUndeploy = async () => {
+      setDeployingId(id);
+      try {
+        await undeployModel(id);
+        const undeployed = await waitForDeployState(id, false);
+        await fetchModels();
+        window.dispatchEvent(new Event(DEPLOYMENTS_CHANGED_EVENT));
+        if (undeployed?.is_deployed === false) {
+          message.success(t('undeploySuccess'));
+        } else {
+          message.warning(t('undeployPending'));
+        }
+      } catch {
+        message.error(t('undeployFailed'));
+      } finally {
+        setDeployingId(null);
+      }
+    };
+    if (!getDeployConfirmEnabled()) {
+      void onUndeploy();
+      return;
+    }
     Modal.confirm({
       title: t('confirmUndeploy'),
       content: t('confirmUndeployMsg'),
-      onOk: async () => {
-        setDeployingId(id);
-        try {
-          await undeployModel(id);
-          const undeployed = await waitForDeployState(id, false);
-          await fetchModels();
-          window.dispatchEvent(new Event(DEPLOYMENTS_CHANGED_EVENT));
-          if (undeployed?.is_deployed === false) {
-            message.success(t('undeploySuccess'));
-          } else {
-            message.warning(t('undeployPending'));
-          }
-        } catch {
-          message.error(t('undeployFailed'));
-        } finally {
-          setDeployingId(null);
-        }
-      },
+      onOk: onUndeploy,
     });
   };
 

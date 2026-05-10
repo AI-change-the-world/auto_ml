@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Switch, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
+import {
+  getAnnotationDeleteConfirmEnabled,
+  getDatasetDeleteConfirmEnabled,
+  getDeployConfirmEnabled,
+  getTaskDeleteConfirmEnabled,
+  setAnnotationDeleteConfirmEnabled,
+  setDatasetDeleteConfirmEnabled,
+  setDeployConfirmEnabled,
+  setTaskDeleteConfirmEnabled,
+} from '../../utils/localSettings';
 
 type ModuleState = 'enabled' | 'unavailable' | 'disabled';
 
@@ -25,6 +36,10 @@ const SettingsPage: React.FC = () => {
   const tc = useTranslation('common').t;
   const [backendVersion, setBackendVersion] = useState<string>('-');
   const [platformName, setPlatformName] = useState<string>('AutoML Platform');
+  const [datasetDeleteConfirmEnabled, setDatasetDeleteConfirmEnabledState] = useState(true);
+  const [annotationDeleteConfirmEnabled, setAnnotationDeleteConfirmEnabledState] = useState(true);
+  const [taskDeleteConfirmEnabled, setTaskDeleteConfirmEnabledState] = useState(true);
+  const [deployConfirmEnabled, setDeployConfirmEnabledState] = useState(true);
   const [moduleStatusMap, setModuleStatusMap] = useState<Record<string, ModuleState>>({
     dataset_mgmt: 'enabled',
     annotation_mgmt: 'enabled',
@@ -46,6 +61,10 @@ const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
+    setDatasetDeleteConfirmEnabledState(getDatasetDeleteConfirmEnabled());
+    setAnnotationDeleteConfirmEnabledState(getAnnotationDeleteConfirmEnabled());
+    setTaskDeleteConfirmEnabledState(getTaskDeleteConfirmEnabled());
+    setDeployConfirmEnabledState(getDeployConfirmEnabled());
 
     const loadHealth = async () => {
       try {
@@ -71,6 +90,17 @@ const SettingsPage: React.FC = () => {
       active = false;
     };
   }, []);
+
+  const handleConfirmDeleteChange = (
+    checked: boolean,
+    setter: React.Dispatch<React.SetStateAction<boolean>>,
+    persist: (enabled: boolean) => void,
+    label: string,
+  ) => {
+    setter(checked);
+    persist(checked);
+    message.success(`${label}${checked ? '已开启确认' : '已关闭确认'}`);
+  };
 
   return (
     <div className="page-container" style={{ maxWidth: 700 }}>
@@ -98,6 +128,20 @@ const SettingsPage: React.FC = () => {
             <span className="body-text-sm" style={{ color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
           </div>
         ))}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>删除确认</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
+          <span className="body-text-sm" style={{ color: '#555' }}>数据集删除需要确认</span>
+          <Switch checked={datasetDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDatasetDeleteConfirmEnabledState, setDatasetDeleteConfirmEnabled, '数据集删除')} />
+          <span className="body-text-sm" style={{ color: '#555' }}>标注删除需要确认</span>
+          <Switch checked={annotationDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setAnnotationDeleteConfirmEnabledState, setAnnotationDeleteConfirmEnabled, '标注删除')} />
+          <span className="body-text-sm" style={{ color: '#555' }}>任务删除需要确认</span>
+          <Switch checked={taskDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setTaskDeleteConfirmEnabledState, setTaskDeleteConfirmEnabled, '任务删除')} />
+          <span className="body-text-sm" style={{ color: '#555' }}>部署下线需要确认</span>
+          <Switch checked={deployConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDeployConfirmEnabledState, setDeployConfirmEnabled, '部署下线')} />
+        </div>
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24 }}>

@@ -33,6 +33,7 @@ import {
   isMllmConversationDataset,
 } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { getDatasetDeleteConfirmEnabled } from '../../utils/localSettings';
 import { isImageFileName } from '../../utils/file';
 import { getDatasetUploadRule, splitAcceptedFiles } from '../../utils/datasetUpload';
 
@@ -186,40 +187,59 @@ const DatasetDetailPage: React.FC = () => {
   };
 
   const handleDeleteDataset = () => {
+    const onDelete = async () => {
+      await deleteDataset(datasetId);
+      message.success(tc('msg.deleted'));
+      navigate('/datasets');
+    };
+    if (!getDatasetDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('deleteTitle'), content: t('deleteIrreversible'),
       okButtonProps: { danger: true },
-      onOk: async () => { await deleteDataset(datasetId); message.success(tc('msg.deleted')); navigate('/datasets'); },
+      onOk: onDelete,
     });
   };
 
   const handleDeleteSample = (e: React.MouseEvent, sample: SampleItem) => {
     e.stopPropagation();
+    const onDelete = async () => {
+      await deleteDatasetSample(datasetId, sample.id);
+      message.success(tc('msg.deleted'));
+      setSelectedIds((prev) => { const next = new Set(prev); next.delete(sample.id); return next; });
+      fetchData();
+    };
+    if (!getDatasetDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('deleteFileTitle'),
       content: t('deleteFileConfirm'),
       okButtonProps: { danger: true },
-      onOk: async () => {
-        await deleteDatasetSample(datasetId, sample.id);
-        message.success(tc('msg.deleted'));
-        setSelectedIds((prev) => { const next = new Set(prev); next.delete(sample.id); return next; });
-        fetchData();
-      },
+      onOk: onDelete,
     });
   };
 
   const handleBatchDelete = () => {
     if (selectedIds.size === 0) return;
+    const onDelete = async () => {
+      await Promise.all(Array.from(selectedIds).map((sampleId) => deleteDatasetSample(datasetId, sampleId)));
+      message.success(tc('msg.deleted'));
+      setSelectedIds(new Set());
+      fetchData();
+    };
+    if (!getDatasetDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('batchDelete'),
       content: t('batchDeleteConfirm', { count: selectedIds.size }),
       okButtonProps: { danger: true },
-      onOk: async () => {
-        await Promise.all(Array.from(selectedIds).map((sampleId) => deleteDatasetSample(datasetId, sampleId)));
-        message.success(tc('msg.deleted'));
-        setSelectedIds(new Set());
-        fetchData();
-      },
+      onOk: onDelete,
     });
   };
 

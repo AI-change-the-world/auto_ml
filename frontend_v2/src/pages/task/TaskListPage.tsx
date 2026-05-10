@@ -22,6 +22,7 @@ import { AnnotationType, type AnnotationProject } from '../../types/annotation';
 import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
 import { useTranslation } from 'react-i18next';
 import { emitTasksChanged } from '../../utils/projectEvents';
+import { getTaskDeleteConfirmEnabled } from '../../utils/localSettings';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -214,16 +215,21 @@ const TaskListPage: React.FC = () => {
 
   const handleDeleteTask = (event: React.MouseEvent, taskId: number) => {
     event.stopPropagation();
+    const onDelete = async () => {
+      await deleteTask(taskId);
+      emitTasksChanged();
+      message.success(tc('msg.deleted'));
+      fetchTasks();
+    };
+    if (!getTaskDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('deleteTitle'),
       content: tc('msg.confirmDelete'),
       okButtonProps: { danger: true },
-      onOk: async () => {
-        await deleteTask(taskId);
-        emitTasksChanged();
-        message.success(tc('msg.deleted'));
-        fetchTasks();
-      },
+      onOk: onDelete,
     });
   };
 
