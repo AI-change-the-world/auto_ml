@@ -119,6 +119,8 @@ const ImageCanvas: React.FC = () => {
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number; posX: number; posY: number } | null>(null);
 
   // BBox / OBB 绘制状态
   const [isDrawing, setIsDrawing] = useState(false);
@@ -151,6 +153,7 @@ const ImageCanvas: React.FC = () => {
   } = useAnnotationStore();
 
   const { currentImageUrl, annotationRecords, sampleItems, currentSampleIndex, annotationProject } = useDatasetStore();
+  const rememberCurrentSample = useDatasetStore((s) => s.rememberCurrentSample);
   const setAnnotations = useAnnotationStore((s) => s.setAnnotations);
   const undo = useAnnotationStore((s) => s.undo);
   const redo = useAnnotationStore((s) => s.redo);
@@ -254,6 +257,20 @@ const ImageCanvas: React.FC = () => {
   // ============ 鼠标事件 ============
 
   const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    const isSpacePressed = Boolean((window as unknown as { __canvasSpacePressed?: boolean }).__canvasSpacePressed);
+    const isMiddleButton = e.evt.button === 1;
+    if (isSpacePressed || isMiddleButton) {
+      e.cancelBubble = true;
+      setIsPanning(true);
+      setPanStart({
+        x: e.evt.clientX,
+        y: e.evt.clientY,
+        posX: position.x,
+        posY: position.y,
+      });
+      return;
+    }
+
     if (mode !== LabelMode.Add) return;
     if (e.evt.button !== 0) return;
     const pos = getImagePos(e);
@@ -266,9 +283,17 @@ const ImageCanvas: React.FC = () => {
     setIsDrawing(true);
     setDrawStart(pos);
     setDrawRect({ x: pos.x, y: pos.y, w: 0, h: 0 });
-  }, [mode, getImagePos, annotationShape]);
+  }, [mode, getImagePos, annotationShape, position.x, position.y]);
 
   const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (isPanning && panStart) {
+      setPosition({
+        x: panStart.posX + (e.evt.clientX - panStart.x),
+        y: panStart.posY + (e.evt.clientY - panStart.y),
+      });
+      return;
+    }
+
     const pos = getImagePos(e);
 
     // Polygon 顶点编辑
@@ -385,11 +410,19 @@ const ImageCanvas: React.FC = () => {
     draggingPolygonVertex,
     resizing,
     rotating,
+    isPanning,
+    panStart,
     updateAnnotation,
     annotations,
   ]);
 
   const handleMouseUp = useCallback(() => {
+    if (isPanning) {
+      setIsPanning(false);
+      setPanStart(null);
+      return;
+    }
+
     // BBox 拖拽/缩放结束
     if (draggingPolygonVertex) { setDraggingPolygonVertex(null); endBatch(); return; }
     if (draggingPolygon) { setDraggingPolygon(null); endBatch(); return; }
@@ -427,6 +460,7 @@ const ImageCanvas: React.FC = () => {
     resizing,
     rotating,
     endBatch,
+    isPanning,
   ]);
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -520,6 +554,40 @@ const ImageCanvas: React.FC = () => {
     (window as unknown as Record<string, unknown>).__canvasFitToWindow = fitToWindow;
     return () => { delete (window as unknown as Record<string, unknown>).__canvasFitToWindow; };
   }, [fitToWindow]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        (window as unknown as { __canvasSpacePressed?: boolean }).__canvasSpacePressed = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        (window as unknown as { __canvasSpacePressed?: boolean }).__canvasSpacePressed = false;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    rememberCurrentSample();
+  }, [currentSampleIndex, sampleItems, rememberCurrentSample]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const cursor = isClassification || isPose
+      ? 'default'
+      : mode === LabelMode.Add
+        ? 'crosshair'
+        : 'default';
+    stage.container().style.cursor = cursor;
+  }, [mode, isClassification, isPose]);
 
   // ============ 渲染标注 ============
 

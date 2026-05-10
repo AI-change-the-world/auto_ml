@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import { message } from 'antd';
 import { useAnnotationStore } from '../stores/annotationStore';
 import { useDatasetStore } from '../stores/datasetStore';
 
 export function useKeyboardShortcuts() {
   const toggleMode = useAnnotationStore((s) => s.toggleMode);
+  const mode = useAnnotationStore((s) => s.mode);
   const deleteSelected = useAnnotationStore((s) => s.deleteSelected);
   const toggleSelectedVisibility = useAnnotationStore((s) => s.toggleSelectedVisibility);
   const clearSelection = useAnnotationStore((s) => s.clearSelection);
@@ -23,7 +25,9 @@ export function useKeyboardShortcuts() {
       switch (e.key.toLowerCase()) {
         case 'w':
           e.preventDefault();
+          const nextMode = mode === 'edit' ? 'add' : 'edit';
           toggleMode();
+          message.success(nextMode === 'add' ? '已切换到标注模式' : '已切换到修改模式');
           break;
         case 'q':
           e.preventDefault();
@@ -57,5 +61,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleMode, deleteSelected, toggleSelectedVisibility, clearSelection, nextSample, prevSample, saveCurrentAnnotation]);
+  }, [toggleMode, mode, deleteSelected, toggleSelectedVisibility, clearSelection, nextSample, prevSample, saveCurrentAnnotation]);
 }

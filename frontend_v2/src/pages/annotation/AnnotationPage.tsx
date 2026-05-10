@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Spin, Typography } from 'antd';
+import { Spin, Typography, message } from 'antd';
 import { useDatasetStore } from '../../stores/datasetStore';
 import { useAnnotationStore } from '../../stores/annotationStore';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
@@ -24,13 +24,19 @@ const AnnotationPage: React.FC = () => {
 
   // 加载标注项目
   useEffect(() => {
+    let cancelled = false;
     if (annotationId) {
       const id = parseInt(annotationId, 10);
       if (!isNaN(id)) {
-        loadAnnotationProject(id);
+        loadAnnotationProject(id).then((restored) => {
+          if (!cancelled && restored?.sampleName) {
+            message.info(`已恢复到上次位置：${restored.sampleName}`);
+          }
+        });
       }
     }
     return () => {
+      cancelled = true;
       reset();
     };
   }, [annotationId]);

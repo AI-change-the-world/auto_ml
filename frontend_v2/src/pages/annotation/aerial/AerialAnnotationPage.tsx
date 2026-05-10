@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Modal, Spin, Typography } from 'antd';
+import { Button, Modal, Spin, Typography, message } from 'antd';
 import { AppstoreOutlined } from '@ant-design/icons';
 import Toolbar from '../components/Toolbar';
 import ImageCanvas from '../components/ImageCanvas';
@@ -35,13 +35,19 @@ const AerialAnnotationPage: React.FC = () => {
   useUnsavedChangesGuard(modified);
 
   useEffect(() => {
+    let cancelled = false;
     if (annotationId) {
       const id = parseInt(annotationId, 10);
       if (!Number.isNaN(id)) {
-        loadAnnotationProject(id);
+        loadAnnotationProject(id).then((restored) => {
+          if (!cancelled && restored?.sampleName) {
+            message.info(`已恢复到上次位置：${restored.sampleName}`);
+          }
+        });
       }
     }
     return () => {
+      cancelled = true;
       reset();
     };
   }, [annotationId, loadAnnotationProject, reset]);
