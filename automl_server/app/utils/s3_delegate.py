@@ -7,6 +7,7 @@ import hmac
 import urllib.parse
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
+from threading import Lock
 
 import opendal
 from loguru import logger
@@ -17,23 +18,33 @@ from app.config.s3_config import get_s3_config, S3Config
 class PresignedUrlCache:
     """预签名 URL 缓存"""
 
-    def __init__(self, ttl_seconds: int = 3000):
+    def __init__(self, safety_buffer_seconds: int = 60):
         self._cache: Dict[str, tuple[str, datetime]] = {}
-        self._ttl = timedelta(seconds=ttl_seconds)
+        self._safety_buffer_seconds = max(int(safety_buffer_seconds), 0)
+        self._lock = Lock()
 
     def get(self, key: str) -> Optional[str]:
-        if key in self._cache:
-            url, expires = self._cache[key]
-            if datetime.now() < expires:
+        with self._lock:
+            cached = self._cache.get(key)
+            if cached is None:
+                return None
+
+            url, valid_until = cached
+            if datetime.utcnow() < valid_until:
                 return url
-            del self._cache[key]
+
+            self._cache.pop(key, None)
         return None
 
-    def set(self, key: str, url: str):
-        self._cache[key] = (url, datetime.now() + self._ttl)
+    def set(self, key: str, url: str, expires_seconds: int):
+        effective_ttl = max(int(expires_seconds) - self._safety_buffer_seconds, 1)
+        valid_until = datetime.utcnow() + timedelta(seconds=effective_ttl)
+        with self._lock:
+            self._cache[key] = (url, valid_until)
 
     def clear(self):
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
 
 
 class S3Delegate:
@@ -42,8 +53,7 @@ class S3Delegate:
     def __init__(self, config: S3Config = None):
         self.config = config or get_s3_config()
         self._operators: Dict[str, opendal.AsyncOperator] = {}
-        self._url_cache = PresignedUrlCache(
-            self.config.presigned_url_expires - 600)
+        self._url_cache = PresignedUrlCache()
 
     def _get_operator(self, bucket_type: str = "default") -> opendal.AsyncOperator:
         """获取指定 bucket 的 AsyncOperator（带缓存）"""
@@ -227,15 +237,15 @@ class S3Delegate:
     ) -> str:
         """获取预签名 URL（手动生成 S3 v4 presigned URL）"""
         bucket = self.get_bucket_name(bucket_type)
-        cache_key = f"{bucket}:{key}:{method}"
+        resolved_expires = expires or self.config.presigned_url_expires
+        cache_key = f"{self.config.endpoint}:{bucket}:{key}:{method}:{resolved_expires}"
 
         cached = self._url_cache.get(cache_key)
         if cached:
             return cached
 
-        expires = expires or self.config.presigned_url_expires
-        url = self._generate_presigned_url(bucket, key, expires)
-        self._url_cache.set(cache_key, url)
+        url = self._generate_presigned_url(bucket, key, resolved_expires)
+        self._url_cache.set(cache_key, url, resolved_expires)
         return url
 
     def _generate_presigned_url(self, bucket: str, key: str, expires: int) -> str:
@@ -305,6 +315,15 @@ class S3Delegate:
             f"Copied {src_bucket_type}:{src_key} to {dst_bucket_type}:{dst_key}")
 
 
+_s3_delegate: Optional[S3Delegate] = None
+_s3_delegate_lock = Lock()
+
+
 def get_s3_delegate() -> S3Delegate:
     """获取 S3 操作委托单例"""
-    return S3Delegate()
+    global _s3_delegate
+    if _s3_delegate is None:
+        with _s3_delegate_lock:
+            if _s3_delegate is None:
+                _s3_delegate = S3Delegate()
+    return _s3_delegate

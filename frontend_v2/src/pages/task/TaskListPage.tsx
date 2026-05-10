@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Select, InputNumber, Switch } from 'antd';
+import { message, Spin, Modal, Select, InputNumber, Switch, Divider } from 'antd';
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask } from '../../api/task';
@@ -14,6 +14,7 @@ import type {
   TrainerStatusResponse,
   TaskStreamEnvelope,
   TrainingConfigPayload,
+  TrainingAugmentationConfig,
   TaskSourceItem,
   TaskSourceResponse,
 } from '../../types/task';
@@ -22,6 +23,7 @@ import { AnnotationType, type AnnotationProject } from '../../types/annotation';
 import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
 import { useTranslation } from 'react-i18next';
 import { emitTasksChanged } from '../../utils/projectEvents';
+import { getTaskDeleteConfirmEnabled } from '../../utils/localSettings';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -40,6 +42,15 @@ const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
   device: 'cpu',
   label_format: 'bbox',
   export_onnx: false,
+  augmentation: {
+    enabled: true,
+    mosaic: 1,
+    mixup: 0,
+    copy_paste: 0,
+    close_mosaic: 10,
+    auto_augment: 'randaugment',
+    erasing: 0.4,
+  },
 };
 
 const getStaleMinutes = (seconds?: number | null) => Math.max(1, Math.floor((seconds || 0) / 60));
@@ -214,16 +225,21 @@ const TaskListPage: React.FC = () => {
 
   const handleDeleteTask = (event: React.MouseEvent, taskId: number) => {
     event.stopPropagation();
+    const onDelete = async () => {
+      await deleteTask(taskId);
+      emitTasksChanged();
+      message.success(tc('msg.deleted'));
+      fetchTasks();
+    };
+    if (!getTaskDeleteConfirmEnabled()) {
+      void onDelete();
+      return;
+    }
     Modal.confirm({
       title: t('deleteTitle'),
       content: tc('msg.confirmDelete'),
       okButtonProps: { danger: true },
-      onOk: async () => {
-        await deleteTask(taskId);
-        emitTasksChanged();
-        message.success(tc('msg.deleted'));
-        fetchTasks();
-      },
+      onOk: onDelete,
     });
   };
 
@@ -308,6 +324,22 @@ const TaskListPage: React.FC = () => {
     }));
   };
 
+  const updateAugmentationConfig = <K extends keyof TrainingAugmentationConfig>(
+    key: K,
+    value: TrainingAugmentationConfig[K],
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      train_config: {
+        ...prev.train_config,
+        augmentation: {
+          ...(prev.train_config.augmentation || DEFAULT_TRAIN_CONFIG.augmentation!),
+          [key]: value,
+        },
+      },
+    }));
+  };
+
   const handleTaskTypeChange = (taskType: number) => {
     setForm((prev) => ({
       ...prev,
@@ -373,29 +405,37 @@ const TaskListPage: React.FC = () => {
       .map((annotation) => ({ label: annotation.name, value: annotation.id }))
   );
 
+  const augmentation = form.train_config.augmentation || DEFAULT_TRAIN_CONFIG.augmentation!;
+  const showDetectionAugmentation = form.task_type === 0 || form.task_type === 2;
+  const showClassificationAugmentation = form.task_type === 1;
+
   return (
     <div className="page-container">
       <div className="page-header">
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><ExperimentOutlined /> {t('title')}</h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
+        <div className="page-title-block">
+          <div className="page-title-icon">
+            <ExperimentOutlined />
+          </div>
+          <div>
+            <h1 className="page-title">{t('title')}</h1>
+            <p className="page-subtitle">{t('subtitle')}</p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, fontSize: 13, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
-          <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
+          <button className="button-text" onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
+          <button className="button-text" onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
         </div>
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '14px 18px', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#111' }}>{t('trainerStatusTitle')}</div>
+          <div className="card-title">{t('trainerStatusTitle')}</div>
           <span style={{
             padding: '2px 10px',
             borderRadius: 999,
-            fontSize: 12,
             background: trainerStatus?.reachable ? '#f0fdf4' : '#fef2f2',
             color: trainerStatus?.reachable ? '#16a34a' : '#dc2626',
-          }}>
+          }} className="tag-text">
             {trainerStatus?.reachable ? t('trainerReachable') : t('trainerUnreachable')}
           </span>
         </div>
@@ -407,13 +447,13 @@ const TaskListPage: React.FC = () => {
             { label: t('trainerQueuedTasks'), value: trainerStatus?.queued_tasks ?? '-' },
           ].map((item, i) => (
             <div key={i}>
-              <div style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>{item.label}</div>
-              <div style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{item.value}</div>
+              <div className="info-label" style={{ marginBottom: 2 }}>{item.label}</div>
+              <div className="info-value">{item.value}</div>
             </div>
           ))}
         </div>
         {trainerStatus?.message && (
-          <div style={{ marginTop: 10, fontSize: 12, color: '#999' }}>{trainerStatus.message}</div>
+          <div className="caption-text" style={{ marginTop: 10, color: '#999' }}>{trainerStatus.message}</div>
         )}
       </div>
 
@@ -421,10 +461,10 @@ const TaskListPage: React.FC = () => {
       <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #eee', marginBottom: 20 }}>
         {tabs.map((t) => (
           <button key={t.key} onClick={() => { setStatusFilter(t.key); setPage(1); }} style={{
-            padding: '10px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer', border: 'none', background: 'none',
+            padding: '10px 16px', cursor: 'pointer', border: 'none', background: 'none',
             borderBottom: statusFilter === t.key ? '2px solid #4f6ef7' : '2px solid transparent',
             color: statusFilter === t.key ? '#4f6ef7' : '#888', marginBottom: -1,
-          }}>{t.label}</button>
+          }} className="button-text">{t.label}</button>
         ))}
       </div>
 
@@ -441,18 +481,18 @@ const TaskListPage: React.FC = () => {
                     background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '14px 18px', cursor: 'pointer', transition: 'box-shadow 0.2s',
                   }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)'} onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f6ef7', fontWeight: 600, fontSize: 13 }}>#{task.id}</div>
+                      <div className="body-text-sm" style={{ width: 36, height: 36, borderRadius: 8, background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f6ef7', fontWeight: 600 }}>#{task.id}</div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `${t('taskType')}${task.task_type}`} {t('training')}</span>
-                          <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || tc('status.unknown')}</span>
+                          <span className="body-text" style={{ fontWeight: 500, color: '#111' }}>{typeLabels[task.task_type] ?? `${t('taskType')}${task.task_type}`} {t('training')}</span>
+                          <span className="tag-text" style={{ padding: '1px 8px', borderRadius: 999, background: s.bg, color: s.fg }}>{TaskStatusLabels[task.status] || tc('status.unknown')}</span>
                           {task.is_stale && (
-                            <span style={{ padding: '1px 8px', fontSize: 11, borderRadius: 999, background: '#fff7ed', color: '#c2410c' }}>
+                            <span className="tag-text" style={{ padding: '1px 8px', borderRadius: 999, background: '#fff7ed', color: '#c2410c' }}>
                               {t('staleBadge')}
                             </span>
                           )}
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginTop: 2 }}>
+                        <div className="caption-text" style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#999', marginTop: 2 }}>
                           <span
                             title={getSourceTitle(task)}
                             style={{
@@ -502,16 +542,16 @@ const TaskListPage: React.FC = () => {
             </div>
           )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalTasks', { count: total })}</div>
+      <div className="body-text-sm" style={{ marginTop: 16, color: '#bbb', textAlign: 'center' }}>{t('totalTasks', { count: total })}</div>
 
-      <Modal title={t('createTitle')} open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
+      <Modal title={<span className="modal-title">{t('createTitle')}</span>} open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('taskType')}</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('taskType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {Object.entries(typeLabels).map(([k, v]) => (
-                <button key={k} onClick={() => handleTaskTypeChange(Number(k))} style={{
-                  padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
+                <button key={k} className="button-text" onClick={() => handleTaskTypeChange(Number(k))} style={{
+                  padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
                   border: form.task_type === Number(k) ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                   background: form.task_type === Number(k) ? '#eef2ff' : '#fff',
                   color: form.task_type === Number(k) ? '#4f6ef7' : '#666',
@@ -521,13 +561,13 @@ const TaskListPage: React.FC = () => {
           </div>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555' }}>{t('sources')}</label>
+              <label className="form-label" style={{ display: 'block' }}>{t('sources')}</label>
               <button
+                className="button-text"
                 type="button"
                 onClick={addSource}
                 style={{
                   padding: '4px 10px',
-                  fontSize: 12,
                   borderRadius: 8,
                   cursor: 'pointer',
                   border: '1px solid #e5e5e5',
@@ -542,7 +582,7 @@ const TaskListPage: React.FC = () => {
               {form.sources.map((source, index) => (
                 <div key={`source-${index}`} style={{ border: '1px solid #eee', borderRadius: 10, padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'end' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, color: '#777', marginBottom: 4 }}>{t('dataset')}</label>
+                    <label className="caption-text" style={{ display: 'block', color: '#777', marginBottom: 4 }}>{t('dataset')}</label>
                     <Select
                       style={{ width: '100%' }}
                       placeholder={t('selectDataset')}
@@ -554,7 +594,7 @@ const TaskListPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, color: '#777', marginBottom: 4 }}>{t('annotationOptional')}</label>
+                    <label className="caption-text" style={{ display: 'block', color: '#777', marginBottom: 4 }}>{t('annotationOptional')}</label>
                     <Select
                       style={{ width: '100%' }}
                       placeholder={t('selectAnnotation')}
@@ -566,12 +606,12 @@ const TaskListPage: React.FC = () => {
                     />
                   </div>
                   <button
+                    className="button-text"
                     type="button"
                     onClick={() => removeSource(index)}
                     style={{
                       height: 32,
                       padding: '0 10px',
-                      fontSize: 12,
                       borderRadius: 8,
                       cursor: 'pointer',
                       border: '1px solid #f0f0f0',
@@ -587,14 +627,14 @@ const TaskListPage: React.FC = () => {
           </div>
           {form.task_type === 0 && (
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('detectionMode')}</label>
+              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('detectionMode')}</label>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[
                   { key: 'bbox', label: t('bboxDetection') },
                   { key: 'obb', label: t('obbDetection') },
                 ].map((item) => (
-                  <button key={item.key} onClick={() => handleDetectionModeChange(item.key as DetectionMode)} style={{
-                    padding: '5px 14px', fontSize: 13, borderRadius: 8, cursor: 'pointer',
+                  <button key={item.key} className="button-text" onClick={() => handleDetectionModeChange(item.key as DetectionMode)} style={{
+                    padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
                     border: form.detection_mode === item.key ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
                     background: form.detection_mode === item.key ? '#eef2ff' : '#fff',
                     color: form.detection_mode === item.key ? '#4f6ef7' : '#666',
@@ -602,17 +642,17 @@ const TaskListPage: React.FC = () => {
                 ))}
               </div>
               {annotationTypeHint && (
-                <div style={{ marginTop: 6, fontSize: 12, color: '#999' }}>
+                <div className="caption-text" style={{ marginTop: 6, color: '#999' }}>
                   {t('annotationTypeHint', { type: annotationTypeHint })}
                 </div>
               )}
             </div>
           )}
           {form.task_type === 3 && (
-            <div style={{ fontSize: 12, color: '#999' }}>{t('posePlaceholder')}</div>
+            <div className="caption-text" style={{ color: '#999' }}>{t('posePlaceholder')}</div>
           )}
           <div>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('baseModel')}</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('baseModel')}</label>
             <Select
               style={{ width: '100%' }}
               placeholder={t('selectBaseModel')}
@@ -628,19 +668,19 @@ const TaskListPage: React.FC = () => {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('epochs')}</label>
+              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('epochs')}</label>
               <InputNumber min={1} max={10000} value={form.train_config.epoch} onChange={(value) => updateTrainConfig('epoch', Number(value || 1))} style={{ width: '100%' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('batchSize')}</label>
+              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('batchSize')}</label>
               <InputNumber min={1} max={1024} value={form.train_config.batch} onChange={(value) => updateTrainConfig('batch', Number(value || 1))} style={{ width: '100%' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('imageSize')}</label>
+              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('imageSize')}</label>
               <InputNumber min={32} max={4096} step={32} value={form.train_config.size} onChange={(value) => updateTrainConfig('size', Number(value || 640))} style={{ width: '100%' }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#555', marginBottom: 4 }}>{t('device')}</label>
+              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('device')}</label>
               <Select
                 style={{ width: '100%' }}
                 value={form.train_config.device}
@@ -652,10 +692,105 @@ const TaskListPage: React.FC = () => {
               />
             </div>
           </div>
+          <Divider style={{ margin: '4px 0 0' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div className="form-label">{t('augmentationTitle')}</div>
+                <div className="caption-text" style={{ color: '#999', marginTop: 2 }}>{t('augmentationHint')}</div>
+              </div>
+              <Switch
+                checked={Boolean(augmentation.enabled)}
+                onChange={(checked) => updateAugmentationConfig('enabled', checked)}
+              />
+            </div>
+            {showDetectionAugmentation && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationMosaic')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.mosaic}
+                    onChange={(value) => updateAugmentationConfig('mosaic', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationMixup')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.mixup}
+                    onChange={(value) => updateAugmentationConfig('mixup', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationCopyPaste')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.copy_paste}
+                    onChange={(value) => updateAugmentationConfig('copy_paste', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationCloseMosaic')}</label>
+                  <InputNumber
+                    min={0}
+                    max={10000}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.close_mosaic}
+                    onChange={(value) => updateAugmentationConfig('close_mosaic', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
+            {showClassificationAugmentation && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationAutoPolicy')}</label>
+                  <Select
+                    style={{ width: '100%' }}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.auto_augment}
+                    onChange={(value) => updateAugmentationConfig('auto_augment', value)}
+                    options={[
+                      { label: 'RandAugment', value: 'randaugment' },
+                      { label: 'AutoAugment', value: 'autoaugment' },
+                      { label: 'AugMix', value: 'augmix' },
+                      { label: t('augmentationDisabledPolicy'), value: 'none' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationErasing')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.erasing}
+                    onChange={(value) => updateAugmentationConfig('erasing', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', border: '1px solid #eee', borderRadius: 8 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#555' }}>{t('exportOnnx')}</div>
-              <div style={{ fontSize: 12, color: '#999', marginTop: 2 }}>{t('exportOnnxHint')}</div>
+              <div className="form-label">{t('exportOnnx')}</div>
+              <div className="caption-text" style={{ color: '#999', marginTop: 2 }}>{t('exportOnnxHint')}</div>
             </div>
             <Switch
               checked={Boolean(form.train_config.export_onnx)}

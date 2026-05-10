@@ -1,6 +1,6 @@
 {
     "title": "Datasets",
-    "subtitle": "Manage images, videos, and datasets",
+    "subtitle": "Manage image, text, video, and audio datasets",
     "newDataset": "New Dataset",
     "searchPlaceholder": "Search datasets...",
     "empty": "No datasets yet",
@@ -33,6 +33,7 @@
     "updatedAt": "Updated {{date}}",
     "dropUpload": "Drop files or click to upload",
     "dropLimit": "Supports images, videos, archives (ZIP, TAR.GZ, etc.)",
+    "uploadTypeInvalid": "This dataset only accepts these file types: {{types}}",
     "uploading": "Uploading...",
     "uploadSuccess": "{{count}} files uploaded",
     "noImages": "No images yet, please upload",

@@ -107,3 +107,8 @@ class FileContentResponse(BaseModel):
     file_name: str
     content: str
 
+
+class PreferenceImportResponse(BaseModel):
+    """DPO 偏好样本导入结果"""
+    imported: int
+

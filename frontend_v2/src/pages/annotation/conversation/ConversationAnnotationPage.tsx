@@ -15,6 +15,7 @@ import {
 import ConversationEditorModal from './components/ConversationEditorModal';
 import ConversationFileListCard from './components/ConversationFileListCard';
 import type { ConversationEntriesBySample, ConversationFileRow, PreviewState } from './types';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 
 const { Title, Text } = Typography;
 
@@ -200,6 +201,7 @@ const ConversationAnnotationPage: React.FC = () => {
       return current === saved ? count : count + 1;
     }, 0)
   ), [entriesBySample, sampleItems, savedBySample]);
+  useUnsavedChangesGuard(dirtyCount > 0);
 
   const activeSample = activeSampleId ? sampleItems.find((sample) => sample.id === activeSampleId) : undefined;
   const activeFileName = activeSample ? getSampleDisplayName(activeSample) : null;

@@ -22,13 +22,26 @@ export interface TaskCreate {
 }
 
 export interface TrainingConfigPayload {
-  name: string;
+  name?: string;
   epoch: number;
   size: number;
   batch: number;
   device: string;
   label_format?: 'auto' | 'bbox' | 'obb';
   export_onnx?: boolean;
+  onnx_dynamic?: boolean;
+  onnx_simplify?: boolean;
+  augmentation?: TrainingAugmentationConfig;
+}
+
+export interface TrainingAugmentationConfig {
+  enabled: boolean;
+  mosaic?: number;
+  mixup?: number;
+  copy_paste?: number;
+  close_mosaic?: number;
+  auto_augment?: 'randaugment' | 'autoaugment' | 'augmix' | 'none';
+  erasing?: number;
 }
 
 /** 训练任务响应 */

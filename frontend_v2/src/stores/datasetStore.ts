@@ -1,15 +1,45 @@
 import { create } from 'zustand';
 import type { AnnotationProject, AnnotationRecord, Dataset, SampleItem } from '../types';
-import { getAnnotation, getAnnotationRecords, saveAnnotationRecord } from '../api/annotation';
+import { getAnnotation, getAnnotationRecords, getAnnotationRecordsBySamples, saveAnnotationRecord } from '../api/annotation';
 import { updateAnnotation as updateAnnotationApi } from '../api/annotation';
 import { getDataset, getDatasetSamples, previewSample } from '../api/dataset';
-import { AnnotationType, createClassificationAnnotation } from '../types';
+import { AnnotationType, DatasetScenarioType, createClassificationAnnotation } from '../types';
 import { toYoloFormat } from '../utils/yolo';
 import { getRecordClassIds, buildYoloRecordContent, buildClassificationRecordContent } from '../utils/annotationRecordContent';
 import { parseAnnotationClasses } from '../utils/annotationClasses';
 import { getSampleItemName, isImageSampleItem } from '../utils/sampleItem';
 import { useAnnotationStore } from './annotationStore';
 import { message } from 'antd';
+
+const DEFAULT_SAMPLE_PAGE_SIZE = 100;
+const SAMPLE_CURSOR_STORAGE_KEY = 'auto_ml.annotation.sample_cursor';
+
+function readSampleCursorCache(): Record<number, { sampleId: number; sampleName: string; updatedAt: number }> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(SAMPLE_CURSOR_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, { sampleId: number; sampleName: string; updatedAt: number }>;
+    const cache: Record<number, { sampleId: number; sampleName: string; updatedAt: number }> = {};
+    Object.entries(parsed).forEach(([key, value]) => {
+      const annotationId = Number(key);
+      if (!Number.isFinite(annotationId) || !value || typeof value.sampleId !== 'number') return;
+      cache[annotationId] = value;
+    });
+    return cache;
+  } catch {
+    return {};
+  }
+}
+
+function writeSampleCursorCache(cache: Record<number, { sampleId: number; sampleName: string; updatedAt: number }>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SAMPLE_CURSOR_STORAGE_KEY, JSON.stringify(cache));
+  } catch {
+    // 忽略本地存储写入失败
+  }
+}
 
 interface DatasetStoreState {
   // 当前标注项目
@@ -22,18 +52,37 @@ interface DatasetStoreState {
   annotationRecords: AnnotationRecord[];
   // 当前样本索引
   currentSampleIndex: number;
+  // 当前样本页码（1-based）
+  samplePage: number;
+  // 当前页大小
+  samplePageSize: number;
+  // 样本总数
+  totalSamples: number;
+  // 当前样本是否按页加载
+  pagedSamplesEnabled: boolean;
+  // 最近访问样本位置缓存
+  sampleCursorCache: Record<number, { sampleId: number; sampleName: string; updatedAt: number }>;
   // 当前图像 URL
   currentImageUrl: string;
   // 加载状态
   loading: boolean;
 
   // Actions
-  loadAnnotationProject: (annotationId: number) => Promise<void>;
+  loadAnnotationProject: (annotationId: number) => Promise<SampleRestoreInfo | null>;
   loadSampleAtIndex: (index: number) => Promise<void>;
+  loadSamplePage: (page: number, focusIndexInPage?: number) => Promise<void>;
+  loadSampleById: (sampleId: number) => Promise<boolean>;
   loadSampleByName: (sampleName: string) => Promise<void>;
   nextSample: () => Promise<void>;
   prevSample: () => Promise<void>;
+  rememberCurrentSample: () => void;
   saveCurrentAnnotation: () => Promise<void>;
+}
+
+export interface SampleRestoreInfo {
+  annotationId: number;
+  sampleId: number;
+  sampleName: string;
 }
 
 export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
@@ -42,6 +91,11 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
   sampleItems: [],
   annotationRecords: [],
   currentSampleIndex: -1,
+  samplePage: 1,
+  samplePageSize: DEFAULT_SAMPLE_PAGE_SIZE,
+  totalSamples: 0,
+  pagedSamplesEnabled: true,
+  sampleCursorCache: readSampleCursorCache(),
   currentImageUrl: '',
   loading: false,
 
@@ -56,6 +110,10 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
         sampleItems: [],
         annotationRecords: [],
         currentSampleIndex: -1,
+        samplePage: 1,
+        samplePageSize: DEFAULT_SAMPLE_PAGE_SIZE,
+        totalSamples: 0,
+        pagedSamplesEnabled: true,
         currentImageUrl: '',
       });
 
@@ -65,17 +123,47 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
       // 3. 获取数据集样本和标注记录
       if (project.dataset_id) {
-        const [dataset, sampleResult, recordResult] = await Promise.all([
-          getDataset(project.dataset_id),
-          getDatasetSamples(project.dataset_id),
-          getAnnotationRecords(annotationId, 1, 500),
-        ]);
-        const samples = (sampleResult.items || []).filter(isImageSampleItem);
-        set({ dataset, sampleItems: samples, annotationRecords: recordResult.items || [] });
+        const dataset = await getDataset(project.dataset_id);
+        const isAerialScenario = dataset.scenario_type === DatasetScenarioType.AerialStitch;
+        set({
+          dataset,
+          pagedSamplesEnabled: !isAerialScenario,
+          totalSamples: dataset.count || 0,
+        });
 
-        // 4. 加载第一个样本
-        if (samples.length > 0) {
-          await get().loadSampleAtIndex(0);
+        if (isAerialScenario) {
+          const [sampleResult, recordResult] = await Promise.all([
+            getDatasetSamples(project.dataset_id),
+            getAnnotationRecords(annotationId, 1, DEFAULT_SAMPLE_PAGE_SIZE),
+          ]);
+          const samples = (sampleResult.items || []).filter(isImageSampleItem);
+          set({
+            sampleItems: samples,
+            annotationRecords: recordResult.items || [],
+            samplePage: 1,
+            samplePageSize: sampleResult.page_size || DEFAULT_SAMPLE_PAGE_SIZE,
+            totalSamples: sampleResult.total || samples.length,
+          });
+
+          if (samples.length > 0) {
+            await get().loadSampleAtIndex(0);
+          }
+          return null;
+        } else {
+          const cached = get().sampleCursorCache[annotationId];
+          if (cached?.sampleId) {
+            const restored = await get().loadSampleById(cached.sampleId);
+            if (restored) {
+              return {
+                annotationId,
+                sampleId: cached.sampleId,
+                sampleName: cached.sampleName,
+              };
+            }
+          } else {
+            await get().loadSamplePage(1, 0);
+          }
+          return null;
         }
       } else {
         set({
@@ -83,13 +171,65 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
           sampleItems: [],
           annotationRecords: [],
           currentSampleIndex: -1,
+          samplePage: 1,
+          samplePageSize: DEFAULT_SAMPLE_PAGE_SIZE,
+          totalSamples: 0,
+          pagedSamplesEnabled: true,
           currentImageUrl: '',
         });
       }
+      return null;
     } catch (err) {
       console.error('Failed to load annotation project:', err);
       message.error('加载标注项目失败');
+      return null;
     } finally {
+      set({ loading: false });
+    }
+  },
+
+  loadSamplePage: async (page: number, focusIndexInPage = 0) => {
+    const { annotationProject, dataset, samplePageSize, pagedSamplesEnabled } = get();
+    if (!annotationProject?.dataset_id || !annotationProject.id || !dataset || !pagedSamplesEnabled) return;
+
+    const annotationStore = useAnnotationStore.getState();
+    if (annotationStore.modified) {
+      await get().saveCurrentAnnotation();
+    }
+
+    const nextPage = Math.max(1, page);
+    set({ loading: true });
+
+    try {
+      const sampleResult = await getDatasetSamples(annotationProject.dataset_id, nextPage, samplePageSize);
+      const samples = (sampleResult.items || []).filter(isImageSampleItem);
+      const sampleIds = samples.map((sample) => sample.id);
+      const pageRecords = sampleIds.length > 0
+        ? await getAnnotationRecordsBySamples(annotationProject.id, sampleIds)
+        : [];
+      const nextIndex = samples.length > 0
+        ? Math.min(Math.max(focusIndexInPage, 0), samples.length - 1)
+        : -1;
+
+      set({
+        sampleItems: samples,
+        annotationRecords: pageRecords,
+        samplePage: sampleResult.page || nextPage,
+        samplePageSize: sampleResult.page_size || samplePageSize,
+        totalSamples: sampleResult.total || 0,
+        currentSampleIndex: nextIndex,
+        currentImageUrl: '',
+      });
+
+      if (nextIndex >= 0) {
+        await get().loadSampleAtIndex(nextIndex);
+      } else {
+        useAnnotationStore.getState().setAnnotations([]);
+        set({ loading: false });
+      }
+    } catch (err) {
+      console.error('Failed to load sample page:', err);
+      message.error('加载样本分页失败');
       set({ loading: false });
     }
   },
@@ -103,6 +243,27 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
     try {
       const sample = sampleItems[index];
+      const annotationProjectId = annotationProject.id;
+      const sampleName = getSampleItemName(sample);
+
+      set((state) => ({
+        sampleCursorCache: {
+          ...state.sampleCursorCache,
+          [annotationProjectId]: {
+            sampleId: sample.id,
+            sampleName,
+            updatedAt: Date.now(),
+          },
+        },
+      }));
+      writeSampleCursorCache({
+        ...get().sampleCursorCache,
+        [annotationProjectId]: {
+          sampleId: sample.id,
+          sampleName,
+          updatedAt: Date.now(),
+        },
+      });
 
       // 获取图像预览 URL
       const preview = await previewSample(annotationProject.dataset_id, sample.id);
@@ -131,15 +292,92 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
   },
 
   loadSampleByName: async (sampleName: string) => {
-    const { sampleItems } = get();
+    const { sampleItems, annotationProject, dataset, pagedSamplesEnabled, totalSamples, samplePageSize } = get();
     const index = sampleItems.findIndex((sample) => getSampleItemName(sample) === sampleName);
     if (index >= 0) {
       await get().loadSampleAtIndex(index);
+      return;
+    }
+
+    if (!pagedSamplesEnabled || !annotationProject?.dataset_id || !dataset) {
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(totalSamples / samplePageSize));
+    for (let page = 1; page <= totalPages; page += 1) {
+      try {
+        const sampleResult = await getDatasetSamples(annotationProject.dataset_id, page, samplePageSize);
+        const samples = (sampleResult.items || []).filter(isImageSampleItem);
+        const pageIndex = samples.findIndex((sample) => getSampleItemName(sample) === sampleName);
+        if (pageIndex >= 0) {
+          const sampleIds = samples.map((sample) => sample.id);
+          const pageRecords = sampleIds.length > 0
+            ? await getAnnotationRecordsBySamples(annotationProject.id, sampleIds)
+            : [];
+          set({
+            sampleItems: samples,
+            annotationRecords: pageRecords,
+            samplePage: sampleResult.page || page,
+            samplePageSize: sampleResult.page_size || samplePageSize,
+            totalSamples: sampleResult.total || 0,
+            currentSampleIndex: pageIndex,
+            currentImageUrl: '',
+          });
+          await get().loadSampleAtIndex(pageIndex);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to locate sample by name:', err);
+        break;
+      }
     }
   },
 
+  loadSampleById: async (sampleId: number) => {
+    const { sampleItems, annotationProject, dataset, pagedSamplesEnabled, totalSamples, samplePageSize } = get();
+    const index = sampleItems.findIndex((sample) => sample.id === sampleId);
+    if (index >= 0) {
+      await get().loadSampleAtIndex(index);
+      return true;
+    }
+
+    if (!pagedSamplesEnabled || !annotationProject?.dataset_id || !dataset) {
+      return false;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(totalSamples / samplePageSize));
+    for (let page = 1; page <= totalPages; page += 1) {
+      try {
+        const sampleResult = await getDatasetSamples(annotationProject.dataset_id, page, samplePageSize);
+        const samples = (sampleResult.items || []).filter(isImageSampleItem);
+        const pageIndex = samples.findIndex((sample) => sample.id === sampleId);
+        if (pageIndex >= 0) {
+          const sampleIds = samples.map((sample) => sample.id);
+          const pageRecords = sampleIds.length > 0
+            ? await getAnnotationRecordsBySamples(annotationProject.id, sampleIds)
+            : [];
+          set({
+            sampleItems: samples,
+            annotationRecords: pageRecords,
+            samplePage: sampleResult.page || page,
+            samplePageSize: sampleResult.page_size || samplePageSize,
+            totalSamples: sampleResult.total || 0,
+            currentSampleIndex: pageIndex,
+            currentImageUrl: '',
+          });
+          await get().loadSampleAtIndex(pageIndex);
+          return true;
+        }
+      } catch (err) {
+        console.error('Failed to locate sample by id:', err);
+        break;
+      }
+    }
+    return false;
+  },
+
   nextSample: async () => {
-    const { currentSampleIndex, sampleItems, annotationProject } = get();
+    const { currentSampleIndex, sampleItems, annotationProject, pagedSamplesEnabled, samplePage, samplePageSize, totalSamples } = get();
     const annotationStore = useAnnotationStore.getState();
 
     // 自动保存
@@ -149,11 +387,16 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
     if (currentSampleIndex < sampleItems.length - 1) {
       await get().loadSampleAtIndex(currentSampleIndex + 1);
+      return;
+    }
+
+    if (pagedSamplesEnabled && samplePage * samplePageSize < totalSamples) {
+      await get().loadSamplePage(samplePage + 1, 0);
     }
   },
 
   prevSample: async () => {
-    const { currentSampleIndex, annotationProject } = get();
+    const { currentSampleIndex, annotationProject, pagedSamplesEnabled, samplePage, samplePageSize } = get();
     const annotationStore = useAnnotationStore.getState();
 
     // 自动保存
@@ -163,7 +406,36 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
     if (currentSampleIndex > 0) {
       await get().loadSampleAtIndex(currentSampleIndex - 1);
+      return;
     }
+
+    if (pagedSamplesEnabled && samplePage > 1) {
+      await get().loadSamplePage(samplePage - 1, samplePageSize - 1);
+    }
+  },
+
+  rememberCurrentSample: () => {
+    const { annotationProject, sampleItems, currentSampleIndex } = get();
+    if (!annotationProject?.id || currentSampleIndex < 0 || currentSampleIndex >= sampleItems.length) return;
+    const sample = sampleItems[currentSampleIndex];
+    set((state) => ({
+      sampleCursorCache: {
+        ...state.sampleCursorCache,
+        [annotationProject.id]: {
+          sampleId: sample.id,
+          sampleName: getSampleItemName(sample),
+          updatedAt: Date.now(),
+        },
+      },
+    }));
+    writeSampleCursorCache({
+      ...get().sampleCursorCache,
+      [annotationProject.id]: {
+        sampleId: sample.id,
+        sampleName: getSampleItemName(sample),
+        updatedAt: Date.now(),
+      },
+    });
   },
 
   saveCurrentAnnotation: async () => {

@@ -39,6 +39,12 @@ class MaterializedTrainingDataset:
     samples: int = 0
 
 
+def _ensure_temp_root(temp_root: str) -> str:
+    resolved = os.path.abspath(temp_root)
+    os.makedirs(resolved, exist_ok=True)
+    return resolved
+
+
 def _clamp01(value: float) -> float:
     return min(max(value, 0.0), 1.0)
 
@@ -155,6 +161,7 @@ def materialize_training_manifest(
     if not sources:
         raise ValueError("training sources manifest is empty")
 
+    temp_root = _ensure_temp_root(temp_root)
     root_dir = os.path.abspath(tempfile.mkdtemp(prefix=f"manifest_{task_type}_", dir=temp_root))
     images_dir = os.path.join(root_dir, "dataset")
     labels_dir = os.path.join(root_dir, "annotations")
@@ -303,6 +310,7 @@ def prepare_detection_dataset(
     准备目标检测训练数据集
     构造临时训练目录，自动划分验证集
     """
+    tmp_root = _ensure_temp_root(tmp_root)
     temp_dir = os.path.abspath(tempfile.mkdtemp(prefix="yolo_det_", dir=tmp_root))
     resolved_label_format = _infer_detection_label_format(label_format, model_name)
     stats = DetectionDatasetStats()
@@ -398,6 +406,7 @@ def prepare_classification_dataset(
     准备分类训练数据集
     格式: temp_dir/train/class_x/*.jpg 和 temp_dir/val/class_x/*.jpg
     """
+    tmp_root = _ensure_temp_root(tmp_root)
     temp_dir = os.path.abspath(tempfile.mkdtemp(
         prefix="yolo_cls_", dir=tmp_root))
 
@@ -444,6 +453,7 @@ def prepare_segmentation_dataset(
     min_val: int = 1,
     tmp_root: str = "./runs",
 ) -> PreparedSegmentationDataset:
+    tmp_root = _ensure_temp_root(tmp_root)
     temp_dir = os.path.abspath(tempfile.mkdtemp(prefix="yolo_seg_", dir=tmp_root))
     all_image_files = [
         f for f in os.listdir(all_images_dir)

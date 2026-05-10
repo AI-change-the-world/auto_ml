@@ -6,6 +6,7 @@ import json
 import mimetypes
 import os
 import uuid
+from datetime import datetime
 import zipfile
 import tarfile
 from typing import Any, Dict, List, Optional
@@ -14,7 +15,7 @@ from fastapi import UploadFile
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common.constants import DataType, DatasetScenarioType
+from app.common.constants import DataType, DatasetScenarioType, is_dpo_dataset_scenario
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
@@ -76,6 +77,76 @@ DEFAULT_MLLM_CONVERSATION_CONFIG: Dict[str, Any] = {
         "result_format": "json",
         "roles": ["system", "user", "assistant"],
         "primary_input": "image",
+    }
+}
+
+DEFAULT_DPO_PREFERENCE_CONFIG: Dict[str, Any] = {
+    "preference": {
+        "mode": "dpo",
+        "result_format": "json",
+        "task_types": ["pairwise", "best_of_n"],
+        "default_task_type": "pairwise",
+        "export_strategy": "winner_vs_all",
+        "min_candidates": 2,
+        "max_candidates": 6,
+        "primary_input": "text",
+        "allow_tie": True,
+        "allow_skip": True,
+    }
+}
+
+DEFAULT_DPO_PAIRWISE_CONFIG: Dict[str, Any] = {
+    "preference": {
+        "mode": "dpo",
+        "task_type": "pairwise",
+        "result_format": "json",
+        "primary_input": "text",
+        "allow_tie": True,
+        "allow_skip": True,
+        "min_candidates": 2,
+        "max_candidates": 2,
+    }
+}
+
+DEFAULT_DPO_BEST_OF_N_CONFIG: Dict[str, Any] = {
+    "preference": {
+        "mode": "dpo",
+        "task_type": "best_of_n",
+        "result_format": "json",
+        "primary_input": "text",
+        "allow_tie": True,
+        "allow_skip": True,
+        "export_strategy": "winner_vs_all",
+        "min_candidates": 3,
+        "max_candidates": 6,
+    }
+}
+
+DEFAULT_DPO_REFERENCE_CHOICE_CONFIG: Dict[str, Any] = {
+    "preference": {
+        "mode": "dpo",
+        "task_type": "reference_choice",
+        "result_format": "json",
+        "primary_input": "text",
+        "allow_tie": True,
+        "allow_skip": True,
+        "requires_reference": True,
+        "min_candidates": 2,
+        "max_candidates": 4,
+    }
+}
+
+DEFAULT_DPO_MULTI_TURN_CONFIG: Dict[str, Any] = {
+    "preference": {
+        "mode": "dpo",
+        "task_type": "multi_turn",
+        "result_format": "json",
+        "primary_input": "text",
+        "allow_tie": True,
+        "allow_skip": True,
+        "min_candidates": 2,
+        "max_candidates": 4,
+        "conversation_required": True,
     }
 }
 
@@ -197,13 +268,14 @@ class DatasetService:
         page: int = 1,
         page_size: int = 100,
         item_type: Optional[str] = None,
+        keyword: Optional[str] = None,
     ) -> tuple[list[SampleItemResponse], int]:
         dataset = await crud.get_dataset_by_id(db, dataset_id)
         if not dataset:
             raise NotFoundException(f"Dataset {dataset_id} not found")
 
         offset = (page - 1) * page_size
-        items, total = await crud.get_sample_items(db, dataset_id, offset, page_size, item_type)
+        items, total = await crud.get_sample_items(db, dataset_id, offset, page_size, item_type, keyword)
         return [await self._to_sample_response(db, item) for item in items], total
 
     async def create_sample_item(
@@ -291,6 +363,11 @@ class DatasetService:
             try:
                 content = await file.read()
                 filename = file.filename or "unknown"
+
+                if is_dpo_dataset_scenario(dataset.scenario_type):
+                    imported_count = await self._import_dpo_file(db, dataset, content, filename)
+                    uploaded_count += imported_count
+                    continue
 
                 # 检查是否为压缩包
                 if self._is_archive(filename):
@@ -382,6 +459,8 @@ class DatasetService:
     def _infer_sample_item_type(self, dataset, file_name: str, mime_type: Optional[str]) -> str:
         if dataset.scenario_type in {DatasetScenarioType.LLM_CONVERSATION, DatasetScenarioType.MLLM_CONVERSATION}:
             return "conversation"
+        if is_dpo_dataset_scenario(dataset.scenario_type):
+            return "preference"
 
         asset_type = self._infer_asset_type(file_name, mime_type)
         if asset_type in {"image", "text", "video", "audio"}:
@@ -430,6 +509,71 @@ class DatasetService:
             if not config:
                 return DEFAULT_MLLM_CONVERSATION_CONFIG
             normalized = json.loads(json.dumps(DEFAULT_MLLM_CONVERSATION_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        if scenario_type == DatasetScenarioType.DPO_PREFERENCE:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("DPO preference scenario only supports text datasets")
+            if not config:
+                return DEFAULT_DPO_PREFERENCE_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_DPO_PREFERENCE_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        if scenario_type == DatasetScenarioType.DPO_PAIRWISE:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("DPO pairwise scenario only supports text datasets")
+            if not config:
+                return DEFAULT_DPO_PAIRWISE_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_DPO_PAIRWISE_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        if scenario_type == DatasetScenarioType.DPO_BEST_OF_N:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("DPO best_of_n scenario only supports text datasets")
+            if not config:
+                return DEFAULT_DPO_BEST_OF_N_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_DPO_BEST_OF_N_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        if scenario_type == DatasetScenarioType.DPO_REFERENCE_CHOICE:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("DPO reference choice scenario only supports text datasets")
+            if not config:
+                return DEFAULT_DPO_REFERENCE_CHOICE_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_DPO_REFERENCE_CHOICE_CONFIG))
+            for key, value in config.items():
+                if isinstance(value, dict) and isinstance(normalized.get(key), dict):
+                    normalized[key].update(value)
+                else:
+                    normalized[key] = value
+            return normalized
+
+        if scenario_type == DatasetScenarioType.DPO_MULTI_TURN:
+            if data_type != DataType.TEXT:
+                raise BadRequestException("DPO multi_turn scenario only supports text datasets")
+            if not config:
+                return DEFAULT_DPO_MULTI_TURN_CONFIG
+            normalized = json.loads(json.dumps(DEFAULT_DPO_MULTI_TURN_CONFIG))
             for key, value in config.items():
                 if isinstance(value, dict) and isinstance(normalized.get(key), dict):
                     normalized[key].update(value)
@@ -528,6 +672,16 @@ class DatasetService:
             raise BadRequestException("LLM conversation scenario only supports text datasets")
         if scenario_type == DatasetScenarioType.MLLM_CONVERSATION and data_type != DataType.IMAGE:
             raise BadRequestException("MLLM conversation scenario only supports image datasets")
+        if scenario_type == DatasetScenarioType.DPO_PREFERENCE and data_type != DataType.TEXT:
+            raise BadRequestException("DPO preference scenario only supports text datasets")
+        if scenario_type == DatasetScenarioType.DPO_PAIRWISE and data_type != DataType.TEXT:
+            raise BadRequestException("DPO pairwise scenario only supports text datasets")
+        if scenario_type == DatasetScenarioType.DPO_BEST_OF_N and data_type != DataType.TEXT:
+            raise BadRequestException("DPO best_of_n scenario only supports text datasets")
+        if scenario_type == DatasetScenarioType.DPO_REFERENCE_CHOICE and data_type != DataType.TEXT:
+            raise BadRequestException("DPO reference choice scenario only supports text datasets")
+        if scenario_type == DatasetScenarioType.DPO_MULTI_TURN and data_type != DataType.TEXT:
+            raise BadRequestException("DPO multi_turn scenario only supports text datasets")
 
     async def _extract_and_upload(
         self,
@@ -709,6 +863,188 @@ class DatasetService:
             content = raw_bytes.decode("utf-8", errors="replace")
 
         return FileContentResponse(file_name=asset.file_name or item.item_key, content=content)
+
+    async def _import_dpo_file(
+        self,
+        db: AsyncSession,
+        dataset,
+        content: bytes,
+        file_name: str,
+    ) -> int:
+        ext = os.path.splitext(file_name.lower())[1]
+        if ext != ".jsonl":
+            raise BadRequestException("DPO preference dataset only supports .jsonl import")
+
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise BadRequestException(f"Failed to decode JSONL file as utf-8: {exc}") from exc
+
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            raise BadRequestException("DPO JSONL file is empty")
+
+        validated_items: list[dict[str, Any]] = []
+        seen_item_keys: set[str] = set()
+        for index, line in enumerate(lines, start=1):
+            try:
+                raw_item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise BadRequestException(f"Invalid JSONL at line {index}: {exc}") from exc
+            item = self._normalize_dpo_payload(raw_item, dataset.scenario_type, line_no=index)
+            item_key = item["item_key"]
+            if item_key in seen_item_keys:
+                raise BadRequestException(f"Duplicate item_key `{item_key}` at line {index}")
+            if await crud.get_sample_item_by_key(db, dataset.id, item_key):
+                raise BadRequestException(f"Sample item `{item_key}` already exists")
+            seen_item_keys.add(item_key)
+            validated_items.append(item)
+
+        for item in validated_items:
+            await crud.create_sample_item(
+                db,
+                dataset_id=dataset.id,
+                asset_id=None,
+                item_type="preference",
+                item_key=item["item_key"],
+                locator=None,
+                payload=self._dump_json(item["payload"]),
+                sort_order=0,
+            )
+
+        await crud.update_dataset_count(db, dataset.id, await crud.get_sample_item_count(db, dataset.id))
+        return len(validated_items)
+
+    def _normalize_dpo_payload(self, raw_item: Any, scenario_type: int, line_no: int) -> dict[str, Any]:
+        if not isinstance(raw_item, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} must be an object")
+
+        item_key = str(raw_item.get("item_key") or "").strip()
+        if not item_key:
+            raise BadRequestException(f"DPO JSONL line {line_no} missing item_key")
+
+        prompt = raw_item.get("prompt")
+        if not isinstance(prompt, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} missing prompt object")
+
+        messages = prompt.get("messages")
+        if not isinstance(messages, list) or not messages:
+            raise BadRequestException(f"DPO JSONL line {line_no} prompt.messages must be a non-empty list")
+
+        normalized_messages: list[dict[str, str]] = []
+        has_user_message = False
+        for message in messages:
+            if not isinstance(message, dict):
+                raise BadRequestException(f"DPO JSONL line {line_no} has invalid prompt message")
+            role = str(message.get("role") or "").strip()
+            content = str(message.get("content") or "")
+            if role not in {"system", "user", "assistant"}:
+                raise BadRequestException(f"DPO JSONL line {line_no} has unsupported prompt role `{role}`")
+            if role == "user":
+                has_user_message = True
+            normalized_messages.append({
+                "role": role,
+                "content": content,
+            })
+        if not has_user_message:
+            raise BadRequestException(f"DPO JSONL line {line_no} prompt.messages must contain at least one user message")
+
+        task_type = str(raw_item.get("task_type") or "").strip().lower()
+        responses = raw_item.get("responses")
+        if not isinstance(responses, list):
+            raise BadRequestException(f"DPO JSONL line {line_no} responses must be a list")
+        if len(responses) < 2 or len(responses) > 6:
+            raise BadRequestException(f"DPO JSONL line {line_no} responses must contain 2 to 6 items")
+        expected_task_type = self._infer_dpo_task_type_by_scenario(scenario_type, len(responses))
+        if not task_type:
+            task_type = expected_task_type
+        if task_type not in {"pairwise", "best_of_n", "reference_choice", "multi_turn"}:
+            raise BadRequestException(f"DPO JSONL line {line_no} unsupported task_type `{task_type}`")
+        if task_type == "pairwise" and len(responses) != 2:
+            raise BadRequestException(f"DPO JSONL line {line_no} pairwise task_type requires exactly 2 responses")
+        if task_type == "best_of_n" and len(responses) < 3:
+            raise BadRequestException(f"DPO JSONL line {line_no} best_of_n task_type requires at least 3 responses")
+        if expected_task_type != "legacy" and task_type != expected_task_type:
+            raise BadRequestException(
+                f"DPO JSONL line {line_no} task_type `{task_type}` does not match dataset scenario"
+            )
+
+        normalized_responses: list[dict[str, Any]] = []
+        seen_response_ids: set[str] = set()
+        contents: list[str] = []
+        for response in responses:
+            if not isinstance(response, dict):
+                raise BadRequestException(f"DPO JSONL line {line_no} has invalid response item")
+            response_id = str(response.get("response_id") or "").strip()
+            if not response_id:
+                raise BadRequestException(f"DPO JSONL line {line_no} response_id is required")
+            if response_id in seen_response_ids:
+                raise BadRequestException(f"DPO JSONL line {line_no} duplicate response_id `{response_id}`")
+            seen_response_ids.add(response_id)
+            content = response.get("content")
+            if not isinstance(content, str):
+                raise BadRequestException(f"DPO JSONL line {line_no} response.content must be a string")
+            contents.append(content.strip())
+            metadata = response.get("metadata")
+            if metadata is not None and not isinstance(metadata, dict):
+                raise BadRequestException(f"DPO JSONL line {line_no} response.metadata must be an object")
+            normalized_responses.append({
+                "response_id": response_id,
+                "content": content,
+                "model_id": str(response.get("model_id") or "").strip() or None,
+                "metadata": metadata if isinstance(metadata, dict) else {},
+            })
+
+        if not any(contents):
+            raise BadRequestException(f"DPO JSONL line {line_no} responses cannot all be empty")
+        if len(set(contents)) != len(contents):
+            raise BadRequestException(f"DPO JSONL line {line_no} responses cannot contain identical content")
+
+        reference = raw_item.get("reference")
+        if reference is not None and not isinstance(reference, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} reference must be an object")
+        rubric = raw_item.get("rubric")
+        if rubric is not None and not isinstance(rubric, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} rubric must be an object")
+        tags = raw_item.get("tags")
+        if tags is not None and (not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags)):
+            raise BadRequestException(f"DPO JSONL line {line_no} tags must be a string array")
+        if task_type == "reference_choice" and not isinstance(reference, dict):
+            raise BadRequestException(f"DPO JSONL line {line_no} reference_choice task_type requires reference")
+        if task_type == "multi_turn" and len(messages) < 2:
+            raise BadRequestException(f"DPO JSONL line {line_no} multi_turn task_type requires multi-turn messages")
+
+        return {
+            "item_key": item_key,
+            "payload": {
+                "version": 2,
+                "format": "dpo_preference_sample",
+                "task_type": task_type,
+                "export_strategy": "winner_vs_all",
+                "prompt": {
+                    "system_prompt": str(prompt.get("system_prompt") or ""),
+                    "messages": normalized_messages,
+                },
+                "responses": normalized_responses,
+                "reference": reference if isinstance(reference, dict) else None,
+                "rubric": rubric if isinstance(rubric, dict) else None,
+                "tags": tags if isinstance(tags, list) else [],
+                "imported_at": datetime.utcnow().isoformat(),
+            },
+        }
+
+    def _infer_dpo_task_type_by_scenario(self, scenario_type: int, response_count: int) -> str:
+        if scenario_type == DatasetScenarioType.DPO_PAIRWISE:
+            return "pairwise"
+        if scenario_type == DatasetScenarioType.DPO_BEST_OF_N:
+            return "best_of_n"
+        if scenario_type == DatasetScenarioType.DPO_REFERENCE_CHOICE:
+            return "reference_choice"
+        if scenario_type == DatasetScenarioType.DPO_MULTI_TURN:
+            return "multi_turn"
+        if scenario_type == DatasetScenarioType.DPO_PREFERENCE:
+            return "pairwise" if response_count == 2 else "best_of_n"
+        return "legacy"
 
 
 def get_dataset_service() -> DatasetService:

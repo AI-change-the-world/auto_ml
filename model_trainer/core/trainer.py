@@ -118,6 +118,101 @@ def _segmentation_task_kind() -> str:
     return "segmentation"
 
 
+def _resolve_augmentation_kwargs(
+    task_type: str,
+    task_config: Dict[str, Any],
+) -> Dict[str, Any]:
+    augmentation = task_config.get("augmentation")
+    if not isinstance(augmentation, dict):
+        return {}
+
+    enabled = augmentation.get("enabled", True)
+    if isinstance(enabled, str):
+        enabled = enabled.strip().lower() in {"1", "true", "yes", "y", "on"}
+    else:
+        enabled = bool(enabled)
+
+    if task_type == "classification":
+        if not enabled:
+            return {
+                "auto_augment": None,
+                "erasing": 0.0,
+            }
+
+        kwargs: Dict[str, Any] = {}
+        if "auto_augment" in augmentation:
+            auto_augment = augmentation.get("auto_augment")
+            kwargs["auto_augment"] = None if auto_augment in {None, "", "none"} else auto_augment
+        if "erasing" in augmentation and augmentation.get("erasing") is not None:
+            kwargs["erasing"] = float(augmentation["erasing"])
+        return kwargs
+
+    if not enabled:
+        return {
+            "mosaic": 0.0,
+            "mixup": 0.0,
+            "copy_paste": 0.0,
+            "close_mosaic": 0,
+        }
+
+    kwargs = {}
+    for key in ("mosaic", "mixup", "copy_paste"):
+        if key in augmentation and augmentation.get(key) is not None:
+            kwargs[key] = float(augmentation[key])
+    if "close_mosaic" in augmentation and augmentation.get("close_mosaic") is not None:
+        kwargs["close_mosaic"] = int(augmentation["close_mosaic"])
+    return kwargs
+
+
+def _build_train_kwargs(
+    task_type: str,
+    data: str,
+    task_config: Dict[str, Any],
+) -> Dict[str, Any]:
+    train_kwargs = {
+        "data": data,
+        "epochs": task_config.get("epoch", 10),
+        "imgsz": task_config.get("size", 640),
+        "batch": task_config.get("batch", 8),
+        "device": task_config.get("device", "cpu"),
+    }
+    train_kwargs.update(_resolve_augmentation_kwargs(task_type, task_config))
+    return train_kwargs
+
+
+def _summarize_augmentation_kwargs(train_kwargs: Dict[str, Any]) -> str:
+    keys = [
+        "mosaic",
+        "mixup",
+        "copy_paste",
+        "close_mosaic",
+        "auto_augment",
+        "erasing",
+    ]
+    parts = [f"{key}={train_kwargs[key]}" for key in keys if key in train_kwargs]
+    return ", ".join(parts) if parts else "default"
+
+
+def _log_training_config(
+    task_id: int,
+    task_type: str,
+    task_config: Dict[str, Any],
+    train_kwargs: Dict[str, Any],
+):
+    lines = [
+        f"[train] Task type: {task_type}",
+        f"[train] Task config: {json.dumps(task_config, ensure_ascii=False, sort_keys=True)}",
+        f"[train] Train kwargs: {json.dumps(train_kwargs, ensure_ascii=False, sort_keys=True, default=str)}",
+    ]
+    for line in lines:
+        logger.info(f"Task {task_id} - {line}")
+        publish_task_log(
+            task_id,
+            line,
+            SERVICE_NAME,
+        )
+
+
 def _export_onnx_model(
     task_id: int,
     best_pt_path: str,
@@ -245,10 +340,14 @@ def _train_detection_model(
         callback = TrainingCallback(task_id, cancel_event)
 
         # 加载模型并开始训练
-        epochs = task_config.get("epoch", 10)
-        imgsz = task_config.get("size", 640)
-        batch = task_config.get("batch", 8)
-        device = task_config.get("device", "cpu")
+        train_kwargs = _build_train_kwargs(
+            task_type="detection",
+            data=os.path.join(train_dir, "data.yaml"),
+            task_config=task_config,
+        )
+        epochs = int(train_kwargs["epochs"])
+        imgsz = int(train_kwargs["imgsz"])
+        batch = int(train_kwargs["batch"])
 
         publish_task_log(
             task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
@@ -261,15 +360,20 @@ def _train_detection_model(
 
         publish_task_log(
             task_id, f"[train] Starting: epochs={epochs}, imgsz={imgsz}, batch={batch}", SERVICE_NAME)
+        _log_training_config(
+            task_id=task_id,
+            task_type="detection",
+            task_config=task_config,
+            train_kwargs=train_kwargs,
+        )
+        publish_task_log(
+            task_id,
+            f"[train] Augmentation: {_summarize_augmentation_kwargs(train_kwargs)}",
+            SERVICE_NAME,
+        )
 
         # 开始训练
-        model.train(
-            data=os.path.join(train_dir, "data.yaml"),
-            epochs=epochs,
-            imgsz=imgsz,
-            batch=batch,
-            device=device,
-        )
+        model.train(**train_kwargs)
 
         # 获取训练结果
         save_dir = str(model.trainer.save_dir.absolute())
@@ -382,10 +486,14 @@ def _train_classification_model(
 
         # 加载模型并开始训练
         model_name = task_config.get("name", "yolo11n-cls.pt")
-        epochs = task_config.get("epoch", 10)
-        imgsz = task_config.get("size", 640)
-        batch = task_config.get("batch", 8)
-        device = task_config.get("device", "cpu")
+        train_kwargs = _build_train_kwargs(
+            task_type="classification",
+            data=train_dir,
+            task_config=task_config,
+        )
+        epochs = int(train_kwargs["epochs"])
+        imgsz = int(train_kwargs["imgsz"])
+        batch = int(train_kwargs["batch"])
 
         publish_task_log(
             task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
@@ -398,15 +506,20 @@ def _train_classification_model(
 
         publish_task_log(
             task_id, f"[train] Starting: epochs={epochs}, imgsz={imgsz}, batch={batch}", SERVICE_NAME)
+        _log_training_config(
+            task_id=task_id,
+            task_type="classification",
+            task_config=task_config,
+            train_kwargs=train_kwargs,
+        )
+        publish_task_log(
+            task_id,
+            f"[train] Augmentation: {_summarize_augmentation_kwargs(train_kwargs)}",
+            SERVICE_NAME,
+        )
 
         # 开始训练
-        model.train(
-            data=train_dir,
-            epochs=epochs,
-            imgsz=imgsz,
-            batch=batch,
-            device=device,
-        )
+        model.train(**train_kwargs)
 
         # 获取训练结果
         save_dir = str(model.trainer.save_dir.absolute())
@@ -510,10 +623,14 @@ def _train_segmentation_model(
         train_dir = prepared_dataset.root_dir
 
         callback = TrainingCallback(task_id, cancel_event)
-        epochs = task_config.get("epoch", 10)
-        imgsz = task_config.get("size", 640)
-        batch = task_config.get("batch", 8)
-        device = task_config.get("device", "cpu")
+        train_kwargs = _build_train_kwargs(
+            task_type="segmentation",
+            data=os.path.join(train_dir, "data.yaml"),
+            task_config=task_config,
+        )
+        epochs = int(train_kwargs["epochs"])
+        imgsz = int(train_kwargs["imgsz"])
+        batch = int(train_kwargs["batch"])
 
         publish_task_log(task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
         model = _load_yolo_model(model_name)
@@ -522,13 +639,18 @@ def _train_segmentation_model(
         model.add_callback("on_train_batch_end", callback.on_train_batch_end)
 
         publish_task_log(task_id, f"[train] Starting: epochs={epochs}, imgsz={imgsz}, batch={batch}", SERVICE_NAME)
-        model.train(
-            data=os.path.join(train_dir, "data.yaml"),
-            epochs=epochs,
-            imgsz=imgsz,
-            batch=batch,
-            device=device,
+        _log_training_config(
+            task_id=task_id,
+            task_type="segmentation",
+            task_config=task_config,
+            train_kwargs=train_kwargs,
         )
+        publish_task_log(
+            task_id,
+            f"[train] Augmentation: {_summarize_augmentation_kwargs(train_kwargs)}",
+            SERVICE_NAME,
+        )
+        model.train(**train_kwargs)
 
         save_dir = str(model.trainer.save_dir.absolute())
         best_pt_path = os.path.join(save_dir, "weights", "best.pt")

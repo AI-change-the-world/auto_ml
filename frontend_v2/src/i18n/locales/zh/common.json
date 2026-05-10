@@ -9,12 +9,45 @@
         "tools": "工具",
         "settings": "设置",
         "help": "帮助",
+        "collapseSidebar": "收起侧栏",
+        "expandSidebar": "展开侧栏",
         "myProjects": "我的项目",
         "noActiveDeploy": "暂无活跃部署",
         "search": "搜索...",
         "exampleDataset": "示例数据集",
         "exampleProject": "示例项目",
         "datasets": "数据集"
+    },
+    "assistant": {
+        "entry": "工作台助手",
+        "title": "工作台助手",
+        "subtitle": "用于查看平台状态、最近项目和快速跳转",
+        "placeholder": "例如：现在有多少数据集？有没有运行中的训练任务？",
+        "send": "发送",
+        "clear": "清空对话",
+        "syncing": "正在同步当前平台状态…",
+        "open": "打开",
+        "unsupported": "我当前更擅长回答数据集、标注、训练、部署状态，以及帮你快速跳转页面。",
+        "welcomeTitle": "可以直接问我平台现在的情况",
+        "welcomeBody": "当前版本先支持状态查询、最近项目查询和工作台快速跳转。",
+        "suggestions": {
+            "datasetCount": "现在有多少数据集？",
+            "runningTasks": "现在有运行中的训练任务吗？",
+            "latestAnnotation": "最近的标注项目是什么？",
+            "openDeploy": "带我去部署页",
+            "dpoStart": "怎么开始 DPO 标注？"
+        },
+        "actions": {
+            "datasets": "前往数据集",
+            "annotations": "前往标注",
+            "tasks": "前往训练",
+            "deploy": "前往部署",
+            "settings": "前往设置",
+            "latestDataset": "打开最近数据集",
+            "latestAnnotation": "打开最近标注项目",
+            "latestTask": "打开最近任务",
+            "latestDeployment": "打开最近部署"
+        }
     },
     "action": {
         "create": "创建",

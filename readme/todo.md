@@ -99,3 +99,16 @@ The design principle is:
 - This implementation intentionally does not change annotation ownership.
 - This implementation intentionally does not add class mapping across sources.
 - This implementation intentionally requires exact class compatibility to keep behavior predictable.
+
+## Training Efficiency TODO
+
+- [ ] 增加训练集缓存复用能力：
+  - 首版放在 `model_trainer` 本地缓存，不放前端做真假缓存逻辑
+  - 训练任务提供缓存模式，例如复用 / 刷新 / 关闭
+  - 命中缓存时跳过重复下载和重复整理数据集
+- [ ] 增加基于已有模型权重继续训练能力：
+  - 支持选择已有训练产物作为 warm start 起点
+  - 支持“换一个模型继续训练”或“在现有模型基础上追加训练”
+- [ ] 真正的断点续训单独设计：
+  - 需要补齐 `last.pt`、优化器状态、调度器状态等产物管理
+  - 不与首版 warm start 混在一起实现，避免先把链路做复杂

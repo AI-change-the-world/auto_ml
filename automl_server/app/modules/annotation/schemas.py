@@ -65,6 +65,10 @@ class AnnotationRecordResponse(BaseModel):
     updated_at: datetime
 
 
+class AnnotationRecordBatchQuery(BaseModel):
+    sample_item_ids: List[int] = Field(default_factory=list)
+
+
 class AnnotationAssistRequest(BaseModel):
     sample_item_id: int
     pipeline_id: Optional[str] = None
@@ -98,3 +102,14 @@ class AnnotationAssistResponse(BaseModel):
     annotations: List[AnnotationAssistItem]
     replace_existing: bool
     debug: Optional[dict] = None
+
+
+class AnnotationExportItem(BaseModel):
+    prompt: dict[str, Any]
+    chosen: str
+    rejected: str
+    chosen_response_id: str
+    rejected_response_id: str
+    sample_item_id: int
+    annotation_id: int
+    reason: Optional[str] = None

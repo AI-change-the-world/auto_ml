@@ -32,7 +32,18 @@ const Toolbar: React.FC = () => {
     selectedUuid, deleteSelected, undo, redo, _history, _future,
     classes, setAnnotations, addAnnotation, addOrGetClassId,
   } = useAnnotationStore();
-  const { nextSample, prevSample, saveCurrentAnnotation, currentSampleIndex, sampleItems, loading, annotationProject } = useDatasetStore();
+  const {
+    nextSample,
+    prevSample,
+    saveCurrentAnnotation,
+    currentSampleIndex,
+    sampleItems,
+    loading,
+    annotationProject,
+    samplePage,
+    samplePageSize,
+    totalSamples,
+  } = useDatasetStore();
   const setDatasetState = useDatasetStore.setState;
   const [assistPipelines, setAssistPipelines] = React.useState<AnnotationAssistPipeline[]>([]);
   const [assistPipelineId, setAssistPipelineId] = React.useState<string | undefined>(undefined);
@@ -45,10 +56,22 @@ const Toolbar: React.FC = () => {
     : annotationShape === AnnotationShape.Polygon ? 'polygon'
       : annotationShape === AnnotationShape.Classification ? 'classification'
         : 'bbox';
+  const currentGlobalIndex = currentSampleIndex >= 0
+    ? (samplePage - 1) * samplePageSize + currentSampleIndex + 1
+    : 0;
+  const hasPreviousSample = currentGlobalIndex > 1;
+  const hasNextSample = currentGlobalIndex > 0 && currentGlobalIndex < totalSamples;
+  const isAddMode = mode === LabelMode.Add;
 
   const handleFitToWindow = () => {
     const fn = (window as unknown as Record<string, unknown>).__canvasFitToWindow;
     if (typeof fn === 'function') fn();
+  };
+
+  const handleToggleMode = () => {
+    const nextMode = mode === LabelMode.Edit ? LabelMode.Add : LabelMode.Edit;
+    toggleMode();
+    message.success(nextMode === LabelMode.Add ? '已切换到标注模式' : '已切换到修改模式');
   };
 
   // 根据 annotation_type 确定可用的标注工具
@@ -208,7 +231,7 @@ const Toolbar: React.FC = () => {
               <Button
                 type={mode === LabelMode.Add ? 'primary' : 'default'}
                 icon={mode === LabelMode.Add ? <PlusSquareOutlined /> : <EditOutlined />}
-                onClick={toggleMode}
+                onClick={handleToggleMode}
                 size="small"
               />
             </Tooltip>
@@ -316,7 +339,7 @@ const Toolbar: React.FC = () => {
           {isPose && '姿态标注（占位）'}
           {!isClassification && !isPose && (
             <>
-              {mode === LabelMode.Edit ? '编辑' : '添加'}
+              {isAddMode ? '标注' : '修改'}
               {' · '}
               {annotationShape === AnnotationShape.BBox && '矩形框'}
               {annotationShape === AnnotationShape.OBB && '旋转框'}
@@ -339,20 +362,20 @@ const Toolbar: React.FC = () => {
           <Button
             icon={<LeftOutlined />}
             onClick={prevSample}
-            disabled={currentSampleIndex <= 0 || loading}
+            disabled={!hasPreviousSample || loading}
             size="small"
           />
         </Tooltip>
 
         <span style={{ fontSize: 13, minWidth: 60, textAlign: 'center', display: 'inline-block' }}>
-          {sampleItems.length > 0 ? `${currentSampleIndex + 1} / ${sampleItems.length}` : '-'}
+          {totalSamples > 0 ? `${currentGlobalIndex} / ${totalSamples}` : '-'}
         </span>
 
         <Tooltip title="下一张 (E)">
           <Button
             icon={<RightOutlined />}
             onClick={nextSample}
-            disabled={currentSampleIndex >= sampleItems.length - 1 || loading}
+            disabled={!hasNextSample || loading}
             size="small"
           />
         </Tooltip>

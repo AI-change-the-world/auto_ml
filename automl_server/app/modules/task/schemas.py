@@ -1,7 +1,7 @@
 """任务 Schema"""
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TaskSourceItem(BaseModel):
@@ -72,13 +72,33 @@ class BaseModelResponse(BaseModel):
 
 
 class TaskConfigPayload(BaseModel):
-    name: str
+    model_config = ConfigDict(extra="allow")
+
+    name: Optional[str] = None
     epoch: int = Field(default=10, ge=1, le=10000)
     size: int = Field(default=640, ge=32, le=4096)
     batch: int = Field(default=8, ge=1, le=1024)
     device: str = Field(default="cpu")
     label_format: Optional[str] = Field(default=None, description="auto|bbox|obb")
     export_onnx: bool = False
+    onnx_dynamic: bool = False
+    onnx_simplify: bool = False
+    augmentation: Optional["TrainingAugmentationConfig"] = None
+
+
+class TrainingAugmentationConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = True
+    mosaic: Optional[float] = Field(default=1.0, ge=0, le=1)
+    mixup: Optional[float] = Field(default=0.0, ge=0, le=1)
+    copy_paste: Optional[float] = Field(default=0.0, ge=0, le=1)
+    close_mosaic: Optional[int] = Field(default=10, ge=0, le=10000)
+    auto_augment: Optional[Literal["randaugment", "autoaugment", "augmix", "none"]] = Field(
+        default="randaugment",
+        description="classification only",
+    )
+    erasing: Optional[float] = Field(default=0.4, ge=0, le=1)
 
 
 class TrainerStatusResponse(BaseModel):

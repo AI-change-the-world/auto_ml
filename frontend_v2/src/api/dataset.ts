@@ -56,9 +56,9 @@ export async function uploadDatasetFiles(datasetId: number, files: File[]) {
 }
 
 /** 获取数据集样本列表 */
-export async function getDatasetSamples(datasetId: number, page = 1, pageSize = 500, itemType?: string) {
+export async function getDatasetSamples(datasetId: number, page = 1, pageSize = 500, itemType?: string, keyword?: string) {
   const res = await apiClient.get<Result<PageResult<SampleItem>>>(`/dataset/${datasetId}/samples`, {
-    params: { page, page_size: pageSize, item_type: itemType },
+    params: { page, page_size: pageSize, item_type: itemType, keyword },
   });
   return res.data.data;
 }

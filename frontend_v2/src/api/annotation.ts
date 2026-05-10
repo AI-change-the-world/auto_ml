@@ -58,6 +58,14 @@ export async function getAnnotationRecords(annotationId: number, page = 1, pageS
   return res.data.data;
 }
 
+/** 按样本批量获取标注记录 */
+export async function getAnnotationRecordsBySamples(annotationId: number, sampleItemIds: number[]) {
+  const res = await apiClient.post<Result<AnnotationRecord[]>>(`/annotation/${annotationId}/records/by-samples`, {
+    sample_item_ids: sampleItemIds,
+  });
+  return res.data.data ?? [];
+}
+
 /** 保存样本标注记录 */
 export async function saveAnnotationRecord(annotationId: number, data: AnnotationRecordSaveRequest) {
   const res = await apiClient.post<Result<AnnotationRecord>>(`/annotation/${annotationId}/records`, data);
@@ -76,4 +84,12 @@ export async function listAnnotationAssistPipelines(annotationId: number, shape?
     params: shape ? { shape } : undefined,
   });
   return res.data.data;
+}
+
+/** 导出 DPO 标注结果 */
+export async function exportDpoAnnotation(annotationId: number) {
+  const res = await apiClient.get(`/annotation/${annotationId}/export/dpo`, {
+    responseType: 'blob',
+  });
+  return res.data as Blob;
 }

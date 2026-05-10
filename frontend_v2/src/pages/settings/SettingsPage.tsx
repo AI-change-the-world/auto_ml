@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Switch, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
+import {
+  getAnnotationDeleteConfirmEnabled,
+  getDatasetDeleteConfirmEnabled,
+  getDeployConfirmEnabled,
+  getTaskDeleteConfirmEnabled,
+  setAnnotationDeleteConfirmEnabled,
+  setDatasetDeleteConfirmEnabled,
+  setDeployConfirmEnabled,
+  setTaskDeleteConfirmEnabled,
+} from '../../utils/localSettings';
 
 type ModuleState = 'enabled' | 'unavailable' | 'disabled';
 
@@ -25,6 +36,10 @@ const SettingsPage: React.FC = () => {
   const tc = useTranslation('common').t;
   const [backendVersion, setBackendVersion] = useState<string>('-');
   const [platformName, setPlatformName] = useState<string>('AutoML Platform');
+  const [datasetDeleteConfirmEnabled, setDatasetDeleteConfirmEnabledState] = useState(true);
+  const [annotationDeleteConfirmEnabled, setAnnotationDeleteConfirmEnabledState] = useState(true);
+  const [taskDeleteConfirmEnabled, setTaskDeleteConfirmEnabledState] = useState(true);
+  const [deployConfirmEnabled, setDeployConfirmEnabledState] = useState(true);
   const [moduleStatusMap, setModuleStatusMap] = useState<Record<string, ModuleState>>({
     dataset_mgmt: 'enabled',
     annotation_mgmt: 'enabled',
@@ -46,6 +61,10 @@ const SettingsPage: React.FC = () => {
 
   useEffect(() => {
     let active = true;
+    setDatasetDeleteConfirmEnabledState(getDatasetDeleteConfirmEnabled());
+    setAnnotationDeleteConfirmEnabledState(getAnnotationDeleteConfirmEnabled());
+    setTaskDeleteConfirmEnabledState(getTaskDeleteConfirmEnabled());
+    setDeployConfirmEnabledState(getDeployConfirmEnabled());
 
     const loadHealth = async () => {
       try {
@@ -72,14 +91,32 @@ const SettingsPage: React.FC = () => {
     };
   }, []);
 
+  const handleConfirmDeleteChange = (
+    checked: boolean,
+    setter: React.Dispatch<React.SetStateAction<boolean>>,
+    persist: (enabled: boolean) => void,
+    label: string,
+  ) => {
+    setter(checked);
+    persist(checked);
+    message.success(`${label}${checked ? '已开启确认' : '已关闭确认'}`);
+  };
+
   return (
     <div className="page-container" style={{ maxWidth: 700 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-        <SettingOutlined /> {t('title')}
-      </h1>
+      <div className="page-header">
+        <div className="page-title-block">
+          <div className="page-title-icon">
+            <SettingOutlined />
+          </div>
+          <div>
+            <h1 className="page-title">{t('title')}</h1>
+          </div>
+        </div>
+      </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('systemInfo')}</h3>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('systemInfo')}</h3>
         {[
           { label: t('platformName'), value: platformName },
           { label: t('version'), value: backendVersion },
@@ -87,24 +124,38 @@ const SettingsPage: React.FC = () => {
           { label: t('backendProxy'), value: apiBaseUrl, mono: true },
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 3 ? '1px solid #f8f8f8' : 'none' }}>
-            <span style={{ fontSize: 13, color: '#888' }}>{item.label}</span>
-            <span style={{ fontSize: 13, color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
+            <span className="body-text-sm" style={{ color: '#888' }}>{item.label}</span>
+            <span className="body-text-sm" style={{ color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
           </div>
         ))}
       </div>
 
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>删除确认</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
+          <span className="body-text-sm" style={{ color: '#555' }}>数据集删除需要确认</span>
+          <Switch checked={datasetDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDatasetDeleteConfirmEnabledState, setDatasetDeleteConfirmEnabled, '数据集删除')} />
+          <span className="body-text-sm" style={{ color: '#555' }}>标注删除需要确认</span>
+          <Switch checked={annotationDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setAnnotationDeleteConfirmEnabledState, setAnnotationDeleteConfirmEnabled, '标注删除')} />
+          <span className="body-text-sm" style={{ color: '#555' }}>任务删除需要确认</span>
+          <Switch checked={taskDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setTaskDeleteConfirmEnabledState, setTaskDeleteConfirmEnabled, '任务删除')} />
+          <span className="body-text-sm" style={{ color: '#555' }}>部署下线需要确认</span>
+          <Switch checked={deployConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDeployConfirmEnabledState, setDeployConfirmEnabled, '部署下线')} />
+        </div>
+      </div>
+
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 16 }}>{t('modules')}</h3>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('modules')}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           {modules.map((m, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fafafa', borderRadius: 8 }}>
-              <span style={{ fontSize: 13, color: '#555' }}>{m.name}</span>
+              <span className="body-text-sm" style={{ color: '#555' }}>{m.name}</span>
               {moduleStatusMap[m.key] === 'enabled' ? (
-                <span style={{ fontSize: 12, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
+                <span className="caption-text" style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
               ) : moduleStatusMap[m.key] === 'unavailable' ? (
-                <span style={{ fontSize: 12, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
+                <span className="caption-text" style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
               ) : (
-                <span style={{ fontSize: 12, color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
+                <span className="caption-text" style={{ color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
               )}
             </div>
           ))}

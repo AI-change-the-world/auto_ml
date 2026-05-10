@@ -5,6 +5,7 @@ import {
   DeleteOutlined,
   DeploymentUnitOutlined,
   GatewayOutlined,
+  SwapOutlined,
   MessageOutlined,
   PictureOutlined,
   RobotOutlined,
@@ -41,6 +42,8 @@ export const renderAnnotationTypeIcon = (
       return <RobotOutlined style={iconStyle} />;
     case 'llm':
       return <MessageOutlined style={iconStyle} />;
+    case 'dpo':
+      return <SwapOutlined style={iconStyle} />;
     case 'pose':
       return <DeploymentUnitOutlined style={iconStyle} />;
     default:
@@ -124,21 +127,21 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
       </div>
       <div style={{ padding: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{annotation.name}</span>
-          <span style={{ fontSize: 11, padding: '1px 8px', background: color.bg, color: color.fg, borderRadius: 999, flexShrink: 0 }}>
+          <span className="card-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{annotation.name}</span>
+          <span className="tag-text" style={{ padding: '1px 8px', background: color.bg, color: color.fg, borderRadius: 999, flexShrink: 0 }}>
             {typeModel?.label ?? unknownLabel}
           </span>
         </div>
         {typeModel?.supportsClasses && classes.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
             {classes.slice(0, 5).map((className, index) => (
-              <span key={`${annotation.id}-${className}-${index}`} style={{ padding: '1px 6px', background: '#f5f5f5', color: '#666', fontSize: 11, borderRadius: 4 }}>{className}</span>
+              <span key={`${annotation.id}-${className}-${index}`} className="tag-text" style={{ padding: '1px 6px', background: '#f5f5f5', color: '#666', borderRadius: 4 }}>{className}</span>
             ))}
-            {classes.length > 5 && <span style={{ fontSize: 11, color: '#bbb' }}>+{classes.length - 5}</span>}
+            {classes.length > 5 && <span className="tag-text" style={{ color: '#bbb' }}>+{classes.length - 5}</span>}
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999' }}>
-          {typeModel?.supportsClasses && <span>{t('classCount', { count: classes.length })}</span>}
+        <div className="caption-text" style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#999' }}>
+          {typeModel?.supportsClasses && <span className="caption-text">{t('classCount', { count: classes.length })}</span>}
           <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
             <ClockCircleOutlined /> {new Date(annotation.created_at).toLocaleDateString()}
           </span>

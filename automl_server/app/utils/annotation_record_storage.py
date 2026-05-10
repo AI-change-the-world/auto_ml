@@ -5,6 +5,17 @@ from typing import Any
 from app.common.constants import AnnotationType
 
 
+JSON_ANNOTATION_TYPES = {
+    AnnotationType.LLM,
+    AnnotationType.MLLM,
+    AnnotationType.DPO,
+    AnnotationType.DPO_PAIRWISE,
+    AnnotationType.DPO_BEST_OF_N,
+    AnnotationType.DPO_REFERENCE_CHOICE,
+    AnnotationType.DPO_MULTI_TURN,
+}
+
+
 def build_annotation_record_object_key(
     annotation_save_path: str,
     sample_item_id: int,
@@ -14,7 +25,7 @@ def build_annotation_record_object_key(
 
 
 def get_annotation_record_extension(annotation_type: int) -> str:
-    if annotation_type in {AnnotationType.LLM, AnnotationType.MLLM}:
+    if annotation_type in JSON_ANNOTATION_TYPES:
         return ".json"
     return ".txt"
 
@@ -23,7 +34,7 @@ def serialize_annotation_record_payload(
     annotation_type: int,
     content: dict[str, Any],
 ) -> tuple[bytes, str]:
-    if annotation_type in {AnnotationType.LLM, AnnotationType.MLLM}:
+    if annotation_type in JSON_ANNOTATION_TYPES:
         return json.dumps(content, ensure_ascii=False, indent=2).encode("utf-8"), "application/json"
 
     if annotation_type == AnnotationType.CLASSIFICATION:
@@ -73,7 +84,7 @@ def is_annotation_record_storage_path(value: Any) -> bool:
 
 
 def _should_parse_as_json(annotation_type: int, source_path: str | None) -> bool:
-    if annotation_type in {AnnotationType.LLM, AnnotationType.MLLM}:
+    if annotation_type in JSON_ANNOTATION_TYPES:
         return True
     return bool(source_path and source_path.endswith(".json"))
 

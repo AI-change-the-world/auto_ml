@@ -1,6 +1,6 @@
 {
     "title": "数据集",
-    "subtitle": "管理图片、视频和数据集",
+    "subtitle": "管理图像、文本、视频和数据集",
     "newDataset": "新建数据集",
     "searchPlaceholder": "搜索数据集...",
     "empty": "暂无数据集",
@@ -33,6 +33,7 @@
     "updatedAt": "更新于 {{date}}",
     "dropUpload": "拖放文件或点击上传",
     "dropLimit": "支持图片、视频、压缩包（ZIP、TAR.GZ 等）",
+    "uploadTypeInvalid": "当前数据集仅允许上传以下类型：{{types}}",
     "uploading": "上传中...",
     "uploadSuccess": "上传 {{count}} 个文件成功",
     "noImages": "暂无图片，请上传",

@@ -19,6 +19,7 @@ import { getDeploymentOverview, deployModel, undeployModel, predictModel, getDep
 import { getClassColor } from '../../types';
 import type { DeploymentOverviewItem, InferenceDetectionResult, InferenceParams, InferencePredictResponse } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
+import { getDeployConfirmEnabled } from '../../utils/localSettings';
 
 type InferencePreviewEntry = {
   modelId: number;
@@ -248,6 +249,10 @@ const DeployPage: React.FC = () => {
     () => (activePreviewModelId != null ? previewMap[activePreviewModelId] ?? null : null),
     [activePreviewModelId, previewMap],
   );
+  const activePreviewModel = useMemo(
+    () => (activePreviewModelId != null ? models.find((item) => item.model_id === activePreviewModelId) ?? null : null),
+    [activePreviewModelId, models],
+  );
   const activeApiModel = useMemo(
     () => (activeApiModelId != null ? models.find((item) => item.model_id === activeApiModelId) ?? null : null),
     [activeApiModelId, models],
@@ -339,27 +344,32 @@ const DeployPage: React.FC = () => {
   };
 
   const handleUndeploy = async (id: number) => {
+    const onUndeploy = async () => {
+      setDeployingId(id);
+      try {
+        await undeployModel(id);
+        const undeployed = await waitForDeployState(id, false);
+        await fetchModels();
+        window.dispatchEvent(new Event(DEPLOYMENTS_CHANGED_EVENT));
+        if (undeployed?.is_deployed === false) {
+          message.success(t('undeploySuccess'));
+        } else {
+          message.warning(t('undeployPending'));
+        }
+      } catch {
+        message.error(t('undeployFailed'));
+      } finally {
+        setDeployingId(null);
+      }
+    };
+    if (!getDeployConfirmEnabled()) {
+      void onUndeploy();
+      return;
+    }
     Modal.confirm({
       title: t('confirmUndeploy'),
       content: t('confirmUndeployMsg'),
-      onOk: async () => {
-        setDeployingId(id);
-        try {
-          await undeployModel(id);
-          const undeployed = await waitForDeployState(id, false);
-          await fetchModels();
-          window.dispatchEvent(new Event(DEPLOYMENTS_CHANGED_EVENT));
-          if (undeployed?.is_deployed === false) {
-            message.success(t('undeploySuccess'));
-          } else {
-            message.warning(t('undeployPending'));
-          }
-        } catch {
-          message.error(t('undeployFailed'));
-        } finally {
-          setDeployingId(null);
-        }
-      },
+      onOk: onUndeploy,
     });
   };
 
@@ -478,6 +488,18 @@ const DeployPage: React.FC = () => {
     }
   }, [t]);
 
+  const handlePreviewRetest = useCallback((file: File) => {
+    if (!activePreviewModel) {
+      message.warning(t('previewModelUnavailable', { defaultValue: '当前模型不可用，无法重新推理' }));
+      return false;
+    }
+    if (testingId === activePreviewModel.model_id) {
+      return false;
+    }
+    void handleTestInference(activePreviewModel, file, buildInferenceParams());
+    return false;
+  }, [activePreviewModel, buildInferenceParams, t, testingId]);
+
   const imageWidth = activePreview?.result.image_width || 0;
   const imageHeight = activePreview?.result.image_height || 0;
   const hasPreviewGeometry = imageWidth > 0 && imageHeight > 0;
@@ -545,12 +567,15 @@ const DeployPage: React.FC = () => {
 
   return (
     <div className="page-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-            <CloudServerOutlined /> {t('title')}
-          </h1>
-          <p style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('subtitle')}</p>
+      <div className="page-header">
+        <div className="page-title-block">
+          <div className="page-title-icon">
+            <CloudServerOutlined />
+          </div>
+          <div>
+            <h1 className="page-title">{t('title')}</h1>
+            <p className="page-subtitle">{t('subtitle')}</p>
+          </div>
         </div>
         <button
           onClick={() => void fetchModels()}
@@ -561,11 +586,11 @@ const DeployPage: React.FC = () => {
             padding: '8px 14px',
             border: '1px solid #e5e5e5',
             borderRadius: 8,
-            fontSize: 13,
             background: '#fff',
             color: '#666',
             cursor: 'pointer',
           }}
+          className="button-text"
         >
           <ReloadOutlined /> {tc('action.refresh')}
         </button>
@@ -606,7 +631,7 @@ const DeployPage: React.FC = () => {
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 500, color: '#111' }}>{m.model_name || `Model #${m.model_id}`}</span>
+                    <span className="body-text" style={{ fontWeight: 500, color: '#111' }}>{m.model_name || `Model #${m.model_id}`}</span>
                     <button
                       onClick={() => {
                         setRenamingModel(m);
@@ -619,36 +644,36 @@ const DeployPage: React.FC = () => {
                         padding: '4px 8px',
                         border: '1px solid #e5e7eb',
                         borderRadius: 999,
-                        fontSize: 11,
                         background: '#fff',
                         color: '#4b5563',
                         cursor: 'pointer',
                       }}
+                      className="tag-text"
                     >
                       <EditOutlined /> {t('rename')}
                     </button>
-                    {m.model_type && <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', fontSize: 11, borderRadius: 999 }}>{m.model_type}</span>}
+                    {m.model_type && <span className="tag-text" style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', borderRadius: 999 }}>{m.model_type}</span>}
                     {m.is_deployed ? (
-                      <span style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
                         <CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}
                       </span>
                     ) : (
-                      <span style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', fontSize: 11, borderRadius: 999 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#f5f5f5', color: '#999', borderRadius: 999 }}>
                         {tc('status.notDeployed')}
                       </span>
                     )}
                     {previewMap[m.model_id] && (
-                      <span style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', fontSize: 11, borderRadius: 999 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', borderRadius: 999 }}>
                         {t('lastTest')}: {dayjs(previewMap[m.model_id]?.testedAt).format('HH:mm:ss')}
                       </span>
                     )}
                     {runtimeOffline && (
-                      <span style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', fontSize: 11, borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#fff7ed', color: '#c2410c', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
                         <ExclamationCircleOutlined style={{ fontSize: 10 }} /> {t('runtimeOffline', { defaultValue: '运行时离线' })}
                       </span>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#999', marginTop: 2, flexWrap: 'wrap' }}>
+                  <div className="caption-text" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#999', marginTop: 2, flexWrap: 'wrap' }}>
                     {m.deployment_device && <span>{t('device')}: {m.deployment_device}</span>}
                     {m.deployment_port != null && <span>{t('port')}: {m.deployment_port}</span>}
                     {runtimeOffline && <span>{t('runtimeStatus', { defaultValue: '运行时状态' })}: {m.runtime_status.status || 'offline'}</span>}
@@ -797,7 +822,7 @@ const DeployPage: React.FC = () => {
         </div>
       )}
 
-      <div style={{ marginTop: 16, fontSize: 13, color: '#bbb', textAlign: 'center' }}>{t('totalModels', { count: total })}</div>
+      <div className="body-text-sm" style={{ marginTop: 16, color: '#bbb', textAlign: 'center' }}>{t('totalModels', { count: total })}</div>
 
       <Drawer
         open={!!activePreview}
@@ -876,6 +901,58 @@ const DeployPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {activePreviewModel && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 14px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 12,
+                  background: '#fafafa',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                    {t('retestTitle', { defaultValue: '重新上传并推理' })}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                    {t('retestDesc', { defaultValue: '保持当前推理参数，直接在这里换图重跑。' })}
+                  </div>
+                </div>
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  beforeUpload={handlePreviewRetest}
+                  disabled={testingId === activePreviewModel.model_id}
+                >
+                  <button
+                    type="button"
+                    disabled={testingId === activePreviewModel.model_id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 14px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 8,
+                      background: testingId === activePreviewModel.model_id ? '#f3f4f6' : '#fff',
+                      color: testingId === activePreviewModel.model_id ? '#9ca3af' : '#374151',
+                      cursor: testingId === activePreviewModel.model_id ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <CloudUploadOutlined />
+                    {testingId === activePreviewModel.model_id
+                      ? t('testing')
+                      : t('retestUpload', { defaultValue: '上传新图' })}
+                  </button>
+                </Upload>
+              </div>
+            )}
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', background: '#0f172a' }}>
               {hasPreviewGeometry ? (

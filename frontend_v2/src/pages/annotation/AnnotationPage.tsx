@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Spin, Typography } from 'antd';
+import { Spin, Typography, message } from 'antd';
 import { useDatasetStore } from '../../stores/datasetStore';
 import { useAnnotationStore } from '../../stores/annotationStore';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import ImageCanvas from './components/ImageCanvas';
 import AnnotationList from './components/AnnotationList';
 import FileList from './components/FileList';
@@ -15,34 +16,30 @@ const AnnotationPage: React.FC = () => {
   const { annotationId } = useParams<{ annotationId: string }>();
   const { loadAnnotationProject, annotationProject, loading } = useDatasetStore();
   const reset = useAnnotationStore((s) => s.reset);
+  const modified = useAnnotationStore((s) => s.modified);
 
   // 快捷键
   useKeyboardShortcuts();
+  useUnsavedChangesGuard(modified);
 
   // 加载标注项目
   useEffect(() => {
+    let cancelled = false;
     if (annotationId) {
       const id = parseInt(annotationId, 10);
       if (!isNaN(id)) {
-        loadAnnotationProject(id);
+        loadAnnotationProject(id).then((restored) => {
+          if (!cancelled && restored?.sampleName) {
+            message.info(`已恢复到上次位置：${restored.sampleName}`);
+          }
+        });
       }
     }
     return () => {
+      cancelled = true;
       reset();
     };
   }, [annotationId]);
-
-  // 离开前提示保存
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const { modified } = useAnnotationStore.getState();
-      if (modified) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
 
   if (!annotationId) {
     return (

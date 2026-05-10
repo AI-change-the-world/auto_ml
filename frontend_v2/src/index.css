@@ -6,6 +6,31 @@
 
 @source "./";
 
+:root {
+  --font-size-page-title: 24px;
+  --line-height-page-title: 32px;
+  --font-size-section-title: 18px;
+  --line-height-section-title: 28px;
+  --font-size-card-title: 16px;
+  --line-height-card-title: 24px;
+  --font-size-body: 14px;
+  --line-height-body: 22px;
+  --font-size-body-sm: 13px;
+  --line-height-body-sm: 20px;
+  --font-size-caption: 12px;
+  --line-height-caption: 18px;
+  --font-size-meta: 11px;
+  --line-height-meta: 16px;
+  --font-size-metric-lg: 24px;
+  --line-height-metric-lg: 30px;
+  --font-size-metric-sm: 20px;
+  --line-height-metric-sm: 28px;
+  --font-size-sidebar-primary: 14px;
+  --line-height-sidebar-primary: 22px;
+  --font-size-sidebar-secondary: 12px;
+  --line-height-sidebar-secondary: 18px;
+}
+
 @layer base {
   * {
     margin: 0;
@@ -109,6 +134,177 @@
   margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.page-title-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.page-title-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.page-title {
+  margin: 0;
+  font-size: var(--font-size-page-title);
+  line-height: var(--line-height-page-title);
+  font-weight: 700;
+  color: #111827;
+}
+
+.page-subtitle {
+  margin: 4px 0 0;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  color: #64748b;
+}
+
+.section-title {
+  margin: 0;
+  font-size: var(--font-size-section-title);
+  line-height: var(--line-height-section-title);
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: var(--font-size-card-title);
+  line-height: var(--line-height-card-title);
+  font-weight: 700;
+  color: #111827;
+}
+
+.card-title {
+  margin: 0;
+  font-size: var(--font-size-card-title);
+  line-height: var(--line-height-card-title);
+  font-weight: 700;
+  color: #111827;
+}
+
+.body-text {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.body-text-sm {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+}
+
+.caption-text {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.meta-text {
+  font-size: var(--font-size-meta);
+  line-height: var(--line-height-meta);
+}
+
+.metric-value-lg {
+  font-size: var(--font-size-metric-lg);
+  line-height: var(--line-height-metric-lg);
+  font-weight: 700;
+}
+
+.metric-value-sm {
+  font-size: var(--font-size-metric-sm);
+  line-height: var(--line-height-metric-sm);
+  font-weight: 700;
+}
+
+.sidebar-brand-text {
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.sidebar-nav-text {
+  font-size: var(--font-size-sidebar-primary);
+  line-height: var(--line-height-sidebar-primary);
+  font-weight: 600;
+}
+
+.sidebar-subnav-text {
+  font-size: var(--font-size-sidebar-secondary);
+  line-height: var(--line-height-sidebar-secondary);
+  font-weight: 500;
+}
+
+.sidebar-meta-text {
+  font-size: var(--font-size-meta);
+  line-height: var(--line-height-meta);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.assistant-entry-title {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  font-weight: 600;
+}
+
+.assistant-entry-subtitle {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.button-text {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  font-weight: 500;
+}
+
+.form-label {
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  font-weight: 600;
+  color: #475569;
+}
+
+.tag-text {
+  font-size: var(--font-size-meta);
+  line-height: var(--line-height-meta);
+  font-weight: 500;
+}
+
+.info-label {
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+  color: #64748b;
+}
+
+.info-value {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  font-weight: 600;
+  color: #111827;
+}
+
+.empty-text {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.code-text {
+  font-size: var(--font-size-caption);
+  line-height: 1.7;
+  font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
 }
 
 /* ========= 悬浮删除按钮 ========= */

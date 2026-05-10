@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Modal, Spin, Typography } from 'antd';
+import { Button, Modal, Spin, Typography, message } from 'antd';
 import { AppstoreOutlined } from '@ant-design/icons';
 import Toolbar from '../components/Toolbar';
 import ImageCanvas from '../components/ImageCanvas';
 import AnnotationList from '../components/AnnotationList';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { useAnnotationStore } from '../../../stores/annotationStore';
+import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import AerialSceneSidebar from './AerialSceneSidebar';
 import AerialMosaicNavigator from './AerialMosaicNavigator';
 import { buildAerialScenes, findSceneByFileName } from './utils';
@@ -27,17 +28,26 @@ const AerialAnnotationPage: React.FC = () => {
     loadSampleByName,
   } = useDatasetStore();
   const reset = useAnnotationStore((s) => s.reset);
+  const modified = useAnnotationStore((s) => s.modified);
   const [activeSceneKey, setActiveSceneKey] = useState<string | null>(null);
   const [mosaicOpen, setMosaicOpen] = useState(false);
 
+  useUnsavedChangesGuard(modified);
+
   useEffect(() => {
+    let cancelled = false;
     if (annotationId) {
       const id = parseInt(annotationId, 10);
       if (!Number.isNaN(id)) {
-        loadAnnotationProject(id);
+        loadAnnotationProject(id).then((restored) => {
+          if (!cancelled && restored?.sampleName) {
+            message.info(`已恢复到上次位置：${restored.sampleName}`);
+          }
+        });
       }
     }
     return () => {
+      cancelled = true;
       reset();
     };
   }, [annotationId, loadAnnotationProject, reset]);

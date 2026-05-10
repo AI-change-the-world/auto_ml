@@ -1,5 +1,8 @@
 """标注 API 路由"""
+import json
+
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
@@ -8,6 +11,7 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationRecordBatchQuery,
     AnnotationRecordResponse,
     AnnotationRecordSave,
     AnnotationTypeDefinitionResponse,
@@ -89,6 +93,35 @@ async def list_annotation_records(
 ):
     records, total = await service.list_annotation_records(db, annotation_id, page, page_size)
     return Result.ok(PageResult.create(records, total, page, page_size))
+
+
+@router.post("/{annotation_id}/records/by-samples", response_model=Result[list[AnnotationRecordResponse]], summary="按样本批量获取标注记录")
+async def list_annotation_records_by_sample_ids(
+    annotation_id: int,
+    data: AnnotationRecordBatchQuery,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    records = await service.list_annotation_records_by_sample_ids(db, annotation_id, data.sample_item_ids)
+    return Result.ok(records)
+
+
+@router.get("/{annotation_id}/export/dpo", summary="导出 DPO 标注结果")
+async def export_dpo_records(
+    annotation_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    items, export_name = await service.export_dpo_records(db, annotation_id)
+    lines = [json.dumps(item.model_dump(mode="json"), ensure_ascii=False) for item in items]
+    file_name = f"{export_name}_{annotation_id}.jsonl"
+    return Response(
+        content=("\n".join(lines)).encode("utf-8"),
+        media_type="application/jsonl; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{file_name}"',
+        },
+    )
 
 
 @router.post("/{annotation_id}/records", response_model=Result[AnnotationRecordResponse], summary="保存标注记录")
