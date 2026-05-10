@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `dataset` (
   `name` VARCHAR(255) NOT NULL COMMENT '数据集名称',
   `storage_type` INT DEFAULT 1 COMMENT '存储类型: 0=本地, 1=S3, 2=WebDAV',
   `data_type` INT DEFAULT 0 COMMENT '数据类型: 0=图像, 1=文本, 2=视频, 3=音频',
-  `scenario_type` INT DEFAULT 0 COMMENT '场景类型: 0=普通, 1=无人机航拍/拼接, 2=LLM对话标注, 3=MLLM对话标注',
+  `scenario_type` INT DEFAULT 0 COMMENT '场景类型: 0=普通, 1=无人机航拍/拼接, 2=LLM对话标注, 3=MLLM对话标注, 4=DPO兼容, 5=DPO二选一, 6=DPO多选一, 7=DPO参考增强, 8=DPO多轮对话',
   `scenario_config` TEXT DEFAULT NULL COMMENT '场景配置 JSON',
   `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
   `count` INT DEFAULT 0 COMMENT '样本数量',
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS `sample_item` (
 CREATE TABLE IF NOT EXISTS `annotation` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `name` VARCHAR(255) NOT NULL COMMENT '标注项目名称',
-  `annotation_type` INT DEFAULT 0 COMMENT '标注类型: 0=检测(BBox/OBB), 1=分类, 2=分割(Polygon), 3=MLLM, 4=姿态, 5=LLM',
+  `annotation_type` INT DEFAULT 0 COMMENT '标注类型: 0=检测(BBox/OBB), 1=分类, 2=分割(Polygon), 3=MLLM, 4=姿态, 5=LLM, 6=DPO兼容, 7=DPO二选一, 8=DPO多选一, 9=DPO参考增强, 10=DPO多轮对话',
   `classes` TEXT DEFAULT NULL COMMENT '分类项 JSON',
   `storage_type` INT DEFAULT 1 COMMENT '存储类型: 0=本地, 1=S3, 2=WebDAV',
   `save_path` VARCHAR(512) DEFAULT NULL COMMENT '存储路径',
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS `annotation_record` (
 
 CREATE TABLE IF NOT EXISTS `task` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `task_type` INT DEFAULT 0 COMMENT '任务类型: 0=检测, 1=分类',
+  `task_type` INT DEFAULT 0 COMMENT '任务类型: 0=检测, 1=分类, 2=分割, 3=姿态',
   `dataset_id` BIGINT DEFAULT NULL COMMENT '数据集ID',
   `annotation_id` BIGINT DEFAULT NULL COMMENT '标注ID',
   `status` INT DEFAULT 0 COMMENT '状态: 0=待处理, 1=运行中, 2=后处理, 3=完成, 4=失败',
@@ -218,6 +218,16 @@ VALUES
   ('yolo11s-cls.pt', 'classification', 'YOLO11 small classification baseline', 'yolo11s-cls.pt'),
   ('yolo11m-cls.pt', 'classification', 'YOLO11 medium classification baseline', 'yolo11m-cls.pt'),
   ('yolo11l-cls.pt', 'classification', 'YOLO11 large classification baseline', 'yolo11l-cls.pt'),
-  ('yolo11x-cls.pt', 'classification', 'YOLO11 extra-large classification baseline', 'yolo11x-cls.pt');
+  ('yolo11x-cls.pt', 'classification', 'YOLO11 extra-large classification baseline', 'yolo11x-cls.pt'),
+  ('yolov8n-seg.pt', 'segmentation', 'YOLOv8 nano segmentation baseline', 'yolov8n-seg.pt'),
+  ('yolov8s-seg.pt', 'segmentation', 'YOLOv8 small segmentation baseline', 'yolov8s-seg.pt'),
+  ('yolov8m-seg.pt', 'segmentation', 'YOLOv8 medium segmentation baseline', 'yolov8m-seg.pt'),
+  ('yolov8l-seg.pt', 'segmentation', 'YOLOv8 large segmentation baseline', 'yolov8l-seg.pt'),
+  ('yolov8x-seg.pt', 'segmentation', 'YOLOv8 extra-large segmentation baseline', 'yolov8x-seg.pt'),
+  ('yolo11n-seg.pt', 'segmentation', 'YOLO11 nano segmentation baseline', 'yolo11n-seg.pt'),
+  ('yolo11s-seg.pt', 'segmentation', 'YOLO11 small segmentation baseline', 'yolo11s-seg.pt'),
+  ('yolo11m-seg.pt', 'segmentation', 'YOLO11 medium segmentation baseline', 'yolo11m-seg.pt'),
+  ('yolo11l-seg.pt', 'segmentation', 'YOLO11 large segmentation baseline', 'yolo11l-seg.pt'),
+  ('yolo11x-seg.pt', 'segmentation', 'YOLO11 extra-large segmentation baseline', 'yolo11x-seg.pt');
 
 SELECT 'Auto ML database initialized successfully!' AS message;

@@ -196,6 +196,18 @@ docker-compose logs -f
 docker-compose -f docker-compose.dev.yml up -d mysql rabbitmq minio nacos nacos-init
 ```
 
+数据库变更约定：
+
+- 新库初始化统一来自 `mysql/init/01_init_automl.sql`
+- 已有库升级统一通过 `mysql/migrations/*.sql` 手动执行
+- 不再依赖应用启动时自动 `ALTER TABLE` 或自动补种子数据
+
+例如：
+
+```bash
+mysql -u automl -p auto_ml < mysql/migrations/20260510_manual_schema_sync.sql
+```
+
 #### 2. 启动前端
 
 ```bash
@@ -433,6 +445,12 @@ VITE_API_BASE_URL=http://localhost:45678
 ## 📄 许可证
 
 本项目采用 [AGPL License](LICENSE) 开源协议。
+
+---
+
+## TODO
+
+- 训练任务配置后续需要补齐完整基础增广参数，例如 `degrees`、`translate`、`scale`、`shear`、`perspective`、`fliplr`、`flipud`、`hsv_h`、`hsv_s`、`hsv_v`，并保证“关闭增广”时可真正全量关闭。
 
 ---
 

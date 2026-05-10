@@ -26,6 +26,7 @@ from .schemas import (
     BaseModelResponse,
     TrainerStatusResponse,
     TaskSourceResponse,
+    TaskConfigPayload,
 )
 
 STALE_TASK_STATUSES = {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.POST_PROCESS}
@@ -110,6 +111,13 @@ class TaskService:
         config = json.loads(data.config) if data.config else {}
         if not isinstance(config, dict):
             raise BadRequestException("config must be a JSON object")
+        try:
+            normalized_config = TaskConfigPayload.model_validate(config).model_dump(
+                mode="json",
+                exclude_none=True,
+            )
+        except Exception as exc:
+            raise BadRequestException(f"invalid task config: {exc}") from exc
         classes = primary_source["classes"]
         serialized_sources = [self._serialize_training_source(source) for source in resolved_sources]
         train_request = {
@@ -124,7 +132,7 @@ class TaskService:
             "sources": serialized_sources,
             "classes": classes,
             "task_config": {
-                **config,
+                **normalized_config,
                 "dataset_id": primary_source["dataset_id"],
                 "annotation_id": primary_source["annotation_id"],
                 "source_count": len(serialized_sources),

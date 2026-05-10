@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Select, InputNumber, Switch } from 'antd';
+import { message, Spin, Modal, Select, InputNumber, Switch, Divider } from 'antd';
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask } from '../../api/task';
@@ -14,6 +14,7 @@ import type {
   TrainerStatusResponse,
   TaskStreamEnvelope,
   TrainingConfigPayload,
+  TrainingAugmentationConfig,
   TaskSourceItem,
   TaskSourceResponse,
 } from '../../types/task';
@@ -41,6 +42,15 @@ const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
   device: 'cpu',
   label_format: 'bbox',
   export_onnx: false,
+  augmentation: {
+    enabled: true,
+    mosaic: 1,
+    mixup: 0,
+    copy_paste: 0,
+    close_mosaic: 10,
+    auto_augment: 'randaugment',
+    erasing: 0.4,
+  },
 };
 
 const getStaleMinutes = (seconds?: number | null) => Math.max(1, Math.floor((seconds || 0) / 60));
@@ -314,6 +324,22 @@ const TaskListPage: React.FC = () => {
     }));
   };
 
+  const updateAugmentationConfig = <K extends keyof TrainingAugmentationConfig>(
+    key: K,
+    value: TrainingAugmentationConfig[K],
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      train_config: {
+        ...prev.train_config,
+        augmentation: {
+          ...(prev.train_config.augmentation || DEFAULT_TRAIN_CONFIG.augmentation!),
+          [key]: value,
+        },
+      },
+    }));
+  };
+
   const handleTaskTypeChange = (taskType: number) => {
     setForm((prev) => ({
       ...prev,
@@ -378,6 +404,10 @@ const TaskListPage: React.FC = () => {
       ))
       .map((annotation) => ({ label: annotation.name, value: annotation.id }))
   );
+
+  const augmentation = form.train_config.augmentation || DEFAULT_TRAIN_CONFIG.augmentation!;
+  const showDetectionAugmentation = form.task_type === 0 || form.task_type === 2;
+  const showClassificationAugmentation = form.task_type === 1;
 
   return (
     <div className="page-container">
@@ -661,6 +691,101 @@ const TaskListPage: React.FC = () => {
                 ]}
               />
             </div>
+          </div>
+          <Divider style={{ margin: '4px 0 0' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div className="form-label">{t('augmentationTitle')}</div>
+                <div className="caption-text" style={{ color: '#999', marginTop: 2 }}>{t('augmentationHint')}</div>
+              </div>
+              <Switch
+                checked={Boolean(augmentation.enabled)}
+                onChange={(checked) => updateAugmentationConfig('enabled', checked)}
+              />
+            </div>
+            {showDetectionAugmentation && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationMosaic')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.mosaic}
+                    onChange={(value) => updateAugmentationConfig('mosaic', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationMixup')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.mixup}
+                    onChange={(value) => updateAugmentationConfig('mixup', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationCopyPaste')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.copy_paste}
+                    onChange={(value) => updateAugmentationConfig('copy_paste', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationCloseMosaic')}</label>
+                  <InputNumber
+                    min={0}
+                    max={10000}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.close_mosaic}
+                    onChange={(value) => updateAugmentationConfig('close_mosaic', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
+            {showClassificationAugmentation && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationAutoPolicy')}</label>
+                  <Select
+                    style={{ width: '100%' }}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.auto_augment}
+                    onChange={(value) => updateAugmentationConfig('auto_augment', value)}
+                    options={[
+                      { label: 'RandAugment', value: 'randaugment' },
+                      { label: 'AutoAugment', value: 'autoaugment' },
+                      { label: 'AugMix', value: 'augmix' },
+                      { label: t('augmentationDisabledPolicy'), value: 'none' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationErasing')}</label>
+                  <InputNumber
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    disabled={!augmentation.enabled}
+                    value={augmentation.erasing}
+                    onChange={(value) => updateAugmentationConfig('erasing', Number(value ?? 0))}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', border: '1px solid #eee', borderRadius: 8 }}>
             <div>
