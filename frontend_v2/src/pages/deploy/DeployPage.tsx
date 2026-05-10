@@ -249,6 +249,10 @@ const DeployPage: React.FC = () => {
     () => (activePreviewModelId != null ? previewMap[activePreviewModelId] ?? null : null),
     [activePreviewModelId, previewMap],
   );
+  const activePreviewModel = useMemo(
+    () => (activePreviewModelId != null ? models.find((item) => item.model_id === activePreviewModelId) ?? null : null),
+    [activePreviewModelId, models],
+  );
   const activeApiModel = useMemo(
     () => (activeApiModelId != null ? models.find((item) => item.model_id === activeApiModelId) ?? null : null),
     [activeApiModelId, models],
@@ -483,6 +487,18 @@ const DeployPage: React.FC = () => {
       message.error(t('copyFailed'));
     }
   }, [t]);
+
+  const handlePreviewRetest = useCallback((file: File) => {
+    if (!activePreviewModel) {
+      message.warning(t('previewModelUnavailable', { defaultValue: '当前模型不可用，无法重新推理' }));
+      return false;
+    }
+    if (testingId === activePreviewModel.model_id) {
+      return false;
+    }
+    void handleTestInference(activePreviewModel, file, buildInferenceParams());
+    return false;
+  }, [activePreviewModel, buildInferenceParams, t, testingId]);
 
   const imageWidth = activePreview?.result.image_width || 0;
   const imageHeight = activePreview?.result.image_height || 0;
@@ -885,6 +901,58 @@ const DeployPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {activePreviewModel && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 14px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 12,
+                  background: '#fafafa',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                    {t('retestTitle', { defaultValue: '重新上传并推理' })}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6b7280' }}>
+                    {t('retestDesc', { defaultValue: '保持当前推理参数，直接在这里换图重跑。' })}
+                  </div>
+                </div>
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  beforeUpload={handlePreviewRetest}
+                  disabled={testingId === activePreviewModel.model_id}
+                >
+                  <button
+                    type="button"
+                    disabled={testingId === activePreviewModel.model_id}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 14px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 8,
+                      background: testingId === activePreviewModel.model_id ? '#f3f4f6' : '#fff',
+                      color: testingId === activePreviewModel.model_id ? '#9ca3af' : '#374151',
+                      cursor: testingId === activePreviewModel.model_id ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    <CloudUploadOutlined />
+                    {testingId === activePreviewModel.model_id
+                      ? t('testing')
+                      : t('retestUpload', { defaultValue: '上传新图' })}
+                  </button>
+                </Upload>
+              </div>
+            )}
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 16, overflow: 'hidden', background: '#0f172a' }}>
               {hasPreviewGeometry ? (

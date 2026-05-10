@@ -451,6 +451,7 @@ VITE_API_BASE_URL=http://localhost:45678
 ## TODO
 
 - 训练任务配置后续需要补齐完整基础增广参数，例如 `degrees`、`translate`、`scale`、`shear`、`perspective`、`fliplr`、`flipud`、`hsv_h`、`hsv_s`、`hsv_v`，并保证“关闭增广”时可真正全量关闭。
+- 训练效率后续需要补齐三件事：训练集缓存复用、基于已有已训练模型的继续训练（warm start）、以及真正的断点续训；当前优先级是先做本地训练集缓存和基于已有权重继续训练，减少重复下载与重复冷启动成本。
 
 ---
 
