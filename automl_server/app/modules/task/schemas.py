@@ -71,6 +71,25 @@ class BaseModelResponse(BaseModel):
         from_attributes = True
 
 
+class TrainingHistoryQuery(BaseModel):
+    task_type: int = Field(default=0, description="0=检测, 1=分类, 2=分割, 3=姿态")
+    sources: List[TaskSourceItem] = Field(default_factory=list)
+    label_format: Optional[Literal["auto", "bbox", "obb"]] = None
+
+
+class TrainingHistoryCandidateResponse(BaseModel):
+    model_id: int
+    task_id: int
+    model_name: str
+    model_path: Optional[str] = None
+    model_type: Optional[str] = None
+    base_model_name: Optional[str] = None
+    dataset_id: Optional[int] = None
+    annotation_id: Optional[int] = None
+    source_count: int = 0
+    created_at: datetime
+
+
 class TrainingAugmentationConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -121,6 +140,8 @@ class TaskConfigPayload(BaseModel):
     export_onnx: bool = False
     onnx_dynamic: bool = False
     onnx_simplify: bool = False
+    dataset_cache_mode: Literal["off", "reuse", "refresh"] = "off"
+    resume_model_id: Optional[int] = None
     augmentation: Optional[TrainingAugmentationConfig] = None
     optimizer_config: Optional[TrainingOptimizerConfig] = None
 

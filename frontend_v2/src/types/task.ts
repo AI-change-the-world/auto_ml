@@ -31,8 +31,29 @@ export interface TrainingConfigPayload {
   export_onnx?: boolean;
   onnx_dynamic?: boolean;
   onnx_simplify?: boolean;
+  dataset_cache_mode?: 'off' | 'reuse' | 'refresh';
+  resume_model_id?: number;
   augmentation?: TrainingAugmentationConfig;
   optimizer_config?: TrainingOptimizerConfig;
+}
+
+export interface TrainingHistoryQuery {
+  task_type: number;
+  sources: TaskSourceItem[];
+  label_format?: 'auto' | 'bbox' | 'obb';
+}
+
+export interface TrainingHistoryCandidateResponse {
+  model_id: number;
+  task_id: number;
+  model_name: string;
+  model_path: string | null;
+  model_type: string | null;
+  base_model_name: string | null;
+  dataset_id: number | null;
+  annotation_id: number | null;
+  source_count: number;
+  created_at: string;
 }
 
 export interface TrainingAugmentationConfig {

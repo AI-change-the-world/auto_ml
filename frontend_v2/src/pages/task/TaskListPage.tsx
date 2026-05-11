@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { message, Spin, Modal, Select, InputNumber, Switch, Tooltip, Collapse } from 'antd';
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask } from '../../api/task';
+import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask, getTrainingHistoryCandidates } from '../../api/task';
 import { subscribeTaskStream } from '../../api/taskStream';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
@@ -18,6 +18,7 @@ import type {
   TrainingOptimizerConfig,
   TaskSourceItem,
   TaskSourceResponse,
+  TrainingHistoryCandidateResponse,
 } from '../../types/task';
 import type { Dataset } from '../../types/dataset';
 import { AnnotationType, type AnnotationProject } from '../../types/annotation';
@@ -44,6 +45,7 @@ const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
   device: 'cpu',
   label_format: 'bbox',
   export_onnx: false,
+  dataset_cache_mode: 'off',
   augmentation: {
     enabled: true,
     degrees: 0,
@@ -115,6 +117,8 @@ const TaskListPage: React.FC = () => {
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
   const [baseModels, setBaseModels] = useState<BaseModelResponse[]>([]);
   const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
+  const [historyCandidates, setHistoryCandidates] = useState<TrainingHistoryCandidateResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [form, setForm] = useState<{
     task_type: number;
     sources: TaskSourceItem[];
@@ -216,6 +220,7 @@ const TaskListPage: React.FC = () => {
 
   const openCreate = async () => {
     setCreateOpen(true);
+    setHistoryCandidates([]);
     try {
       const [d, a, b] = await Promise.all([listDatasets(1, 100), listAnnotations(1, 100), getBaseModels()]);
       if (d) setDatasets(d.items);
@@ -253,6 +258,7 @@ const TaskListPage: React.FC = () => {
         detection_mode: 'bbox',
         train_config: DEFAULT_TRAIN_CONFIG,
       });
+      setHistoryCandidates([]);
       fetchTasks();
     } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
@@ -314,6 +320,9 @@ const TaskListPage: React.FC = () => {
     (model) => (model.save_path || model.name) === form.train_config.name,
   ) || null;
   const selectedTrainingEngine = selectedBaseModel ? resolveTrainingEngine(selectedBaseModel) : null;
+  const selectedResumeModel = historyCandidates.find(
+    (item) => item.model_id === form.train_config.resume_model_id,
+  ) || null;
   const getSourceDisplayName = useCallback((source: TaskSourceResponse) => (
     source.source_name?.trim()
     || t('sourceFallbackName', {
@@ -403,9 +412,11 @@ const TaskListPage: React.FC = () => {
       train_config: {
         ...prev.train_config,
         name: '',
+        resume_model_id: undefined,
         label_format: taskType === 0 ? prev.detection_mode : undefined,
       },
     }));
+    setHistoryCandidates([]);
   };
 
   const handleDetectionModeChange = (mode: DetectionMode) => {
@@ -415,9 +426,11 @@ const TaskListPage: React.FC = () => {
       train_config: {
         ...prev.train_config,
         name: '',
+        resume_model_id: undefined,
         label_format: mode,
       },
     }));
+    setHistoryCandidates([]);
   };
 
   const addSource = () => {
@@ -451,6 +464,51 @@ const TaskListPage: React.FC = () => {
     }));
   };
 
+  const fetchHistoryCandidates = useCallback(async () => {
+    const readySources = form.sources.filter((source) => source.dataset_id && source.annotation_id);
+    if (readySources.length === 0 || readySources.length !== form.sources.length) {
+      setHistoryCandidates([]);
+      return;
+    }
+    setHistoryLoading(true);
+    try {
+      const result = await getTrainingHistoryCandidates({
+        task_type: form.task_type,
+        sources: readySources,
+        label_format: form.task_type === 0 ? form.detection_mode : undefined,
+      });
+      setHistoryCandidates(result || []);
+      setForm((prev) => {
+        const resumeModelId = prev.train_config.resume_model_id;
+        if (!resumeModelId) {
+          return prev;
+        }
+        const exists = (result || []).some((item) => item.model_id === resumeModelId);
+        if (exists) {
+          return prev;
+        }
+        return {
+          ...prev,
+          train_config: {
+            ...prev.train_config,
+            resume_model_id: undefined,
+          },
+        };
+      });
+    } catch {
+      setHistoryCandidates([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [form.sources, form.task_type, form.detection_mode]);
+
+  useEffect(() => {
+    if (!createOpen) {
+      return;
+    }
+    void fetchHistoryCandidates();
+  }, [createOpen, fetchHistoryCandidates]);
+
   const getAnnotationOptions = (datasetId?: number) => (
     annotations
       .filter((annotation) => (
@@ -464,6 +522,10 @@ const TaskListPage: React.FC = () => {
   const optimizerConfig = form.train_config.optimizer_config || DEFAULT_TRAIN_CONFIG.optimizer_config!;
   const showDetectionAugmentation = form.task_type === 0 || form.task_type === 2;
   const showClassificationAugmentation = form.task_type === 1;
+  const historyOptions = historyCandidates.map((item) => ({
+    label: `${item.model_name} · ${dayjs(item.created_at).format('MM-DD HH:mm')}`,
+    value: item.model_id,
+  }));
 
   return (
     <div className="page-container">
@@ -733,6 +795,57 @@ const TaskListPage: React.FC = () => {
               showSearch
               optionFilterProp="label"
             />
+          </div>
+          <div style={{ padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: 10, background: '#fafafa', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                  {renderParameterLabel(t('datasetCacheMode'), t('datasetCacheModeDesc'))}
+                </label>
+                <Select
+                  style={{ width: '100%' }}
+                  value={form.train_config.dataset_cache_mode || 'off'}
+                  onChange={(value) => updateTrainConfig('dataset_cache_mode', value)}
+                  options={[
+                    { label: t('datasetCacheOff'), value: 'off' },
+                    { label: t('datasetCacheReuse'), value: 'reuse' },
+                    { label: t('datasetCacheRefresh'), value: 'refresh' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                  {renderParameterLabel(t('resumeTrainingModel'), t('resumeTrainingModelDesc'))}
+                </label>
+                <Select
+                  allowClear
+                  style={{ width: '100%' }}
+                  loading={historyLoading}
+                  placeholder={historyCandidates.length > 0 ? t('selectResumeTrainingModel') : t('resumeTrainingEmpty')}
+                  value={form.train_config.resume_model_id}
+                  onChange={(value) => updateTrainConfig('resume_model_id', value)}
+                  options={historyOptions}
+                  disabled={historyCandidates.length === 0}
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </div>
+            </div>
+            <div className="caption-text" style={{ color: '#6b7280' }}>
+              {selectedResumeModel
+                ? t('resumeTrainingSelected', {
+                  model: selectedResumeModel.model_name,
+                  time: dayjs(selectedResumeModel.created_at).format('YYYY-MM-DD HH:mm'),
+                })
+                : historyCandidates.length > 0
+                  ? t('resumeTrainingHint', { count: historyCandidates.length })
+                  : t('resumeTrainingEmptyHint')}
+            </div>
+            {selectedResumeModel && (
+              <div className="caption-text" style={{ color: '#9ca3af' }}>
+                {t('resumeTrainingPriorityHint')}
+              </div>
+            )}
           </div>
           {selectedTrainingEngine ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

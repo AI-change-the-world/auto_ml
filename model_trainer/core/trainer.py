@@ -15,13 +15,18 @@ from ultralytics import YOLO
 from ultralytics.engine.trainer import BaseTrainer
 
 from core.dataset import (
+    build_training_cache_key,
     cleanup_temp_dir,
+    clone_cached_dataset,
+    finalize_training_cache,
+    load_materialized_training_dataset,
     materialize_training_manifest,
+    prepare_training_cache_dir,
     prepare_classification_dataset,
     prepare_detection_dataset,
     prepare_segmentation_dataset,
 )
-from utils.config import get_s3_config, upload_to_s3
+from utils.config import download_from_s3, get_s3_config, upload_to_s3
 from utils.logger import logger
 from utils.mq import (
     TaskStatus,
@@ -32,6 +37,8 @@ from utils.mq import (
 
 SERVICE_NAME = "model-trainer"
 DEFAULT_BASE_MODEL_DIR = "./base_model"
+DEFAULT_TRAIN_CACHE_ROOT = "./runs/cache/datasets"
+DEFAULT_MODEL_CACHE_DIR = "./runs/cache/models"
 
 
 class TaskCancelledError(RuntimeError):
@@ -116,6 +123,103 @@ def _trained_model_name(model_name: str, task_kind: str, task_id: int) -> str:
 
 def _segmentation_task_kind() -> str:
     return "segmentation"
+
+
+def _resolve_dataset_cache_mode(task_config: Dict[str, Any]) -> str:
+    value = str(task_config.get("dataset_cache_mode", "off") or "off").strip().lower()
+    if value in {"reuse", "refresh"}:
+        return value
+    return "off"
+
+
+def _ensure_dir(path: str) -> str:
+    resolved = os.path.abspath(path)
+    os.makedirs(resolved, exist_ok=True)
+    return resolved
+
+
+def _resolve_resume_model(task_config: Dict[str, Any]) -> Optional[dict[str, Any]]:
+    resume_model = task_config.get("resume_model")
+    return resume_model if isinstance(resume_model, dict) else None
+
+
+def _resolve_model_name(task_config: Dict[str, Any], default_name: str) -> str:
+    resume_model = _resolve_resume_model(task_config)
+    if resume_model and resume_model.get("save_path"):
+        return str(resume_model["save_path"])
+    return str(task_config.get("name", default_name) or default_name)
+
+
+def _resolve_resume_display_name(task_config: Dict[str, Any], model_name: str) -> str:
+    resume_model = _resolve_resume_model(task_config)
+    if resume_model and resume_model.get("model_name"):
+        return str(resume_model["model_name"])
+    return model_name
+
+
+def _download_resume_model_to_local(task_config: Dict[str, Any]) -> Optional[str]:
+    resume_model = _resolve_resume_model(task_config)
+    if not resume_model:
+        return None
+
+    save_path = str(resume_model.get("save_path") or "").strip()
+    if not save_path:
+        return None
+
+    model_cache_dir = _ensure_dir(os.getenv("TRAINER_MODEL_CACHE_DIR", DEFAULT_MODEL_CACHE_DIR))
+    model_id = int(resume_model.get("model_id") or 0)
+    target_name = f"resume_model_{model_id or Path(save_path).stem}.pt"
+    local_path = os.path.join(model_cache_dir, target_name)
+    if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
+        return local_path
+
+    cfg = get_s3_config()
+    download_from_s3(save_path, local_path, cfg.models_bucket_name)
+    return local_path
+
+
+def _resolve_runtime_model_path(task_config: Dict[str, Any], default_name: str) -> str:
+    local_resume_model = _download_resume_model_to_local(task_config)
+    if local_resume_model:
+        return local_resume_model
+    return _resolve_model_name(task_config, default_name)
+
+
+def _prepare_cached_materialized_dataset(
+    *,
+    sources: Optional[List[Dict[str, Any]]],
+    task_type: str,
+    classes: List[str],
+    task_config: Dict[str, Any],
+    label_format: Optional[str] = None,
+) -> tuple[Any, Optional[Any], bool]:
+    cache_mode = _resolve_dataset_cache_mode(task_config)
+    cache_root = os.getenv("TRAINER_DATASET_CACHE_ROOT", DEFAULT_TRAIN_CACHE_ROOT)
+    if cache_mode == "off":
+        materialized = materialize_training_manifest(sources or [], task_type, classes)
+        return materialized, None, False
+
+    cache_key = build_training_cache_key(
+        task_type=task_type,
+        sources=sources or [],
+        class_names=classes,
+        label_format=label_format,
+    )
+    cache = prepare_training_cache_dir(cache_key, cache_root=cache_root)
+    if cache_mode == "refresh" and os.path.isdir(cache.cache_dir):
+        cleanup_temp_dir(cache.cache_dir)
+        cache.hit = False
+
+    if cache.hit:
+        cloned_dir = clone_cached_dataset(
+            cache.cache_dir,
+            prefix=f"manifest_{task_type}_cached_",
+        )
+        return load_materialized_training_dataset(cloned_dir), cache, True
+
+    materialized = materialize_training_manifest(sources or [], task_type, classes)
+    finalize_training_cache(cache=cache, source_dir=materialized.root_dir)
+    return materialized, cache, False
 
 
 def _resolve_augmentation_kwargs(
@@ -403,6 +507,7 @@ def _train_detection_model(
     """内部函数：训练目标检测模型"""
     temp_folder = None
     train_dir = None
+    cache_hit = False
 
     try:
         # 更新任务状态为进行中
@@ -413,14 +518,33 @@ def _train_detection_model(
 
         publish_task_log(
             task_id, "[pre-train] Materializing samples from training manifest...", SERVICE_NAME)
-        materialized = materialize_training_manifest(sources or [], "detection", classes)
-        temp_folder = materialized.root_dir
-
-        model_name = task_config.get("name", "yolo11n.pt")
         requested_label_format = task_config.get(
             "label_format",
             task_config.get("train_format", "auto"),
         )
+        materialized, _, cache_hit = _prepare_cached_materialized_dataset(
+            sources=sources,
+            task_type="detection",
+            classes=classes,
+            task_config=task_config,
+            label_format=requested_label_format,
+        )
+        temp_folder = materialized.root_dir
+        publish_task_log(
+            task_id,
+            f"[pre-train] Dataset cache: mode={_resolve_dataset_cache_mode(task_config)}, hit={'yes' if cache_hit else 'no'}",
+            SERVICE_NAME,
+        )
+
+        model_name = _resolve_model_name(task_config, "yolo11n.pt")
+        runtime_model_path = _resolve_runtime_model_path(task_config, "yolo11n.pt")
+        resume_display_name = _resolve_resume_display_name(task_config, model_name)
+        if runtime_model_path != model_name:
+            publish_task_log(
+                task_id,
+                f"[pre-train] Resume training from previous model: {resume_display_name}",
+                SERVICE_NAME,
+            )
 
         # 准备训练数据
         publish_task_log(
@@ -462,8 +586,8 @@ def _train_detection_model(
         batch = int(train_kwargs["batch"])
 
         publish_task_log(
-            task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
-        model = _load_yolo_model(model_name)
+            task_id, f"[pre-train] Loading model {resume_display_name}...", SERVICE_NAME)
+        model = _load_yolo_model(runtime_model_path)
 
         # 添加回调
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
@@ -528,9 +652,9 @@ def _train_detection_model(
             "save_path": pt_name,
             "onnx_save_path": onnx_name,
             "class_names": classes,
-            "base_model_name": model_name,
+            "base_model_name": resume_display_name,
             "trained_model_name": _trained_model_name(
-                model_name,
+                resume_display_name,
                 _detection_task_kind(prepared_dataset.label_format),
                 task_id,
             ),
@@ -576,6 +700,7 @@ def _train_classification_model(
     temp_folder = None
     train_dir = None
     classes = task_config.get("classes") or []
+    cache_hit = False
 
     try:
         # 更新任务状态为进行中
@@ -586,9 +711,19 @@ def _train_classification_model(
 
         publish_task_log(
             task_id, "[pre-train] Materializing samples from training manifest...", SERVICE_NAME)
-        materialized = materialize_training_manifest(sources or [], "classification", classes)
+        materialized, _, cache_hit = _prepare_cached_materialized_dataset(
+            sources=sources,
+            task_type="classification",
+            classes=classes,
+            task_config=task_config,
+        )
         temp_folder = materialized.root_dir
         class_info = materialized.class_info
+        publish_task_log(
+            task_id,
+            f"[pre-train] Dataset cache: mode={_resolve_dataset_cache_mode(task_config)}, hit={'yes' if cache_hit else 'no'}",
+            SERVICE_NAME,
+        )
 
         # 准备训练数据
         publish_task_log(
@@ -602,7 +737,9 @@ def _train_classification_model(
         callback = TrainingCallback(task_id, cancel_event)
 
         # 加载模型并开始训练
-        model_name = task_config.get("name", "yolo11n-cls.pt")
+        model_name = _resolve_model_name(task_config, "yolo11n-cls.pt")
+        runtime_model_path = _resolve_runtime_model_path(task_config, "yolo11n-cls.pt")
+        resume_display_name = _resolve_resume_display_name(task_config, model_name)
         train_kwargs = _build_train_kwargs(
             task_type="classification",
             data=train_dir,
@@ -613,8 +750,14 @@ def _train_classification_model(
         batch = int(train_kwargs["batch"])
 
         publish_task_log(
-            task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
-        model = _load_yolo_model(model_name)
+            task_id, f"[pre-train] Loading model {resume_display_name}...", SERVICE_NAME)
+        if runtime_model_path != model_name:
+            publish_task_log(
+                task_id,
+                f"[pre-train] Resume training from previous model: {resume_display_name}",
+                SERVICE_NAME,
+            )
+        model = _load_yolo_model(runtime_model_path)
 
         # 添加回调
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
@@ -679,9 +822,9 @@ def _train_classification_model(
             "save_path": pt_name,
             "onnx_save_path": onnx_name,
             "class_names": classes,
-            "base_model_name": model_name,
+            "base_model_name": resume_display_name,
             "trained_model_name": _trained_model_name(
-                model_name,
+                resume_display_name,
                 "classification",
                 task_id,
             ),
@@ -725,16 +868,29 @@ def _train_segmentation_model(
 ):
     temp_folder = None
     train_dir = None
+    cache_hit = False
 
     try:
         publish_task_status(task_id, TaskStatus.RUNNING, SERVICE_NAME, "Starting segmentation training")
         publish_task_log(task_id, "[pre-train] Starting segmentation model training...", SERVICE_NAME)
 
         publish_task_log(task_id, "[pre-train] Materializing samples from training manifest...", SERVICE_NAME)
-        materialized = materialize_training_manifest(sources or [], "segmentation", classes)
+        materialized, _, cache_hit = _prepare_cached_materialized_dataset(
+            sources=sources,
+            task_type="segmentation",
+            classes=classes,
+            task_config=task_config,
+        )
         temp_folder = materialized.root_dir
+        publish_task_log(
+            task_id,
+            f"[pre-train] Dataset cache: mode={_resolve_dataset_cache_mode(task_config)}, hit={'yes' if cache_hit else 'no'}",
+            SERVICE_NAME,
+        )
 
-        model_name = task_config.get("name", "yolo11n-seg.pt")
+        model_name = _resolve_model_name(task_config, "yolo11n-seg.pt")
+        runtime_model_path = _resolve_runtime_model_path(task_config, "yolo11n-seg.pt")
+        resume_display_name = _resolve_resume_display_name(task_config, model_name)
 
         publish_task_log(task_id, "[pre-train] Preparing segmentation dataset...", SERVICE_NAME)
         prepared_dataset = prepare_segmentation_dataset(
@@ -754,8 +910,14 @@ def _train_segmentation_model(
         imgsz = int(train_kwargs["imgsz"])
         batch = int(train_kwargs["batch"])
 
-        publish_task_log(task_id, f"[pre-train] Loading model {model_name}...", SERVICE_NAME)
-        model = _load_yolo_model(model_name)
+        publish_task_log(task_id, f"[pre-train] Loading model {resume_display_name}...", SERVICE_NAME)
+        if runtime_model_path != model_name:
+            publish_task_log(
+                task_id,
+                f"[pre-train] Resume training from previous model: {resume_display_name}",
+                SERVICE_NAME,
+            )
+        model = _load_yolo_model(runtime_model_path)
         model.add_callback("on_train_epoch_end", callback.on_train_epoch_end)
         model.add_callback("on_train_end", callback.on_train_end)
         model.add_callback("on_train_batch_end", callback.on_train_batch_end)
@@ -810,9 +972,9 @@ def _train_segmentation_model(
             "save_path": pt_name,
             "onnx_save_path": onnx_name,
             "class_names": classes,
-            "base_model_name": model_name,
+            "base_model_name": resume_display_name,
             "trained_model_name": _trained_model_name(
-                model_name,
+                resume_display_name,
                 _segmentation_task_kind(),
                 task_id,
             ),
