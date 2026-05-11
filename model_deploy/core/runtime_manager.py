@@ -211,7 +211,7 @@ class RuntimeInstance:
         orig_width, orig_height = image.size
         input_tensor = self._preprocess(image, input_shape)
         outputs = session.run(None, {input_name: input_tensor})
-        return self._postprocess_detections(
+        return self._postprocess_outputs(
             outputs=outputs,
             input_shape=input_shape,
             orig_width=orig_width,
@@ -240,7 +240,7 @@ class RuntimeInstance:
             tile_width, tile_height = tile.size
             input_tensor = self._preprocess(tile, input_shape)
             outputs = session.run(None, {input_name: input_tensor})
-            tile_results = self._postprocess_detections(
+            tile_results = self._postprocess_outputs(
                 outputs=outputs,
                 input_shape=input_shape,
                 orig_width=tile_width,
@@ -256,6 +256,28 @@ class RuntimeInstance:
                 merged_results.append(global_item)
 
         return self._nms(merged_results, merge_iou)
+
+    def _postprocess_outputs(
+        self,
+        outputs: List[np.ndarray],
+        input_shape: List[Any],
+        orig_width: int,
+        orig_height: int,
+        conf_threshold: float = 0.25,
+        iou_threshold: float = 0.45,
+        apply_nms: bool = True,
+    ) -> List[Dict[str, Any]]:
+        if self.task_kind == "classification":
+            return self._postprocess_classification(outputs, conf_threshold=conf_threshold)
+        return self._postprocess_detections(
+            outputs=outputs,
+            input_shape=input_shape,
+            orig_width=orig_width,
+            orig_height=orig_height,
+            conf_threshold=conf_threshold,
+            iou_threshold=iou_threshold,
+            apply_nms=apply_nms,
+        )
 
     def _session_state(self) -> tuple[Any, Optional[str], List[Any]]:
         with self._lock:
@@ -366,6 +388,46 @@ class RuntimeInstance:
         confidence = float(class_scores[class_id])
         return class_id, confidence
 
+    def _postprocess_classification(
+        self,
+        outputs: List[np.ndarray],
+        conf_threshold: float = 0.25,
+    ) -> List[Dict[str, Any]]:
+        if not outputs:
+            return []
+
+        predictions = np.asarray(outputs[0])
+        if predictions.size == 0:
+            return []
+
+        if predictions.ndim == 0:
+            predictions = predictions.reshape(1)
+        if predictions.ndim > 1:
+            predictions = predictions[0]
+
+        predictions = predictions.astype(np.float32).reshape(-1)
+        if predictions.size == 0:
+            return []
+
+        class_id = int(np.argmax(predictions))
+        confidence = float(predictions[class_id])
+        if confidence < conf_threshold:
+            return []
+
+        class_name = (
+            self.class_names[class_id]
+            if 0 <= class_id < len(self.class_names)
+            else f"class_{class_id}"
+        )
+        return [
+            {
+                "type": "classification",
+                "class_id": class_id,
+                "class_name": class_name,
+                "confidence": confidence,
+            }
+        ]
+
     def _nms(self, detections: List[Dict[str, Any]], iou_threshold: float) -> List[Dict[str, Any]]:
         if not detections:
             return []
@@ -420,6 +482,8 @@ class RuntimeInstance:
         image_height: int,
         params: Dict[str, Any],
     ) -> bool:
+        if self.task_kind == "classification":
+            return False
         if params["inference_mode"] == "tile":
             return True
         if params["inference_mode"] == "direct":

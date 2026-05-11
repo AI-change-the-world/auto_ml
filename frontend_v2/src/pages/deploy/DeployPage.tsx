@@ -15,9 +15,15 @@ import {
   EditOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getDeploymentOverview, deployModel, undeployModel, predictModel, getDeployStatus, renameModel } from '../../api/deploy';
+import { getDeploymentOverview, deployModel, undeployModel, predictModel, getDeployStatus, renameModel, uploadOnnxModel } from '../../api/deploy';
 import { getClassColor } from '../../types';
-import type { DeploymentOverviewItem, InferenceDetectionResult, InferenceParams, InferencePredictResponse } from '../../types/deploy';
+import type {
+  DeploymentOverviewItem,
+  InferenceDetectionResult,
+  InferenceParams,
+  InferencePredictResponse,
+  OnnxIoTensorSignature,
+} from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
 import { getDeployConfirmEnabled } from '../../utils/localSettings';
 
@@ -37,6 +43,13 @@ type ApiEndpointInfo = {
   contentType?: string;
   body: string;
   curl: string;
+};
+
+type OnnxTemplateOption = {
+  label: string;
+  value: 'ultralytics_detection' | 'ultralytics_classification';
+  taskKind: string;
+  desc: string;
 };
 
 const DEPLOYMENTS_CHANGED_EVENT = 'automl:deployments-changed';
@@ -233,6 +246,13 @@ const DeployPage: React.FC = () => {
   const [renamingModel, setRenamingModel] = useState<DeploymentOverviewItem | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [renameSubmitting, setRenameSubmitting] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadSubmitting, setUploadSubmitting] = useState(false);
+  const [uploadName, setUploadName] = useState('');
+  const [uploadTemplate, setUploadTemplate] = useState<'ultralytics_detection' | 'ultralytics_classification'>('ultralytics_detection');
+  const [uploadClassNames, setUploadClassNames] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadedSignature, setUploadedSignature] = useState<{ input: OnnxIoTensorSignature[]; output: OnnxIoTensorSignature[] } | null>(null);
   const [testingModel, setTestingModel] = useState<DeploymentOverviewItem | null>(null);
   const [testingFile, setTestingFile] = useState<File | null>(null);
   const [inferenceMode, setInferenceMode] = useState<'direct' | 'tile'>('direct');
@@ -256,6 +276,24 @@ const DeployPage: React.FC = () => {
   const activeApiModel = useMemo(
     () => (activeApiModelId != null ? models.find((item) => item.model_id === activeApiModelId) ?? null : null),
     [activeApiModelId, models],
+  );
+  const onnxTemplateOptions = useMemo<OnnxTemplateOption[]>(() => ([
+    {
+      label: t('onnxTemplateDetection', { defaultValue: 'Ultralytics Detection' }),
+      value: 'ultralytics_detection',
+      taskKind: 'detection',
+      desc: t('onnxTemplateDetectionDesc', { defaultValue: '适用于 Ultralytics 导出的目标检测 ONNX。' }),
+    },
+    {
+      label: t('onnxTemplateClassification', { defaultValue: 'Ultralytics Classification' }),
+      value: 'ultralytics_classification',
+      taskKind: 'classification',
+      desc: t('onnxTemplateClassificationDesc', { defaultValue: '适用于 Ultralytics 导出的分类 ONNX。' }),
+    },
+  ]), [t]);
+  const activeUploadTemplate = useMemo(
+    () => onnxTemplateOptions.find((item) => item.value === uploadTemplate) ?? onnxTemplateOptions[0],
+    [onnxTemplateOptions, uploadTemplate],
   );
 
   useEffect(() => {
@@ -479,6 +517,49 @@ const DeployPage: React.FC = () => {
     }
   };
 
+  const resetUploadModal = useCallback(() => {
+    setUploadOpen(false);
+    setUploadSubmitting(false);
+    setUploadName('');
+    setUploadTemplate('ultralytics_detection');
+    setUploadClassNames('');
+    setUploadFile(null);
+    setUploadedSignature(null);
+  }, []);
+
+  const handleUploadSubmit = async () => {
+    const name = uploadName.trim();
+    if (!name) {
+      message.warning(t('uploadNameRequired', { defaultValue: '请先输入模型名称' }));
+      return;
+    }
+    if (!uploadFile) {
+      message.warning(t('uploadFileRequired', { defaultValue: '请先选择 ONNX 文件' }));
+      return;
+    }
+
+    setUploadSubmitting(true);
+    try {
+      const result = await uploadOnnxModel({
+        name,
+        template: uploadTemplate,
+        class_names: uploadClassNames,
+        file: uploadFile,
+      });
+      setUploadedSignature({
+        input: result.input_signature,
+        output: result.output_signature,
+      });
+      await fetchModels();
+      message.success(t('uploadSuccess', { defaultValue: 'ONNX 模型已上传' }));
+    } catch (error) {
+      message.error(extractErrorMessage(error, t('uploadFailed', { defaultValue: 'ONNX 模型上传失败' })));
+      return;
+    } finally {
+      setUploadSubmitting(false);
+    }
+  };
+
   const handleCopy = useCallback(async (content: string, successText: string) => {
     try {
       await navigator.clipboard.writeText(content);
@@ -578,6 +659,23 @@ const DeployPage: React.FC = () => {
           </div>
         </div>
         <button
+          onClick={() => setUploadOpen(true)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '8px 14px',
+            border: '1px solid #dbeafe',
+            borderRadius: 8,
+            background: '#eff6ff',
+            color: '#1d4ed8',
+            cursor: 'pointer',
+          }}
+          className="button-text"
+        >
+          <CloudUploadOutlined /> {t('uploadOnnx', { defaultValue: '上传 ONNX' })}
+        </button>
+        <button
           onClick={() => void fetchModels()}
           style={{
             display: 'inline-flex',
@@ -653,6 +751,11 @@ const DeployPage: React.FC = () => {
                       <EditOutlined /> {t('rename')}
                     </button>
                     {m.model_type && <span className="tag-text" style={{ padding: '1px 8px', background: '#f5f5f5', color: '#888', borderRadius: 999 }}>{m.model_type}</span>}
+                    {m.runtime_template && (
+                      <span className="tag-text" style={{ padding: '1px 8px', background: '#eff6ff', color: '#1d4ed8', borderRadius: 999 }}>
+                        {m.runtime_template}
+                      </span>
+                    )}
                     {m.is_deployed ? (
                       <span className="tag-text" style={{ padding: '1px 8px', background: '#f0fdf4', color: '#16a34a', borderRadius: 999, display: 'flex', alignItems: 'center', gap: 3 }}>
                         <CheckCircleOutlined style={{ fontSize: 10 }} /> {tc('status.deployed')}
@@ -1080,6 +1183,122 @@ const DeployPage: React.FC = () => {
           </div>
         )}
       </Drawer>
+
+      <Modal
+        open={uploadOpen}
+        onCancel={() => {
+          if (uploadSubmitting) return;
+          resetUploadModal();
+        }}
+        onOk={() => void handleUploadSubmit()}
+        confirmLoading={uploadSubmitting}
+        okText={uploadSubmitting ? t('uploading', { defaultValue: '上传中' }) : t('uploadOnnx', { defaultValue: '上传 ONNX' })}
+        width={760}
+        title={t('uploadOnnxTitle', { defaultValue: '上传 ONNX 模型' })}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+              <span>{t('uploadNameLabel', { defaultValue: '模型名称' })}</span>
+              <Input
+                value={uploadName}
+                onChange={(event) => setUploadName(event.target.value)}
+                placeholder={t('uploadNamePlaceholder', { defaultValue: '例如 defect_cls_v1' })}
+                maxLength={255}
+              />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+              <span>{t('uploadTemplateLabel', { defaultValue: '推理模板' })}</span>
+              <Select
+                value={uploadTemplate}
+                onChange={(value) => setUploadTemplate(value)}
+                options={onnxTemplateOptions.map((item) => ({
+                  label: item.label,
+                  value: item.value,
+                }))}
+              />
+            </label>
+          </div>
+
+          <div style={{ padding: '12px 14px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: 12, color: '#475569' }}>
+            <div style={{ fontWeight: 600, color: '#111827', marginBottom: 4 }}>{activeUploadTemplate?.label}</div>
+            <div>{activeUploadTemplate?.desc}</div>
+          </div>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#4b5563' }}>
+            <span>{t('uploadClassNamesLabel', { defaultValue: '类别列表 / Class Names' })}</span>
+            <Input.TextArea
+              value={uploadClassNames}
+              onChange={(event) => setUploadClassNames(event.target.value)}
+              placeholder={t('uploadClassNamesPlaceholder', { defaultValue: '可填 JSON 数组，或用逗号/换行分隔，例如 crack,scratch' })}
+              autoSize={{ minRows: 3, maxRows: 5 }}
+            />
+          </label>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 12, color: '#4b5563' }}>{t('uploadFileLabel', { defaultValue: 'ONNX 文件' })}</div>
+            <Upload
+              accept=".onnx"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                setUploadFile(file);
+                return false;
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 8,
+                  background: '#fff',
+                  color: '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                <CloudUploadOutlined /> {t('uploadSelectFile', { defaultValue: '选择 ONNX 文件' })}
+              </button>
+            </Upload>
+            <div style={{ minHeight: 20, fontSize: 12, color: uploadFile ? '#111827' : '#9ca3af' }}>
+              {uploadFile ? uploadFile.name : t('uploadFileRequired', { defaultValue: '请先选择 ONNX 文件' })}
+            </div>
+          </div>
+
+          {uploadedSignature && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px', background: '#fff' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', marginBottom: 8 }}>
+                  {t('uploadInputSignature', { defaultValue: '输入签名' })}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: '#4b5563' }}>
+                  {uploadedSignature.input.map((item) => (
+                    <div key={`input-${item.name}`}>
+                      <div style={{ color: '#111827', fontWeight: 600 }}>{item.name}</div>
+                      <div>{`${item.dtype || '?'} [${item.shape.join(', ')}]`}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px', background: '#fff' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#111827', marginBottom: 8 }}>
+                  {t('uploadOutputSignature', { defaultValue: '输出签名' })}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: '#4b5563' }}>
+                  {uploadedSignature.output.map((item) => (
+                    <div key={`output-${item.name}`}>
+                      <div style={{ color: '#111827', fontWeight: 600 }}>{item.name}</div>
+                      <div>{`${item.dtype || '?'} [${item.shape.join(', ')}]`}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={!!testingModel}

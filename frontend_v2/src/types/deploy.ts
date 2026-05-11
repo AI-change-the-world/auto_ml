@@ -12,6 +12,9 @@ export interface AvailableModelResponse {
   model_path: string | null;
   onnx_model_path: string | null;
   model_type: string | null;
+  runtime_template: string | null;
+  onnx_input_signature: string | null;
+  onnx_output_signature: string | null;
   dataset_id: number | null;
   task_id: number | null;
   loss: number | null;
@@ -103,6 +106,31 @@ export interface RenameModelRequest {
   name: string;
 }
 
+export interface OnnxIoTensorSignature {
+  name: string;
+  shape: string[];
+  dtype: string | null;
+}
+
+export interface UploadOnnxModelRequest {
+  name: string;
+  template: 'ultralytics_detection' | 'ultralytics_classification';
+  class_names: string;
+  file: File;
+}
+
+export interface UploadOnnxModelResponse {
+  id: number;
+  name: string | null;
+  onnx_model_path: string;
+  model_type: string;
+  runtime_template: string;
+  class_names: string[];
+  input_signature: OnnxIoTensorSignature[];
+  output_signature: OnnxIoTensorSignature[];
+  created_at: string;
+}
+
 export interface DeploymentRuntimeStatus {
   status: string;
   backend: string | null;
@@ -115,6 +143,7 @@ export interface DeploymentOverviewItem {
   model_id: number;
   model_name: string | null;
   model_type: string | null;
+  runtime_template?: string | null;
   task_id: number | null;
   dataset_id: number | null;
   deployment_id: string | null;

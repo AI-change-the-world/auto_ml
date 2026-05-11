@@ -113,6 +113,9 @@ export type {
   InferencePredictResponse,
   InferenceHealthResponse,
   RenameModelRequest,
+  OnnxIoTensorSignature,
+  UploadOnnxModelRequest,
+  UploadOnnxModelResponse,
 } from './deploy';
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';

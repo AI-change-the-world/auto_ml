@@ -14,7 +14,10 @@ class AvailableModel(BaseEntity):
     model_path = Column(String(512), nullable=True, comment="模型路径")
     onnx_model_path = Column(String(512), nullable=True, comment="ONNX模型路径")
     model_type = Column(String(50), nullable=True, comment="模型类型")
+    runtime_template = Column(String(64), nullable=True, comment="推理模板")
     class_names = Column(Text, nullable=True, comment="类别名称 JSON")
+    onnx_input_signature = Column(Text, nullable=True, comment="ONNX输入签名 JSON")
+    onnx_output_signature = Column(Text, nullable=True, comment="ONNX输出签名 JSON")
     dataset_id = Column(BigInteger, nullable=True,
                         index=True, comment="关联数据集ID")
     task_id = Column(BigInteger, nullable=True, index=True, comment="关联任务ID")
