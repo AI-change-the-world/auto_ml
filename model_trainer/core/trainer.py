@@ -135,11 +135,24 @@ def _resolve_augmentation_kwargs(
     if task_type == "classification":
         if not enabled:
             return {
+                "degrees": 0.0,
+                "translate": 0.0,
+                "scale": 0.0,
+                "shear": 0.0,
+                "perspective": 0.0,
+                "fliplr": 0.0,
+                "flipud": 0.0,
+                "hsv_h": 0.0,
+                "hsv_s": 0.0,
+                "hsv_v": 0.0,
                 "auto_augment": None,
                 "erasing": 0.0,
             }
 
         kwargs: Dict[str, Any] = {}
+        for key in ("degrees", "translate", "scale", "shear", "perspective", "fliplr", "flipud", "hsv_h", "hsv_s", "hsv_v"):
+            if key in augmentation and augmentation.get(key) is not None:
+                kwargs[key] = float(augmentation[key])
         if "auto_augment" in augmentation:
             auto_augment = augmentation.get("auto_augment")
             kwargs["auto_augment"] = None if auto_augment in {None, "", "none"} else auto_augment
@@ -149,6 +162,16 @@ def _resolve_augmentation_kwargs(
 
     if not enabled:
         return {
+            "degrees": 0.0,
+            "translate": 0.0,
+            "scale": 0.0,
+            "shear": 0.0,
+            "perspective": 0.0,
+            "fliplr": 0.0,
+            "flipud": 0.0,
+            "hsv_h": 0.0,
+            "hsv_s": 0.0,
+            "hsv_v": 0.0,
             "mosaic": 0.0,
             "mixup": 0.0,
             "copy_paste": 0.0,
@@ -156,6 +179,9 @@ def _resolve_augmentation_kwargs(
         }
 
     kwargs = {}
+    for key in ("degrees", "translate", "scale", "shear", "perspective", "fliplr", "flipud", "hsv_h", "hsv_s", "hsv_v"):
+        if key in augmentation and augmentation.get(key) is not None:
+            kwargs[key] = float(augmentation[key])
     for key in ("mosaic", "mixup", "copy_paste"):
         if key in augmentation and augmentation.get(key) is not None:
             kwargs[key] = float(augmentation[key])
@@ -176,18 +202,63 @@ def _build_train_kwargs(
         "batch": task_config.get("batch", 8),
         "device": task_config.get("device", "cpu"),
     }
+    train_kwargs.update(_resolve_optimizer_kwargs(task_config))
     train_kwargs.update(_resolve_augmentation_kwargs(task_type, task_config))
     return train_kwargs
 
 
 def _summarize_augmentation_kwargs(train_kwargs: Dict[str, Any]) -> str:
     keys = [
+        "degrees",
+        "translate",
+        "scale",
+        "shear",
+        "perspective",
+        "fliplr",
+        "flipud",
+        "hsv_h",
+        "hsv_s",
+        "hsv_v",
         "mosaic",
         "mixup",
         "copy_paste",
         "close_mosaic",
         "auto_augment",
         "erasing",
+    ]
+    parts = [f"{key}={train_kwargs[key]}" for key in keys if key in train_kwargs]
+    return ", ".join(parts) if parts else "default"
+
+
+def _resolve_optimizer_kwargs(task_config: Dict[str, Any]) -> Dict[str, Any]:
+    optimizer_config = task_config.get("optimizer_config")
+    if not isinstance(optimizer_config, dict):
+        return {}
+
+    kwargs: Dict[str, Any] = {}
+    if optimizer_config.get("optimizer"):
+        kwargs["optimizer"] = str(optimizer_config["optimizer"])
+    for key in ("patience",):
+        if optimizer_config.get(key) is not None:
+            kwargs[key] = int(optimizer_config[key])
+    for key in ("lr0", "lrf", "momentum", "weight_decay", "warmup_epochs"):
+        if optimizer_config.get(key) is not None:
+            kwargs[key] = float(optimizer_config[key])
+    if optimizer_config.get("cos_lr") is not None:
+        kwargs["cos_lr"] = bool(optimizer_config["cos_lr"])
+    return kwargs
+
+
+def _summarize_optimizer_kwargs(train_kwargs: Dict[str, Any]) -> str:
+    keys = [
+        "optimizer",
+        "patience",
+        "lr0",
+        "lrf",
+        "momentum",
+        "weight_decay",
+        "warmup_epochs",
+        "cos_lr",
     ]
     parts = [f"{key}={train_kwargs[key]}" for key in keys if key in train_kwargs]
     return ", ".join(parts) if parts else "default"
@@ -254,15 +325,56 @@ class TrainingCallback:
         if self.cancel_event is not None and self.cancel_event.is_set():
             raise TaskCancelledError("Training cancelled by user")
 
+    def _extract_epoch_metrics(self, trainer: BaseTrainer) -> Dict[str, Optional[float]]:
+        metrics_candidates: list[Dict[str, Any]] = []
+        trainer_metrics = getattr(trainer, "metrics", None)
+        if isinstance(trainer_metrics, dict):
+            metrics_candidates.append(trainer_metrics)
+
+        validator = getattr(trainer, "validator", None)
+        validator_metrics = getattr(validator, "metrics", None) if validator is not None else None
+        results_dict = getattr(validator_metrics, "results_dict", None) if validator_metrics is not None else None
+        if isinstance(results_dict, dict):
+            metrics_candidates.append(results_dict)
+
+        def _to_float(value: Any) -> Optional[float]:
+            if value is None:
+                return None
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        def _lookup(keys: List[str]) -> Optional[float]:
+            for metrics in metrics_candidates:
+                for key in keys:
+                    if key in metrics:
+                        converted = _to_float(metrics.get(key))
+                        if converted is not None:
+                            return converted
+            return None
+
+        return {
+            "precision": _lookup(["metrics/precision(B)", "precision", "P"]),
+            "recall": _lookup(["metrics/recall(B)", "recall", "R"]),
+            "mAP50": _lookup(["metrics/mAP50(B)", "mAP50", "map50"]),
+            "mAP50_95": _lookup(["metrics/mAP50-95(B)", "mAP50-95", "map", "map50-95"]),
+        }
+
     def on_train_epoch_end(self, trainer: BaseTrainer):
         """每个 epoch 结束时触发"""
         self._ensure_not_cancelled()
+        epoch_metrics = self._extract_epoch_metrics(trainer)
         task_info = {
             "type": "epoch",
             "epoch": trainer.epoch,
             "loss": str(trainer.loss),
             "tloss": str(trainer.tloss) if hasattr(trainer, 'tloss') else None,
-            "mAP": trainer.metrics.get("mAP50-95", 0.0) if hasattr(trainer, 'metrics') else 0.0,
+            "precision": epoch_metrics["precision"],
+            "recall": epoch_metrics["recall"],
+            "mAP50": epoch_metrics["mAP50"],
+            "mAP50_95": epoch_metrics["mAP50_95"],
+            "mAP": epoch_metrics["mAP50_95"] if epoch_metrics["mAP50_95"] is not None else epoch_metrics["mAP50"],
         }
         # 通过 MQ 发送日志
         publish_task_log(
@@ -369,6 +481,11 @@ def _train_detection_model(
         publish_task_log(
             task_id,
             f"[train] Augmentation: {_summarize_augmentation_kwargs(train_kwargs)}",
+            SERVICE_NAME,
+        )
+        publish_task_log(
+            task_id,
+            f"[train] Optimizer: {_summarize_optimizer_kwargs(train_kwargs)}",
             SERVICE_NAME,
         )
 
@@ -517,6 +634,11 @@ def _train_classification_model(
             f"[train] Augmentation: {_summarize_augmentation_kwargs(train_kwargs)}",
             SERVICE_NAME,
         )
+        publish_task_log(
+            task_id,
+            f"[train] Optimizer: {_summarize_optimizer_kwargs(train_kwargs)}",
+            SERVICE_NAME,
+        )
 
         # 开始训练
         model.train(**train_kwargs)
@@ -648,6 +770,11 @@ def _train_segmentation_model(
         publish_task_log(
             task_id,
             f"[train] Augmentation: {_summarize_augmentation_kwargs(train_kwargs)}",
+            SERVICE_NAME,
+        )
+        publish_task_log(
+            task_id,
+            f"[train] Optimizer: {_summarize_optimizer_kwargs(train_kwargs)}",
             SERVICE_NAME,
         )
         model.train(**train_kwargs)

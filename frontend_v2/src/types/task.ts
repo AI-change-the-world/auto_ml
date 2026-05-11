@@ -32,16 +32,38 @@ export interface TrainingConfigPayload {
   onnx_dynamic?: boolean;
   onnx_simplify?: boolean;
   augmentation?: TrainingAugmentationConfig;
+  optimizer_config?: TrainingOptimizerConfig;
 }
 
 export interface TrainingAugmentationConfig {
   enabled: boolean;
+  degrees?: number;
+  translate?: number;
+  scale?: number;
+  shear?: number;
+  perspective?: number;
+  fliplr?: number;
+  flipud?: number;
+  hsv_h?: number;
+  hsv_s?: number;
+  hsv_v?: number;
   mosaic?: number;
   mixup?: number;
   copy_paste?: number;
   close_mosaic?: number;
   auto_augment?: 'randaugment' | 'autoaugment' | 'augmix' | 'none';
   erasing?: number;
+}
+
+export interface TrainingOptimizerConfig {
+  optimizer?: 'auto' | 'SGD' | 'Adam' | 'AdamW' | 'Adamax' | 'NAdam' | 'RAdam' | 'RMSProp';
+  patience?: number;
+  lr0?: number;
+  lrf?: number;
+  momentum?: number;
+  weight_decay?: number;
+  warmup_epochs?: number;
+  cos_lr?: boolean;
 }
 
 /** 训练任务响应 */

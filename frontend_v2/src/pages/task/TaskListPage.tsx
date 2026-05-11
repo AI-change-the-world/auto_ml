@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Select, InputNumber, Switch, Divider } from 'antd';
-import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined } from '@ant-design/icons';
+import { message, Spin, Modal, Select, InputNumber, Switch, Tooltip, Collapse } from 'antd';
+import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask } from '../../api/task';
 import { subscribeTaskStream } from '../../api/taskStream';
@@ -15,6 +15,7 @@ import type {
   TaskStreamEnvelope,
   TrainingConfigPayload,
   TrainingAugmentationConfig,
+  TrainingOptimizerConfig,
   TaskSourceItem,
   TaskSourceResponse,
 } from '../../types/task';
@@ -33,6 +34,7 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
 };
 
 type DetectionMode = 'bbox' | 'obb';
+type TrainingEngine = 'ultralytics-yolo';
 
 const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
   name: '',
@@ -44,12 +46,32 @@ const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
   export_onnx: false,
   augmentation: {
     enabled: true,
+    degrees: 0,
+    translate: 0.1,
+    scale: 0.5,
+    shear: 0,
+    perspective: 0,
+    fliplr: 0.5,
+    flipud: 0,
+    hsv_h: 0.015,
+    hsv_s: 0.7,
+    hsv_v: 0.4,
     mosaic: 1,
     mixup: 0,
     copy_paste: 0,
     close_mosaic: 10,
     auto_augment: 'randaugment',
     erasing: 0.4,
+  },
+  optimizer_config: {
+    optimizer: 'auto',
+    patience: 100,
+    lr0: 0.01,
+    lrf: 0.01,
+    momentum: 0.937,
+    weight_decay: 0.0005,
+    warmup_epochs: 3,
+    cos_lr: false,
   },
 };
 
@@ -64,6 +86,19 @@ const getExpectedAnnotationType = (taskType: number) => (
         ? AnnotationType.Pose
         : AnnotationType.Detection
 );
+
+const renderParameterLabel = (label: string, description?: string) => (
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+    <span>{label}</span>
+    {description ? (
+      <Tooltip title={description}>
+        <InfoCircleOutlined style={{ color: '#9ca3af', fontSize: 13, cursor: 'help' }} />
+      </Tooltip>
+    ) : null}
+  </span>
+);
+
+const resolveTrainingEngine = (_baseModel?: BaseModelResponse | null): TrainingEngine => 'ultralytics-yolo';
 
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -275,6 +310,10 @@ const TaskListPage: React.FC = () => {
       ? model.model_type === 'detection_obb'
       : model.model_type === 'detection';
   });
+  const selectedBaseModel = availableBaseModels.find(
+    (model) => (model.save_path || model.name) === form.train_config.name,
+  ) || null;
+  const selectedTrainingEngine = selectedBaseModel ? resolveTrainingEngine(selectedBaseModel) : null;
   const getSourceDisplayName = useCallback((source: TaskSourceResponse) => (
     source.source_name?.trim()
     || t('sourceFallbackName', {
@@ -334,6 +373,22 @@ const TaskListPage: React.FC = () => {
         ...prev.train_config,
         augmentation: {
           ...(prev.train_config.augmentation || DEFAULT_TRAIN_CONFIG.augmentation!),
+          [key]: value,
+        },
+      },
+    }));
+  };
+
+  const updateOptimizerConfig = <K extends keyof TrainingOptimizerConfig>(
+    key: K,
+    value: TrainingOptimizerConfig[K],
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      train_config: {
+        ...prev.train_config,
+        optimizer_config: {
+          ...(prev.train_config.optimizer_config || DEFAULT_TRAIN_CONFIG.optimizer_config!),
           [key]: value,
         },
       },
@@ -406,6 +461,7 @@ const TaskListPage: React.FC = () => {
   );
 
   const augmentation = form.train_config.augmentation || DEFAULT_TRAIN_CONFIG.augmentation!;
+  const optimizerConfig = form.train_config.optimizer_config || DEFAULT_TRAIN_CONFIG.optimizer_config!;
   const showDetectionAugmentation = form.task_type === 0 || form.task_type === 2;
   const showClassificationAugmentation = form.task_type === 1;
 
@@ -544,8 +600,18 @@ const TaskListPage: React.FC = () => {
 
       <div className="body-text-sm" style={{ marginTop: 16, color: '#bbb', textAlign: 'center' }}>{t('totalTasks', { count: total })}</div>
 
-      <Modal title={<span className="modal-title">{t('createTitle')}</span>} open={createOpen} onOk={handleCreate} onCancel={() => setCreateOpen(false)} confirmLoading={creating} okText={tc('action.create')} cancelText={tc('action.cancel')}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+      <Modal
+        title={<span className="modal-title">{t('createTitle')}</span>}
+        open={createOpen}
+        onOk={handleCreate}
+        onCancel={() => setCreateOpen(false)}
+        confirmLoading={creating}
+        okText={tc('action.create')}
+        cancelText={tc('action.cancel')}
+        width={760}
+        styles={{ body: { maxHeight: '72vh', overflowY: 'auto', paddingTop: 16 } }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
             <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('taskType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -652,7 +718,9 @@ const TaskListPage: React.FC = () => {
             <div className="caption-text" style={{ color: '#999' }}>{t('posePlaceholder')}</div>
           )}
           <div>
-            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('baseModel')}</label>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+              {renderParameterLabel(t('baseModel'), t('baseModelDesc'))}
+            </label>
             <Select
               style={{ width: '100%' }}
               placeholder={t('selectBaseModel')}
@@ -666,137 +734,453 @@ const TaskListPage: React.FC = () => {
               optionFilterProp="label"
             />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-            <div>
-              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('epochs')}</label>
-              <InputNumber min={1} max={10000} value={form.train_config.epoch} onChange={(value) => updateTrainConfig('epoch', Number(value || 1))} style={{ width: '100%' }} />
-            </div>
-            <div>
-              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('batchSize')}</label>
-              <InputNumber min={1} max={1024} value={form.train_config.batch} onChange={(value) => updateTrainConfig('batch', Number(value || 1))} style={{ width: '100%' }} />
-            </div>
-            <div>
-              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('imageSize')}</label>
-              <InputNumber min={32} max={4096} step={32} value={form.train_config.size} onChange={(value) => updateTrainConfig('size', Number(value || 640))} style={{ width: '100%' }} />
-            </div>
-            <div>
-              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('device')}</label>
-              <Select
-                style={{ width: '100%' }}
-                value={form.train_config.device}
-                onChange={(value) => updateTrainConfig('device', value)}
-                options={[
-                  { label: 'CPU', value: 'cpu' },
-                  { label: 'CUDA', value: 'cuda' },
+          {selectedTrainingEngine ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ padding: '12px 14px', border: '1px solid #e5e7eb', borderRadius: 10, background: '#fafafa' }}>
+                <div className="form-label" style={{ marginBottom: 4 }}>{t('trainingEngine')}</div>
+                <div className="body-text-sm" style={{ color: '#111827', fontWeight: 500 }}>
+                  {t('trainingEngineUltralytics')}
+                </div>
+                <div className="caption-text" style={{ color: '#6b7280', marginTop: 4 }}>
+                  {t('trainingParamsReady', { engine: t('trainingEngineUltralytics') })}
+                </div>
+              </div>
+              <Collapse
+                bordered={false}
+                defaultActiveKey={['basic']}
+                items={[
+                  {
+                    key: 'basic',
+                    label: <span className="form-label">{t('basicTrainingParams')}</span>,
+                    children: (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                        <div>
+                          <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                            {renderParameterLabel(t('epochs'), t('epochsDesc'))}
+                          </label>
+                          <InputNumber min={1} max={10000} value={form.train_config.epoch} onChange={(value) => updateTrainConfig('epoch', Number(value || 1))} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                            {renderParameterLabel(t('batchSize'), t('batchSizeDesc'))}
+                          </label>
+                          <InputNumber min={1} max={1024} value={form.train_config.batch} onChange={(value) => updateTrainConfig('batch', Number(value || 1))} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                            {renderParameterLabel(t('imageSize'), t('imageSizeDesc'))}
+                          </label>
+                          <InputNumber min={32} max={4096} step={32} value={form.train_config.size} onChange={(value) => updateTrainConfig('size', Number(value || 640))} style={{ width: '100%' }} />
+                        </div>
+                        <div>
+                          <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                            {renderParameterLabel(t('device'), t('deviceDesc'))}
+                          </label>
+                          <Select
+                            style={{ width: '100%' }}
+                            value={form.train_config.device}
+                            onChange={(value) => updateTrainConfig('device', value)}
+                            options={[
+                              { label: 'CPU', value: 'cpu' },
+                              { label: 'CUDA', value: 'cuda' },
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'optimizer',
+                    label: <span className="form-label">{t('advancedOptimization')}</span>,
+                    children: (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div className="caption-text" style={{ color: '#999' }}>{t('optimizerHint')}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('optimizerName'), t('optimizerNameDesc'))}
+                            </label>
+                            <Select
+                              style={{ width: '100%' }}
+                              value={optimizerConfig.optimizer}
+                              onChange={(value) => updateOptimizerConfig('optimizer', value)}
+                              options={[
+                                { label: 'Auto', value: 'auto' },
+                                { label: 'SGD', value: 'SGD' },
+                                { label: 'Adam', value: 'Adam' },
+                                { label: 'AdamW', value: 'AdamW' },
+                                { label: 'Adamax', value: 'Adamax' },
+                                { label: 'NAdam', value: 'NAdam' },
+                                { label: 'RAdam', value: 'RAdam' },
+                                { label: 'RMSProp', value: 'RMSProp' },
+                              ]}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('patience'), t('patienceDesc'))}
+                            </label>
+                            <InputNumber
+                              min={0}
+                              max={100000}
+                              value={optimizerConfig.patience}
+                              onChange={(value) => updateOptimizerConfig('patience', Number(value ?? 100))}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('lr0'), t('lr0Desc'))}
+                            </label>
+                            <InputNumber
+                              min={0.000001}
+                              max={10}
+                              step={0.0001}
+                              value={optimizerConfig.lr0}
+                              onChange={(value) => updateOptimizerConfig('lr0', Number(value ?? 0.01))}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('lrf'), t('lrfDesc'))}
+                            </label>
+                            <InputNumber
+                              min={0}
+                              max={10}
+                              step={0.0001}
+                              value={optimizerConfig.lrf}
+                              onChange={(value) => updateOptimizerConfig('lrf', Number(value ?? 0.01))}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('momentum'), t('momentumDesc'))}
+                            </label>
+                            <InputNumber
+                              min={0}
+                              max={1}
+                              step={0.001}
+                              value={optimizerConfig.momentum}
+                              onChange={(value) => updateOptimizerConfig('momentum', Number(value ?? 0.937))}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('weightDecay'), t('weightDecayDesc'))}
+                            </label>
+                            <InputNumber
+                              min={0}
+                              max={1}
+                              step={0.0001}
+                              value={optimizerConfig.weight_decay}
+                              onChange={(value) => updateOptimizerConfig('weight_decay', Number(value ?? 0.0005))}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(t('warmupEpochs'), t('warmupEpochsDesc'))}
+                            </label>
+                            <InputNumber
+                              min={0}
+                              max={1000}
+                              step={0.5}
+                              value={optimizerConfig.warmup_epochs}
+                              onChange={(value) => updateOptimizerConfig('warmup_epochs', Number(value ?? 3))}
+                              style={{ width: '100%' }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 24 }}>
+                            <span className="form-label">{renderParameterLabel(t('cosineLr'), t('cosineLrDesc'))}</span>
+                            <Switch
+                              checked={Boolean(optimizerConfig.cos_lr)}
+                              onChange={(checked) => updateOptimizerConfig('cos_lr', checked)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'augmentation',
+                    label: <span className="form-label">{t('dataAugmentationSection')}</span>,
+                    children: (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                          <div className="caption-text" style={{ color: '#999' }}>{t('augmentationHint')}</div>
+                          <Switch
+                            checked={Boolean(augmentation.enabled)}
+                            onChange={(checked) => updateAugmentationConfig('enabled', checked)}
+                          />
+                        </div>
+                        {showDetectionAugmentation && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationDegrees'), t('augmentationDegreesDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={180}
+                                step={1}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.degrees}
+                                onChange={(value) => updateAugmentationConfig('degrees', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationTranslate'), t('augmentationTranslateDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.translate}
+                                onChange={(value) => updateAugmentationConfig('translate', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationScale'), t('augmentationScaleDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.scale}
+                                onChange={(value) => updateAugmentationConfig('scale', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationShear'), t('augmentationShearDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={180}
+                                step={1}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.shear}
+                                onChange={(value) => updateAugmentationConfig('shear', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationPerspective'), t('augmentationPerspectiveDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={0.001}
+                                step={0.0001}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.perspective}
+                                onChange={(value) => updateAugmentationConfig('perspective', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationFliplr'), t('augmentationFliplrDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.fliplr}
+                                onChange={(value) => updateAugmentationConfig('fliplr', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationFlipud'), t('augmentationFlipudDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.flipud}
+                                onChange={(value) => updateAugmentationConfig('flipud', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationHsvH'), t('augmentationHsvHDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.001}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.hsv_h}
+                                onChange={(value) => updateAugmentationConfig('hsv_h', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationHsvS'), t('augmentationHsvSDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.hsv_s}
+                                onChange={(value) => updateAugmentationConfig('hsv_s', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationHsvV'), t('augmentationHsvVDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.hsv_v}
+                                onChange={(value) => updateAugmentationConfig('hsv_v', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationMosaic'), t('augmentationMosaicDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.1}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.mosaic}
+                                onChange={(value) => updateAugmentationConfig('mosaic', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationMixup'), t('augmentationMixupDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.1}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.mixup}
+                                onChange={(value) => updateAugmentationConfig('mixup', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationCopyPaste'), t('augmentationCopyPasteDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.1}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.copy_paste}
+                                onChange={(value) => updateAugmentationConfig('copy_paste', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationCloseMosaic'), t('augmentationCloseMosaicDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={10000}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.close_mosaic}
+                                onChange={(value) => updateAugmentationConfig('close_mosaic', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {showClassificationAugmentation && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationAutoPolicy'), t('augmentationAutoPolicyDesc'))}
+                              </label>
+                              <Select
+                                style={{ width: '100%' }}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.auto_augment}
+                                onChange={(value) => updateAugmentationConfig('auto_augment', value)}
+                                options={[
+                                  { label: 'RandAugment', value: 'randaugment' },
+                                  { label: 'AutoAugment', value: 'autoaugment' },
+                                  { label: 'AugMix', value: 'augmix' },
+                                  { label: t('augmentationDisabledPolicy'), value: 'none' },
+                                ]}
+                              />
+                            </div>
+                            <div>
+                              <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                                {renderParameterLabel(t('augmentationErasing'), t('augmentationErasingDesc'))}
+                              </label>
+                              <InputNumber
+                                min={0}
+                                max={1}
+                                step={0.1}
+                                disabled={!augmentation.enabled}
+                                value={augmentation.erasing}
+                                onChange={(value) => updateAugmentationConfig('erasing', Number(value ?? 0))}
+                                style={{ width: '100%' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'export',
+                    label: <span className="form-label">{t('exportOptions')}</span>,
+                    children: (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '4px 0' }}>
+                        <div>
+                          <div className="form-label">{renderParameterLabel(t('exportOnnx'), t('exportOnnxDesc'))}</div>
+                          <div className="caption-text" style={{ color: '#999', marginTop: 2 }}>{t('exportOnnxHint')}</div>
+                        </div>
+                        <Switch
+                          checked={Boolean(form.train_config.export_onnx)}
+                          onChange={(checked) => updateTrainConfig('export_onnx', checked)}
+                        />
+                      </div>
+                    ),
+                  },
                 ]}
               />
             </div>
-          </div>
-          <Divider style={{ margin: '4px 0 0' }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <div className="form-label">{t('augmentationTitle')}</div>
-                <div className="caption-text" style={{ color: '#999', marginTop: 2 }}>{t('augmentationHint')}</div>
+          ) : (
+            <div style={{ padding: '16px 18px', border: '1px dashed #d1d5db', borderRadius: 10, background: '#fafafa' }}>
+              <div className="form-label" style={{ marginBottom: 6 }}>{t('trainingEngine')}</div>
+              <div className="body-text-sm" style={{ color: '#374151' }}>{t('trainingParamsPending')}</div>
+              <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>
+                {t('trainingEngineDesc')}
               </div>
-              <Switch
-                checked={Boolean(augmentation.enabled)}
-                onChange={(checked) => updateAugmentationConfig('enabled', checked)}
-              />
             </div>
-            {showDetectionAugmentation && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationMosaic')}</label>
-                  <InputNumber
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    disabled={!augmentation.enabled}
-                    value={augmentation.mosaic}
-                    onChange={(value) => updateAugmentationConfig('mosaic', Number(value ?? 0))}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationMixup')}</label>
-                  <InputNumber
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    disabled={!augmentation.enabled}
-                    value={augmentation.mixup}
-                    onChange={(value) => updateAugmentationConfig('mixup', Number(value ?? 0))}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationCopyPaste')}</label>
-                  <InputNumber
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    disabled={!augmentation.enabled}
-                    value={augmentation.copy_paste}
-                    onChange={(value) => updateAugmentationConfig('copy_paste', Number(value ?? 0))}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationCloseMosaic')}</label>
-                  <InputNumber
-                    min={0}
-                    max={10000}
-                    disabled={!augmentation.enabled}
-                    value={augmentation.close_mosaic}
-                    onChange={(value) => updateAugmentationConfig('close_mosaic', Number(value ?? 0))}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-            )}
-            {showClassificationAugmentation && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationAutoPolicy')}</label>
-                  <Select
-                    style={{ width: '100%' }}
-                    disabled={!augmentation.enabled}
-                    value={augmentation.auto_augment}
-                    onChange={(value) => updateAugmentationConfig('auto_augment', value)}
-                    options={[
-                      { label: 'RandAugment', value: 'randaugment' },
-                      { label: 'AutoAugment', value: 'autoaugment' },
-                      { label: 'AugMix', value: 'augmix' },
-                      { label: t('augmentationDisabledPolicy'), value: 'none' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('augmentationErasing')}</label>
-                  <InputNumber
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    disabled={!augmentation.enabled}
-                    value={augmentation.erasing}
-                    onChange={(value) => updateAugmentationConfig('erasing', Number(value ?? 0))}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', border: '1px solid #eee', borderRadius: 8 }}>
-            <div>
-              <div className="form-label">{t('exportOnnx')}</div>
-              <div className="caption-text" style={{ color: '#999', marginTop: 2 }}>{t('exportOnnxHint')}</div>
-            </div>
-            <Switch
-              checked={Boolean(form.train_config.export_onnx)}
-              onChange={(checked) => updateTrainConfig('export_onnx', checked)}
-            />
-          </div>
+          )}
         </div>
       </Modal>
     </div>
