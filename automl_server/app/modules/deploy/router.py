@@ -1,7 +1,7 @@
 """部署 API 路由"""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
@@ -13,6 +13,8 @@ from .schemas import (
     DeployStatusResponse,
     DeploymentOverviewResponse,
     ModelInferenceActivityResponse,
+    UploadOnnxModelRequest,
+    UploadOnnxModelResponse,
 )
 from .service import get_deploy_service, DeployService
 
@@ -73,6 +75,34 @@ async def rename_model(
 ):
     result = await service.rename_model(db, model_id, data)
     return Result.ok(result, "Model renamed")
+
+
+@router.post(
+    "/models/upload-onnx",
+    response_model=Result[UploadOnnxModelResponse],
+    summary="上传 ONNX 模型",
+)
+async def upload_onnx_model(
+    name: str = Form(...),
+    template: str = Form(...),
+    class_names: str = Form(default="[]"),
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    service: DeployService = Depends(get_deploy_service),
+):
+    data = UploadOnnxModelRequest(
+        name=name,
+        template=template,
+        class_names=class_names,
+    )
+    file_bytes = await file.read()
+    result = await service.upload_onnx_model(
+        db,
+        data=data,
+        file_name=file.filename or "model.onnx",
+        file_bytes=file_bytes,
+    )
+    return Result.ok(result, "ONNX model uploaded")
 
 
 @router.get("/{model_id}/status", response_model=Result[DeployStatusResponse], summary="获取部署状态")

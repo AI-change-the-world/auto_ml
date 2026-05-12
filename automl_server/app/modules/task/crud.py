@@ -1,8 +1,8 @@
 """任务 CRUD"""
 from typing import List, Optional
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Task, TaskLog, TaskSource, BaseModels
+from app.db.models import Task, TaskLog, TaskSource, BaseModels, AvailableModel
 
 
 async def create_task(db: AsyncSession, **kwargs) -> Task:
@@ -108,3 +108,56 @@ async def delete_task(db: AsyncSession, task_id: int) -> bool:
     )
     result = await db.execute(stmt)
     return result.rowcount > 0
+
+
+async def get_training_history_candidates(
+    db: AsyncSession,
+    *,
+    task_type: int,
+    source_pairs: list[tuple[int, int]],
+    model_types: list[str],
+) -> list[tuple[AvailableModel, int]]:
+    if not source_pairs or not model_types:
+        return []
+
+    expected_count = len(source_pairs)
+    source_match_case = case(
+        *[
+            (
+                and_(
+                    TaskSource.dataset_id == dataset_id,
+                    TaskSource.annotation_id == annotation_id,
+                ),
+                1,
+            )
+            for dataset_id, annotation_id in source_pairs
+        ],
+        else_=0,
+    )
+
+    stmt = (
+        select(
+            AvailableModel,
+            func.count(TaskSource.id).label("source_count"),
+        )
+        .join(Task, Task.id == AvailableModel.task_id)
+        .join(TaskSource, TaskSource.task_id == Task.id)
+        .where(
+            AvailableModel.is_deleted == False,
+            Task.is_deleted == False,
+            TaskSource.is_deleted == False,
+            Task.task_type == task_type,
+            Task.status == 3,
+            AvailableModel.model_type.in_(model_types),
+            AvailableModel.model_path.is_not(None),
+            AvailableModel.model_path != "",
+        )
+        .group_by(AvailableModel.id)
+        .having(
+            func.count(TaskSource.id) == expected_count,
+            func.sum(source_match_case) == expected_count,
+        )
+        .order_by(AvailableModel.created_at.desc(), AvailableModel.id.desc())
+    )
+    result = await db.execute(stmt)
+    return list(result.all())

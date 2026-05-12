@@ -39,6 +39,32 @@ async def update_model_name(
     return model
 
 
+async def create_uploaded_onnx_model(
+    db: AsyncSession,
+    *,
+    name: str,
+    onnx_model_path: str,
+    model_type: str,
+    runtime_template: str,
+    class_names: str | None,
+    onnx_input_signature: str | None,
+    onnx_output_signature: str | None,
+) -> AvailableModel:
+    model = AvailableModel(
+        name=name,
+        onnx_model_path=onnx_model_path,
+        model_type=model_type,
+        runtime_template=runtime_template,
+        class_names=class_names,
+        onnx_input_signature=onnx_input_signature,
+        onnx_output_signature=onnx_output_signature,
+    )
+    db.add(model)
+    await db.commit()
+    await db.refresh(model)
+    return model
+
+
 async def update_model_deployment_state(
     db: AsyncSession,
     model: AvailableModel,

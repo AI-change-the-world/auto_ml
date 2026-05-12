@@ -7,7 +7,15 @@ from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
-from .schemas import TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse
+from .schemas import (
+    TaskCreate,
+    TaskResponse,
+    TaskLogResponse,
+    BaseModelResponse,
+    TrainerStatusResponse,
+    TrainingHistoryCandidateResponse,
+    TrainingHistoryQuery,
+)
 from .service import get_task_service, TaskService
 from .stream import StreamEvent, get_task_stream_hub
 from .sse import create_sse_response
@@ -44,6 +52,16 @@ async def get_base_models(
 ):
     models = await service.get_base_models(db)
     return Result.ok(models)
+
+
+@router.post("/training-history", response_model=Result[list[TrainingHistoryCandidateResponse]], summary="查询历史训练候选")
+async def get_training_history(
+    data: TrainingHistoryQuery,
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    result = await service.get_training_history_candidates(db, data)
+    return Result.ok(result)
 
 
 @router.get("/trainer/status", response_model=Result[TrainerStatusResponse], summary="获取训练服务状态")

@@ -1,5 +1,15 @@
 import apiClient from './client';
-import type { Result, PageResult, TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse } from '../types';
+import type {
+  Result,
+  PageResult,
+  TaskCreate,
+  TaskResponse,
+  TaskLogResponse,
+  BaseModelResponse,
+  TrainerStatusResponse,
+  TrainingHistoryQuery,
+  TrainingHistoryCandidateResponse,
+} from '../types';
 
 /** 创建训练任务 */
 export async function createTrainTask(data: TaskCreate) {
@@ -32,6 +42,12 @@ export async function getTaskLogs(taskId: number, page = 1, pageSize = 100) {
 /** 获取基础模型列表 */
 export async function getBaseModels() {
   const res = await apiClient.get<Result<BaseModelResponse[]>>('/task/base-models');
+  return res.data.data;
+}
+
+/** 查询历史训练候选 */
+export async function getTrainingHistoryCandidates(data: TrainingHistoryQuery) {
+  const res = await apiClient.post<Result<TrainingHistoryCandidateResponse[]>>('/task/training-history', data);
   return res.data.data;
 }
 

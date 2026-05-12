@@ -1,7 +1,12 @@
 """部署服务 - 与 model_deploy 通信"""
+import io
 import json
 from datetime import datetime, timedelta
+from pathlib import PurePosixPath
 from typing import Any, List, Optional
+from uuid import uuid4
+
+import onnx
 from loguru import logger
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +14,7 @@ from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import ModelInferenceLog
 from app.utils.annotation_classes import parse_annotation_classes
+from app.utils.s3_delegate import get_s3_delegate
 from app.utils.http_client import HttpClient
 from . import crud
 from .schemas import (
@@ -24,6 +30,9 @@ from .schemas import (
     ModelInferenceActivityResponse,
     ModelInferenceLogResponse,
     ModelInferenceMetricsResponse,
+    OnnxIoTensorSignature,
+    UploadOnnxModelRequest,
+    UploadOnnxModelResponse,
 )
 
 
@@ -31,6 +40,7 @@ class DeployService:
     def __init__(self):
         settings = get_settings()
         self.deploy_url = settings.model_deploy.base_url
+        self.s3_delegate = get_s3_delegate()
         self.http_client = HttpClient(
             base_url=self.deploy_url,
             timeout=settings.model_deploy.timeout,
@@ -66,6 +76,7 @@ class DeployService:
                     model_id=item.id,
                     model_name=item.name,
                     model_type=item.model_type,
+                    runtime_template=getattr(item, "runtime_template", None),
                     task_id=item.task_id,
                     dataset_id=item.dataset_id,
                     deployment_id=self._string_or_none(
@@ -131,6 +142,7 @@ class DeployService:
 
         # 调用 model_deploy 服务
         try:
+            resolved_class_names = parse_annotation_classes(getattr(model, "class_names", None))
             deploy_request = {
                 "model_id": data.model_id,
                 "model_path": model.onnx_model_path,
@@ -139,8 +151,18 @@ class DeployService:
                 "backend": "onnxruntime",
                 "device": data.device,
                 "version": data.version,
-                "class_names": parse_annotation_classes(getattr(model, "class_names", None)),
+                "class_names": resolved_class_names,
             }
+            logger.info(
+                "Deploy request payload: "
+                f"model_id={data.model_id}, "
+                f"onnx_model_path={model.onnx_model_path}, "
+                f"model_type={model.model_type}, "
+                f"runtime_template={getattr(model, 'runtime_template', None)}, "
+                f"task_kind={deploy_request['task_kind']}, "
+                f"class_count={len(resolved_class_names)}, "
+                f"class_names={resolved_class_names}"
+            )
 
             response = await self.http_client.post("/deploy", json=deploy_request)
             if response.status_code != 200:
@@ -246,6 +268,59 @@ class DeployService:
         updated = await crud.update_model_name(db, model, name)
         return AvailableModelResponse.model_validate(updated)
 
+    async def upload_onnx_model(
+        self,
+        db: AsyncSession,
+        data: UploadOnnxModelRequest,
+        file_name: str,
+        file_bytes: bytes,
+    ) -> UploadOnnxModelResponse:
+        if not file_bytes:
+            raise BadRequestException("Uploaded ONNX file is empty")
+
+        suffix = PurePosixPath(file_name or "model.onnx").suffix.lower()
+        if suffix != ".onnx":
+            raise BadRequestException("Only .onnx files are supported")
+
+        input_signature, output_signature = self._inspect_onnx_signature(file_bytes)
+        object_key = self._build_uploaded_onnx_key(data.name, suffix)
+        await self.s3_delegate.put_file(
+            object_key,
+            file_bytes,
+            bucket_type="models",
+            content_type="application/octet-stream",
+        )
+
+        model_type = self._resolve_model_type_from_template(data.template)
+        class_names = parse_annotation_classes(data.class_names)
+        model = await crud.create_uploaded_onnx_model(
+            db,
+            name=data.name,
+            onnx_model_path=object_key,
+            model_type=model_type,
+            runtime_template=data.template,
+            class_names=json.dumps(class_names, ensure_ascii=False) if class_names else None,
+            onnx_input_signature=json.dumps(
+                [item.model_dump() for item in input_signature],
+                ensure_ascii=False,
+            ),
+            onnx_output_signature=json.dumps(
+                [item.model_dump() for item in output_signature],
+                ensure_ascii=False,
+            ),
+        )
+        return UploadOnnxModelResponse(
+            id=model.id,
+            name=model.name,
+            onnx_model_path=model.onnx_model_path or object_key,
+            model_type=model.model_type or model_type,
+            runtime_template=model.runtime_template or data.template,
+            class_names=class_names,
+            input_signature=input_signature,
+            output_signature=output_signature,
+            created_at=model.created_at,
+        )
+
     def _normalize_task_kind(self, model_type: str | None) -> str:
         if model_type in {"detection_obb", "classification", "segmentation"}:
             return model_type
@@ -320,6 +395,7 @@ class DeployService:
             model_id=model.id,
             model_name=model.name,
             model_type=model.model_type,
+            runtime_template=getattr(model, "runtime_template", None),
             task_id=model.task_id,
             dataset_id=model.dataset_id,
             deployment_id=self._string_or_none(
@@ -453,6 +529,61 @@ class DeployService:
         if value in (None, "", []):
             return None
         return str(value)
+
+    def _resolve_model_type_from_template(self, template: str) -> str:
+        if template == "ultralytics_classification":
+            return "classification"
+        return "detection"
+
+    def _build_uploaded_onnx_key(self, model_name: str, suffix: str) -> str:
+        normalized_name = "".join(
+            ch.lower() if ch.isalnum() else "_"
+            for ch in model_name.strip()
+        ).strip("_") or "onnx_model"
+        return f"uploads/onnx/{normalized_name}_{uuid4().hex[:12]}{suffix}"
+
+    def _inspect_onnx_signature(
+        self,
+        file_bytes: bytes,
+    ) -> tuple[list[OnnxIoTensorSignature], list[OnnxIoTensorSignature]]:
+        try:
+            model = onnx.load_model(io.BytesIO(file_bytes))
+        except Exception as exc:
+            raise BadRequestException(f"Invalid ONNX model: {exc}") from exc
+
+        graph = model.graph
+        input_names = {item.name for item in graph.initializer}
+        inputs = [
+            self._value_info_to_signature(item)
+            for item in graph.input
+            if item.name not in input_names
+        ]
+        outputs = [self._value_info_to_signature(item) for item in graph.output]
+        return inputs, outputs
+
+    def _value_info_to_signature(self, value_info) -> OnnxIoTensorSignature:
+        tensor_type = value_info.type.tensor_type
+        dims: list[str] = []
+        for dim in tensor_type.shape.dim:
+            if dim.dim_param:
+                dims.append(dim.dim_param)
+            elif dim.dim_value:
+                dims.append(str(dim.dim_value))
+            else:
+                dims.append("?")
+
+        dtype = None
+        if tensor_type.elem_type:
+            try:
+                dtype = onnx.TensorProto.DataType.Name(tensor_type.elem_type)
+            except Exception:
+                dtype = str(tensor_type.elem_type)
+
+        return OnnxIoTensorSignature(
+            name=value_info.name,
+            shape=dims,
+            dtype=dtype,
+        )
 
 
 def get_deploy_service() -> DeployService:

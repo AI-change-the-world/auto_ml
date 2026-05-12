@@ -31,17 +31,60 @@ export interface TrainingConfigPayload {
   export_onnx?: boolean;
   onnx_dynamic?: boolean;
   onnx_simplify?: boolean;
+  dataset_cache_mode?: 'off' | 'reuse' | 'refresh';
+  resume_model_id?: number;
   augmentation?: TrainingAugmentationConfig;
+  optimizer_config?: TrainingOptimizerConfig;
+}
+
+export interface TrainingHistoryQuery {
+  task_type: number;
+  sources: TaskSourceItem[];
+  label_format?: 'auto' | 'bbox' | 'obb';
+}
+
+export interface TrainingHistoryCandidateResponse {
+  model_id: number;
+  task_id: number;
+  model_name: string;
+  model_path: string | null;
+  model_type: string | null;
+  base_model_name: string | null;
+  dataset_id: number | null;
+  annotation_id: number | null;
+  source_count: number;
+  created_at: string;
 }
 
 export interface TrainingAugmentationConfig {
   enabled: boolean;
+  degrees?: number;
+  translate?: number;
+  scale?: number;
+  shear?: number;
+  perspective?: number;
+  fliplr?: number;
+  flipud?: number;
+  hsv_h?: number;
+  hsv_s?: number;
+  hsv_v?: number;
   mosaic?: number;
   mixup?: number;
   copy_paste?: number;
   close_mosaic?: number;
   auto_augment?: 'randaugment' | 'autoaugment' | 'augmix' | 'none';
   erasing?: number;
+}
+
+export interface TrainingOptimizerConfig {
+  optimizer?: 'auto' | 'SGD' | 'Adam' | 'AdamW' | 'Adamax' | 'NAdam' | 'RAdam' | 'RMSProp';
+  patience?: number;
+  lr0?: number;
+  lrf?: number;
+  momentum?: number;
+  weight_decay?: number;
+  warmup_epochs?: number;
+  cos_lr?: boolean;
 }
 
 /** 训练任务响应 */
@@ -120,6 +163,7 @@ export interface TrainerStatusResponse {
   max_concurrent: number;
   active_tasks: number;
   queued_tasks: number;
+  available_devices: string[];
   message: string | null;
 }
 

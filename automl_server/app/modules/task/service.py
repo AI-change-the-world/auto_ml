@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException, AppException
 from app.common.constants import TaskStatus, TaskType, AnnotationType, DataType
 from app.config.settings import get_settings
-from app.db.models import Dataset, Annotation, Asset, SampleItem, AnnotationRecord
+from app.db.models import Dataset, Annotation, Asset, SampleItem, AnnotationRecord, AvailableModel
 from app.mq.publisher import get_publisher
 from app.utils.annotation_classes import parse_annotation_classes
 from app.utils.annotation_record_storage import (
@@ -27,6 +27,8 @@ from .schemas import (
     TrainerStatusResponse,
     TaskSourceResponse,
     TaskConfigPayload,
+    TrainingHistoryCandidateResponse,
+    TrainingHistoryQuery,
 )
 
 STALE_TASK_STATUSES = {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.POST_PROCESS}
@@ -118,6 +120,7 @@ class TaskService:
             )
         except Exception as exc:
             raise BadRequestException(f"invalid task config: {exc}") from exc
+        normalized_config = await self._attach_resume_model(db, normalized_config, data.task_type)
         classes = primary_source["classes"]
         serialized_sources = [self._serialize_training_source(source) for source in resolved_sources]
         train_request = {
@@ -189,6 +192,45 @@ class TaskService:
         models = await crud.get_base_models(db)
         return [BaseModelResponse.model_validate(m) for m in models]
 
+    async def get_training_history_candidates(
+        self,
+        db: AsyncSession,
+        data: TrainingHistoryQuery,
+    ) -> List[TrainingHistoryCandidateResponse]:
+        if data.task_type == TaskType.POSE:
+            return []
+
+        source_pairs = self._normalize_source_pairs(data.sources)
+        if not source_pairs:
+            return []
+
+        model_types = self._resolve_history_model_types(
+            task_type=data.task_type,
+            label_format=data.label_format,
+        )
+        rows = await crud.get_training_history_candidates(
+            db,
+            task_type=data.task_type,
+            source_pairs=source_pairs,
+            model_types=model_types,
+        )
+        return [
+            TrainingHistoryCandidateResponse(
+                model_id=model.id,
+                task_id=model.task_id or 0,
+                model_name=model.name or model.model_path or "",
+                model_path=model.model_path,
+                model_type=model.model_type,
+                base_model_name=self._extract_base_model_name(model.name),
+                dataset_id=model.dataset_id,
+                annotation_id=source_pairs[0][1] if source_pairs else None,
+                source_count=int(source_count or 0),
+                created_at=model.created_at,
+            )
+            for model, source_count in rows
+            if model.task_id
+        ]
+
     async def delete_task(self, db: AsyncSession, task_id: int) -> bool:
         task = await crud.get_task_by_id(db, task_id)
         if not task:
@@ -218,6 +260,7 @@ class TaskService:
                 max_concurrent=int(payload.get("max_concurrent", 0) or 0),
                 active_tasks=int(payload.get("active_tasks", 0) or 0),
                 queued_tasks=int(payload.get("queued_tasks", 0) or 0),
+                available_devices=list(payload.get("available_devices") or ["cpu"]),
             )
         except Exception as e:
             logger.warning(f"Failed to fetch trainer status: {e}")
@@ -448,6 +491,93 @@ class TaskService:
         except Exception as e:
             logger.error(f"Failed to cancel trainer task {task_id}: {e}")
             raise BadRequestException(f"Trainer cancel unavailable: {e}")
+
+    async def _attach_resume_model(
+        self,
+        db: AsyncSession,
+        task_config: dict[str, Any],
+        task_type: int,
+    ) -> dict[str, Any]:
+        resume_model_id = task_config.get("resume_model_id")
+        if not resume_model_id:
+            return task_config
+
+        model = await db.scalar(
+            select(AvailableModel).where(
+                AvailableModel.id == int(resume_model_id),
+                AvailableModel.is_deleted == False,
+            )
+        )
+        if not model:
+            raise BadRequestException(f"resume model {resume_model_id} not found")
+        if not model.model_path:
+            raise BadRequestException(f"resume model {resume_model_id} has no model_path")
+
+        allowed_model_types = self._resolve_history_model_types(
+            task_type=task_type,
+            label_format=task_config.get("label_format"),
+        )
+        if allowed_model_types and model.model_type not in allowed_model_types:
+            raise BadRequestException(
+                f"resume model {resume_model_id} type mismatch: {model.model_type}"
+            )
+
+        next_config = dict(task_config)
+        next_config["resume_model"] = {
+            "model_id": model.id,
+            "task_id": model.task_id,
+            "model_name": model.name,
+            "save_path": model.model_path,
+            "model_type": model.model_type,
+        }
+        return next_config
+
+    def _normalize_source_pairs(self, sources: list[Any]) -> list[tuple[int, int]]:
+        pairs: list[tuple[int, int]] = []
+        seen: set[tuple[int, int]] = set()
+        for item in sources:
+            dataset_id = item.dataset_id if hasattr(item, "dataset_id") else item.get("dataset_id")
+            annotation_id = item.annotation_id if hasattr(item, "annotation_id") else item.get("annotation_id")
+            if not dataset_id or not annotation_id:
+                continue
+            pair = (int(dataset_id), int(annotation_id))
+            if pair in seen:
+                continue
+            seen.add(pair)
+            pairs.append(pair)
+        pairs.sort(key=lambda current: (current[0], current[1]))
+        return pairs
+
+    def _resolve_history_model_types(
+        self,
+        *,
+        task_type: int,
+        label_format: Optional[str],
+    ) -> list[str]:
+        if task_type == TaskType.CLASSIFICATION:
+            return ["classification"]
+        if task_type == TaskType.SEGMENTATION:
+            return ["segmentation"]
+        if task_type == TaskType.DETECTION:
+            normalized = (label_format or "auto").strip().lower()
+            if normalized == "obb":
+                return ["detection_obb"]
+            if normalized == "bbox":
+                return ["detection", "detection_bbox"]
+            return ["detection", "detection_bbox", "detection_obb"]
+        return []
+
+    def _extract_base_model_name(self, name: Optional[str]) -> Optional[str]:
+        if not name:
+            return None
+        prefix = name.split("-task-", 1)[0]
+        if "-detection_" in prefix:
+            return prefix.rsplit("-detection_", 1)[0]
+        if prefix.endswith("-classification"):
+            return prefix[: -len("-classification")]
+        if prefix.endswith("-segmentation"):
+            return prefix[: -len("-segmentation")]
+        return prefix or None
 
     async def _serialize_task(self, db: AsyncSession, task) -> TaskResponse:
         sources = await crud.get_task_sources(db, task.id)

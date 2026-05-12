@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 import random
 import shutil
@@ -39,10 +41,142 @@ class MaterializedTrainingDataset:
     samples: int = 0
 
 
+_MATERIALIZED_METADATA_FILE = "_manifest_meta.json"
+
+
+@dataclass
+class TrainingDatasetCache:
+    cache_key: str
+    cache_dir: str
+    hit: bool
+    created: bool = False
+
+
 def _ensure_temp_root(temp_root: str) -> str:
     resolved = os.path.abspath(temp_root)
     os.makedirs(resolved, exist_ok=True)
     return resolved
+
+
+def _copytree_replace(src: str, dst: str):
+    if os.path.exists(dst):
+        shutil.rmtree(dst)
+    shutil.copytree(src, dst)
+
+
+def _write_materialized_metadata(root_dir: str, class_info: Dict[str, str], samples: int):
+    metadata_path = os.path.join(root_dir, _MATERIALIZED_METADATA_FILE)
+    with open(metadata_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "class_info": class_info,
+                "samples": samples,
+            },
+            f,
+            ensure_ascii=False,
+        )
+
+
+def load_materialized_training_dataset(root_dir: str) -> MaterializedTrainingDataset:
+    metadata_path = os.path.join(root_dir, _MATERIALIZED_METADATA_FILE)
+    class_info: Dict[str, str] = {}
+    samples = 0
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if isinstance(payload, dict):
+            raw_class_info = payload.get("class_info")
+            if isinstance(raw_class_info, dict):
+                class_info = {
+                    str(key): str(value)
+                    for key, value in raw_class_info.items()
+                }
+            try:
+                samples = int(payload.get("samples") or 0)
+            except (TypeError, ValueError):
+                samples = 0
+    return MaterializedTrainingDataset(
+        root_dir=root_dir,
+        class_info=class_info,
+        samples=samples,
+    )
+
+
+def build_training_cache_key(
+    *,
+    task_type: str,
+    sources: List[Dict[str, object]],
+    class_names: Optional[List[str]] = None,
+    label_format: Optional[str] = None,
+) -> str:
+    normalized_sources: list[dict[str, object]] = []
+    for source in sources:
+        samples = source.get("samples") or []
+        sample_ids = []
+        if isinstance(samples, list):
+            for sample in samples:
+                if isinstance(sample, dict):
+                    sample_ids.append(int(sample.get("sample_item_id") or 0))
+        normalized_sources.append({
+            "dataset_id": int(source.get("dataset_id") or 0),
+            "annotation_id": int(source.get("annotation_id") or 0),
+            "source_order": int(source.get("source_order") or 0),
+            "sample_ids": sorted(sample_ids),
+        })
+
+    normalized_sources.sort(
+        key=lambda item: (
+            int(item["source_order"]),
+            int(item["dataset_id"]),
+            int(item["annotation_id"]),
+        )
+    )
+    payload = {
+        "task_type": task_type,
+        "label_format": (label_format or "").strip().lower(),
+        "class_names": class_names or [],
+        "sources": normalized_sources,
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def prepare_training_cache_dir(
+    cache_key: str,
+    cache_root: str = "./runs/cache/datasets",
+) -> TrainingDatasetCache:
+    resolved_root = _ensure_temp_root(cache_root)
+    cache_dir = os.path.join(resolved_root, cache_key)
+    hit = os.path.isdir(cache_dir)
+    return TrainingDatasetCache(
+        cache_key=cache_key,
+        cache_dir=cache_dir,
+        hit=hit,
+        created=False,
+    )
+
+
+def finalize_training_cache(
+    *,
+    cache: TrainingDatasetCache,
+    source_dir: str,
+):
+    os.makedirs(os.path.dirname(cache.cache_dir), exist_ok=True)
+    _copytree_replace(source_dir, cache.cache_dir)
+    cache.hit = True
+    cache.created = True
+
+
+def clone_cached_dataset(
+    cache_dir: str,
+    *,
+    prefix: str,
+    tmp_root: str = "./runs",
+) -> str:
+    tmp_root = _ensure_temp_root(tmp_root)
+    temp_dir = os.path.abspath(tempfile.mkdtemp(prefix=prefix, dir=tmp_root))
+    _copytree_replace(cache_dir, temp_dir)
+    return temp_dir
 
 
 def _clamp01(value: float) -> float:
@@ -226,6 +360,7 @@ def materialize_training_manifest(
             f"Materialized training manifest: task_type={task_type}, sources={len(sources)}, "
             f"samples={materialized_count}, root={root_dir}"
         )
+        _write_materialized_metadata(root_dir, class_info, materialized_count)
         return MaterializedTrainingDataset(
             root_dir=root_dir,
             class_info=class_info,

@@ -1,7 +1,8 @@
 """部署 Schema"""
+import json
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, field_validator
 
 
 class DeployRequest(BaseModel):
@@ -18,15 +19,36 @@ class RenameModelRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="模型名称")
 
 
+class OnnxIoTensorSignature(BaseModel):
+    name: str
+    shape: list[str]
+    dtype: Optional[str] = None
+
+
+class UploadOnnxModelResponse(BaseModel):
+    id: int
+    name: Optional[str]
+    onnx_model_path: str
+    model_type: str
+    runtime_template: str
+    class_names: list[str] = Field(default_factory=list)
+    input_signature: list[OnnxIoTensorSignature] = Field(default_factory=list)
+    output_signature: list[OnnxIoTensorSignature] = Field(default_factory=list)
+    created_at: datetime
+
+
 class AvailableModelResponse(BaseModel):
     id: int
     name: Optional[str]
     model_path: Optional[str]
     onnx_model_path: Optional[str]
     model_type: Optional[str]
+    runtime_template: Optional[str]
     dataset_id: Optional[int]
     task_id: Optional[int]
     loss: Optional[float]
+    onnx_input_signature: Optional[str]
+    onnx_output_signature: Optional[str]
     is_deployed: bool
     deployment_id: Optional[str]
     deployment_port: Optional[int]
@@ -63,6 +85,7 @@ class DeploymentOverviewItem(BaseModel):
     model_id: int
     model_name: Optional[str]
     model_type: Optional[str]
+    runtime_template: Optional[str]
     task_id: Optional[int]
     dataset_id: Optional[int]
     deployment_id: Optional[str]
@@ -125,3 +148,34 @@ class ModelInferenceActivityResponse(BaseModel):
 class DeploymentDetailResponse(BaseModel):
     item: DeploymentOverviewItem
     metrics: ModelInferenceMetricsResponse
+
+
+class UploadOnnxModelRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255, description="模型名称")
+    template: Literal["ultralytics_detection", "ultralytics_classification"] = Field(
+        ...,
+        description="推理模板",
+    )
+    class_names: str = Field(default="[]", description="类别名称 JSON 数组或分隔字符串")
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("name cannot be empty")
+        return normalized
+
+    @field_validator("class_names")
+    @classmethod
+    def normalize_class_names(cls, value: str) -> str:
+        text = (value or "").strip()
+        if not text:
+            return "[]"
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return json.dumps(parsed, ensure_ascii=False)
+        except Exception:
+            pass
+        return text

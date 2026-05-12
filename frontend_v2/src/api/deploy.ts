@@ -11,6 +11,8 @@ import type {
   DeploymentDetailResponse,
   DeploymentOverviewResponse,
   ModelInferenceActivityResponse,
+  UploadOnnxModelRequest,
+  UploadOnnxModelResponse,
 } from '../types';
 
 /** 获取可用模型列表 */
@@ -67,6 +69,19 @@ export async function predictModel(modelId: number, file: File, inferenceParams?
 /** 重命名模型 */
 export async function renameModel(modelId: number, data: RenameModelRequest) {
   const res = await apiClient.patch<Result<AvailableModelResponse>>(`/deploy/${modelId}/rename`, data);
+  return res.data.data;
+}
+
+/** 上传 ONNX 模型 */
+export async function uploadOnnxModel(data: UploadOnnxModelRequest) {
+  const formData = new FormData();
+  formData.append('name', data.name);
+  formData.append('template', data.template);
+  formData.append('class_names', data.class_names);
+  formData.append('file', data.file);
+  const res = await apiClient.post<Result<UploadOnnxModelResponse>>('/deploy/models/upload-onnx', formData, {
+    timeout: 120000,
+  });
   return res.data.data;
 }
 

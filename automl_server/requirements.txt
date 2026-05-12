@@ -27,6 +27,7 @@ pydantic>=2.5.0
 
 # 文件上传
 python-multipart>=0.0.22
+onnx>=1.16.0
 
 # 日志
 loguru>=0.7.0

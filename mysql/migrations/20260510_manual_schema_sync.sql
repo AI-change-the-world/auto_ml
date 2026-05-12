@@ -38,6 +38,39 @@ BEGIN
     FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME = 'available_model'
+      AND COLUMN_NAME = 'runtime_template'
+  ) THEN
+    ALTER TABLE `available_model`
+      ADD COLUMN `runtime_template` VARCHAR(64) DEFAULT NULL COMMENT '推理模板' AFTER `model_type`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'available_model'
+      AND COLUMN_NAME = 'onnx_input_signature'
+  ) THEN
+    ALTER TABLE `available_model`
+      ADD COLUMN `onnx_input_signature` TEXT DEFAULT NULL COMMENT 'ONNX输入签名 JSON' AFTER `class_names`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'available_model'
+      AND COLUMN_NAME = 'onnx_output_signature'
+  ) THEN
+    ALTER TABLE `available_model`
+      ADD COLUMN `onnx_output_signature` TEXT DEFAULT NULL COMMENT 'ONNX输出签名 JSON' AFTER `onnx_input_signature`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'available_model'
       AND COLUMN_NAME = 'deployed_at'
   ) THEN
     ALTER TABLE `available_model`

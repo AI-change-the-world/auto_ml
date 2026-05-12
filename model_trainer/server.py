@@ -363,6 +363,7 @@ class HealthResponse(BaseModel):
     max_concurrent: int
     active_tasks: int
     queued_tasks: int
+    available_devices: List[str] = Field(default_factory=lambda: ["cpu"])
 
 
 class CancelTaskResponse(BaseModel):
@@ -371,6 +372,20 @@ class CancelTaskResponse(BaseModel):
     state: str
     active_tasks: int
     queued_tasks: int
+
+
+def _detect_available_devices() -> List[str]:
+    devices = ["cpu"]
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            devices.append("cuda")
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            devices.append("mps")
+    except Exception as exc:
+        logger.warning(f"Failed to detect training devices: {exc}")
+    return devices
 
 
 # ============ API 端点 ============
@@ -403,6 +418,7 @@ async def health_check():
         max_concurrent=task_dispatcher.max_concurrent if task_dispatcher else 0,
         active_tasks=task_dispatcher.active_tasks if task_dispatcher else 0,
         queued_tasks=task_dispatcher.queued_tasks if task_dispatcher else 0,
+        available_devices=_detect_available_devices(),
     )
 
 

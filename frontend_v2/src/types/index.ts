@@ -83,7 +83,17 @@ export {
   isMllmConversationDataset,
 } from './dataset';
 export type { HomeStats } from './home';
-export type { TaskCreate, TaskResponse, TaskLogResponse, BaseModelResponse, TrainerStatusResponse, TaskStreamEnvelope, TrainingConfigPayload } from './task';
+export type {
+  TaskCreate,
+  TaskResponse,
+  TaskLogResponse,
+  BaseModelResponse,
+  TrainerStatusResponse,
+  TaskStreamEnvelope,
+  TrainingConfigPayload,
+  TrainingHistoryQuery,
+  TrainingHistoryCandidateResponse,
+} from './task';
 export { TaskStatus, TaskStatusLabels, TaskStatusColors } from './task';
 export type {
   DeployRequest,
@@ -103,6 +113,9 @@ export type {
   InferencePredictResponse,
   InferenceHealthResponse,
   RenameModelRequest,
+  OnnxIoTensorSignature,
+  UploadOnnxModelRequest,
+  UploadOnnxModelResponse,
 } from './deploy';
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
