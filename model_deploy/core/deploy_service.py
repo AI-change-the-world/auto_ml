@@ -248,7 +248,16 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            return instance.predict(image_data, inference_params=inference_params)
+            logger.info(
+                f"[predict-request] model_id={model_id}, mode=bytes, "
+                f"payload_bytes={len(image_data)}, params={inference_params or {}}"
+            )
+            result = instance.predict(image_data, inference_params=inference_params)
+            logger.info(
+                f"[predict-response] model_id={model_id}, success={result.get('success')}, "
+                f"result_count={len(result.get('results') or [])}, error={result.get('error')}"
+            )
+            return result
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}
@@ -268,7 +277,16 @@ class DeployService:
             return {"success": False, "error": f"Model {model_id} runtime not running"}
 
         try:
-            return instance.predict_base64(image_base64, inference_params=inference_params)
+            logger.info(
+                f"[predict-request] model_id={model_id}, mode=base64, "
+                f"payload_chars={len(image_base64 or '')}, params={inference_params or {}}"
+            )
+            result = instance.predict_base64(image_base64, inference_params=inference_params)
+            logger.info(
+                f"[predict-response] model_id={model_id}, success={result.get('success')}, "
+                f"result_count={len(result.get('results') or [])}, error={result.get('error')}"
+            )
+            return result
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}

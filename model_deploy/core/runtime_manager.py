@@ -10,6 +10,7 @@ import gc
 import io
 import math
 import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -77,7 +78,9 @@ class RuntimeInstance:
 
             logger.info(
                 f"Runtime session loaded: model_id={self.model_id}, "
-                f"device={self.device}, task_kind={self.task_kind}, providers={providers}"
+                f"device={self.device}, task_kind={self.task_kind}, providers={providers}, "
+                f"input_name={self.input_name}, input_shape={self.input_shape}, "
+                f"class_count={len(self.class_names)}"
             )
             return True
 
@@ -170,8 +173,14 @@ class RuntimeInstance:
         try:
             orig_width, orig_height = image.size
             normalized_params = self._normalize_inference_params(inference_params, input_shape)
+            trace_id = f"{self.model_id}-{time.time_ns()}"
+            logger.info(
+                f"[predict] start trace_id={trace_id}, model_id={self.model_id}, "
+                f"task_kind={self.task_kind}, backend={self.backend}, device={self.device}, "
+                f"image={orig_width}x{orig_height}, input_shape={input_shape}, params={normalized_params}"
+            )
             if self._use_tile_inference(orig_width, orig_height, normalized_params):
-                results = self._predict_by_tiles(
+                results, debug_summary = self._predict_by_tiles(
                     session=session,
                     input_name=input_name,
                     input_shape=input_shape,
@@ -179,12 +188,22 @@ class RuntimeInstance:
                     params=normalized_params,
                 )
             else:
-                results = self._run_single_inference(
+                results, debug_summary = self._run_single_inference(
                     session=session,
                     input_name=input_name,
                     input_shape=input_shape,
                     image=image,
                 )
+
+            result_summary = self._summarize_results(results)
+            log_message = (
+                f"[predict] done trace_id={trace_id}, model_id={self.model_id}, "
+                f"result_count={len(results)}, result_summary={result_summary}, debug={debug_summary}"
+            )
+            if results:
+                logger.info(log_message)
+            else:
+                logger.warning(log_message)
 
             return {
                 "success": True,
@@ -207,16 +226,22 @@ class RuntimeInstance:
         input_name: str,
         input_shape: List[Any],
         image: Image.Image,
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         orig_width, orig_height = image.size
         input_tensor = self._preprocess(image, input_shape)
         outputs = session.run(None, {input_name: input_tensor})
-        return self._postprocess_outputs(
+        results, postprocess_summary = self._postprocess_outputs(
             outputs=outputs,
             input_shape=input_shape,
             orig_width=orig_width,
             orig_height=orig_height,
         )
+        return results, {
+            "mode": "direct",
+            "input_tensor": self._summarize_array(input_tensor),
+            "outputs": self._summarize_outputs(outputs),
+            "postprocess": postprocess_summary,
+        }
 
     def _predict_by_tiles(
         self,
@@ -225,7 +250,7 @@ class RuntimeInstance:
         input_shape: List[Any],
         image: Image.Image,
         params: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         orig_width, orig_height = image.size
         tile_size = int(params["tile_size"])
         overlap = float(params["tile_overlap"])
@@ -234,13 +259,16 @@ class RuntimeInstance:
 
         tile_boxes = self._build_tile_boxes(orig_width, orig_height, tile_size, overlap)
         merged_results: List[Dict[str, Any]] = []
+        filtered_edge_count = 0
+        tiles_with_candidates = 0
+        sample_tile_summary: Optional[Dict[str, Any]] = None
 
         for left, top, right, bottom in tile_boxes:
             tile = image.crop((left, top, right, bottom))
             tile_width, tile_height = tile.size
             input_tensor = self._preprocess(tile, input_shape)
             outputs = session.run(None, {input_name: input_tensor})
-            tile_results = self._postprocess_outputs(
+            tile_results, tile_postprocess_summary = self._postprocess_outputs(
                 outputs=outputs,
                 input_shape=input_shape,
                 orig_width=tile_width,
@@ -248,14 +276,37 @@ class RuntimeInstance:
                 iou_threshold=merge_iou,
                 apply_nms=False,
             )
+            if tile_results:
+                tiles_with_candidates += 1
+            if sample_tile_summary is None:
+                sample_tile_summary = {
+                    "tile_box": [left, top, right, bottom],
+                    "input_tensor": self._summarize_array(input_tensor),
+                    "outputs": self._summarize_outputs(outputs),
+                    "postprocess": tile_postprocess_summary,
+                }
 
             for item in tile_results:
                 global_item = self._to_global_coords(item, left, top)
                 if edge_filter and self._is_edge_detection(global_item, left, top, right, bottom, orig_width, orig_height):
+                    filtered_edge_count += 1
                     continue
                 merged_results.append(global_item)
 
-        return self._nms(merged_results, merge_iou)
+        final_results = self._nms(merged_results, merge_iou)
+        return final_results, {
+            "mode": "tile",
+            "tile_count": len(tile_boxes),
+            "tile_size": tile_size,
+            "tile_overlap": overlap,
+            "merge_iou": merge_iou,
+            "edge_filter": edge_filter,
+            "tiles_with_candidates": tiles_with_candidates,
+            "filtered_edge_count": filtered_edge_count,
+            "merged_before_nms": len(merged_results),
+            "merged_after_nms": len(final_results),
+            "sample_tile": sample_tile_summary,
+        }
 
     def _postprocess_outputs(
         self,
@@ -266,7 +317,7 @@ class RuntimeInstance:
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
         apply_nms: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         if self.task_kind == "classification":
             return self._postprocess_classification(outputs, conf_threshold=conf_threshold)
         return self._postprocess_detections(
@@ -306,25 +357,54 @@ class RuntimeInstance:
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
         apply_nms: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         if not outputs:
-            return []
+            return [], {
+                "conf_threshold": conf_threshold,
+                "iou_threshold": iou_threshold,
+                "apply_nms": apply_nms,
+                "raw_prediction_count": 0,
+                "skipped_short": 0,
+                "skipped_below_conf": 0,
+                "skipped_invalid_box": 0,
+                "candidates_before_nms": 0,
+                "candidates_after_nms": 0,
+                "top_raw_candidates": [],
+            }
 
         predictions = outputs[0][0]
+        transposed = False
         if len(predictions.shape) == 2 and predictions.shape[0] < predictions.shape[1]:
             predictions = predictions.T
+            transposed = True
 
         input_height = self._normalize_dim(input_shape[2] if len(input_shape) > 2 else None)
         input_width = self._normalize_dim(input_shape[3] if len(input_shape) > 3 else None)
 
         detections: List[Dict[str, Any]] = []
+        skipped_short = 0
+        skipped_below_conf = 0
+        skipped_invalid_box = 0
+        top_raw_candidates: List[Dict[str, Any]] = []
         for pred in predictions:
             if len(pred) < 5:
+                skipped_short += 1
                 continue
 
             x_center, y_center, width, height = pred[0:4]
             class_id, confidence = self._parse_detection_class(pred)
+            class_name = (
+                self.class_names[class_id]
+                if class_id < len(self.class_names)
+                else f"class_{class_id}"
+            )
+            self._append_top_candidate(top_raw_candidates, {
+                "class_id": class_id,
+                "class_name": class_name,
+                "confidence": self._round_float(confidence),
+            })
             if confidence < conf_threshold:
+                skipped_below_conf += 1
                 continue
 
             x1 = max(0.0, (float(x_center) - float(width) / 2.0) / input_width * orig_width)
@@ -333,13 +413,8 @@ class RuntimeInstance:
             y2 = min(float(orig_height), (float(y_center) + float(height) / 2.0) / input_height * orig_height)
 
             if x2 <= x1 or y2 <= y1:
+                skipped_invalid_box += 1
                 continue
-
-            class_name = (
-                self.class_names[class_id]
-                if class_id < len(self.class_names)
-                else f"class_{class_id}"
-            )
 
             detections.append(
                 {
@@ -357,8 +432,35 @@ class RuntimeInstance:
             )
 
         if not apply_nms:
-            return detections
-        return self._nms(detections, iou_threshold)
+            return detections, {
+                "conf_threshold": conf_threshold,
+                "iou_threshold": iou_threshold,
+                "apply_nms": apply_nms,
+                "transposed": transposed,
+                "raw_prediction_count": int(predictions.shape[0]) if predictions.ndim > 0 else 0,
+                "input_resize": {"width": input_width, "height": input_height},
+                "skipped_short": skipped_short,
+                "skipped_below_conf": skipped_below_conf,
+                "skipped_invalid_box": skipped_invalid_box,
+                "candidates_before_nms": len(detections),
+                "candidates_after_nms": len(detections),
+                "top_raw_candidates": top_raw_candidates,
+            }
+        final_detections = self._nms(detections, iou_threshold)
+        return final_detections, {
+            "conf_threshold": conf_threshold,
+            "iou_threshold": iou_threshold,
+            "apply_nms": apply_nms,
+            "transposed": transposed,
+            "raw_prediction_count": int(predictions.shape[0]) if predictions.ndim > 0 else 0,
+            "input_resize": {"width": input_width, "height": input_height},
+            "skipped_short": skipped_short,
+            "skipped_below_conf": skipped_below_conf,
+            "skipped_invalid_box": skipped_invalid_box,
+            "candidates_before_nms": len(detections),
+            "candidates_after_nms": len(final_detections),
+            "top_raw_candidates": top_raw_candidates,
+        }
 
     def _parse_detection_class(self, pred: np.ndarray) -> tuple[int, float]:
         class_count = len(self.class_names)
@@ -392,13 +494,23 @@ class RuntimeInstance:
         self,
         outputs: List[np.ndarray],
         conf_threshold: float = 0.25,
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         if not outputs:
-            return []
+            return [], {
+                "conf_threshold": conf_threshold,
+                "prediction_count": 0,
+                "accepted": False,
+                "top_scores": [],
+            }
 
         predictions = np.asarray(outputs[0])
         if predictions.size == 0:
-            return []
+            return [], {
+                "conf_threshold": conf_threshold,
+                "prediction_count": 0,
+                "accepted": False,
+                "top_scores": [],
+            }
 
         if predictions.ndim == 0:
             predictions = predictions.reshape(1)
@@ -407,12 +519,23 @@ class RuntimeInstance:
 
         predictions = predictions.astype(np.float32).reshape(-1)
         if predictions.size == 0:
-            return []
+            return [], {
+                "conf_threshold": conf_threshold,
+                "prediction_count": 0,
+                "accepted": False,
+                "top_scores": [],
+            }
 
         class_id = int(np.argmax(predictions))
         confidence = float(predictions[class_id])
+        top_scores = self._top_classification_scores(predictions)
         if confidence < conf_threshold:
-            return []
+            return [], {
+                "conf_threshold": conf_threshold,
+                "prediction_count": int(predictions.size),
+                "accepted": False,
+                "top_scores": top_scores,
+            }
 
         class_name = (
             self.class_names[class_id]
@@ -426,7 +549,12 @@ class RuntimeInstance:
                 "class_name": class_name,
                 "confidence": confidence,
             }
-        ]
+        ], {
+            "conf_threshold": conf_threshold,
+            "prediction_count": int(predictions.size),
+            "accepted": True,
+            "top_scores": top_scores,
+        }
 
     def _nms(self, detections: List[Dict[str, Any]], iou_threshold: float) -> List[Dict[str, Any]]:
         if not detections:
@@ -596,6 +724,80 @@ class RuntimeInstance:
         except (TypeError, ValueError):
             return default
         return normalized if normalized > 0 else default
+
+    def _summarize_array(self, array: np.ndarray) -> Dict[str, Any]:
+        values = np.asarray(array)
+        summary: Dict[str, Any] = {
+            "shape": list(values.shape),
+            "dtype": str(values.dtype),
+            "size": int(values.size),
+        }
+        if values.size > 0:
+            summary.update({
+                "min": self._round_float(np.min(values)),
+                "max": self._round_float(np.max(values)),
+                "mean": self._round_float(np.mean(values)),
+            })
+        return summary
+
+    def _summarize_outputs(self, outputs: List[np.ndarray]) -> List[Dict[str, Any]]:
+        return [self._summarize_array(output) for output in outputs]
+
+    def _summarize_results(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if not results:
+            return {"count": 0, "top_results": []}
+
+        ordered = sorted(
+            results,
+            key=lambda item: float(item.get("confidence", 0.0)),
+            reverse=True,
+        )
+        top_results = [
+            {
+                "type": item.get("type"),
+                "class_id": item.get("class_id"),
+                "class_name": item.get("class_name"),
+                "confidence": self._round_float(item.get("confidence", 0.0)),
+            }
+            for item in ordered[:3]
+        ]
+        return {
+            "count": len(results),
+            "top_results": top_results,
+        }
+
+    def _append_top_candidate(
+        self,
+        candidates: List[Dict[str, Any]],
+        candidate: Dict[str, Any],
+        limit: int = 5,
+    ) -> None:
+        candidates.append(candidate)
+        candidates.sort(key=lambda item: float(item.get("confidence", 0.0)), reverse=True)
+        del candidates[limit:]
+
+    def _top_classification_scores(self, predictions: np.ndarray, limit: int = 5) -> List[Dict[str, Any]]:
+        if predictions.size == 0:
+            return []
+        limit = max(1, min(limit, int(predictions.size)))
+        indices = np.argsort(predictions)[::-1][:limit]
+        results: List[Dict[str, Any]] = []
+        for class_id in indices:
+            idx = int(class_id)
+            class_name = (
+                self.class_names[idx]
+                if 0 <= idx < len(self.class_names)
+                else f"class_{idx}"
+            )
+            results.append({
+                "class_id": idx,
+                "class_name": class_name,
+                "confidence": self._round_float(predictions[idx]),
+            })
+        return results
+
+    def _round_float(self, value: Any, digits: int = 6) -> float:
+        return round(float(value), digits)
 
     def _error_response(self, error: str) -> Dict[str, Any]:
         return {

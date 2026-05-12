@@ -658,40 +658,42 @@ const DeployPage: React.FC = () => {
             <p className="page-subtitle">{t('subtitle')}</p>
           </div>
         </div>
-        <button
-          onClick={() => setUploadOpen(true)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '8px 14px',
-            border: '1px solid #dbeafe',
-            borderRadius: 8,
-            background: '#eff6ff',
-            color: '#1d4ed8',
-            cursor: 'pointer',
-          }}
-          className="button-text"
-        >
-          <CloudUploadOutlined /> {t('uploadOnnx', { defaultValue: '上传 ONNX' })}
-        </button>
-        <button
-          onClick={() => void fetchModels()}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '8px 14px',
-            border: '1px solid #e5e5e5',
-            borderRadius: 8,
-            background: '#fff',
-            color: '#666',
-            cursor: 'pointer',
-          }}
-          className="button-text"
-        >
-          <ReloadOutlined /> {tc('action.refresh')}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
+          <button
+            onClick={() => setUploadOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '8px 14px',
+              border: '1px solid #dbeafe',
+              borderRadius: 8,
+              background: '#eff6ff',
+              color: '#1d4ed8',
+              cursor: 'pointer',
+            }}
+            className="button-text"
+          >
+            <CloudUploadOutlined /> {t('uploadOnnx', { defaultValue: '上传 ONNX' })}
+          </button>
+          <button
+            onClick={() => void fetchModels()}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '8px 14px',
+              border: '1px solid #e5e5e5',
+              borderRadius: 8,
+              background: '#fff',
+              color: '#666',
+              cursor: 'pointer',
+            }}
+            className="button-text"
+          >
+            <ReloadOutlined /> {tc('action.refresh')}
+          </button>
+        </div>
       </div>
 
       {loading ? (
