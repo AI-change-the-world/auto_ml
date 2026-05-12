@@ -8,6 +8,7 @@ import shutil
 import threading
 import uuid
 import zipfile
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -418,6 +419,48 @@ def _export_onnx_model(
     return exported_path
 
 
+def _file_sha256(file_path: str) -> str:
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def _file_size_bytes(file_path: str) -> int:
+    return int(os.path.getsize(file_path))
+
+
+def _log_model_artifact_summary(
+    task_id: int,
+    *,
+    artifact_type: str,
+    local_path: str,
+    s3_key: str | None,
+    class_names: Optional[List[str]] = None,
+    extra: Optional[Dict[str, Any]] = None,
+):
+    if not local_path or not os.path.exists(local_path):
+        return
+
+    payload = {
+        "artifact_type": artifact_type,
+        "local_path": local_path,
+        "file_size_bytes": _file_size_bytes(local_path),
+        "sha256": _file_sha256(local_path),
+        "s3_key": s3_key,
+    }
+    if class_names is not None:
+        payload["class_names"] = list(class_names)
+        payload["class_count"] = len(class_names)
+    if extra:
+        payload.update(extra)
+
+    message = f"[artifact] {json.dumps(payload, ensure_ascii=False, sort_keys=True)}"
+    logger.info(f"Task {task_id} - {message}")
+    publish_task_log(task_id, message, SERVICE_NAME)
+
+
 class TrainingCallback:
     """训练回调管理器 - 通过 MQ 发送消息"""
 
@@ -639,10 +682,32 @@ def _train_detection_model(
             task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
         pt_name = f"{uuid.uuid4()}.pt"
+        _log_model_artifact_summary(
+            task_id,
+            artifact_type="pt",
+            local_path=best_pt_path,
+            s3_key=pt_name,
+            class_names=classes,
+            extra={
+                "task_kind": _detection_task_kind(prepared_dataset.label_format),
+                "label_format": prepared_dataset.label_format,
+            },
+        )
         upload_to_s3(best_pt_path, pt_name, s3_config.models_bucket_name)
         onnx_name = None
         if onnx_model_path:
             onnx_name = f"{uuid.uuid4()}.onnx"
+            _log_model_artifact_summary(
+                task_id,
+                artifact_type="onnx",
+                local_path=onnx_model_path,
+                s3_key=onnx_name,
+                class_names=classes,
+                extra={
+                    "task_kind": _detection_task_kind(prepared_dataset.label_format),
+                    "label_format": prepared_dataset.label_format,
+                },
+            )
             upload_to_s3(onnx_model_path, onnx_name, s3_config.models_bucket_name)
 
         # 通过 MQ 发送模型注册消息（让主服务写入数据库）
@@ -664,6 +729,11 @@ def _train_detection_model(
             "task_kind": _detection_task_kind(prepared_dataset.label_format),
             "label_format": prepared_dataset.label_format,
         }
+        publish_task_log(
+            task_id,
+            f"[artifact] register_model_info={json.dumps(model_info, ensure_ascii=False, sort_keys=True)}",
+            SERVICE_NAME,
+        )
         publish_model_registered(task_id, model_info, SERVICE_NAME)
 
         # 更新任务状态为完成
@@ -809,10 +879,26 @@ def _train_classification_model(
             task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
         pt_name = f"{uuid.uuid4()}.pt"
+        _log_model_artifact_summary(
+            task_id,
+            artifact_type="pt",
+            local_path=best_pt_path,
+            s3_key=pt_name,
+            class_names=classes,
+            extra={"task_kind": "classification"},
+        )
         upload_to_s3(best_pt_path, pt_name, s3_config.models_bucket_name)
         onnx_name = None
         if onnx_model_path:
             onnx_name = f"{uuid.uuid4()}.onnx"
+            _log_model_artifact_summary(
+                task_id,
+                artifact_type="onnx",
+                local_path=onnx_model_path,
+                s3_key=onnx_name,
+                class_names=classes,
+                extra={"task_kind": "classification"},
+            )
             upload_to_s3(onnx_model_path, onnx_name, s3_config.models_bucket_name)
 
         # 通过 MQ 发送模型注册消息
@@ -833,6 +919,11 @@ def _train_classification_model(
             "model_type": "classification",
             "task_kind": "classification",
         }
+        publish_task_log(
+            task_id,
+            f"[artifact] register_model_info={json.dumps(model_info, ensure_ascii=False, sort_keys=True)}",
+            SERVICE_NAME,
+        )
         publish_model_registered(task_id, model_info, SERVICE_NAME)
 
         # 更新任务状态为完成
@@ -960,10 +1051,26 @@ def _train_segmentation_model(
         publish_task_log(task_id, "[post-train] Uploading model to S3...", SERVICE_NAME)
         s3_config = get_s3_config()
         pt_name = f"{uuid.uuid4()}.pt"
+        _log_model_artifact_summary(
+            task_id,
+            artifact_type="pt",
+            local_path=best_pt_path,
+            s3_key=pt_name,
+            class_names=classes,
+            extra={"task_kind": _segmentation_task_kind()},
+        )
         upload_to_s3(best_pt_path, pt_name, s3_config.models_bucket_name)
         onnx_name = None
         if onnx_model_path:
             onnx_name = f"{uuid.uuid4()}.onnx"
+            _log_model_artifact_summary(
+                task_id,
+                artifact_type="onnx",
+                local_path=onnx_model_path,
+                s3_key=onnx_name,
+                class_names=classes,
+                extra={"task_kind": _segmentation_task_kind()},
+            )
             upload_to_s3(onnx_model_path, onnx_name, s3_config.models_bucket_name)
 
         model_info = {
@@ -983,6 +1090,11 @@ def _train_segmentation_model(
             "model_type": _segmentation_task_kind(),
             "task_kind": _segmentation_task_kind(),
         }
+        publish_task_log(
+            task_id,
+            f"[artifact] register_model_info={json.dumps(model_info, ensure_ascii=False, sort_keys=True)}",
+            SERVICE_NAME,
+        )
         publish_model_registered(task_id, model_info, SERVICE_NAME)
 
         publish_task_status(task_id, TaskStatus.COMPLETED, SERVICE_NAME, f"Model saved to {pt_name}")

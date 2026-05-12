@@ -142,6 +142,7 @@ class DeployService:
 
         # 调用 model_deploy 服务
         try:
+            resolved_class_names = parse_annotation_classes(getattr(model, "class_names", None))
             deploy_request = {
                 "model_id": data.model_id,
                 "model_path": model.onnx_model_path,
@@ -150,8 +151,18 @@ class DeployService:
                 "backend": "onnxruntime",
                 "device": data.device,
                 "version": data.version,
-                "class_names": parse_annotation_classes(getattr(model, "class_names", None)),
+                "class_names": resolved_class_names,
             }
+            logger.info(
+                "Deploy request payload: "
+                f"model_id={data.model_id}, "
+                f"onnx_model_path={model.onnx_model_path}, "
+                f"model_type={model.model_type}, "
+                f"runtime_template={getattr(model, 'runtime_template', None)}, "
+                f"task_kind={deploy_request['task_kind']}, "
+                f"class_count={len(resolved_class_names)}, "
+                f"class_names={resolved_class_names}"
+            )
 
             response = await self.http_client.post("/deploy", json=deploy_request)
             if response.status_code != 200:

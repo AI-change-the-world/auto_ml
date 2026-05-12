@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import binascii
 import gc
+import hashlib
 import io
 import math
 import threading
@@ -80,7 +81,11 @@ class RuntimeInstance:
                 f"Runtime session loaded: model_id={self.model_id}, "
                 f"device={self.device}, task_kind={self.task_kind}, providers={providers}, "
                 f"input_name={self.input_name}, input_shape={self.input_shape}, "
-                f"class_count={len(self.class_names)}"
+                f"class_count={len(self.class_names)}, "
+                f"class_names={self.class_names}, "
+                f"model_path={self.model_path}, "
+                f"file_size_bytes={self._file_size_bytes(self.model_path)}, "
+                f"sha256={self._file_sha256(self.model_path)}"
             )
             return True
 
@@ -807,6 +812,16 @@ class RuntimeInstance:
             "device": self.device,
             "error": error,
         }
+
+    def _file_sha256(self, file_path: str) -> str:
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+
+    def _file_size_bytes(self, file_path: str) -> int:
+        return int(os.path.getsize(file_path))
 
 
 class RuntimeManager:

@@ -2,6 +2,7 @@
 部署服务核心逻辑
 使用 RabbitMQ 发送状态更新，不直接写数据库
 """
+import hashlib
 import os
 from pathlib import PurePosixPath
 from typing import Any, Dict, List, Optional
@@ -82,6 +83,17 @@ class DeployService:
                 os.makedirs(os.path.dirname(local_model_path), exist_ok=True)
                 download_from_s3(model_path, local_model_path,
                                  self.s3_config.models_bucket_name)
+            logger.info(
+                "Deploy artifact prepared: "
+                f"model_id={model_id}, "
+                f"s3_model_path={model_path}, "
+                f"local_model_path={local_model_path}, "
+                f"file_size_bytes={self._file_size_bytes(local_model_path)}, "
+                f"sha256={self._file_sha256(local_model_path)}, "
+                f"task_kind={task_kind}, "
+                f"class_count={len(class_names or [])}, "
+                f"class_names={list(class_names or [])}"
+            )
 
             # 启动运行时
             instance = runtime_manager.deploy_model(
@@ -160,6 +172,16 @@ class DeployService:
                 # 实例已停止，清理记录
                 del _deployments[model_id]
         return None
+
+    def _file_sha256(self, file_path: str) -> str:
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+
+    def _file_size_bytes(self, file_path: str) -> int:
+        return int(os.path.getsize(file_path))
 
     def undeploy(self, model_id: int) -> Dict[str, Any]:
         """
