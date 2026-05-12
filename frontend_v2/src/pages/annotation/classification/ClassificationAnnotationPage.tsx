@@ -38,6 +38,7 @@ import { parseAnnotationClasses } from '../../../utils/annotationClasses';
 import { normalizeClassificationLabelIds } from '../../../utils/classification';
 import { getSampleItemName, isImageSampleItem } from '../../../utils/sampleItem';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
+import { showApiError } from '../../../utils/apiError';
 
 const { Title, Text } = Typography;
 
@@ -185,7 +186,7 @@ const ClassificationAnnotationPage: React.FC = () => {
       setModalOpen(false);
     } catch (error) {
       console.error('Failed to load classification annotation project', error);
-      message.error('加载分类标注项目失败');
+      showApiError(error, '加载分类标注项目失败');
     } finally {
       setLoading(false);
     }
@@ -286,7 +287,7 @@ const ClassificationAnnotationPage: React.FC = () => {
       console.error('Failed to update classes', error);
       setClasses(classes);
       setNewClassName(name);
-      message.error('新增类别失败');
+      showApiError(error, '新增类别失败');
     }
   };
 
@@ -306,7 +307,7 @@ const ClassificationAnnotationPage: React.FC = () => {
       message.success(`已保存 ${sampleName}`);
     } catch (error) {
       console.error('Failed to save classification sample', error);
-      message.error(`保存失败: ${sampleName}`);
+      showApiError(error, `保存失败: ${sampleName}`);
     }
   };
 
@@ -333,7 +334,7 @@ const ClassificationAnnotationPage: React.FC = () => {
       message.success('分类标注已全部保存');
     } catch (error) {
       console.error('Failed to save all classification annotations', error);
-      message.error('批量保存失败');
+      showApiError(error, '批量保存失败');
     } finally {
       setSaving(false);
     }

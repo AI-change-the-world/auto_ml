@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Drawer, message, Spin, Modal, Select, Upload, Input, InputNumber, Switch } from 'antd';
+import { Drawer, message, Spin, Modal, Select, Upload, Input, InputNumber, Switch, Tooltip } from 'antd';
 import {
   CloudServerOutlined,
   ReloadOutlined,
@@ -26,6 +26,8 @@ import type {
 } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
 import { getDeployConfirmEnabled } from '../../utils/localSettings';
+import { useCapability } from '../../hooks/useCapability';
+import { extractApiErrorMessage, showApiError } from '../../utils/apiError';
 
 type InferencePreviewEntry = {
   modelId: number;
@@ -89,17 +91,6 @@ const methodBadgeStyle = (method: ApiEndpointInfo['method']): React.CSSPropertie
   color: method === 'GET' ? '#047857' : '#1d4ed8',
   background: method === 'GET' ? '#ecfdf5' : '#eff6ff',
 });
-
-const extractErrorMessage = (error: unknown, fallback: string) => {
-  if (error && typeof error === 'object') {
-    const maybeResponse = (error as { response?: { data?: { detail?: unknown; message?: unknown } } }).response;
-    const detail = maybeResponse?.data?.detail;
-    const message = maybeResponse?.data?.message;
-    if (typeof detail === 'string' && detail) return detail;
-    if (typeof message === 'string' && message) return message;
-  }
-  return error instanceof Error ? error.message : fallback;
-};
 
 const getLabelAnchor = (
   item: InferenceDetectionResult,
@@ -264,6 +255,12 @@ const DeployPage: React.FC = () => {
   const [focusedResultIndex, setFocusedResultIndex] = useState<number | null>(null);
   const previewMapRef = useRef<Record<number, InferencePreviewEntry | null>>({});
   const previewViewportRef = useRef<HTMLDivElement | null>(null);
+  const { getActionCapability, refresh: refreshCapabilities } = useCapability();
+  const uploadOnnxCapability = getActionCapability('deployment', 'upload_onnx');
+  const deployModelCapability = getActionCapability('deployment', 'deploy_model');
+  const undeployModelCapability = getActionCapability('deployment', 'undeploy_model');
+  const predictCapability = getActionCapability('deployment', 'predict');
+  const viewApiCapability = getActionCapability('deployment', 'view_api');
 
   const activePreview = useMemo(
     () => (activePreviewModelId != null ? previewMap[activePreviewModelId] ?? null : null),
@@ -339,8 +336,8 @@ const DeployPage: React.FC = () => {
         setModels(r.items);
         setTotal(r.items.length);
       }
-    } catch {
-      message.error(tc('msg.loadFailed'));
+    } catch (error) {
+      showApiError(error, tc('msg.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -363,6 +360,10 @@ const DeployPage: React.FC = () => {
   }, [fetchModels]);
 
   const handleDeploy = async (id: number) => {
+    if (!deployModelCapability.allowed) {
+      message.warning(deployModelCapability.reason || t('deployFailed'));
+      return;
+    }
     setDeployingId(id);
     try {
       await deployModel(id, deviceMap[id] || 'cpu');
@@ -374,14 +375,18 @@ const DeployPage: React.FC = () => {
       } else {
         message.warning(t('deployPending'));
       }
-    } catch {
-      message.error(t('deployFailed'));
+    } catch (error) {
+      showApiError(error, t('deployFailed'));
     } finally {
       setDeployingId(null);
     }
   };
 
   const handleUndeploy = async (id: number) => {
+    if (!undeployModelCapability.allowed) {
+      message.warning(undeployModelCapability.reason || t('undeployFailed'));
+      return;
+    }
     const onUndeploy = async () => {
       setDeployingId(id);
       try {
@@ -394,8 +399,8 @@ const DeployPage: React.FC = () => {
         } else {
           message.warning(t('undeployPending'));
         }
-      } catch {
-        message.error(t('undeployFailed'));
+      } catch (error) {
+        showApiError(error, t('undeployFailed'));
       } finally {
         setDeployingId(null);
       }
@@ -416,6 +421,10 @@ const DeployPage: React.FC = () => {
     file: File,
     inferenceParams: InferenceParams,
   ) => {
+    if (!predictCapability.allowed) {
+      message.warning(predictCapability.reason || t('testFailed'));
+      return;
+    }
     setTestingId(model.model_id);
     const imageUrl = URL.createObjectURL(file);
 
@@ -446,12 +455,12 @@ const DeployPage: React.FC = () => {
           results: [],
           image_width: null,
           image_height: null,
-          error: extractErrorMessage(error, t('testFailed')),
+          error: extractApiErrorMessage(error, t('testFailed')),
           raw: null,
         },
         testedAt: Date.now(),
       });
-      message.error(t('testFailed'));
+      showApiError(error, t('testFailed'));
     } finally {
       setTestingId(null);
     }
@@ -510,8 +519,8 @@ const DeployPage: React.FC = () => {
       setRenamingModel(null);
       setRenameValue('');
       message.success(t('renameSuccess'));
-    } catch {
-      message.error(t('renameFailed'));
+    } catch (error) {
+      showApiError(error, t('renameFailed'));
     } finally {
       setRenameSubmitting(false);
     }
@@ -528,6 +537,10 @@ const DeployPage: React.FC = () => {
   }, []);
 
   const handleUploadSubmit = async () => {
+    if (!uploadOnnxCapability.allowed) {
+      message.warning(uploadOnnxCapability.reason || t('uploadFailed', { defaultValue: 'ONNX 模型上传失败' }));
+      return;
+    }
     const name = uploadName.trim();
     if (!name) {
       message.warning(t('uploadNameRequired', { defaultValue: '请先输入模型名称' }));
@@ -551,9 +564,10 @@ const DeployPage: React.FC = () => {
         output: result.output_signature,
       });
       await fetchModels();
+      await refreshCapabilities();
       message.success(t('uploadSuccess', { defaultValue: 'ONNX 模型已上传' }));
     } catch (error) {
-      message.error(extractErrorMessage(error, t('uploadFailed', { defaultValue: 'ONNX 模型上传失败' })));
+      showApiError(error, t('uploadFailed', { defaultValue: 'ONNX 模型上传失败' }));
       return;
     } finally {
       setUploadSubmitting(false);
@@ -659,23 +673,27 @@ const DeployPage: React.FC = () => {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginLeft: 'auto' }}>
-          <button
-            onClick={() => setUploadOpen(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              padding: '8px 14px',
-              border: '1px solid #dbeafe',
-              borderRadius: 8,
-              background: '#eff6ff',
-              color: '#1d4ed8',
-              cursor: 'pointer',
-            }}
-            className="button-text"
-          >
-            <CloudUploadOutlined /> {t('uploadOnnx', { defaultValue: '上传 ONNX' })}
-          </button>
+          <Tooltip title={!uploadOnnxCapability.allowed ? (uploadOnnxCapability.reason || '') : ''}>
+            <button
+              onClick={() => setUploadOpen(true)}
+              disabled={!uploadOnnxCapability.allowed}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '8px 14px',
+                border: '1px solid #dbeafe',
+                borderRadius: 8,
+                background: '#eff6ff',
+                color: '#1d4ed8',
+                cursor: uploadOnnxCapability.allowed ? 'pointer' : 'not-allowed',
+                opacity: uploadOnnxCapability.allowed ? 1 : 0.5,
+              }}
+              className="button-text"
+            >
+              <CloudUploadOutlined /> {t('uploadOnnx', { defaultValue: '上传 ONNX' })}
+            </button>
+          </Tooltip>
           <button
             onClick={() => void fetchModels()}
             style={{
@@ -833,7 +851,7 @@ const DeployPage: React.FC = () => {
                         setActivePreviewModelId(null);
                         setActiveApiModelId(m.model_id);
                       }}
-                      disabled={!runtimeReady}
+                      disabled={!runtimeReady || !viewApiCapability.allowed}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -844,15 +862,15 @@ const DeployPage: React.FC = () => {
                         fontSize: 13,
                         background: '#f5f3ff',
                         color: '#6d28d9',
-                        cursor: runtimeReady ? 'pointer' : 'not-allowed',
-                        opacity: runtimeReady ? 1 : 0.5,
+                        cursor: runtimeReady && viewApiCapability.allowed ? 'pointer' : 'not-allowed',
+                        opacity: runtimeReady && viewApiCapability.allowed ? 1 : 0.5,
                       }}
                     >
                       <ApiOutlined /> {t('viewApi')}
                     </button>
                     <button
                       onClick={() => handleOpenTestModal(m)}
-                      disabled={!runtimeReady || testingId === m.model_id}
+                      disabled={!runtimeReady || testingId === m.model_id || !predictCapability.allowed}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -863,15 +881,15 @@ const DeployPage: React.FC = () => {
                         fontSize: 13,
                         background: '#eff6ff',
                         color: '#2563eb',
-                        cursor: runtimeReady ? 'pointer' : 'not-allowed',
-                        opacity: runtimeReady ? 1 : 0.5,
+                        cursor: runtimeReady && predictCapability.allowed ? 'pointer' : 'not-allowed',
+                        opacity: runtimeReady && predictCapability.allowed ? 1 : 0.5,
                       }}
                     >
                       <ExperimentOutlined /> {testingId === m.model_id ? t('testing') : t('testInference')}
                     </button>
                     <button
                       onClick={() => handleUndeploy(m.model_id)}
-                      disabled={deployingId === m.model_id}
+                      disabled={deployingId === m.model_id || !undeployModelCapability.allowed}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -882,7 +900,8 @@ const DeployPage: React.FC = () => {
                         fontSize: 13,
                         background: '#fff',
                         color: '#dc2626',
-                        cursor: 'pointer',
+                        cursor: undeployModelCapability.allowed ? 'pointer' : 'not-allowed',
+                        opacity: undeployModelCapability.allowed ? 1 : 0.5,
                       }}
                     >
                       <CloudDownloadOutlined /> {t('undeploy')}
@@ -902,7 +921,7 @@ const DeployPage: React.FC = () => {
                     />
                     <button
                       onClick={() => void handleDeploy(m.model_id)}
-                      disabled={deployingId === m.model_id}
+                      disabled={deployingId === m.model_id || !deployModelCapability.allowed}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -913,7 +932,8 @@ const DeployPage: React.FC = () => {
                         border: 'none',
                         borderRadius: 8,
                         fontSize: 13,
-                        cursor: 'pointer',
+                        cursor: deployModelCapability.allowed ? 'pointer' : 'not-allowed',
+                        opacity: deployModelCapability.allowed ? 1 : 0.5,
                       }}
                     >
                       <CloudUploadOutlined /> {t('deploy')}

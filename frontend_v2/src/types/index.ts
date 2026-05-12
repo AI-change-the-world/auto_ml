@@ -84,6 +84,12 @@ export {
 } from './dataset';
 export type { HomeStats } from './home';
 export type {
+  CapabilityActionState,
+  CapabilityModuleState,
+  CapabilityServiceHealth,
+  CapabilitySnapshot,
+} from './system';
+export type {
   TaskCreate,
   TaskResponse,
   TaskLogResponse,

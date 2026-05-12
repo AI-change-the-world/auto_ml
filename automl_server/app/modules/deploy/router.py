@@ -17,6 +17,7 @@ from .schemas import (
     UploadOnnxModelResponse,
 )
 from .service import get_deploy_service, DeployService
+from app.modules.system.guards import require_capability
 
 router = APIRouter(prefix="/deploy", tags=["模型部署"])
 
@@ -48,6 +49,7 @@ async def deploy_model(
     model_id: int,
     device: str = Query(default="cpu"),
     version: str = Query(default="v1"),
+    _: None = Depends(require_capability("deployment", "deploy_model")),
     db: AsyncSession = Depends(get_db),
     service: DeployService = Depends(get_deploy_service),
 ):
@@ -59,6 +61,7 @@ async def deploy_model(
 @router.post("/{model_id}/undeploy", response_model=Result[DeployStatusResponse], summary="卸载模型")
 async def undeploy_model(
     model_id: int,
+    _: None = Depends(require_capability("deployment", "undeploy_model")),
     db: AsyncSession = Depends(get_db),
     service: DeployService = Depends(get_deploy_service),
 ):
@@ -87,6 +90,7 @@ async def upload_onnx_model(
     template: str = Form(...),
     class_names: str = Form(default="[]"),
     file: UploadFile = File(...),
+    _: None = Depends(require_capability("deployment", "upload_onnx")),
     db: AsyncSession = Depends(get_db),
     service: DeployService = Depends(get_deploy_service),
 ):

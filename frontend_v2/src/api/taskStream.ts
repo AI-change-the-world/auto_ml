@@ -31,6 +31,7 @@ export function subscribeTaskStream(
   register('task_upsert');
   register('task_log');
   register('trainer_status');
+  register('capability_changed');
 
   source.onerror = () => {
     handlers.onError?.();

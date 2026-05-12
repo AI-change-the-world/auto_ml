@@ -15,6 +15,7 @@ from .schemas import (
     InferencePredictResponse,
 )
 from .service import InferenceService, get_inference_service
+from app.modules.system.guards import require_capability
 
 
 router = APIRouter(prefix="/inference", tags=["模型推理"])
@@ -30,6 +31,7 @@ async def predict_model(
     request: Request,
     file: UploadFile = File(...),
     inference_params: str | None = Form(default=None),
+    _: None = Depends(require_capability("deployment", "predict")),
     db: AsyncSession = Depends(get_db),
     service: InferenceService = Depends(get_inference_service),
 ):
@@ -61,6 +63,7 @@ async def predict_model_base64(
     model_id: int,
     data: InferenceBase64Request,
     request: Request,
+    _: None = Depends(require_capability("deployment", "predict")),
     db: AsyncSession = Depends(get_db),
     service: InferenceService = Depends(get_inference_service),
 ):

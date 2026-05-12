@@ -19,6 +19,7 @@ from .schemas import (
 from .service import get_task_service, TaskService
 from .stream import StreamEvent, get_task_stream_hub
 from .sse import create_sse_response
+from app.modules.system.guards import require_capability
 
 router = APIRouter(prefix="/task", tags=["任务管理"])
 
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/task", tags=["任务管理"])
 @router.post("/train", response_model=Result[TaskResponse], summary="创建训练任务")
 async def create_train_task(
     data: TaskCreate,
+    _: None = Depends(require_capability("training", "create_task")),
     db: AsyncSession = Depends(get_db),
     service: TaskService = Depends(get_task_service),
 ):

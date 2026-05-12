@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 import { getDatasetDeleteConfirmEnabled } from '../../utils/localSettings';
 import { isImageFileName } from '../../utils/file';
 import { getDatasetUploadRule, splitAcceptedFiles } from '../../utils/datasetUpload';
+import { showApiError } from '../../utils/apiError';
 
 /** 获取文件图标 */
 const getFileIcon = (fileName: string) => {
@@ -140,7 +141,7 @@ const DatasetDetailPage: React.FC = () => {
       const [ds, filesRes] = await Promise.all([getDataset(datasetId), getDatasetSamples(datasetId)]);
       if (ds) setDataset(ds);
       if (filesRes) setSamples(filesRes.items);
-    } catch { message.error(tc('msg.loadFailed')); }
+    } catch (error) { showApiError(error, tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [datasetId]);
 
@@ -180,7 +181,7 @@ const DatasetDetailPage: React.FC = () => {
       message.success(t('uploadSuccess', { count: uploadedCount ?? accepted.length }));
       setSelectedIds(new Set());
       fetchData();
-    } catch { message.error(tc('msg.uploadFailed')); }
+    } catch (error) { showApiError(error, tc('msg.uploadFailed')); }
     finally {
       setTimeout(() => { setUploading(false); setUploadProgress(0); }, 500);
     }

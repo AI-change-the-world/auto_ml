@@ -28,6 +28,7 @@ import {
   TASKS_CHANGED_EVENT,
 } from '../utils/projectEvents';
 import type { AnnotationProject, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
+import { useCapability } from '../hooks/useCapability';
 
 interface NavItem {
   key: string;
@@ -65,6 +66,7 @@ const MainLayout: React.FC = () => {
     '/tasks': true,
     '/deploy': true,
   });
+  const { snapshot, refresh: refreshCapabilities } = useCapability();
 
   const refreshAnnotations = useCallback(() => {
     listAnnotations(1, 50).then((res) => {
@@ -135,6 +137,10 @@ const MainLayout: React.FC = () => {
       window.removeEventListener('automl:deployments-changed', refreshDeployments);
     };
   }, [refreshAnnotations, refreshDeployments, refreshTasks]);
+
+  useEffect(() => {
+    void refreshCapabilities();
+  }, [location.pathname, refreshCapabilities]);
 
   const startTour = useCallback(() => {
     const driverObj = driver({
@@ -264,6 +270,8 @@ const MainLayout: React.FC = () => {
     if (location.pathname.startsWith('/settings')) return t('nav.settings');
     return t('nav.home');
   })();
+
+  const offlineServices = Object.values(snapshot?.services || {}).filter((service) => !service.available);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f8fafc] text-slate-800 antialiased">
@@ -470,6 +478,20 @@ const MainLayout: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto">
+          {offlineServices.length > 0 ? (
+            <div style={{ padding: '10px 32px 0 32px' }}>
+              <div style={{
+                border: '1px solid #fed7aa',
+                background: '#fff7ed',
+                color: '#9a3412',
+                borderRadius: 8,
+                padding: '10px 12px',
+                fontSize: 13,
+              }}>
+                {offlineServices.map((service) => `${service.label}${service.reason ? `: ${service.reason}` : ''}`).join('；')}
+              </div>
+            </div>
+          ) : null}
           <Outlet />
         </div>
       </main>

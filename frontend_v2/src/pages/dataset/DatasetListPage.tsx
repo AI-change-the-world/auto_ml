@@ -26,6 +26,7 @@ import {
 } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { getDatasetDeleteConfirmEnabled } from '../../utils/localSettings';
+import { showApiError } from '../../utils/apiError';
 
 const createInitialFormData = (): DatasetCreate => ({
   name: '',
@@ -61,7 +62,7 @@ const DatasetListPage: React.FC = () => {
     try {
       const res = await listDatasets(1, 50, keyword || undefined);
       if (res) { setDatasets(res.items); setTotal(res.total); }
-    } catch { message.error(tc('msg.loadFailed')); }
+    } catch (error) { showApiError(error, tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [keyword]);
 
@@ -77,7 +78,7 @@ const DatasetListPage: React.FC = () => {
       setFormData(createInitialFormData());
       fetchDatasets();
       if (res) navigate(`/datasets/${res.id}`);
-    } catch { message.error(tc('msg.createFailed')); }
+    } catch (error) { showApiError(error, tc('msg.createFailed')); }
     finally { setCreating(false); }
   };
 

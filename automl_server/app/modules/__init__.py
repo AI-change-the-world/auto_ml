@@ -5,6 +5,7 @@ from .task import router as task_router
 from .deploy import router as deploy_router
 from .inference import router as inference_router
 from .home import router as home_router
+from .system import router as system_router
 
 __all__ = [
     "dataset_router",
@@ -13,4 +14,5 @@ __all__ = [
     "deploy_router",
     "inference_router",
     "home_router",
+    "system_router",
 ]

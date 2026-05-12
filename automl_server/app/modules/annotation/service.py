@@ -18,7 +18,7 @@ from app.common.constants import (
     is_dpo_annotation_type,
     is_dpo_dataset_scenario,
 )
-from app.common.exceptions import NotFoundException, BadRequestException
+from app.common.exceptions import AppException, NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import SampleItem
 from app.modules.dataset import crud as dataset_crud
@@ -445,7 +445,12 @@ class AnnotationService:
             )
         except Exception as exc:
             logger.error(f"Failed to call auto_augment_pipeline by MQ: {exc}")
-            raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
+            raise AppException(
+                code=503,
+                error_code="ASSIST_SERVICE_UNAVAILABLE",
+                message=f"auto_augment_pipeline unavailable: {exc}",
+                detail={"service": "auto_augment_pipeline"},
+            )
 
         result = self._extract_pipeline_annotation_result(payload, pipeline.id)
         raw_annotations = result.get("annotations", [])
@@ -490,7 +495,12 @@ class AnnotationService:
             )
         except Exception as exc:
             logger.error(f"Failed to list auto_augment_pipeline pipelines by MQ: {exc}")
-            raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
+            raise AppException(
+                code=503,
+                error_code="ASSIST_SERVICE_UNAVAILABLE",
+                message=f"auto_augment_pipeline unavailable: {exc}",
+                detail={"service": "auto_augment_pipeline"},
+            )
 
     async def _resolve_assist_pipeline(
         self,

@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import { getDeploymentOverview, getModelActivity } from '../../api/deploy';
 import type { DeploymentOverviewItem, ModelInferenceActivityResponse } from '../../types/deploy';
 import { useTranslation } from 'react-i18next';
+import { showApiError } from '../../utils/apiError';
 
 const formatDateTime = (value: string | null | undefined) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-');
 
@@ -50,8 +51,8 @@ const DeployDetailPage: React.FC = () => {
       ]);
       setModel(overviewRes?.items.find((item) => item.model_id === modelId) || null);
       setActivity(activityRes || null);
-    } catch {
-      message.error(tc('msg.fetchFailed'));
+    } catch (error) {
+      showApiError(error, tc('msg.fetchFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);

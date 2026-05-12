@@ -8,6 +8,7 @@ import { subscribeTaskStream } from '../../api/taskStream';
 import type { TaskResponse, TaskLogResponse } from '../../types/task';
 import { TaskStatusLabels, TaskStatusColors } from '../../types/task';
 import { useTranslation } from 'react-i18next';
+import { showApiError } from '../../utils/apiError';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -31,7 +32,7 @@ const TaskDetailPage: React.FC = () => {
   const logRef = useRef<HTMLDivElement>(null);
 
   const fetchTask = useCallback(async () => {
-    try { const r = await getTask(taskId); if (r) setTask(r); } catch { message.error(tc('msg.fetchFailed')); }
+    try { const r = await getTask(taskId); if (r) setTask(r); } catch (error) { showApiError(error, tc('msg.fetchFailed')); }
   }, [taskId]);
 
   const fetchLogs = useCallback(async () => {

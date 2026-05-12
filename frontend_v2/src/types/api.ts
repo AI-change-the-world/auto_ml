@@ -2,8 +2,10 @@
 export interface Result<T = unknown> {
   success: boolean;
   code: number;
+  error_code?: string | null;
   message: string;
   data: T;
+  detail?: unknown;
   timestamp?: string;
 }
 

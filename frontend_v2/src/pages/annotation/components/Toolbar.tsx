@@ -24,6 +24,8 @@ import { useDatasetStore } from '../../../stores/datasetStore';
 import { LabelMode, AnnotationShape, AnnotationType } from '../../../types';
 import { createBBoxAnnotation } from '../../../types';
 import type { AnnotationAssistPipeline } from '../../../types';
+import { useCapability } from '../../../hooks/useCapability';
+import { showApiError } from '../../../utils/apiError';
 
 const Toolbar: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +50,8 @@ const Toolbar: React.FC = () => {
   const [assistPipelines, setAssistPipelines] = React.useState<AnnotationAssistPipeline[]>([]);
   const [assistPipelineId, setAssistPipelineId] = React.useState<string | undefined>(undefined);
   const [assistPipelineLoading, setAssistPipelineLoading] = React.useState(false);
+  const { getActionCapability } = useCapability();
+  const assistCapability = getActionCapability('annotation', 'assist_label');
 
   const annotationType = annotationProject?.annotation_type ?? AnnotationType.Detection;
   const isClassification = annotationType === AnnotationType.Classification;
@@ -142,12 +146,16 @@ const Toolbar: React.FC = () => {
     try {
       const updated = await updateAnnotation(annotationProject.id, { assist_pipeline: value });
       setDatasetState({ annotationProject: updated });
-    } catch {
-      message.error('保存辅助标注链路失败');
+    } catch (error) {
+      showApiError(error, '保存辅助标注链路失败');
     }
   };
 
   const handleAssist = async () => {
+    if (!assistCapability.allowed) {
+      message.warning(assistCapability.reason || '辅助标注服务不可用');
+      return;
+    }
     if (!annotationProject?.id) {
       message.warning('未加载标注项目');
       return;
@@ -197,7 +205,7 @@ const Toolbar: React.FC = () => {
       message.success(`辅助标注完成，返回 ${nextAnnotations.length} 个框`);
     } catch (error) {
       console.error('assist annotation failed', error);
-      message.error('辅助标注失败');
+      showApiError(error, '辅助标注失败');
     }
   };
 
@@ -277,7 +285,7 @@ const Toolbar: React.FC = () => {
               placeholder="选择辅助 Pipeline"
               value={assistPipelineId}
               loading={assistPipelineLoading}
-              disabled={loading || !annotationProject || assistPipelines.length === 0}
+              disabled={loading || !annotationProject || assistPipelines.length === 0 || !assistCapability.allowed}
               onChange={handleAssistPipelineChange}
               style={{ width: 190 }}
               options={assistPipelines.map((item) => ({
@@ -285,11 +293,11 @@ const Toolbar: React.FC = () => {
                 value: item.id,
               }))}
             />
-            <Tooltip title="辅助标注当前图片">
+            <Tooltip title={!assistCapability.allowed ? (assistCapability.reason || '辅助标注服务不可用') : '辅助标注当前图片'}>
               <Button
                 icon={<RobotOutlined />}
                 onClick={handleAssist}
-                disabled={loading || !annotationProject || !assistPipelineId || currentShape !== 'bbox'}
+                disabled={loading || !annotationProject || !assistPipelineId || currentShape !== 'bbox' || !assistCapability.allowed}
                 size="small"
               >
                 辅助标注

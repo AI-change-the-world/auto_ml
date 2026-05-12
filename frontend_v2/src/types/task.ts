@@ -168,10 +168,15 @@ export interface TrainerStatusResponse {
 }
 
 export interface TaskStreamEnvelope {
-  event: 'task_upsert' | 'task_log' | 'trainer_status';
+  event: 'task_upsert' | 'task_log' | 'trainer_status' | 'capability_changed';
   data: {
     task?: TaskResponse;
     log?: TaskLogResponse;
     trainer_status?: TrainerStatusResponse;
+    capability?: {
+      version: number;
+      updated_at?: string | null;
+      config?: Record<string, unknown>;
+    };
   };
 }

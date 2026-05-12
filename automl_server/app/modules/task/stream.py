@@ -38,6 +38,13 @@ class TaskStreamHub:
         self._global_subscribers: set[int] = set()
         self._task_subscribers: dict[int, set[int]] = defaultdict(set)
         self._next_id = 1
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+
+    def set_loop(self, loop: asyncio.AbstractEventLoop):
+        self._loop = loop
+
+    def get_loop(self) -> Optional[asyncio.AbstractEventLoop]:
+        return self._loop
 
     async def subscribe(self, task_id: Optional[int] = None) -> tuple[int, asyncio.Queue[StreamEvent]]:
         queue: asyncio.Queue[StreamEvent] = asyncio.Queue(maxsize=200)

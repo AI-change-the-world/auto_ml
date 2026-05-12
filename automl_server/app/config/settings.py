@@ -54,6 +54,19 @@ class AutoAugmentPipelineConfig(BaseModel):
     timeout: int = 120
 
 
+class ModuleCapabilityConfig(BaseModel):
+    """模块能力开关配置"""
+    enabled: bool = True
+
+
+class CapabilityConfig(BaseModel):
+    """平台 capability 配置"""
+    dataset: ModuleCapabilityConfig = ModuleCapabilityConfig()
+    annotation: ModuleCapabilityConfig = ModuleCapabilityConfig()
+    training: ModuleCapabilityConfig = ModuleCapabilityConfig()
+    deployment: ModuleCapabilityConfig = ModuleCapabilityConfig()
+
+
 class Settings(BaseModel):
     """全局设置"""
     # 服务配置
@@ -70,6 +83,7 @@ class Settings(BaseModel):
     model_trainer: ModelTrainerConfig = ModelTrainerConfig()
     model_deploy: ModelDeployConfig = ModelDeployConfig()
     auto_augment_pipeline: AutoAugmentPipelineConfig = AutoAugmentPipelineConfig()
+    capability: CapabilityConfig = CapabilityConfig()
 
 
 def _load_from_nacos(nacos_config: NacosConfig) -> dict:
@@ -190,6 +204,22 @@ def _load_settings() -> Settings:
         )
     )
 
+    capability_nacos = nacos_data.get("capability", {})
+    capability = CapabilityConfig(
+        dataset=ModuleCapabilityConfig(
+            enabled=bool(capability_nacos.get("dataset", {}).get("enabled", True)),
+        ),
+        annotation=ModuleCapabilityConfig(
+            enabled=bool(capability_nacos.get("annotation", {}).get("enabled", True)),
+        ),
+        training=ModuleCapabilityConfig(
+            enabled=bool(capability_nacos.get("training", {}).get("enabled", True)),
+        ),
+        deployment=ModuleCapabilityConfig(
+            enabled=bool(capability_nacos.get("deployment", {}).get("enabled", True)),
+        ),
+    )
+
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),
@@ -200,6 +230,7 @@ def _load_settings() -> Settings:
         model_trainer=model_trainer,
         model_deploy=model_deploy,
         auto_augment_pipeline=auto_augment_pipeline,
+        capability=capability,
     )
 
 

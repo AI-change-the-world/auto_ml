@@ -29,6 +29,7 @@ import DeployPage from './pages/deploy/DeployPage';
 import DeployDetailPage from './pages/deploy/DeployDetailPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import ExampleDatasetPage from './pages/example/ExampleDatasetPage';
+import { CapabilityProvider } from './contexts/CapabilityContext';
 
 const App: React.FC = () => {
   const { i18n } = useTranslation();
@@ -44,42 +45,44 @@ const App: React.FC = () => {
         },
       }}
     >
-      <HistoryRouter history={appHistory}>
-        <Routes>
-          {/* 主布局路由 */}
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/datasets" element={<DatasetListPage />} />
-            <Route path="/datasets/:id" element={<DatasetDetailPage />} />
-            <Route path="/annotations" element={<AnnotationListPage />} />
-            <Route path="/tasks" element={<TaskListPage />} />
-            <Route path="/tasks/:id" element={<TaskDetailPage />} />
-            <Route path="/deploy" element={<DeployPage />} />
-            <Route path="/deploy/:id" element={<DeployDetailPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/example-dataset" element={<ExampleDatasetPage />} />
-          </Route>
+      <CapabilityProvider>
+        <HistoryRouter history={appHistory}>
+          <Routes>
+            {/* 主布局路由 */}
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/datasets" element={<DatasetListPage />} />
+              <Route path="/datasets/:id" element={<DatasetDetailPage />} />
+              <Route path="/annotations" element={<AnnotationListPage />} />
+              <Route path="/tasks" element={<TaskListPage />} />
+              <Route path="/tasks/:id" element={<TaskDetailPage />} />
+              <Route path="/deploy" element={<DeployPage />} />
+              <Route path="/deploy/:id" element={<DeployDetailPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/example-dataset" element={<ExampleDatasetPage />} />
+            </Route>
 
-          {/* 标注工具独立全屏布局 */}
-          <Route element={<AnnotationLayout />}>
-            <Route path="/annotations/:annotationId/label" element={<AnnotationWorkbenchRouter />} />
-            <Route path="/annotations/:annotationId/label/image" element={<AnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/aerial" element={<AerialAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/classification" element={<ClassificationAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/llm" element={<ConversationAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/mllm" element={<ConversationAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/dpo" element={<DpoAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/dpo-pairwise" element={<DpoPairwiseAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/dpo-best-of-n" element={<DpoBestOfNAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/dpo-reference" element={<DpoReferenceChoiceAnnotationPage />} />
-            <Route path="/annotations/:annotationId/label/dpo-multi-turn" element={<DpoMultiTurnAnnotationPage />} />
-          </Route>
+            {/* 标注工具独立全屏布局 */}
+            <Route element={<AnnotationLayout />}>
+              <Route path="/annotations/:annotationId/label" element={<AnnotationWorkbenchRouter />} />
+              <Route path="/annotations/:annotationId/label/image" element={<AnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/aerial" element={<AerialAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/classification" element={<ClassificationAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/llm" element={<ConversationAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/mllm" element={<ConversationAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/dpo" element={<DpoAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/dpo-pairwise" element={<DpoPairwiseAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/dpo-best-of-n" element={<DpoBestOfNAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/dpo-reference" element={<DpoReferenceChoiceAnnotationPage />} />
+              <Route path="/annotations/:annotationId/label/dpo-multi-turn" element={<DpoMultiTurnAnnotationPage />} />
+            </Route>
 
-          {/* 兼容旧路由 */}
-          <Route path="/annotation/:annotationId" element={<Navigate to="/annotations" replace />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </HistoryRouter>
+            {/* 兼容旧路由 */}
+            <Route path="/annotation/:annotationId" element={<Navigate to="/annotations" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </HistoryRouter>
+      </CapabilityProvider>
     </ConfigProvider>
   );
 };

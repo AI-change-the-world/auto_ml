@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ApiClientError, type ApiErrorPayload } from '../utils/apiError';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -9,21 +10,39 @@ const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => {
     // 业务级别错误检查 (HTTP 200 但 success=false)
-    const data = response.data;
+    const data = response.data as ApiErrorPayload | undefined;
     if (data && data.success === false) {
-      const message = data.message || '请求失败';
+      const detail = data.detail;
+      const message = typeof detail === 'string'
+        ? detail
+        : data.message || '请求失败';
       console.error('[API Business Error]', message);
-      return Promise.reject(new Error(message));
+      return Promise.reject(new ApiClientError({
+        message,
+        code: data.code,
+        errorCode: data.error_code ?? null,
+        detail,
+        httpStatus: response.status,
+        payload: data,
+      }));
     }
     return response;
   },
   (error) => {
-    const detail = error.response?.data?.detail;
+    const payload = error.response?.data as ApiErrorPayload | undefined;
+    const detail = payload?.detail;
     const message = typeof detail === 'string'
       ? detail
-      : error.response?.data?.message || error.message || '请求失败';
+      : payload?.message || error.message || '请求失败';
     console.error('[API Error]', message);
-    return Promise.reject(error);
+    return Promise.reject(new ApiClientError({
+      message,
+      code: payload?.code,
+      errorCode: payload?.error_code ?? null,
+      detail,
+      httpStatus: error.response?.status,
+      payload,
+    }));
   },
 );
 

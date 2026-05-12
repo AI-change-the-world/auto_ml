@@ -490,7 +490,12 @@ class TaskService:
             raise
         except Exception as e:
             logger.error(f"Failed to cancel trainer task {task_id}: {e}")
-            raise BadRequestException(f"Trainer cancel unavailable: {e}")
+            raise AppException(
+                code=503,
+                error_code="TRAINER_SERVICE_UNAVAILABLE",
+                message=f"Trainer cancel unavailable: {e}",
+                detail={"service": "model_trainer"},
+            )
 
     async def _attach_resume_model(
         self,

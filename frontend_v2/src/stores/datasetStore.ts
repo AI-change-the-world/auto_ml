@@ -10,6 +10,7 @@ import { parseAnnotationClasses } from '../utils/annotationClasses';
 import { getSampleItemName, isImageSampleItem } from '../utils/sampleItem';
 import { useAnnotationStore } from './annotationStore';
 import { message } from 'antd';
+import { showApiError } from '../utils/apiError';
 
 const DEFAULT_SAMPLE_PAGE_SIZE = 100;
 const SAMPLE_CURSOR_STORAGE_KEY = 'auto_ml.annotation.sample_cursor';
@@ -181,7 +182,7 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
       return null;
     } catch (err) {
       console.error('Failed to load annotation project:', err);
-      message.error('加载标注项目失败');
+      showApiError(err, '加载标注项目失败');
       return null;
     } finally {
       set({ loading: false });
@@ -229,7 +230,7 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to load sample page:', err);
-      message.error('加载样本分页失败');
+      showApiError(err, '加载样本分页失败');
       set({ loading: false });
     }
   },
@@ -492,7 +493,7 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
       message.success('保存成功');
     } catch (err) {
       console.error('Failed to save annotation:', err);
-      message.error('保存失败');
+      showApiError(err, '保存失败');
     }
   },
 }));

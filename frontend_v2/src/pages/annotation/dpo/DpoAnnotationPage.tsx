@@ -7,6 +7,7 @@ import { getDataset, getDatasetSamples } from '../../../api/dataset';
 import { AnnotationType, type AnnotationProject, type AnnotationRecord, type Dataset, type SampleItem } from '../../../types';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
 import type { DpoWorkbenchMode } from './DpoAnnotationWorkbench';
+import { showApiError } from '../../../utils/apiError';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -284,7 +285,7 @@ const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }
       });
     } catch (error) {
       console.error('Failed to load DPO samples', error);
-      message.error('加载 DPO 样本失败');
+      showApiError(error, '加载 DPO 样本失败');
     } finally {
       setPageLoading(false);
     }
@@ -332,7 +333,7 @@ const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }
       setKeywordInput('');
     } catch (error) {
       console.error('Failed to load DPO annotation project', error);
-      message.error('加载 DPO 标注项目失败');
+      showApiError(error, '加载 DPO 标注项目失败');
     } finally {
       setLoading(false);
     }
@@ -507,7 +508,7 @@ const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }
       }
     } catch (error) {
       console.error('Failed to save DPO annotation', error);
-      message.error('保存失败');
+      showApiError(error, '保存失败');
     } finally {
       setSaving(false);
     }
@@ -528,7 +529,7 @@ const DpoAnnotationPage: React.FC<DpoAnnotationPageProps> = ({ mode = 'legacy' }
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to export DPO annotation', error);
-      message.error('导出失败');
+      showApiError(error, '导出失败');
     } finally {
       setExporting(false);
     }

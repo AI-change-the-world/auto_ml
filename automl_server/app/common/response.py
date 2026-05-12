@@ -13,8 +13,10 @@ class Result(BaseModel, Generic[T]):
     """统一 API 响应格式"""
     success: bool = True
     code: int = 200
+    error_code: Optional[str] = None
     message: str = "success"
     data: Optional[T] = None
+    detail: Optional[Any] = None
     timestamp: datetime = Field(default_factory=datetime.now)
 
     class Config:
@@ -28,19 +30,43 @@ class Result(BaseModel, Generic[T]):
         return cls(success=True, code=200, message=message, data=data)
 
     @classmethod
-    def fail(cls, code: int = 500, message: str = "error", data: T = None) -> "Result[T]":
+    def fail(
+        cls,
+        code: int = 500,
+        message: str = "error",
+        data: T = None,
+        error_code: str | None = None,
+        detail: Any = None,
+    ) -> "Result[T]":
         """失败响应"""
-        return cls(success=False, code=code, message=message, data=data)
+        return cls(
+            success=False,
+            code=code,
+            error_code=error_code,
+            message=message,
+            data=data,
+            detail=detail,
+        )
 
     @classmethod
-    def not_found(cls, message: str = "Resource not found") -> "Result[None]":
+    def not_found(
+        cls,
+        message: str = "Resource not found",
+        error_code: str = "NOT_FOUND",
+        detail: Any = None,
+    ) -> "Result[None]":
         """404 响应"""
-        return cls(success=False, code=404, message=message)
+        return cls(success=False, code=404, error_code=error_code, message=message, detail=detail)
 
     @classmethod
-    def bad_request(cls, message: str = "Bad request") -> "Result[None]":
+    def bad_request(
+        cls,
+        message: str = "Bad request",
+        error_code: str = "BAD_REQUEST",
+        detail: Any = None,
+    ) -> "Result[None]":
         """400 响应"""
-        return cls(success=False, code=400, message=message)
+        return cls(success=False, code=400, error_code=error_code, message=message, detail=detail)
 
 
 class PageResult(BaseModel, Generic[T]):

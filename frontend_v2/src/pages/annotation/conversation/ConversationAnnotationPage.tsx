@@ -16,6 +16,7 @@ import ConversationEditorModal from './components/ConversationEditorModal';
 import ConversationFileListCard from './components/ConversationFileListCard';
 import type { ConversationEntriesBySample, ConversationFileRow, PreviewState } from './types';
 import { useUnsavedChangesGuard } from '../../../hooks/useUnsavedChangesGuard';
+import { showApiError } from '../../../utils/apiError';
 
 const { Title, Text } = Typography;
 
@@ -130,7 +131,7 @@ const ConversationAnnotationPage: React.FC = () => {
       setPage(1);
     } catch (error) {
       console.error('Failed to load conversation annotation project', error);
-      message.error('加载标注项目失败');
+      showApiError(error, '加载标注项目失败');
     } finally {
       setLoading(false);
     }
@@ -291,7 +292,7 @@ const ConversationAnnotationPage: React.FC = () => {
       message.success(`已保存 ${displayName}`);
     } catch (error) {
       console.error('Failed to save conversation annotation', error);
-      message.error(`保存失败: ${displayName}`);
+      showApiError(error, `保存失败: ${displayName}`);
     }
   };
 
@@ -310,7 +311,7 @@ const ConversationAnnotationPage: React.FC = () => {
       message.success('全部对话标注已保存');
     } catch (error) {
       console.error('Failed to save all conversation annotations', error);
-      message.error('批量保存失败');
+      showApiError(error, '批量保存失败');
     } finally {
       setSaving(false);
     }
@@ -399,7 +400,7 @@ const ConversationAnnotationPage: React.FC = () => {
       setModalOpen(true);
     } catch (error) {
       console.error('Failed to create conversation sample', error);
-      message.error('创建样本失败');
+      showApiError(error, '创建样本失败');
     }
   };
 

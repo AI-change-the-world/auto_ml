@@ -19,6 +19,7 @@ from .schemas import (
     AnnotationResponse,
 )
 from .service import get_annotation_service, AnnotationService
+from app.modules.system.guards import require_capability
 
 router = APIRouter(prefix="/annotation", tags=["标注管理"])
 
@@ -139,6 +140,7 @@ async def save_annotation_record(
 async def assist_current_annotation(
     annotation_id: int,
     data: AnnotationAssistRequest,
+    _: None = Depends(require_capability("annotation", "assist_label")),
     db: AsyncSession = Depends(get_db),
     service: AnnotationService = Depends(get_annotation_service),
 ):
@@ -150,6 +152,7 @@ async def assist_current_annotation(
 async def list_assist_pipelines(
     annotation_id: int,
     shape: str = Query(default=None),
+    _: None = Depends(require_capability("annotation", "assist_label")),
     db: AsyncSession = Depends(get_db),
     service: AnnotationService = Depends(get_annotation_service),
 ):

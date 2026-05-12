@@ -26,6 +26,8 @@ import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task
 import { useTranslation } from 'react-i18next';
 import { emitTasksChanged } from '../../utils/projectEvents';
 import { getTaskDeleteConfirmEnabled } from '../../utils/localSettings';
+import { useCapability } from '../../hooks/useCapability';
+import { showApiError } from '../../utils/apiError';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -140,6 +142,8 @@ const TaskListPage: React.FC = () => {
   });
   const [streamVersion, setStreamVersion] = useState(0);
   const availableDevices = trainerStatus?.available_devices?.length ? trainerStatus.available_devices : ['cpu'];
+  const { getActionCapability, refresh: refreshCapabilities } = useCapability();
+  const createTaskCapability = getActionCapability('training', 'create_task');
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -147,7 +151,7 @@ const TaskListPage: React.FC = () => {
       const st = statusFilter === 'all' ? undefined : Number(statusFilter);
       const r = await listTasks(page, 20, st);
       if (r) { setTasks(r.items); setTotal(r.total); }
-    } catch { message.error(tc('msg.loadFailed')); }
+    } catch (error) { showApiError(error, tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [page, statusFilter]);
 
@@ -166,7 +170,8 @@ const TaskListPage: React.FC = () => {
     resetStream();
     fetchTasks();
     fetchTrainer();
-  }, [fetchTasks, fetchTrainer, resetStream]);
+    void refreshCapabilities();
+  }, [fetchTasks, fetchTrainer, refreshCapabilities, resetStream]);
 
   useEffect(() => { fetchTasks(); fetchTrainer(); }, [fetchTasks, fetchTrainer]);
 
@@ -234,6 +239,10 @@ const TaskListPage: React.FC = () => {
   }, [fetchTasks, fetchTrainer, statusFilter, streamVersion]);
 
   const openCreate = async () => {
+    if (!createTaskCapability.allowed) {
+      message.warning(createTaskCapability.reason || t('trainerUnreachable'));
+      return;
+    }
     setCreateOpen(true);
     setHistoryCandidates([]);
     try {
@@ -275,7 +284,7 @@ const TaskListPage: React.FC = () => {
       });
       setHistoryCandidates([]);
       fetchTasks();
-    } catch { message.error(tc('msg.createFailed')); }
+    } catch (error) { showApiError(error, tc('msg.createFailed')); }
     finally { setCreating(false); }
   };
 
@@ -556,7 +565,9 @@ const TaskListPage: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="button-text" onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
-          <button className="button-text" onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
+          <Tooltip title={!createTaskCapability.allowed ? (createTaskCapability.reason || t('trainerUnreachable')) : ''}>
+            <button className="button-text" onClick={openCreate} disabled={!createTaskCapability.allowed} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, cursor: createTaskCapability.allowed ? 'pointer' : 'not-allowed', opacity: createTaskCapability.allowed ? 1 : 0.5 }}><PlusOutlined /> {t('createTask')}</button>
+          </Tooltip>
         </div>
       </div>
 

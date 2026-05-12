@@ -10,7 +10,7 @@ import onnx
 from loguru import logger
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.common.exceptions import NotFoundException, BadRequestException
+from app.common.exceptions import AppException, NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import ModelInferenceLog
 from app.utils.annotation_classes import parse_annotation_classes
@@ -188,7 +188,12 @@ class DeployService:
 
         except Exception as e:
             logger.error(f"Failed to communicate with model_deploy: {e}")
-            raise BadRequestException(f"Deploy service unavailable: {e}")
+            raise AppException(
+                code=503,
+                error_code="DEPLOY_SERVICE_UNAVAILABLE",
+                message=f"Deploy service unavailable: {e}",
+                detail={"service": "model_deploy"},
+            )
 
         return DeployStatusResponse(
             model_id=data.model_id,
@@ -240,7 +245,12 @@ class DeployService:
 
         except Exception as e:
             logger.error(f"Failed to communicate with model_deploy: {e}")
-            raise BadRequestException(f"Deploy service unavailable: {e}")
+            raise AppException(
+                code=503,
+                error_code="DEPLOY_SERVICE_UNAVAILABLE",
+                message=f"Deploy service unavailable: {e}",
+                detail={"service": "model_deploy"},
+            )
 
         return DeployStatusResponse(
             model_id=model_id,

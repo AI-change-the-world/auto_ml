@@ -5,6 +5,7 @@ import os
 import time
 from typing import Any
 from app.modules.home import router as home_router
+from app.modules.system import router as system_router
 from app.modules.deploy import router as deploy_router
 from app.modules.inference import router as inference_router
 from app.modules.task import router as task_router
@@ -14,6 +15,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -33,6 +35,8 @@ from app.mq.handlers import (
     handle_model_deployed,
     handle_model_undeployed,
 )
+from app.modules.system.runtime import get_capability_runtime_state
+from app.modules.task.stream import get_task_stream_hub
 
 settings = get_settings()
 
@@ -134,7 +138,17 @@ def _init_mq_with_retry(loop: asyncio.AbstractEventLoop):
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
-    get_config_center().start()
+    config_center = get_config_center()
+    loop = asyncio.get_event_loop()
+    get_task_stream_hub().set_loop(loop)
+    capability_runtime = get_capability_runtime_state()
+    capability_runtime.set_loop(loop)
+    capability_runtime.initialize()
+    config_center.register_callback(
+        "automl_server_capability_runtime",
+        capability_runtime.update_from_nacos,
+    )
+    config_center.start()
 
     # 初始化数据库（自动建表）
     from app.config.database import init_db
@@ -153,12 +167,12 @@ async def lifespan(app: FastAPI):
 
     # 启动消息消费者
     try:
-        loop = asyncio.get_event_loop()
         _init_mq_with_retry(loop)
         logger.info("RabbitMQ consumer started")
     except Exception as e:
         logger.error(f"Failed to start MQ consumer: {e}")
-        get_config_center().stop()
+        config_center.unregister_callback("automl_server_capability_runtime")
+        config_center.stop()
         raise
 
     yield
@@ -175,7 +189,8 @@ async def lifespan(app: FastAPI):
         publisher.close()
     except Exception:
         pass
-    get_config_center().stop()
+    config_center.unregister_callback("automl_server_capability_runtime")
+    config_center.stop()
 
 
 # 创建 FastAPI 应用
@@ -203,8 +218,26 @@ app.add_middleware(
 async def app_exception_handler(request: Request, exc: AppException):
     return JSONResponse(
         status_code=200,  # 业务异常返回 200，通过 code 区分
-        content=Result.fail(code=exc.code, message=exc.message,
-                            data=exc.data).model_dump(mode="json"),
+        content=Result.fail(
+            code=exc.code,
+            error_code=exc.error_code,
+            message=exc.message,
+            data=exc.data,
+            detail=exc.detail,
+        ).model_dump(mode="json"),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=200,
+        content=Result.fail(
+            code=422,
+            error_code="VALIDATION_ERROR",
+            message="Request validation failed",
+            detail=exc.errors(),
+        ).model_dump(mode="json"),
     )
 
 
@@ -213,22 +246,27 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
-        content=Result.fail(code=500, message=str(exc)
-                            ).model_dump(mode="json"),
+        content=Result.fail(
+            code=500,
+            error_code="INTERNAL_ERROR",
+            message=str(exc),
+        ).model_dump(mode="json"),
     )
 
 
 # 健康检查
 @app.get("/health", tags=["健康检查"])
 async def health_check():
+    runtime_capability = get_capability_runtime_state().get_config()
     trainer_health = await _probe_json(settings.model_trainer.base_url)
     deploy_health = await _probe_json(settings.model_deploy.base_url)
+    capability = runtime_capability
 
-    dataset_enabled = _route_exists("/dataset")
-    annotation_enabled = _route_exists("/annotation")
-    training_route_enabled = _route_exists("/task")
-    deploy_route_enabled = _route_exists("/deploy")
-    inference_route_enabled = _route_exists("/inference")
+    dataset_enabled = _route_exists("/dataset") and capability.dataset.enabled
+    annotation_enabled = _route_exists("/annotation") and capability.annotation.enabled
+    training_route_enabled = _route_exists("/task") and capability.training.enabled
+    deploy_route_enabled = _route_exists("/deploy") and capability.deployment.enabled
+    inference_route_enabled = _route_exists("/inference") and capability.deployment.enabled
 
     return {
         "status": "ok",
@@ -262,6 +300,7 @@ app.include_router(task_router)
 app.include_router(deploy_router)
 app.include_router(inference_router)
 app.include_router(home_router)
+app.include_router(system_router)
 
 
 if __name__ == "__main__":

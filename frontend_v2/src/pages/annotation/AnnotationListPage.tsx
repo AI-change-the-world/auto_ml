@@ -26,6 +26,7 @@ import {
   getAnnotationTypePreset,
   isDatasetCompatibleWithAnnotationType,
 } from '../../utils/annotationCompatibility';
+import { showApiError } from '../../utils/apiError';
 
 const AnnotationListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -78,8 +79,8 @@ const AnnotationListPage: React.FC = () => {
       message.success('类别已保存');
       setClassesModalOpen(false);
       fetch(); // 刷新列表
-    } catch {
-      message.error('保存类别失败');
+    } catch (error) {
+      showApiError(error, '保存类别失败');
     }
   };
 
@@ -91,7 +92,7 @@ const AnnotationListPage: React.FC = () => {
 
       const typeDefinitions = await listAnnotationTypes().catch(() => []);
       if (typeDefinitions.length > 0) setAnnotationTypeRegistry(createAnnotationTypeRegistry(typeDefinitions));
-    } catch { message.error(tc('msg.loadFailed')); }
+    } catch (error) { showApiError(error, tc('msg.loadFailed')); }
     finally { setLoading(false); }
   }, [keyword]);
 
@@ -126,7 +127,7 @@ const AnnotationListPage: React.FC = () => {
       setFormData({ name: '', annotation_type: 0 });
       setSelectedCategoryKey('image');
       fetch();
-    } catch { message.error(tc('msg.createFailed')); }
+    } catch (error) { showApiError(error, tc('msg.createFailed')); }
     finally { setCreating(false); }
   };
 
