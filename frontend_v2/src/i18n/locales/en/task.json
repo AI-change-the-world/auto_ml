@@ -59,7 +59,7 @@
     "imageSize": "Image Size 输入尺寸",
     "imageSizeDesc": "Training resolution after resize. Larger values are often more accurate but slower.",
     "device": "Device 训练设备",
-    "deviceDesc": "CPU is slower. CUDA uses the GPU when available.",
+    "deviceDesc": "Devices are reported by the trainer process itself. Linux + NVIDIA usually exposes CUDA. Native macOS Python training may expose MPS. macOS Docker containers usually only expose CPU.",
     "optimizerTitle": "Optimization",
     "optimizerHint": "Keep Ultralytics defaults in most cases. Tune these only when training oscillates, stops too early, or converges poorly.",
     "optimizerName": "Optimizer 优化器",

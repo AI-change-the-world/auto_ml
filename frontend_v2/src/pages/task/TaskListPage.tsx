@@ -102,6 +102,14 @@ const renderParameterLabel = (label: string, description?: string) => (
 
 const resolveTrainingEngine = (_baseModel?: BaseModelResponse | null): TrainingEngine => 'ultralytics-yolo';
 
+const formatDeviceLabel = (device: string) => {
+  const normalized = device.toLowerCase();
+  if (normalized === 'cpu') return 'CPU';
+  if (normalized === 'cuda') return 'CUDA';
+  if (normalized === 'mps') return 'MPS';
+  return device.toUpperCase();
+};
+
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('task');
@@ -131,6 +139,7 @@ const TaskListPage: React.FC = () => {
     train_config: DEFAULT_TRAIN_CONFIG,
   });
   const [streamVersion, setStreamVersion] = useState(0);
+  const availableDevices = trainerStatus?.available_devices?.length ? trainerStatus.available_devices : ['cpu'];
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -160,6 +169,12 @@ const TaskListPage: React.FC = () => {
   }, [fetchTasks, fetchTrainer, resetStream]);
 
   useEffect(() => { fetchTasks(); fetchTrainer(); }, [fetchTasks, fetchTrainer]);
+
+  useEffect(() => {
+    if (!availableDevices.includes(form.train_config.device)) {
+      updateTrainConfig('device', availableDevices[0] || 'cpu');
+    }
+  }, [availableDevices, form.train_config.device]);
 
   useEffect(() => {
     let refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -893,10 +908,10 @@ const TaskListPage: React.FC = () => {
                             style={{ width: '100%' }}
                             value={form.train_config.device}
                             onChange={(value) => updateTrainConfig('device', value)}
-                            options={[
-                              { label: 'CPU', value: 'cpu' },
-                              { label: 'CUDA', value: 'cuda' },
-                            ]}
+                            options={availableDevices.map((device) => ({
+                              label: formatDeviceLabel(device),
+                              value: device,
+                            }))}
                           />
                         </div>
                       </div>

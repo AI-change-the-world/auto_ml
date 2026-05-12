@@ -59,7 +59,7 @@
     "imageSize": "Image Size 输入尺寸",
     "imageSizeDesc": "训练时缩放后的输入分辨率。更大通常更准，但更慢、更占显存。",
     "device": "Device 训练设备",
-    "deviceDesc": "CPU 通常更慢，CUDA 使用显卡训练更快。",
+    "deviceDesc": "训练设备由训练服务实际上报。Linux + NVIDIA 通常是 CUDA，macOS 本机 Python 训练可用时会显示 MPS；Docker 中的 macOS 容器通常只会看到 CPU。",
     "optimizerTitle": "优化策略",
     "optimizerHint": "保留 Ultralytics 默认值即可；训练震荡、过早停止或收敛慢时，再按任务微调。",
     "optimizerName": "Optimizer 优化器",

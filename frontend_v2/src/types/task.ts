@@ -163,6 +163,7 @@ export interface TrainerStatusResponse {
   max_concurrent: number;
   active_tasks: number;
   queued_tasks: number;
+  available_devices: string[];
   message: string | null;
 }
 

@@ -260,6 +260,7 @@ class TaskService:
                 max_concurrent=int(payload.get("max_concurrent", 0) or 0),
                 active_tasks=int(payload.get("active_tasks", 0) or 0),
                 queued_tasks=int(payload.get("queued_tasks", 0) or 0),
+                available_devices=list(payload.get("available_devices") or ["cpu"]),
             )
         except Exception as e:
             logger.warning(f"Failed to fetch trainer status: {e}")

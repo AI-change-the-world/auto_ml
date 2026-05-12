@@ -154,6 +154,7 @@ class TrainerStatusResponse(BaseModel):
     max_concurrent: int = 0
     active_tasks: int = 0
     queued_tasks: int = 0
+    available_devices: List[str] = Field(default_factory=lambda: ["cpu"])
     message: Optional[str] = None
 
 
