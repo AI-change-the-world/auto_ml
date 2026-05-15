@@ -1,39 +1,32 @@
 # AutoML Server - Python 主服务
 # Web 框架
-fastapi>=0.109.0
-uvicorn[standard]>=0.27.0
-sse-starlette>=2.1.3
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
+sse-starlette==2.1.3
 
 # 数据库
-sqlalchemy[asyncio]>=2.0.0
-aiomysql>=0.2.0
-greenlet>=3.0.0
+sqlalchemy[asyncio]==2.0.44
+aiomysql==0.3.2
 
 # 配置中心
-nacos-sdk-python>=1.0.0
-PyYAML>=6.0
+nacos-sdk-python==2.0.9
+PyYAML==6.0.2
 
 # 对象存储
-opendal>=0.45.0
+opendal==0.46.0
 
 # 消息队列
-pika>=1.3.0
+pika==1.3.2
 
 # HTTP 客户端
-requests>=2.31.0
+requests==2.32.5
 
 # 数据验证
-pydantic>=2.5.0
+pydantic==2.10.4
 
 # 文件上传
-python-multipart>=0.0.22
-onnx>=1.16.0
+python-multipart==0.0.27
+onnx==1.21.0
 
 # 日志
-loguru>=0.7.0
-
-# 环境变量
-python-dotenv>=1.0.0
-
-# 定时任务
-apscheduler>=3.10.0
+loguru==0.7.3
