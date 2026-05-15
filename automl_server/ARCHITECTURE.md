@@ -568,8 +568,6 @@ python-multipart>=0.0.22
 loguru>=0.7.0
 python-dotenv>=1.0.0
 
-# 定时任务
-apscheduler>=3.10.0
 ```
 
 ---
