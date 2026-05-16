@@ -9,6 +9,7 @@ import binascii
 import gc
 import hashlib
 import io
+import os
 import math
 import threading
 import time
