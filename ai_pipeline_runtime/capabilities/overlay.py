@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from models import AnnotationItem, AnnotationResult, OverlayRenderResult, TaskPayload
-from ocr import OCRTextLine, RapidOCRService
-from utils import image_size, load_cv2_image, require_cv2
-from base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver
+from ..models import AnnotationItem, AnnotationResult, OverlayRenderResult, TaskPayload
+from ..ocr import OCRTextLine, RapidOCRService
+from ..utils import image_size, load_cv2_image, require_cv2
+from .base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver
 
 logger = logging.getLogger(__name__)
 

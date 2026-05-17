@@ -6,6 +6,8 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
+from app.modules.ai_pipeline.service import AiPipelineService, get_ai_pipeline_service
+from app.modules.ai_pipeline.schemas import AiPipelineBindingResponse
 from .schemas import (
     AnnotationAssistRequest,
     AnnotationAssistPipelineResponse,
@@ -155,3 +157,23 @@ async def list_assist_pipelines(
 ):
     result = await service.list_assist_pipelines(db, annotation_id, shape=shape)
     return Result.ok(result)
+
+
+@router.get(
+    "/{annotation_id}/ai-pipeline-bindings",
+    response_model=Result[list[AiPipelineBindingResponse]],
+    summary="获取标注项目 AI Pipeline 绑定",
+)
+async def list_annotation_ai_pipeline_bindings(
+    annotation_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    items, _ = await service.list_bindings(
+        db,
+        page=1,
+        page_size=100,
+        binding_type="annotation_project",
+        binding_target_id=annotation_id,
+    )
+    return Result.ok(items)

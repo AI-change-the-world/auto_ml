@@ -12,6 +12,7 @@ class AnnotationCreate(BaseModel):
     storage_type: int = Field(default=1)
     prompt: Optional[str] = None
     assist_pipeline: Optional[str] = None
+    default_ai_pipeline_binding_id: Optional[int] = None
     dataset_id: Optional[int] = None
 
 
@@ -20,6 +21,7 @@ class AnnotationUpdate(BaseModel):
     classes: Optional[str] = None
     prompt: Optional[str] = None
     assist_pipeline: Optional[str] = None
+    default_ai_pipeline_binding_id: Optional[int] = None
 
 
 class AnnotationResponse(BaseModel):
@@ -31,6 +33,7 @@ class AnnotationResponse(BaseModel):
     save_path: Optional[str]
     prompt: Optional[str]
     assist_pipeline: Optional[str]
+    default_ai_pipeline_binding_id: Optional[int]
     dataset_id: Optional[int]
     created_at: datetime
     updated_at: datetime
@@ -72,6 +75,7 @@ class AnnotationRecordBatchQuery(BaseModel):
 class AnnotationAssistRequest(BaseModel):
     sample_item_id: int
     pipeline_id: Optional[str] = None
+    binding_id: Optional[int] = None
     shape: str = "bbox"
     target_classes: Optional[List[str]] = None
     replace_existing: bool = False

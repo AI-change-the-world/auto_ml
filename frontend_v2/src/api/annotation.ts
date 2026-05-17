@@ -8,6 +8,7 @@ import type {
   AnnotationAssistRequest,
   AnnotationAssistResponse,
   AnnotationAssistPipeline,
+  AnnotationAiPipelineBinding,
   AnnotationCreate,
   AnnotationTypeDefinition,
 } from '../types';
@@ -39,7 +40,16 @@ export async function getAnnotation(annotationId: number) {
 }
 
 /** 更新标注项目 */
-export async function updateAnnotation(annotationId: number, data: { name?: string; classes?: string; prompt?: string; assist_pipeline?: string | null }) {
+export async function updateAnnotation(
+  annotationId: number,
+  data: {
+    name?: string;
+    classes?: string;
+    prompt?: string;
+    assist_pipeline?: string | null;
+    default_ai_pipeline_binding_id?: number | null;
+  },
+) {
   const res = await apiClient.put<Result<AnnotationProject>>(`/annotation/${annotationId}`, data);
   return res.data.data;
 }
@@ -84,6 +94,12 @@ export async function listAnnotationAssistPipelines(annotationId: number, shape?
     params: shape ? { shape } : undefined,
   });
   return res.data.data;
+}
+
+/** 获取当前标注项目可用的 AI Pipeline 绑定 */
+export async function listAnnotationAiPipelineBindings(annotationId: number) {
+  const res = await apiClient.get<Result<AnnotationAiPipelineBinding[]>>(`/annotation/${annotationId}/ai-pipeline-bindings`);
+  return res.data.data ?? [];
 }
 
 /** 导出 DPO 标注结果 */

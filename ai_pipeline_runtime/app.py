@@ -7,15 +7,21 @@ from threading import RLock
 
 from fastapi import FastAPI, HTTPException, Request
 
-from config import (
+from .config import (
     get_runtime_config,
     register_runtime_config_callback,
     unregister_runtime_config_callback,
 )
-from models import ExecuteCapabilityRequest, InlinePipelineRunRequest, NamedPipelineRunRequest, TaskPayload
-from mq import RabbitMQRpcWorker, load_rabbitmq_config
-from nacos_config_center import get_config_center
-from service import AutoAugmentService
+from .models import (
+    ExecuteCapabilityRequest,
+    InlinePipelineRunRequest,
+    NamedPipelineRunRequest,
+    PipelineDefinition,
+    TaskPayload,
+)
+from .mq import RabbitMQRpcWorker, load_rabbitmq_config
+from .nacos_config_center import get_config_center
+from .service import AutoAugmentService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,7 +35,7 @@ def create_app() -> FastAPI:
         with service_lock:
             service = service_holder["service"]
             if service is None:
-                raise RuntimeError("Auto augment service is not initialized")
+                raise RuntimeError("AI pipeline runtime service is not initialized")
             return service
 
     def _on_runtime_config_update(config) -> None:
@@ -55,20 +61,20 @@ def create_app() -> FastAPI:
         app.state.service = service
         app.state.rpc_worker = rpc_worker
         register_runtime_config_callback(
-            "auto_augment_runtime",
+            "ai_pipeline_runtime",
             _on_runtime_config_update,
         )
         rpc_worker.start()
-        logger.info("Auto augment pipeline service is ready")
+        logger.info("AI pipeline runtime service is ready")
         yield
-        unregister_runtime_config_callback("auto_augment_runtime")
+        unregister_runtime_config_callback("ai_pipeline_runtime")
         rpc_worker.stop()
         with service_lock:
             service_holder["service"] = None
         get_config_center().stop()
 
     app = FastAPI(
-        title="Auto Augment Pipeline",
+        title="AI Pipeline Runtime",
         lifespan=lifespan,
     )
 
@@ -78,7 +84,7 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     async def root() -> dict[str, str]:
-        return {"message": "Auto Augment Pipeline is running"}
+        return {"message": "AI Pipeline Runtime is running"}
 
     @app.get("/v1/capabilities")
     async def list_capabilities():
@@ -131,15 +137,24 @@ def handle_rpc_request(service: AutoAugmentService, payload: dict):
     if action == "list_pipelines":
         return [item.model_dump(mode="json") for item in service.list_pipelines()]
     if action == "run_pipeline":
-        pipeline_name = str(payload.get("pipeline_name") or "").strip()
-        if not pipeline_name:
-            raise ValueError("pipeline_name is required")
         request_payload = NamedPipelineRunRequest.model_validate(payload.get("request") or {})
-        result = service.run_pipeline(
-            name=pipeline_name,
-            payload=request_payload.input,
-            params=request_payload.params,
-        )
+        definition_payload = payload.get("definition")
+        if definition_payload is not None:
+            definition = PipelineDefinition.model_validate(definition_payload)
+            result = service.run_pipeline(
+                definition=definition,
+                payload=request_payload.input,
+                params=request_payload.params,
+            )
+        else:
+            pipeline_name = str(payload.get("pipeline_name") or "").strip()
+            if not pipeline_name:
+                raise ValueError("pipeline_name is required")
+            result = service.run_pipeline(
+                name=pipeline_name,
+                payload=request_payload.input,
+                params=request_payload.params,
+            )
         if hasattr(result, "model_dump"):
             return result.model_dump(mode="json")
         return result
@@ -153,7 +168,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "app:app",
+        "ai_pipeline_runtime.app:app",
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8010)),
         reload=os.getenv("RELOAD", "false").lower() == "true",

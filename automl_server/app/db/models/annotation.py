@@ -19,6 +19,7 @@ class Annotation(BaseEntity):
     save_path = Column(String(512), nullable=True, comment="存储路径")
     prompt = Column(Text, nullable=True, comment="AI 标注提示词")
     assist_pipeline = Column(String(128), nullable=True, comment="默认辅助标注 Pipeline")
+    default_ai_pipeline_binding_id = Column(BigInteger, nullable=True, comment="默认 AI Pipeline 绑定ID")
     dataset_id = Column(BigInteger, nullable=True,
                         index=True, comment="关联数据集ID")
 

@@ -1,28 +1,23 @@
 from __future__ import annotations
 
-import os
-import sys
 from dataclasses import dataclass
 from typing import Any
 
-_CAPABILITIES_DIR = os.path.join(os.path.dirname(__file__), "capabilities")
-if _CAPABILITIES_DIR not in sys.path:
-    sys.path.insert(0, _CAPABILITIES_DIR)
-
-from capabilities import (
+from .capabilities import (
     AssistAnnotationCapability,
     Capability,
     DescribeImageCapability,
     DraftAnnotationCapability,
     DraftAnnotationPreviewCapability,
     ExtractWhiteAnnotationsCapability,
+    OnnxDetectCapability,
     RenderWhiteAnnotationOverlayCapability,
     UnderstandWhiteAnnotationsCapability,
 )
-from config import RuntimeConfig
-from models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
-from pipeline import PipelineRunner
-from providers import BaseMultimodalProvider, ProviderRegistry
+from .config import RuntimeConfig
+from .models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
+from .pipeline import PipelineRunner
+from .providers import BaseMultimodalProvider, ProviderRegistry
 
 
 @dataclass
@@ -107,6 +102,7 @@ class AutoAugmentService:
         items: list[Capability] = [
             DescribeImageCapability(),
             DraftAnnotationCapability(),
+            OnnxDetectCapability(),
             DraftAnnotationPreviewCapability(),
             RenderWhiteAnnotationOverlayCapability(),
             UnderstandWhiteAnnotationsCapability(),

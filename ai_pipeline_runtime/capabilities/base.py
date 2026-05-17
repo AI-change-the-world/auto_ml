@@ -3,9 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
 
-from models import AnnotationItem, CapabilityDescriptor, TaskPayload
-from ocr import normalize_label_to_allowed_classes
-from utils import clamp
+from ..models import AnnotationItem, CapabilityDescriptor, TaskPayload
+from ..ocr import normalize_label_to_allowed_classes
+from ..utils import clamp
 
 BoxTuple = tuple[int, int, int, int]
 

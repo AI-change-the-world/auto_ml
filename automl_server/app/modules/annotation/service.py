@@ -21,6 +21,7 @@ from app.common.constants import (
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
 from app.db.models import SampleItem
+from app.modules.ai_pipeline.service import AiPipelineService
 from app.modules.dataset import crud as dataset_crud
 from app.mq.rpc_client import get_assist_rpc_client
 from app.utils.annotation_classes import parse_annotation_classes, serialize_annotation_classes
@@ -50,6 +51,7 @@ class AnnotationService:
     def __init__(self):
         self.s3 = get_s3_delegate()
         self._assist_rpc_client = None
+        self.ai_pipeline_service = AiPipelineService()
 
     async def close(self):
         return None
@@ -87,6 +89,7 @@ class AnnotationService:
             save_path=save_path,
             prompt=data.prompt,
             assist_pipeline=data.assist_pipeline,
+            default_ai_pipeline_binding_id=data.default_ai_pipeline_binding_id,
             dataset_id=data.dataset_id,
         )
         await self._persist_annotation_project(ann)
@@ -138,7 +141,7 @@ class AnnotationService:
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
 
-        items = await self.list_platform_assist_pipelines()
+        items = await self.list_platform_assist_pipelines(db)
         normalized_shape = (shape or "").strip().lower()
         filtered_items: list[AnnotationAssistPipelineResponse] = []
         for item in items:
@@ -149,15 +152,11 @@ class AnnotationService:
             filtered_items.append(item)
         return filtered_items
 
-    async def list_platform_assist_pipelines(self) -> list[AnnotationAssistPipelineResponse]:
-        payload = await self._fetch_pipeline_catalog()
-        if isinstance(payload, list):
-            raw_items = payload
-        elif isinstance(payload, dict):
-            raw_items = payload.get("pipelines", [])
-        else:
-            raw_items = []
-
+    async def list_platform_assist_pipelines(
+        self,
+        db: AsyncSession,
+    ) -> list[AnnotationAssistPipelineResponse]:
+        raw_items = await self._load_platform_pipeline_catalog(db)
         items: list[AnnotationAssistPipelineResponse] = []
         for item in raw_items:
             parsed = self._parse_pipeline_descriptor(item)
@@ -166,15 +165,11 @@ class AnnotationService:
             items.append(parsed)
         return items
 
-    async def list_platform_assist_pipeline_details(self) -> list[dict[str, Any]]:
-        payload = await self._fetch_pipeline_catalog()
-        if isinstance(payload, list):
-            raw_items = payload
-        elif isinstance(payload, dict):
-            raw_items = payload.get("pipelines", [])
-        else:
-            raw_items = []
-
+    async def list_platform_assist_pipeline_details(
+        self,
+        db: AsyncSession,
+    ) -> list[dict[str, Any]]:
+        raw_items = await self._load_platform_pipeline_catalog(db)
         items: list[dict[str, Any]] = []
         for item in raw_items:
             parsed = self._parse_pipeline_descriptor(item)
@@ -185,6 +180,27 @@ class AnnotationService:
                 "steps": self._parse_pipeline_steps(item),
             })
         return items
+
+    async def _load_platform_pipeline_catalog(
+        self,
+        db: AsyncSession,
+    ) -> list[dict[str, Any]]:
+        try:
+            db_items = await self.ai_pipeline_service.list_assist_template_detail_descriptors(db)
+        except Exception as exc:
+            logger.warning(f"Failed to load assist pipelines from DB, fallback to MQ: {exc}")
+            db_items = []
+
+        if db_items:
+            return db_items
+
+        payload = await self._fetch_pipeline_catalog()
+        if isinstance(payload, list):
+            return payload
+        if isinstance(payload, dict):
+            pipelines = payload.get("pipelines", [])
+            return pipelines if isinstance(pipelines, list) else []
+        return []
 
     async def list_annotation_records(
         self,
@@ -380,7 +396,15 @@ class AnnotationService:
             raise BadRequestException("annotation assist requires non-empty classes")
         selected_classes = self._normalize_target_classes(data.target_classes, classes)
         shape = (data.shape or "bbox").strip().lower()
-        pipeline = await self._resolve_assist_pipeline(db, ann, shape, data.pipeline_id)
+        resolved_pipeline = await self._resolve_assist_pipeline(
+            db,
+            ann,
+            shape,
+            data.pipeline_id,
+            requested_binding_id=data.binding_id,
+        )
+        pipeline = resolved_pipeline["pipeline"]
+        binding_context = resolved_pipeline.get("binding_context")
         if shape != "bbox":
             raise BadRequestException("selected annotation assist pipeline currently only returns bbox annotations")
 
@@ -403,6 +427,13 @@ class AnnotationService:
         file_name = asset.file_name or sample_item.item_key
         mime_type = asset.mime_type or mimetypes.guess_type(file_name)[0] or "image/jpeg"
         image_base64 = self._to_data_url(image_bytes, mime_type)
+        request_params = data.params or {}
+        merged_params = self._merge_assist_runtime_params(
+            ann=ann,
+            request_params=request_params,
+            binding_context=binding_context,
+            selected_classes=selected_classes,
+        )
 
         request_payload = {
             "input": {
@@ -411,7 +442,7 @@ class AnnotationService:
                     "mime_type": mime_type,
                 },
                 "classes": selected_classes,
-                "prompt": ann.prompt,
+                "prompt": self._resolve_assist_prompt(ann, merged_params),
                 "metadata": {
                     "annotation_id": annotation_id,
                     "dataset_id": ann.dataset_id,
@@ -420,32 +451,39 @@ class AnnotationService:
                     "file_name": file_name,
                     "shape": shape,
                     "pipeline_id": pipeline.id,
+                    "binding_id": binding_context.get("binding_id") if binding_context else None,
                 },
             },
-            "params": data.params or {},
+            "params": merged_params,
         }
         logger.info(
-            "Assist annotation request annotation_id=%s file=%s pipeline=%s shape=%s classes=%s prompt=%s",
+            "Assist annotation request annotation_id=%s file=%s pipeline=%s binding_id=%s shape=%s classes=%s prompt=%s",
             annotation_id,
             file_name,
             pipeline.id,
+            binding_context.get("binding_id") if binding_context else None,
             shape,
             selected_classes,
-            ann.prompt,
+            request_payload["input"]["prompt"],
         )
         try:
+            rpc_payload = {
+                "action": "run_pipeline",
+                "pipeline_name": pipeline.id,
+                "request": request_payload,
+            }
+            if binding_context:
+                definition_json = binding_context.get("definition_json")
+                if isinstance(definition_json, dict):
+                    rpc_payload["definition"] = definition_json
             payload = await asyncio.to_thread(
                 self.assist_rpc_client.call,
-                {
-                    "action": "run_pipeline",
-                    "pipeline_name": pipeline.id,
-                    "request": request_payload,
-                },
-                get_settings().auto_augment_pipeline.timeout,
+                rpc_payload,
+                get_settings().ai_pipeline_runtime.timeout,
             )
         except Exception as exc:
-            logger.error(f"Failed to call auto_augment_pipeline by MQ: {exc}")
-            raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
+            logger.error(f"Failed to call ai_pipeline_runtime by MQ: {exc}")
+            raise BadRequestException(f"ai_pipeline_runtime unavailable: {exc}")
 
         result = self._extract_pipeline_annotation_result(payload, pipeline.id)
         raw_annotations = result.get("annotations", [])
@@ -486,11 +524,11 @@ class AnnotationService:
             return await asyncio.to_thread(
                 self.assist_rpc_client.call,
                 {"action": "list_pipelines"},
-                get_settings().auto_augment_pipeline.timeout,
+                get_settings().ai_pipeline_runtime.timeout,
             )
         except Exception as exc:
-            logger.error(f"Failed to list auto_augment_pipeline pipelines by MQ: {exc}")
-            raise BadRequestException(f"auto_augment_pipeline unavailable: {exc}")
+            logger.error(f"Failed to list ai_pipeline_runtime pipelines by MQ: {exc}")
+            raise BadRequestException(f"ai_pipeline_runtime unavailable: {exc}")
 
     async def _resolve_assist_pipeline(
         self,
@@ -498,23 +536,127 @@ class AnnotationService:
         ann,
         shape: str,
         requested_pipeline_id: Optional[str],
-    ) -> AnnotationAssistPipelineResponse:
+        requested_binding_id: Optional[int] = None,
+    ) -> dict[str, Any]:
         pipelines = await self.list_assist_pipelines(db, ann.id, shape=shape)
         if not pipelines:
             raise BadRequestException(f"no annotation assist pipeline supports shape `{shape}`")
 
-        pipeline_id = requested_pipeline_id or getattr(ann, "assist_pipeline", None)
+        binding_context = await self._load_annotation_binding_context(
+            db,
+            ann,
+            requested_binding_id=requested_binding_id,
+        )
+        if requested_binding_id and not binding_context:
+            raise BadRequestException(
+                f"ai pipeline binding `{requested_binding_id}` not available for current annotation"
+            )
+        binding_pipeline_id = None
+        if binding_context:
+            binding_descriptor = binding_context.get("pipeline_descriptor") or {}
+            binding_pipeline_id = str(
+                binding_descriptor.get("name")
+                or binding_descriptor.get("id")
+                or ""
+            ).strip() or None
+
+        pipeline_id = requested_pipeline_id or binding_pipeline_id or getattr(ann, "assist_pipeline", None)
         if pipeline_id:
             matched = next((item for item in pipelines if item.id == pipeline_id), None)
             if matched:
                 if getattr(ann, "assist_pipeline", None) != matched.id:
                     await crud.update_annotation(db, ann.id, assist_pipeline=matched.id)
-                return matched
+                return {
+                    "pipeline": matched,
+                    "binding_context": binding_context if binding_pipeline_id == matched.id else None,
+                }
             raise BadRequestException(f"annotation assist pipeline `{pipeline_id}` does not support current annotation shape")
 
         selected = pipelines[0]
         await crud.update_annotation(db, ann.id, assist_pipeline=selected.id)
-        return selected
+        return {
+            "pipeline": selected,
+            "binding_context": binding_context if binding_pipeline_id == selected.id else None,
+        }
+
+    async def _load_annotation_binding_context(
+        self,
+        db: AsyncSession,
+        ann,
+        requested_binding_id: Optional[int] = None,
+    ) -> dict[str, Any] | None:
+        binding_id = requested_binding_id or getattr(ann, "default_ai_pipeline_binding_id", None)
+        if not binding_id:
+            return None
+        try:
+            binding_context = await self.ai_pipeline_service.get_binding_execution_context(
+                db,
+                binding_id,
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Failed to load annotation default AI pipeline binding {binding_id}: {exc}"
+            )
+            return None
+        if not binding_context:
+            return None
+        if binding_context.get("binding_type") != "annotation_project":
+            logger.warning(
+                "Ignore AI pipeline binding %s for annotation %s due to binding_type=%s",
+                binding_id,
+                ann.id,
+                binding_context.get("binding_type"),
+            )
+            return None
+        if int(binding_context.get("binding_target_id") or 0) != int(ann.id):
+            logger.warning(
+                "Ignore AI pipeline binding %s for annotation %s due to binding_target_id=%s",
+                binding_id,
+                ann.id,
+                binding_context.get("binding_target_id"),
+            )
+            return None
+        return binding_context
+
+    def _merge_assist_runtime_params(
+        self,
+        *,
+        ann,
+        request_params: dict[str, Any],
+        binding_context: dict[str, Any] | None,
+        selected_classes: list[str],
+    ) -> dict[str, Any]:
+        merged: dict[str, Any] = {}
+        if binding_context:
+            runtime_defaults = binding_context.get("runtime_input_defaults_json")
+            if isinstance(runtime_defaults, dict):
+                merged.update(runtime_defaults)
+
+            resource_bindings = binding_context.get("resource_bindings_json")
+            if resource_bindings is not None:
+                merged["resource_bindings"] = resource_bindings
+                merged["ai_pipeline_resource_bindings"] = resource_bindings
+
+            merged["ai_pipeline_binding_id"] = binding_context.get("binding_id")
+            merged["ai_pipeline_template_key"] = binding_context.get("template_key")
+            merged["ai_pipeline_template_version"] = binding_context.get("template_version")
+
+        merged.update(request_params)
+        merged["classes"] = selected_classes
+        if ann.prompt and "prompt" not in merged:
+            merged["prompt"] = ann.prompt
+        return merged
+
+    def _resolve_assist_prompt(
+        self,
+        ann,
+        request_params: dict[str, Any],
+    ) -> str | None:
+        prompt = request_params.get("prompt")
+        if prompt is None:
+            return ann.prompt
+        prompt_text = str(prompt).strip()
+        return prompt_text or ann.prompt
 
     def _parse_pipeline_descriptor(self, item: Any) -> AnnotationAssistPipelineResponse | None:
         if not isinstance(item, dict):
@@ -673,6 +815,7 @@ class AnnotationService:
             "dataset_id": ann.dataset_id,
             "prompt": ann.prompt,
             "assist_pipeline": ann.assist_pipeline,
+            "default_ai_pipeline_binding_id": getattr(ann, "default_ai_pipeline_binding_id", None),
             "created_at": self._json_time(ann.created_at),
             "updated_at": self._json_time(ann.updated_at),
         }

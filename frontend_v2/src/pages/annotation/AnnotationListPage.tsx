@@ -148,6 +148,11 @@ const AnnotationListPage: React.FC = () => {
     });
   };
 
+  const handleOpenAiPipeline = (event: React.MouseEvent, annotation: AnnotationProject) => {
+    event.stopPropagation();
+    navigate(`/annotations/${annotation.id}/ai-pipeline`);
+  };
+
   const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
   const selectedCategory = getAnnotationCategoryDefinition(selectedCategoryKey);
   const categoryAnnotationTypes = (selectedCategory?.annotationTypes ?? [])
@@ -208,6 +213,7 @@ const AnnotationListPage: React.FC = () => {
               unknownLabel={tc('status.unknown')}
               t={t}
               onOpen={(annotation) => navigate(`/annotations/${annotation.id}/label`)}
+              onOpenAiPipeline={handleOpenAiPipeline}
               onEditClasses={openClassesModal}
               onDelete={handleDelete}
             />

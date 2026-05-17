@@ -32,7 +32,8 @@ fi
 : "${MINIO_ENDPOINT:=http://minio:9000}"
 : "${MODEL_TRAINER_URL:=http://model-trainer:8081}"
 : "${MODEL_DEPLOY_URL:=http://model-deploy:8082}"
-: "${AUTO_AUGMENT_PIPELINE_URL:=http://auto-augment-pipeline:8010}"
+: "${AI_PIPELINE_RUNTIME_URL:=http://ai-pipeline-runtime:8010}"
+: "${AUTO_AUGMENT_PIPELINE_URL:=$AI_PIPELINE_RUNTIME_URL}"
 : "${TASK_STALE_TIMEOUT_SECONDS:=7200}"
 
 replace_placeholder() {
@@ -71,6 +72,7 @@ publish_config() {
   replace_placeholder "MINIO_ENDPOINT" "$MINIO_ENDPOINT"
   replace_placeholder "MODEL_TRAINER_URL" "$MODEL_TRAINER_URL"
   replace_placeholder "MODEL_DEPLOY_URL" "$MODEL_DEPLOY_URL"
+  replace_placeholder "AI_PIPELINE_RUNTIME_URL" "$AI_PIPELINE_RUNTIME_URL"
   replace_placeholder "AUTO_AUGMENT_PIPELINE_URL" "$AUTO_AUGMENT_PIPELINE_URL"
   replace_placeholder "TASK_STALE_TIMEOUT_SECONDS" "$TASK_STALE_TIMEOUT_SECONDS"
   replace_placeholder "NANO_BANANA_BASE_URL" "${NANO_BANANA_BASE_URL:-}"
@@ -99,6 +101,6 @@ publish_config() {
 }
 
 publish_config "$CONFIG_FILE" "${DATA_ID}"
-publish_config "${AUGMENT_CONFIG_FILE:-/config/auto-augment-config.yaml}" "${AUGMENT_DATA_ID:-AUTO_AUGMENT_PIPELINE}"
+publish_config "${AUGMENT_CONFIG_FILE:-/config/ai-pipeline-runtime-config.yaml}" "${AUGMENT_DATA_ID:-AI_PIPELINE_RUNTIME}"
 
 echo "✅ Nacos initialization completed!"

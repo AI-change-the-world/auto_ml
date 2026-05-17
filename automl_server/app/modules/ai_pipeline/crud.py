@@ -1,0 +1,237 @@
+"""AI Pipeline CRUD"""
+from __future__ import annotations
+
+import json
+from typing import Optional
+
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import (
+    AiPipelineBinding,
+    AiPipelineTemplate,
+    AiPipelineTemplateVersion,
+    AvailableModel,
+)
+
+
+def _dump_json(value):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _load_json(value):
+    if not value:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    try:
+        return json.loads(value)
+    except Exception:
+        return value
+
+
+async def list_templates(
+    db: AsyncSession,
+    *,
+    offset: int = 0,
+    limit: int = 20,
+    scene_type: Optional[str] = None,
+    status: Optional[str] = None,
+    keyword: Optional[str] = None,
+):
+    conditions = [AiPipelineTemplate.is_deleted == False]
+    if scene_type:
+        conditions.append(AiPipelineTemplate.scene_type == scene_type)
+    if status:
+        conditions.append(AiPipelineTemplate.status == status)
+    if keyword:
+        conditions.append(AiPipelineTemplate.name.ilike(f"%{keyword.strip()}%"))
+
+    count_stmt = select(func.count()).select_from(AiPipelineTemplate).where(*conditions)
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    stmt = (
+        select(AiPipelineTemplate)
+        .where(*conditions)
+        .order_by(AiPipelineTemplate.updated_at.desc(), AiPipelineTemplate.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    return items, total
+
+
+async def get_template_by_id(db: AsyncSession, template_id: int) -> Optional[AiPipelineTemplate]:
+    stmt = select(AiPipelineTemplate).where(
+        AiPipelineTemplate.id == template_id,
+        AiPipelineTemplate.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_template_by_key(db: AsyncSession, template_key: str) -> Optional[AiPipelineTemplate]:
+    stmt = select(AiPipelineTemplate).where(
+        AiPipelineTemplate.template_key == template_key,
+        AiPipelineTemplate.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def create_template(db: AsyncSession, **kwargs) -> AiPipelineTemplate:
+    item = AiPipelineTemplate(**kwargs)
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return item
+
+
+async def update_template(db: AsyncSession, template: AiPipelineTemplate, **kwargs) -> AiPipelineTemplate:
+    for key, value in kwargs.items():
+        setattr(template, key, value)
+    await db.flush()
+    await db.refresh(template)
+    return template
+
+
+async def get_template_version(
+    db: AsyncSession,
+    *,
+    template_id: int,
+    version: Optional[int] = None,
+) -> Optional[AiPipelineTemplateVersion]:
+    stmt = select(AiPipelineTemplateVersion).where(
+        AiPipelineTemplateVersion.template_id == template_id,
+        AiPipelineTemplateVersion.is_deleted == False,
+    )
+    if version is not None:
+        stmt = stmt.where(AiPipelineTemplateVersion.version == version)
+    else:
+        stmt = stmt.order_by(AiPipelineTemplateVersion.version.desc())
+    return (await db.execute(stmt.limit(1))).scalar_one_or_none()
+
+
+async def create_template_version(db: AsyncSession, **kwargs) -> AiPipelineTemplateVersion:
+    payload = dict(kwargs)
+    payload["definition_json"] = _dump_json(payload.get("definition_json"))
+    payload["form_schema_json"] = _dump_json(payload.get("form_schema_json"))
+    item = AiPipelineTemplateVersion(**payload)
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return item
+
+
+async def list_bindings(
+    db: AsyncSession,
+    *,
+    binding_type: Optional[str] = None,
+    binding_target_id: Optional[int] = None,
+    offset: int = 0,
+    limit: int = 20,
+):
+    conditions = [AiPipelineBinding.is_deleted == False]
+    if binding_type:
+        conditions.append(AiPipelineBinding.binding_type == binding_type)
+    if binding_target_id is not None:
+        conditions.append(AiPipelineBinding.binding_target_id == binding_target_id)
+
+    count_stmt = select(func.count()).select_from(AiPipelineBinding).where(*conditions)
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    stmt = (
+        select(AiPipelineBinding)
+        .where(*conditions)
+        .order_by(AiPipelineBinding.updated_at.desc(), AiPipelineBinding.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    return items, total
+
+
+async def create_binding(db: AsyncSession, **kwargs) -> AiPipelineBinding:
+    payload = dict(kwargs)
+    payload["runtime_input_defaults_json"] = _dump_json(payload.get("runtime_input_defaults_json"))
+    payload["resource_bindings_json"] = _dump_json(payload.get("resource_bindings_json"))
+    item = AiPipelineBinding(**payload)
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return item
+
+
+async def get_binding_by_id(db: AsyncSession, binding_id: int) -> Optional[AiPipelineBinding]:
+    stmt = select(AiPipelineBinding).where(
+        AiPipelineBinding.id == binding_id,
+        AiPipelineBinding.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def update_binding(
+    db: AsyncSession,
+    binding: AiPipelineBinding,
+    **kwargs,
+) -> AiPipelineBinding:
+    payload = dict(kwargs)
+    if "runtime_input_defaults_json" in payload:
+        payload["runtime_input_defaults_json"] = _dump_json(payload.get("runtime_input_defaults_json"))
+    if "resource_bindings_json" in payload:
+        payload["resource_bindings_json"] = _dump_json(payload.get("resource_bindings_json"))
+    for key, value in payload.items():
+        setattr(binding, key, value)
+    await db.flush()
+    await db.refresh(binding)
+    return binding
+
+
+async def clear_default_bindings(
+    db: AsyncSession,
+    *,
+    binding_type: str,
+    binding_target_id: int,
+) -> None:
+    stmt = (
+        update(AiPipelineBinding)
+        .where(
+            AiPipelineBinding.binding_type == binding_type,
+            AiPipelineBinding.binding_target_id == binding_target_id,
+            AiPipelineBinding.is_deleted == False,
+        )
+        .values(is_default=False)
+    )
+    await db.execute(stmt)
+
+
+def load_json_value(value):
+    return _load_json(value)
+
+
+async def list_model_resources(
+    db: AsyncSession,
+    *,
+    deployed_only: bool = True,
+    offset: int = 0,
+    limit: int = 200,
+) -> list[AvailableModel]:
+    conditions = [AvailableModel.is_deleted == False]
+    if deployed_only:
+        conditions.append(AvailableModel.is_deployed == True)
+
+    stmt = (
+        select(AvailableModel)
+        .where(*conditions)
+        .order_by(
+            AvailableModel.is_deployed.desc(),
+            AvailableModel.deployed_at.desc().nullslast(),
+            AvailableModel.created_at.desc(),
+            AvailableModel.id.desc(),
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+    return list((await db.execute(stmt)).scalars().all())

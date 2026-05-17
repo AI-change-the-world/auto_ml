@@ -137,16 +137,16 @@
 
 运行配置只从 Nacos 获取：
 
-- `AUTO_AUGMENT_NACOS_DATA_ID`，默认 `AUTO_AUGMENT_PIPELINE`
+- `AI_PIPELINE_RUNTIME_NACOS_DATA_ID`，默认 `AI_PIPELINE_RUNTIME`
 - `NACOS_GROUP`，默认 `DEFAULT_GROUP`
 - `NACOS_SERVER_ADDR`，默认 `127.0.0.1:8848`
 
 可选环境变量：
 
-- `AUTO_AUGMENT_NACOS_NAMESPACE`
-- `AUTO_AUGMENT_WATCH_NACOS`
-- `AUTO_AUGMENT_NACOS_LOG_DIR`
-- `AUTO_AUGMENT_NACOS_CACHE_DIR`
+- `AI_PIPELINE_RUNTIME_NACOS_NAMESPACE`
+- `AI_PIPELINE_RUNTIME_WATCH_NACOS`
+- `AI_PIPELINE_RUNTIME_NACOS_LOG_DIR`
+- `AI_PIPELINE_RUNTIME_NACOS_CACHE_DIR`
 
 OCR 不需要额外配置 provider，默认使用内置 `RapidOCR`。
 图像编辑推荐单独配一个 `image_edit_provider`，比如 `nano banana2 pro`。
@@ -154,8 +154,8 @@ OCR 不需要额外配置 provider，默认使用内置 `RapidOCR`。
 ## 运行方式
 
 ```bash
-pip install -r auto_augment_pipeline/requirements.txt
-uvicorn auto_augment_pipeline.app:app --host 0.0.0.0 --port 8010 --reload
+pip install -r ai_pipeline_runtime/requirements.txt
+uvicorn ai_pipeline_runtime.app:app --host 0.0.0.0 --port 8010 --reload
 ```
 
 ## Docker
@@ -163,13 +163,13 @@ uvicorn auto_augment_pipeline.app:app --host 0.0.0.0 --port 8010 --reload
 从仓库根目录构建：
 
 ```bash
-docker build -f auto_augment_pipeline/Dockerfile -t auto-augment-pipeline .
+docker build -f ai_pipeline_runtime/Dockerfile -t ai-pipeline-runtime .
 ```
 
 运行：
 
 ```bash
-docker run --rm -p 8010:8010 auto-augment-pipeline
+docker run --rm -p 8010:8010 ai-pipeline-runtime
 ```
 
 ## API

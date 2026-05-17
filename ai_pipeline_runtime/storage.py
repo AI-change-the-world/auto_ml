@@ -22,7 +22,7 @@ def _fetch_nacos_payload() -> dict[str, Any]:
     namespace = os.getenv("NACOS_NAMESPACE", "public")
     data_id = os.getenv("AUTO_ML_NACOS_DATA_ID", "AUTO_ML_CONFIG")
     group = os.getenv("NACOS_GROUP", "AUTO_ML")
-    log_dir = os.getenv("STORAGE_NACOS_LOG_DIR", "/tmp/auto_augment_pipeline/nacos/storage-logs")
+    log_dir = os.getenv("STORAGE_NACOS_LOG_DIR", "/tmp/ai_pipeline_runtime/nacos/storage-logs")
     import nacos
 
     client = nacos.NacosClient(server_addr, namespace=namespace, logDir=log_dir)

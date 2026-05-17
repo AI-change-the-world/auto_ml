@@ -17,13 +17,19 @@ import {
   ArrowLeftOutlined,
   RobotOutlined,
   PictureOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
-import { assistCurrentAnnotation, listAnnotationAssistPipelines, updateAnnotation } from '../../../api/annotation';
+import {
+  assistCurrentAnnotation,
+  listAnnotationAiPipelineBindings,
+  listAnnotationAssistPipelines,
+  updateAnnotation,
+} from '../../../api/annotation';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { LabelMode, AnnotationShape, AnnotationType } from '../../../types';
 import { createBBoxAnnotation } from '../../../types';
-import type { AnnotationAssistPipeline } from '../../../types';
+import type { AnnotationAiPipelineBinding, AnnotationAssistPipeline } from '../../../types';
 
 const Toolbar: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +51,9 @@ const Toolbar: React.FC = () => {
     totalSamples,
   } = useDatasetStore();
   const setDatasetState = useDatasetStore.setState;
+  const [aiBindings, setAiBindings] = React.useState<AnnotationAiPipelineBinding[]>([]);
+  const [selectedBindingId, setSelectedBindingId] = React.useState<number | undefined>(undefined);
+  const [bindingLoading, setBindingLoading] = React.useState(false);
   const [assistPipelines, setAssistPipelines] = React.useState<AnnotationAssistPipeline[]>([]);
   const [assistPipelineId, setAssistPipelineId] = React.useState<string | undefined>(undefined);
   const [assistPipelineLoading, setAssistPipelineLoading] = React.useState(false);
@@ -105,6 +114,50 @@ const Toolbar: React.FC = () => {
   React.useEffect(() => {
     let cancelled = false;
     if (!annotationProject?.id || isClassification || isPose) {
+      setAiBindings([]);
+      setSelectedBindingId(undefined);
+      return;
+    }
+
+    setBindingLoading(true);
+    listAnnotationAiPipelineBindings(annotationProject.id)
+      .then((items) => {
+        if (cancelled) return;
+        const nextItems = (items || []).filter((item) => {
+          if (!item.enabled) return false;
+          if (item.pipeline_type && item.pipeline_type !== 'assist_annotation') return false;
+          if (item.supported_annotation_types.length > 0 && !item.supported_annotation_types.includes(annotationType)) {
+            return false;
+          }
+          if (item.supported_shapes.length > 0 && !item.supported_shapes.includes(currentShape)) {
+            return false;
+          }
+          return true;
+        });
+        setAiBindings(nextItems);
+        const current = annotationProject.default_ai_pipeline_binding_id ?? undefined;
+        const fallback = nextItems.find((item) => item.is_default)?.id ?? nextItems[0]?.id;
+        const next = nextItems.some((item) => item.id === current) ? current : fallback;
+        setSelectedBindingId(next);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAiBindings([]);
+          setSelectedBindingId(undefined);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBindingLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [annotationProject?.id, annotationProject?.default_ai_pipeline_binding_id, annotationType, currentShape, isClassification, isPose]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!annotationProject?.id || isClassification || isPose) {
       setAssistPipelines([]);
       setAssistPipelineId(undefined);
       return;
@@ -136,6 +189,19 @@ const Toolbar: React.FC = () => {
     };
   }, [annotationProject?.id, annotationProject?.assist_pipeline, currentShape, isClassification, isPose]);
 
+  const handleBindingChange = async (value: number | undefined) => {
+    setSelectedBindingId(value);
+    if (!annotationProject?.id) return;
+    try {
+      const updated = await updateAnnotation(annotationProject.id, {
+        default_ai_pipeline_binding_id: value ?? null,
+      });
+      setDatasetState({ annotationProject: updated });
+    } catch {
+      message.error('保存 AI Pipeline 绑定失败');
+    }
+  };
+
   const handleAssistPipelineChange = async (value: string) => {
     setAssistPipelineId(value);
     if (!annotationProject?.id) return;
@@ -160,7 +226,7 @@ const Toolbar: React.FC = () => {
       message.warning('请先为标注项目配置类别');
       return;
     }
-    if (!assistPipelineId) {
+    if (!selectedBindingId && !assistPipelineId) {
       message.warning('请先选择辅助标注 Pipeline');
       return;
     }
@@ -169,7 +235,8 @@ const Toolbar: React.FC = () => {
     try {
       const result = await assistCurrentAnnotation(annotationProject.id, {
         sample_item_id: currentSample.id,
-        pipeline_id: assistPipelineId,
+        pipeline_id: selectedBindingId ? undefined : assistPipelineId,
+        binding_id: selectedBindingId,
         shape: currentShape,
         target_classes: classes,
         replace_existing: false,
@@ -274,6 +341,20 @@ const Toolbar: React.FC = () => {
           <>
             <Select
               size="small"
+              allowClear
+              placeholder="选择 AI Binding"
+              value={selectedBindingId}
+              loading={bindingLoading}
+              disabled={loading || !annotationProject}
+              onChange={handleBindingChange}
+              style={{ width: 190 }}
+              options={aiBindings.map((item) => ({
+                label: item.name || item.template_name || item.template_key || `Binding #${item.id}`,
+                value: item.id,
+              }))}
+            />
+            <Select
+              size="small"
               placeholder="选择辅助 Pipeline"
               value={assistPipelineId}
               loading={assistPipelineLoading}
@@ -285,11 +366,23 @@ const Toolbar: React.FC = () => {
                 value: item.id,
               }))}
             />
+            <Tooltip title="打开 AI Pipeline 配置">
+              <Button
+                icon={<SettingOutlined />}
+                onClick={() => {
+                  if (annotationProject?.id) {
+                    navigate(`/annotations/${annotationProject.id}/ai-pipeline`);
+                  }
+                }}
+                disabled={!annotationProject}
+                size="small"
+              />
+            </Tooltip>
             <Tooltip title="辅助标注当前图片">
               <Button
                 icon={<RobotOutlined />}
                 onClick={handleAssist}
-                disabled={loading || !annotationProject || !assistPipelineId || currentShape !== 'bbox'}
+                disabled={loading || !annotationProject || (!selectedBindingId && !assistPipelineId) || currentShape !== 'bbox'}
                 size="small"
               >
                 辅助标注

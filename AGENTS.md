@@ -1,6 +1,6 @@
 # 项目开发规范（AGENTS.md）
 
-适用范围：`frontend_v2`、`automl_server`、`model_trainer`、`model_deploy`、`auto_augment_pipeline` 及相关脚本。
+适用范围：`frontend_v2`、`automl_server`、`model_trainer`、`model_deploy`、`ai_pipeline_runtime` 及相关脚本。
 
 ---
 
@@ -192,7 +192,7 @@
   - `automl_server` 负责主业务入口与编排
   - `model_trainer` 负责训练
   - `model_deploy` 负责部署与推理服务实例管理
-  - `auto_augment_pipeline` 负责 AI 辅助处理能力
+  - `ai_pipeline_runtime` 负责 AI 辅助处理能力
 - 不要把本该属于独立服务的职责重新耦合回主服务。
 
 ### 6.2 通信方式

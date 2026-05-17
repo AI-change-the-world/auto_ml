@@ -1,0 +1,161 @@
+"""AI Pipeline 管理 API"""
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.common import PageResult, Result
+from app.config.database import get_db
+
+from .schemas import (
+    AiPipelineBindingCreate,
+    AiPipelineModelResourceItem,
+    AiPipelineBindingResponse,
+    AiPipelineBindingUpdate,
+    AiPipelineTemplateCreate,
+    AiPipelineTemplateDetail,
+    AiPipelineTemplateListItem,
+    AiPipelineTemplateVersionCreate,
+)
+from .service import AiPipelineService, get_ai_pipeline_service
+
+router = APIRouter(prefix="/ai-pipeline", tags=["AI Pipeline"])
+
+
+@router.post(
+    "/templates",
+    response_model=Result[AiPipelineTemplateListItem],
+    summary="创建 AI Pipeline 模板",
+)
+async def create_template(
+    data: AiPipelineTemplateCreate,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.create_template(db, data)
+    return Result.ok(result, "AI pipeline template created")
+
+
+@router.get(
+    "/templates",
+    response_model=Result[PageResult[AiPipelineTemplateListItem]],
+    summary="获取 AI Pipeline 模板列表",
+)
+async def list_templates(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=200),
+    scene_type: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    keyword: Optional[str] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    items, total = await service.list_templates(
+        db,
+        page=page,
+        page_size=page_size,
+        scene_type=scene_type,
+        status=status,
+        keyword=keyword,
+    )
+    return Result.ok(PageResult.create(items, total, page, page_size))
+
+
+@router.get(
+    "/templates/{template_key}",
+    response_model=Result[AiPipelineTemplateDetail],
+    summary="获取 AI Pipeline 模板详情",
+)
+async def get_template_detail(
+    template_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.get_template_detail(db, template_key)
+    return Result.ok(result)
+
+
+@router.post(
+    "/templates/{template_key}/versions",
+    response_model=Result[AiPipelineTemplateDetail],
+    summary="创建 AI Pipeline 模板版本",
+)
+async def create_template_version(
+    template_key: str,
+    data: AiPipelineTemplateVersionCreate,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.create_template_version(db, template_key, data)
+    return Result.ok(result, "AI pipeline template version created")
+
+
+@router.get(
+    "/bindings",
+    response_model=Result[PageResult[AiPipelineBindingResponse]],
+    summary="获取 AI Pipeline 绑定列表",
+)
+async def list_bindings(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=200),
+    binding_type: Optional[str] = Query(default=None),
+    binding_target_id: Optional[int] = Query(default=None, ge=1),
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    items, total = await service.list_bindings(
+        db,
+        page=page,
+        page_size=page_size,
+        binding_type=binding_type,
+        binding_target_id=binding_target_id,
+    )
+    return Result.ok(PageResult.create(items, total, page, page_size))
+
+
+@router.post(
+    "/bindings",
+    response_model=Result[AiPipelineBindingResponse],
+    summary="创建 AI Pipeline 绑定",
+)
+async def create_binding(
+    data: AiPipelineBindingCreate,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.create_binding(db, data)
+    return Result.ok(result, "AI pipeline binding created")
+
+
+@router.put(
+    "/bindings/{binding_id}",
+    response_model=Result[AiPipelineBindingResponse],
+    summary="更新 AI Pipeline 绑定",
+)
+async def update_binding(
+    binding_id: int,
+    data: AiPipelineBindingUpdate,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.update_binding(db, binding_id, data)
+    return Result.ok(result, "AI pipeline binding updated")
+
+
+@router.get(
+    "/resources/models",
+    response_model=Result[list[AiPipelineModelResourceItem]],
+    summary="获取 AI Pipeline 可选模型资源",
+)
+async def list_model_resources(
+    deployed_only: bool = Query(default=True),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.list_model_resources(
+        db,
+        deployed_only=deployed_only,
+        limit=limit,
+    )
+    return Result.ok(result)

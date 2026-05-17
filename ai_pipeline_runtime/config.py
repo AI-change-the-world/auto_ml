@@ -7,8 +7,8 @@ from typing import Callable
 import yaml
 from pydantic import BaseModel, Field
 
-from models import PipelineDefinition
-from nacos_config_center import get_config_center
+from .models import PipelineDefinition
+from .nacos_config_center import get_config_center
 
 
 class ProviderConfig(BaseModel):
@@ -25,7 +25,7 @@ class ProviderConfig(BaseModel):
 
 
 class RuntimeConfig(BaseModel):
-    service_name: str = "auto-augment-pipeline"
+    service_name: str = "ai-pipeline-runtime"
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     pipelines: dict[str, PipelineDefinition] = Field(default_factory=dict)
 
@@ -50,7 +50,7 @@ def parse_runtime_config(raw: str) -> RuntimeConfig:
 def get_runtime_config() -> RuntimeConfig:
     payload = get_config_center().get_config_data()
     if not payload:
-        raise RuntimeError("AUTO_AUGMENT_PIPELINE config is empty")
+        raise RuntimeError("AI_PIPELINE_RUNTIME config is empty")
     return RuntimeConfig.model_validate(payload)
 
 

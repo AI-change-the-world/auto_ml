@@ -57,6 +57,7 @@ interface AnnotationProjectCardProps {
   unknownLabel: string;
   t: TFunction<'annotation'>;
   onOpen: (annotation: AnnotationProject) => void;
+  onOpenAiPipeline: (event: React.MouseEvent, annotation: AnnotationProject) => void;
   onEditClasses: (event: React.MouseEvent, annotation: AnnotationProject) => void;
   onDelete: (event: React.MouseEvent, annotationId: number) => void;
 }
@@ -67,6 +68,7 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
   unknownLabel,
   t,
   onOpen,
+  onOpenAiPipeline,
   onEditClasses,
   onDelete,
 }) => {
@@ -84,6 +86,25 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
       <div style={{ height: 90, background: 'linear-gradient(135deg, #eef2ff, #e8dff5)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
         {renderAnnotationTypeIcon(typeModel?.iconKey)}
         <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+          <button
+            onClick={(event) => onOpenAiPipeline(event, annotation)}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: 'rgba(255,255,255,0.8)',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#666',
+              fontSize: 13,
+            }}
+            title="AI 配置"
+          >
+            <RobotOutlined />
+          </button>
           {typeModel?.supportsClasses && (
             <button
               onClick={(event) => onEditClasses(event, annotation)}

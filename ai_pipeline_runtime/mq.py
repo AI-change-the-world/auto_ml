@@ -47,7 +47,7 @@ def _fetch_nacos_payload() -> dict[str, Any]:
     namespace = os.getenv("NACOS_NAMESPACE", "public")
     data_id = os.getenv("MQ_NACOS_DATA_ID", os.getenv("AUTO_ML_NACOS_DATA_ID", "AUTO_ML_CONFIG"))
     group = os.getenv("MQ_NACOS_GROUP", os.getenv("NACOS_GROUP", "AUTO_ML"))
-    log_dir = os.getenv("MQ_NACOS_LOG_DIR", "/tmp/auto_augment_pipeline/nacos/mq-logs")
+    log_dir = os.getenv("MQ_NACOS_LOG_DIR", "/tmp/ai_pipeline_runtime/nacos/mq-logs")
     try:
         import nacos
 
@@ -106,7 +106,7 @@ class RabbitMQRpcWorker:
         if self._thread and self._thread.is_alive():
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._consume_loop, name="auto-augment-rpc-worker", daemon=True)
+        self._thread = threading.Thread(target=self._consume_loop, name="ai-pipeline-runtime-rpc-worker", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:

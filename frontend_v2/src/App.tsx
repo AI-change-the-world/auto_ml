@@ -14,6 +14,7 @@ import DatasetListPage from './pages/dataset/DatasetListPage';
 import DatasetDetailPage from './pages/dataset/DatasetDetailPage';
 import AnnotationListPage from './pages/annotation/AnnotationListPage';
 import AnnotationPage from './pages/annotation/AnnotationPage';
+import AnnotationAiPipelinePage from './pages/annotation/AnnotationAiPipelinePage';
 import AnnotationWorkbenchRouter from './pages/annotation/AnnotationWorkbenchRouter';
 import AerialAnnotationPage from './pages/annotation/aerial/AerialAnnotationPage';
 import ClassificationAnnotationPage from './pages/annotation/classification/ClassificationAnnotationPage';
@@ -52,6 +53,7 @@ const App: React.FC = () => {
             <Route path="/datasets" element={<DatasetListPage />} />
             <Route path="/datasets/:id" element={<DatasetDetailPage />} />
             <Route path="/annotations" element={<AnnotationListPage />} />
+            <Route path="/annotations/:annotationId/ai-pipeline" element={<AnnotationAiPipelinePage />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskDetailPage />} />
             <Route path="/deploy" element={<DeployPage />} />

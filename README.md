@@ -32,7 +32,7 @@ AutoML 是一个开源的端到端计算机视觉平台，提供从**数据管�
 - 💾 **对象存储集成**：支持 MinIO/S3 存储，高效管理大规模数据集和模型
 - 🌐 **现代前端**：React 19 + TypeScript + Ant Design 6，流畅的用户体验
 - 🔌 **插件化设计**：训练和部署服务独立运行，支持灵活扩展
-- 🤖 **AI 辅助标注**：集成 Auto Augment Pipeline，支持智能标注生成与提取
+- 🤖 **AI 辅助标注**：集成 AI Pipeline Runtime，支持智能标注生成与提取
 
 ---
 
@@ -143,7 +143,7 @@ AutoML 是一个开源的端到端计算机视觉平台，提供从**数据管�
 **微服务**
 - Model Trainer Service（模型训练服务）
 - Model Deploy Service（模型部署服务）
-- Auto Augment Pipeline（AI 辅助标注服务）
+- AI Pipeline Runtime（AI 辅助标注服务）
 
 ---
 
@@ -255,18 +255,18 @@ pip install -r requirements.txt
 export PORT=8082
 python server.py
 
-# Auto augment pipeline
-cd auto_augment_pipeline
+# AI pipeline runtime
+cd ai_pipeline_runtime
 pip install -r requirements.txt
 export PORT=8010
-python -m auto_augment_pipeline.app
+python -m ai_pipeline_runtime.app
 ```
 
 本机直跑时请固定使用以下端口，并确保 Nacos 里的服务地址与之保持一致：
 
 - `model_trainer`: `127.0.0.1:8081`
 - `model_deploy`: `127.0.0.1:8082`
-- `auto_augment_pipeline`: `127.0.0.1:8010`
+- `ai_pipeline_runtime`: `127.0.0.1:8010`
 
 ---
 
@@ -314,7 +314,7 @@ auto_ml/
 │   ├── utils/               # 工具类
 │   └── server.py            # 服务入口
 │
-├── auto_augment_pipeline/   # AI 辅助标注服务
+├── ai_pipeline_runtime/     # AI 辅助标注服务
 │   ├── capabilities.py      # 可复用 AI 能力（图像描述、标注生成、白框提取等）
 │   ├── providers.py         # 模型供应商封装（OpenAI Compatible、Mock）
 │   ├── ocr.py               # RapidOCR 集成与文本归一化

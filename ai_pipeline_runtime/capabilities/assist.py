@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from models import AnnotationResult, TaskPayload
-from base import Capability, ProviderResolver
-from overlay import (
+from ..models import AnnotationResult, TaskPayload
+from .base import Capability, ProviderResolver
+from .overlay import (
     ExtractWhiteAnnotationsCapability,
     RenderWhiteAnnotationOverlayCapability,
     UnderstandWhiteAnnotationsCapability,

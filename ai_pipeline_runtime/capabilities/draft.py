@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from models import AnnotationResult, TaskPayload
-from utils import image_size
-from base import AnnotationNormalizationMixin, Capability, ProviderResolver
+from ..models import AnnotationResult, TaskPayload
+from ..utils import image_size
+from .base import AnnotationNormalizationMixin, Capability, ProviderResolver
 
 logger = logging.getLogger(__name__)
 

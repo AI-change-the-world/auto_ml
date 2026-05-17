@@ -1,4 +1,4 @@
-service_name: auto-augment-pipeline
+service_name: ai-pipeline-runtime
 
 providers:
 

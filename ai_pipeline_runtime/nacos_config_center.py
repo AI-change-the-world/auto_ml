@@ -37,18 +37,35 @@ class NacosConfigCenter:
 
     @staticmethod
     def enabled() -> bool:
-        return os.getenv("AUTO_AUGMENT_WATCH_NACOS", "true").lower() == "true"
+        return os.getenv(
+            "AI_PIPELINE_RUNTIME_WATCH_NACOS",
+            os.getenv("AUTO_AUGMENT_WATCH_NACOS", "true"),
+        ).lower() == "true"
 
     @staticmethod
     def poll_interval() -> int:
-        return max(1, int(os.getenv("AUTO_AUGMENT_NACOS_POLL_INTERVAL", "5")))
+        return max(
+            1,
+            int(
+                os.getenv(
+                    "AI_PIPELINE_RUNTIME_NACOS_POLL_INTERVAL",
+                    os.getenv("AUTO_AUGMENT_NACOS_POLL_INTERVAL", "5"),
+                )
+            ),
+        )
 
     @staticmethod
     def _client_args() -> tuple[str, str, str, str]:
         return (
             os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848"),
-            os.getenv("AUTO_AUGMENT_NACOS_NAMESPACE", os.getenv("NACOS_NAMESPACE", "public")),
-            os.getenv("AUTO_AUGMENT_NACOS_DATA_ID", "AUTO_AUGMENT_PIPELINE"),
+            os.getenv(
+                "AI_PIPELINE_RUNTIME_NACOS_NAMESPACE",
+                os.getenv("AUTO_AUGMENT_NACOS_NAMESPACE", os.getenv("NACOS_NAMESPACE", "public")),
+            ),
+            os.getenv(
+                "AI_PIPELINE_RUNTIME_NACOS_DATA_ID",
+                os.getenv("AUTO_AUGMENT_NACOS_DATA_ID", "AI_PIPELINE_RUNTIME"),
+            ),
             os.getenv("NACOS_GROUP", "AUTO_ML"),
         )
 
@@ -135,7 +152,7 @@ class NacosConfigCenter:
 
         self._listener_thread = threading.Thread(
             target=_run_listener,
-            name="auto-augment-nacos-config-listener",
+            name="ai-pipeline-runtime-nacos-config-listener",
             daemon=True,
         )
         self._listener_thread.start()
@@ -212,7 +229,7 @@ class NacosConfigCenter:
 
         self._poll_thread = threading.Thread(
             target=self._poll_loop,
-            name="auto-augment-nacos-config-poller",
+            name="ai-pipeline-runtime-nacos-config-poller",
             daemon=True,
         )
         self._poll_thread.start()

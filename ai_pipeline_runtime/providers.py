@@ -10,10 +10,10 @@ from io import BytesIO
 from typing import Any
 from urllib.request import urlopen
 
-from config import ProviderConfig, RuntimeConfig
-from models import ImagePayload
-from storage import upload_bytes_to_s3
-from utils import (
+from .config import ProviderConfig, RuntimeConfig
+from .models import ImagePayload
+from .storage import upload_bytes_to_s3
+from .utils import (
     content_to_text,
     extract_json_block,
     image_bytes_to_data_url,
