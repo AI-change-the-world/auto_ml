@@ -6,9 +6,9 @@ from typing import Any
 
 import requests
 
+from models import AnnotationResult, TaskPayload
+from utils import strip_data_url_prefix
 from .base import AnnotationNormalizationMixin, Capability, ProviderResolver
-from ..models import AnnotationResult, TaskPayload
-from ..utils import strip_data_url_prefix
 
 logger = logging.getLogger(__name__)
 

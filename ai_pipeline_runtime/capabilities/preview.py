@@ -4,11 +4,11 @@ import logging
 import uuid
 from typing import Any
 
+from models import AnnotationItem, AnnotationResult, TaskPayload
+from storage import upload_bytes_to_s3
+from utils import clamp, load_cv2_image, require_cv2
 from .base import Capability, ProviderResolver
 from .draft import DraftAnnotationCapability
-from ..models import AnnotationItem, AnnotationResult, TaskPayload
-from ..storage import upload_bytes_to_s3
-from ..utils import clamp, load_cv2_image, require_cv2
 
 logger = logging.getLogger(__name__)
 

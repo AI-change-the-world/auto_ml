@@ -315,8 +315,8 @@ services:
 
   ai-pipeline-runtime:
     build:
-      context: .
-      dockerfile: ai_pipeline_runtime/Dockerfile
+      context: ./ai_pipeline_runtime
+      dockerfile: Dockerfile
     image: ai-pipeline-runtime:latest
     container_name: ai-pipeline-runtime
     restart: unless-stopped

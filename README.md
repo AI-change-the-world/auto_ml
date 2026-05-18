@@ -259,7 +259,7 @@ python server.py
 cd ai_pipeline_runtime
 pip install -r requirements.txt
 export PORT=8010
-python -m ai_pipeline_runtime.app
+cd ai_pipeline_runtime && python app.py
 ```
 
 本机直跑时请固定使用以下端口，并确保 Nacos 里的服务地址与之保持一致：

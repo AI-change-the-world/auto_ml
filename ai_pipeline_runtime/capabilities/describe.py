@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import DescriptionResult, TaskPayload
+from models import DescriptionResult, TaskPayload
 from .base import Capability, ProviderResolver
 
 

@@ -7,8 +7,8 @@ from typing import Callable
 import yaml
 from pydantic import BaseModel, Field
 
-from .models import PipelineDefinition
-from .nacos_config_center import get_config_center
+from models import PipelineDefinition
+from nacos_config_center import get_config_center
 
 
 class ProviderConfig(BaseModel):

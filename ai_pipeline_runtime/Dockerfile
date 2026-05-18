@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-WORKDIR /app/ai_pipeline_runtime
+WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
@@ -12,12 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY ai_pipeline_runtime/requirements.txt /tmp/requirements.txt
+COPY requirements.txt /tmp/requirements.txt
 RUN python -m pip install --upgrade pip && \
     python -m pip install -r /tmp/requirements.txt
 
-COPY ai_pipeline_runtime /app/ai_pipeline_runtime
+COPY . /app
 
 EXPOSE 8010
 
-CMD ["uvicorn", "ai_pipeline_runtime.app:app", "--host", "0.0.0.0", "--port", "8010"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8010"]

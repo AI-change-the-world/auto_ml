@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .capabilities import (
+from capabilities import (
     AssistAnnotationCapability,
     Capability,
     DescribeImageCapability,
@@ -14,10 +14,10 @@ from .capabilities import (
     RenderWhiteAnnotationOverlayCapability,
     UnderstandWhiteAnnotationsCapability,
 )
-from .config import RuntimeConfig
-from .models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
-from .pipeline import PipelineRunner
-from .providers import BaseMultimodalProvider, ProviderRegistry
+from config import RuntimeConfig
+from models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
+from pipeline import PipelineRunner
+from providers import BaseMultimodalProvider, ProviderRegistry
 
 
 @dataclass

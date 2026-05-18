@@ -10,10 +10,10 @@ from io import BytesIO
 from typing import Any
 from urllib.request import urlopen
 
-from .config import ProviderConfig, RuntimeConfig
-from .models import ImagePayload
-from .storage import upload_bytes_to_s3
-from .utils import (
+from config import ProviderConfig, RuntimeConfig
+from models import ImagePayload
+from storage import upload_bytes_to_s3
+from utils import (
     content_to_text,
     extract_json_block,
     image_bytes_to_data_url,
@@ -175,7 +175,8 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
         try:
             request_kwargs: dict[str, Any] = {}
             if json_response_type:
-                request_kwargs["response_format"] = {"type": json_response_type}
+                request_kwargs["response_format"] = {
+                    "type": json_response_type}
             response = self.client.chat.completions.create(
                 model=self.config.model,
                 messages=[
@@ -192,7 +193,8 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
                 max_tokens=self.config.max_tokens if max_tokens is None else max_tokens,
                 **request_kwargs,
             )
-            content = content_to_text(response.choices[0].message.content).strip()
+            content = content_to_text(
+                response.choices[0].message.content).strip()
             try:
                 return json.loads(content)
             except json.JSONDecodeError:
@@ -420,15 +422,18 @@ class DashScopeMultimodalProvider(BaseMultimodalProvider):
                 f"provider `{self.name}` returned empty image edit result")
 
         message = getattr(choices[0], "message", None)
-        content = getattr(message, "content", None) if message is not None else None
+        content = getattr(message, "content",
+                          None) if message is not None else None
         generated_image = self._extract_image_content(content)
         if generated_image is None:
             raise ProviderError(
                 f"provider `{self.name}` did not return generated image content")
 
-        image_bytes, mime_type = self._load_generated_image_bytes(generated_image)
+        image_bytes, mime_type = self._load_generated_image_bytes(
+            generated_image)
         result_payload = ImagePayload(
-            base64_data=image_bytes_to_data_url(image_bytes, mime_type=mime_type),
+            base64_data=image_bytes_to_data_url(
+                image_bytes, mime_type=mime_type),
             mime_type=mime_type,
         )
         s3_key = f"auto_augment/overlay_results/{uuid.uuid4().hex}.png"
@@ -441,7 +446,8 @@ class DashScopeMultimodalProvider(BaseMultimodalProvider):
             )
         except Exception as exc:
             self._last_generated_image_s3_key = None
-            logger.warning("Failed to upload DashScope edited image to MinIO: %s", exc)
+            logger.warning(
+                "Failed to upload DashScope edited image to MinIO: %s", exc)
 
         return ImagePayload(
             base64_data=result_payload.base64_data,

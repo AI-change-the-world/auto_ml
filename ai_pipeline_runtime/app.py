@@ -7,21 +7,21 @@ from threading import RLock
 
 from fastapi import FastAPI, HTTPException, Request
 
-from .config import (
+from config import (
     get_runtime_config,
     register_runtime_config_callback,
     unregister_runtime_config_callback,
 )
-from .models import (
+from models import (
     ExecuteCapabilityRequest,
     InlinePipelineRunRequest,
     NamedPipelineRunRequest,
     PipelineDefinition,
     TaskPayload,
 )
-from .mq import RabbitMQRpcWorker, load_rabbitmq_config
-from .nacos_config_center import get_config_center
-from .service import AutoAugmentService
+from mq import RabbitMQRpcWorker, load_rabbitmq_config
+from nacos_config_center import get_config_center
+from service import AutoAugmentService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,7 +35,8 @@ def create_app() -> FastAPI:
         with service_lock:
             service = service_holder["service"]
             if service is None:
-                raise RuntimeError("AI pipeline runtime service is not initialized")
+                raise RuntimeError(
+                    "AI pipeline runtime service is not initialized")
             return service
 
     def _on_runtime_config_update(config) -> None:
@@ -137,7 +138,8 @@ def handle_rpc_request(service: AutoAugmentService, payload: dict):
     if action == "list_pipelines":
         return [item.model_dump(mode="json") for item in service.list_pipelines()]
     if action == "run_pipeline":
-        request_payload = NamedPipelineRunRequest.model_validate(payload.get("request") or {})
+        request_payload = NamedPipelineRunRequest.model_validate(
+            payload.get("request") or {})
         definition_payload = payload.get("definition")
         if definition_payload is not None:
             definition = PipelineDefinition.model_validate(definition_payload)
@@ -168,7 +170,7 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        "ai_pipeline_runtime.app:app",
+        "app:app",
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8010)),
         reload=os.getenv("RELOAD", "false").lower() == "true",

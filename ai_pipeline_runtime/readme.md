@@ -155,15 +155,17 @@ OCR 不需要额外配置 provider，默认使用内置 `RapidOCR`。
 
 ```bash
 pip install -r ai_pipeline_runtime/requirements.txt
-uvicorn ai_pipeline_runtime.app:app --host 0.0.0.0 --port 8010 --reload
+cd ai_pipeline_runtime
+uvicorn app:app --host 0.0.0.0 --port 8010 --reload
 ```
 
 ## Docker
 
-从仓库根目录构建：
+从 `ai_pipeline_runtime` 目录构建：
 
 ```bash
-docker build -f ai_pipeline_runtime/Dockerfile -t ai-pipeline-runtime .
+cd ai_pipeline_runtime
+docker build -t ai-pipeline-runtime .
 ```
 
 运行：

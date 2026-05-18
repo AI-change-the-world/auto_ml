@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import AnnotationResult, TaskPayload
+from models import AnnotationResult, TaskPayload
 from .base import Capability, ProviderResolver
 from .overlay import (
     ExtractWhiteAnnotationsCapability,
@@ -104,7 +104,8 @@ class AssistAnnotationCapability(Capability):
         result: AnnotationResult,
         params: dict[str, Any],
     ) -> str | None:
-        min_annotation_count = int(params.get("assist_min_annotation_count", 1))
+        min_annotation_count = int(params.get(
+            "assist_min_annotation_count", 1))
         min_labeled_ratio = float(params.get("assist_min_labeled_ratio", 0.75))
         if len(result.annotations) < min_annotation_count:
             return "extract_annotation_count_below_threshold"
