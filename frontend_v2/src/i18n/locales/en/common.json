@@ -5,6 +5,7 @@
         "annotation": "Annotation",
         "training": "Training",
         "deploy": "Deploy",
+        "aiPipeline": "AI Pipeline",
         "augment": "Augment",
         "tools": "Tools",
         "settings": "Settings",

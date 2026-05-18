@@ -15,6 +15,44 @@ export interface AiPipelineTemplateListItem {
   updated_at?: string | null;
 }
 
+export interface AiPipelineTemplateDetail extends AiPipelineTemplateListItem {
+  definition_json?: Record<string, unknown> | unknown[] | string | null;
+  form_schema_json?: Record<string, unknown> | unknown[] | string | null;
+  change_note?: string | null;
+}
+
+export interface AiPipelineTemplatePublishRequest {
+  version: number;
+}
+
+export interface AiPipelineTemplateCreateRequest {
+  template_key: string;
+  name: string;
+  description?: string;
+  scene_type: string;
+  input_kind?: string;
+  output_kind?: string;
+  status?: string;
+  is_builtin?: boolean;
+  created_by?: string;
+}
+
+export interface AiPipelineTemplateVersionCreateRequest {
+  version: number;
+  definition_json: Record<string, unknown> | unknown[] | string;
+  form_schema_json?: Record<string, unknown> | unknown[] | string | null;
+  change_note?: string;
+  is_published?: boolean;
+  created_by?: string;
+}
+
+export interface AiPipelineTemplateDraftSaveRequest {
+  definition_json: Record<string, unknown> | unknown[] | string;
+  form_schema_json?: Record<string, unknown> | unknown[] | string | null;
+  change_note?: string;
+  created_by?: string;
+}
+
 export interface AiPipelineBindingResponse {
   id: number;
   binding_type: string;
@@ -41,7 +79,6 @@ export interface AiPipelineBindingCreateRequest {
   binding_type: string;
   binding_target_id: number;
   template_id: number;
-  template_version: number;
   name?: string;
   description?: string;
   is_default?: boolean;
@@ -51,6 +88,7 @@ export interface AiPipelineBindingCreateRequest {
 }
 
 export interface AiPipelineBindingUpdateRequest {
+  template_id?: number;
   name?: string;
   description?: string;
   is_default?: boolean;
@@ -68,4 +106,66 @@ export interface AiPipelineModelResourceItem {
   is_deployed: boolean;
   deployment_device?: string | null;
   deployed_at?: string | null;
+}
+
+export interface AiPipelineFieldSchema {
+  key: string;
+  label: string;
+  value_type?: string;
+  required?: boolean;
+  default_value?: unknown;
+  description?: string;
+  widget?: string;
+  widget_props?: Record<string, unknown> | null;
+  options?: Array<{ label: string; value: string | number | boolean }>;
+  multiline?: boolean;
+}
+
+export interface AiPipelineResourceSlotSchema extends AiPipelineFieldSchema {
+  value_type?: 'resource_ref' | string;
+}
+
+export interface AiPipelineTemplateFormSchema {
+  runtime_inputs?: AiPipelineFieldSchema[];
+  resource_slots?: AiPipelineResourceSlotSchema[];
+}
+
+export interface AiPipelineCapabilityFieldOption {
+  label: string;
+  value: string | number | boolean;
+}
+
+export interface AiPipelineCapabilityField {
+  key: string;
+  label: string;
+  value_type?: string;
+  required?: boolean;
+  description?: string | null;
+  widget?: string | null;
+  default_value?: unknown;
+  placeholder?: string | null;
+  binding_kind?: string;
+  resource_type?: string | null;
+  task_kind?: string | null;
+  deployed_only?: boolean | null;
+  options?: AiPipelineCapabilityFieldOption[];
+}
+
+export interface AiPipelineCapabilityContextTarget {
+  key: string;
+  label: string;
+  description?: string | null;
+}
+
+export interface AiPipelineCapabilityItem {
+  name: string;
+  display_name: string;
+  description?: string | null;
+  category: string;
+  requires_provider: boolean;
+  provider_role?: string | null;
+  recommended_output_key?: string | null;
+  scene_types: string[];
+  parameter_fields: AiPipelineCapabilityField[];
+  context_mapping_targets: AiPipelineCapabilityContextTarget[];
 }

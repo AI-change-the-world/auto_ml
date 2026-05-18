@@ -101,7 +101,7 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
               color: '#666',
               fontSize: 13,
             }}
-            title="AI 配置"
+            title="项目 AI Binding"
           >
             <RobotOutlined />
           </button>

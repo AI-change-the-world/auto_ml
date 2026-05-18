@@ -97,6 +97,42 @@ async def update_template(db: AsyncSession, template: AiPipelineTemplate, **kwar
     return template
 
 
+async def delete_template(
+    db: AsyncSession,
+    template: AiPipelineTemplate,
+) -> None:
+    template.is_deleted = True
+    await db.flush()
+
+
+async def publish_template_version(
+    db: AsyncSession,
+    *,
+    template_id: int,
+    version: int,
+) -> None:
+    stmt = (
+        update(AiPipelineTemplateVersion)
+        .where(
+            AiPipelineTemplateVersion.template_id == template_id,
+            AiPipelineTemplateVersion.is_deleted == False,
+        )
+        .values(is_published=False)
+    )
+    await db.execute(stmt)
+
+    target_stmt = (
+        update(AiPipelineTemplateVersion)
+        .where(
+            AiPipelineTemplateVersion.template_id == template_id,
+            AiPipelineTemplateVersion.version == version,
+            AiPipelineTemplateVersion.is_deleted == False,
+        )
+        .values(is_published=True)
+    )
+    await db.execute(target_stmt)
+
+
 async def get_template_version(
     db: AsyncSession,
     *,
@@ -125,6 +161,77 @@ async def create_template_version(db: AsyncSession, **kwargs) -> AiPipelineTempl
     return item
 
 
+async def update_template_version(
+    db: AsyncSession,
+    version: AiPipelineTemplateVersion,
+    **kwargs,
+) -> AiPipelineTemplateVersion:
+    payload = dict(kwargs)
+    if "definition_json" in payload:
+        payload["definition_json"] = _dump_json(payload.get("definition_json"))
+    if "form_schema_json" in payload:
+        payload["form_schema_json"] = _dump_json(payload.get("form_schema_json"))
+    for key, value in payload.items():
+        setattr(version, key, value)
+    await db.flush()
+    await db.refresh(version)
+    return version
+
+
+async def list_template_versions(
+    db: AsyncSession,
+    *,
+    template_id: int,
+) -> list[AiPipelineTemplateVersion]:
+    stmt = (
+        select(AiPipelineTemplateVersion)
+        .where(
+            AiPipelineTemplateVersion.template_id == template_id,
+            AiPipelineTemplateVersion.is_deleted == False,
+        )
+        .order_by(AiPipelineTemplateVersion.version.desc(), AiPipelineTemplateVersion.id.desc())
+    )
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def get_latest_draft_version(
+    db: AsyncSession,
+    *,
+    template_id: int,
+) -> Optional[AiPipelineTemplateVersion]:
+    stmt = (
+        select(AiPipelineTemplateVersion)
+        .where(
+            AiPipelineTemplateVersion.template_id == template_id,
+            AiPipelineTemplateVersion.is_deleted == False,
+            AiPipelineTemplateVersion.is_published == False,
+        )
+        .order_by(AiPipelineTemplateVersion.version.desc(), AiPipelineTemplateVersion.id.desc())
+        .limit(1)
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def cleanup_unpublished_template_versions(
+    db: AsyncSession,
+    *,
+    template_id: int,
+    keep_version: Optional[int] = None,
+) -> None:
+    stmt = (
+        update(AiPipelineTemplateVersion)
+        .where(
+            AiPipelineTemplateVersion.template_id == template_id,
+            AiPipelineTemplateVersion.is_deleted == False,
+            AiPipelineTemplateVersion.is_published == False,
+        )
+        .values(is_deleted=True)
+    )
+    if keep_version is not None:
+        stmt = stmt.where(AiPipelineTemplateVersion.version != keep_version)
+    await db.execute(stmt)
+
+
 async def list_bindings(
     db: AsyncSession,
     *,
@@ -151,6 +258,18 @@ async def list_bindings(
     )
     items = list((await db.execute(stmt)).scalars().all())
     return items, total
+
+
+async def count_bindings_by_template_id(
+    db: AsyncSession,
+    *,
+    template_id: int,
+) -> int:
+    stmt = select(func.count()).select_from(AiPipelineBinding).where(
+        AiPipelineBinding.template_id == template_id,
+        AiPipelineBinding.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar() or 0
 
 
 async def create_binding(db: AsyncSession, **kwargs) -> AiPipelineBinding:
@@ -187,6 +306,14 @@ async def update_binding(
     await db.flush()
     await db.refresh(binding)
     return binding
+
+
+async def delete_binding(
+    db: AsyncSession,
+    binding: AiPipelineBinding,
+) -> None:
+    binding.is_deleted = True
+    await db.flush()
 
 
 async def clear_default_bindings(

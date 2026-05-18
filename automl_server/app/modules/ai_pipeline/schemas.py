@@ -43,16 +43,23 @@ class AiPipelineTemplateVersionCreate(BaseModel):
     created_by: Optional[str] = Field(default=None, max_length=64)
 
 
+class AiPipelineTemplateDraftSave(BaseModel):
+    definition_json: dict[str, Any] | list[Any] | str
+    form_schema_json: Optional[dict[str, Any] | list[Any] | str] = None
+    change_note: Optional[str] = Field(default=None, max_length=512)
+    created_by: Optional[str] = Field(default=None, max_length=64)
+
+
 class AiPipelineTemplateDetail(AiPipelineTemplateListItem):
     definition_json: Optional[dict[str, Any] | list[Any] | str] = None
     form_schema_json: Optional[dict[str, Any] | list[Any] | str] = None
+    change_note: Optional[str] = None
 
 
 class AiPipelineBindingCreate(BaseModel):
     binding_type: str = Field(..., min_length=1, max_length=64)
     binding_target_id: int = Field(..., gt=0)
     template_id: int = Field(..., gt=0)
-    template_version: int = Field(..., ge=1)
     name: Optional[str] = Field(default=None, max_length=255)
     description: Optional[str] = None
     is_default: bool = False
@@ -62,6 +69,7 @@ class AiPipelineBindingCreate(BaseModel):
 
 
 class AiPipelineBindingUpdate(BaseModel):
+    template_id: Optional[int] = Field(default=None, gt=0)
     name: Optional[str] = Field(default=None, max_length=255)
     description: Optional[str] = None
     is_default: Optional[bool] = None
@@ -101,3 +109,43 @@ class AiPipelineModelResourceItem(BaseModel):
     is_deployed: bool = False
     deployment_device: Optional[str] = None
     deployed_at: Optional[datetime] = None
+
+
+class AiPipelineCapabilityFieldOption(BaseModel):
+    label: str
+    value: str | int | float | bool
+
+
+class AiPipelineCapabilityField(BaseModel):
+    key: str
+    label: str
+    value_type: str = "string"
+    required: bool = False
+    description: Optional[str] = None
+    widget: Optional[str] = None
+    default_value: Any = None
+    placeholder: Optional[str] = None
+    binding_kind: str = "parameter"
+    resource_type: Optional[str] = None
+    task_kind: Optional[str] = None
+    deployed_only: Optional[bool] = None
+    options: list[AiPipelineCapabilityFieldOption] = Field(default_factory=list)
+
+
+class AiPipelineCapabilityContextTarget(BaseModel):
+    key: str
+    label: str
+    description: Optional[str] = None
+
+
+class AiPipelineCapabilityItem(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    category: str = "general"
+    requires_provider: bool = False
+    provider_role: Optional[str] = None
+    recommended_output_key: Optional[str] = None
+    scene_types: list[str] = Field(default_factory=list)
+    parameter_fields: list[AiPipelineCapabilityField] = Field(default_factory=list)
+    context_mapping_targets: list[AiPipelineCapabilityContextTarget] = Field(default_factory=list)

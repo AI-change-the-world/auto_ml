@@ -366,12 +366,12 @@ const Toolbar: React.FC = () => {
                 value: item.id,
               }))}
             />
-            <Tooltip title="打开 AI Pipeline 配置">
+            <Tooltip title="打开项目 AI Binding 配置">
               <Button
                 icon={<SettingOutlined />}
                 onClick={() => {
                   if (annotationProject?.id) {
-                    navigate(`/annotations/${annotationProject.id}/ai-pipeline`);
+                    navigate(`/annotations/${annotationProject.id}/ai-binding`);
                   }
                 }}
                 disabled={!annotationProject}

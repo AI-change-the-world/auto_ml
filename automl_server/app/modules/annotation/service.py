@@ -654,6 +654,8 @@ class AnnotationService:
     ) -> str | None:
         prompt = request_params.get("prompt")
         if prompt is None:
+            prompt = request_params.get("user_prompt")
+        if prompt is None:
             return ann.prompt
         prompt_text = str(prompt).strip()
         return prompt_text or ann.prompt

@@ -9,13 +9,14 @@ from app.config.database import get_db
 
 from .schemas import (
     AiPipelineBindingCreate,
+    AiPipelineCapabilityItem,
     AiPipelineModelResourceItem,
     AiPipelineBindingResponse,
     AiPipelineBindingUpdate,
     AiPipelineTemplateCreate,
     AiPipelineTemplateDetail,
+    AiPipelineTemplateDraftSave,
     AiPipelineTemplateListItem,
-    AiPipelineTemplateVersionCreate,
 )
 from .service import AiPipelineService, get_ai_pipeline_service
 
@@ -75,19 +76,59 @@ async def get_template_detail(
     return Result.ok(result)
 
 
-@router.post(
-    "/templates/{template_key}/versions",
+@router.put(
+    "/templates/{template_key}",
     response_model=Result[AiPipelineTemplateDetail],
-    summary="创建 AI Pipeline 模板版本",
+    summary="保存 AI Pipeline 模板定义",
 )
-async def create_template_version(
+async def save_template(
     template_key: str,
-    data: AiPipelineTemplateVersionCreate,
+    data: AiPipelineTemplateDraftSave,
     db: AsyncSession = Depends(get_db),
     service: AiPipelineService = Depends(get_ai_pipeline_service),
 ):
-    result = await service.create_template_version(db, template_key, data)
-    return Result.ok(result, "AI pipeline template version created")
+    result = await service.save_template_definition(db, template_key, data)
+    return Result.ok(result, "AI pipeline template saved")
+
+
+@router.post(
+    "/templates/{template_key}/disable",
+    response_model=Result[AiPipelineTemplateDetail],
+    summary="禁用 AI Pipeline 模板",
+)
+async def disable_template(
+    template_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.disable_template(db, template_key)
+    return Result.ok(result, "AI pipeline template disabled")
+
+
+@router.delete(
+    "/templates/{template_key}",
+    response_model=Result,
+    summary="删除 AI Pipeline 模板",
+)
+async def delete_template(
+    template_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    await service.delete_template(db, template_key)
+    return Result.ok(message="AI pipeline template deleted")
+
+
+@router.get(
+    "/capabilities",
+    response_model=Result[list[AiPipelineCapabilityItem]],
+    summary="获取 AI Pipeline 能力目录",
+)
+async def list_capabilities(
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.list_capabilities()
+    return Result.ok(result)
 
 
 @router.get(
@@ -140,6 +181,20 @@ async def update_binding(
 ):
     result = await service.update_binding(db, binding_id, data)
     return Result.ok(result, "AI pipeline binding updated")
+
+
+@router.delete(
+    "/bindings/{binding_id}",
+    response_model=Result,
+    summary="删除 AI Pipeline 绑定",
+)
+async def delete_binding(
+    binding_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    await service.delete_binding(db, binding_id)
+    return Result.ok(message="AI pipeline binding deleted")
 
 
 @router.get(

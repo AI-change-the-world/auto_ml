@@ -148,9 +148,9 @@ const AnnotationListPage: React.FC = () => {
     });
   };
 
-  const handleOpenAiPipeline = (event: React.MouseEvent, annotation: AnnotationProject) => {
+  const handleOpenAiBinding = (event: React.MouseEvent, annotation: AnnotationProject) => {
     event.stopPropagation();
-    navigate(`/annotations/${annotation.id}/ai-pipeline`);
+    navigate(`/annotations/${annotation.id}/ai-binding`);
   };
 
   const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
@@ -213,7 +213,7 @@ const AnnotationListPage: React.FC = () => {
               unknownLabel={tc('status.unknown')}
               t={t}
               onOpen={(annotation) => navigate(`/annotations/${annotation.id}/label`)}
-              onOpenAiPipeline={handleOpenAiPipeline}
+              onOpenAiPipeline={handleOpenAiBinding}
               onEditClasses={openClassesModal}
               onDelete={handleDelete}
             />

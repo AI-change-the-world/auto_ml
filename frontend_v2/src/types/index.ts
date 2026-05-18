@@ -123,8 +123,20 @@ export { AugmentTypeLabels, AugmentTypeColors } from './augment';
 export type { ToolModelCreate, ToolModelResponse } from './tool';
 export type {
   AiPipelineTemplateListItem,
+  AiPipelineTemplateDetail,
+  AiPipelineTemplateCreateRequest,
+  AiPipelineTemplatePublishRequest,
+  AiPipelineTemplateVersionCreateRequest,
+  AiPipelineTemplateDraftSaveRequest,
   AiPipelineBindingResponse,
   AiPipelineBindingCreateRequest,
   AiPipelineBindingUpdateRequest,
   AiPipelineModelResourceItem,
+  AiPipelineFieldSchema,
+  AiPipelineResourceSlotSchema,
+  AiPipelineTemplateFormSchema,
+  AiPipelineCapabilityFieldOption,
+  AiPipelineCapabilityField,
+  AiPipelineCapabilityContextTarget,
+  AiPipelineCapabilityItem,
 } from './aiPipeline';

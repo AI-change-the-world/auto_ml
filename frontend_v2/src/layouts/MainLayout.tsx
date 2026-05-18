@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AppstoreOutlined,
+  ApartmentOutlined,
   CloudServerOutlined,
   DownOutlined,
   EditOutlined,
@@ -261,6 +262,7 @@ const MainLayout: React.FC = () => {
     if (location.pathname.startsWith('/annotations')) return t('nav.annotation');
     if (location.pathname.startsWith('/tasks')) return t('nav.training');
     if (location.pathname.startsWith('/deploy')) return t('nav.deploy');
+    if (location.pathname.startsWith('/ai-pipeline')) return t('nav.aiPipeline');
     if (location.pathname.startsWith('/settings')) return t('nav.settings');
     return t('nav.home');
   })();
@@ -314,6 +316,7 @@ const MainLayout: React.FC = () => {
           {[
             { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
             { key: '/datasets', icon: <AppstoreOutlined className="text-[18px]" />, label: t('nav.browse'), tour: 'nav-browse' },
+            { key: '/ai-pipeline', icon: <ApartmentOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
           ].map((item) => {
             const active = isActive(item.key);
             return (
