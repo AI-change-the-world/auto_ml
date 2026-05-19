@@ -136,6 +136,7 @@ class AiPipelineCapabilityContextTarget(BaseModel):
     key: str
     label: str
     description: Optional[str] = None
+    accepted_output_types: list[str] = Field(default_factory=list)
 
 
 class AiPipelineCapabilityItem(BaseModel):
@@ -146,6 +147,8 @@ class AiPipelineCapabilityItem(BaseModel):
     requires_provider: bool = False
     provider_role: Optional[str] = None
     recommended_output_key: Optional[str] = None
+    input_types: list[str] = Field(default_factory=list)
+    output_type: Optional[str] = None
     scene_types: list[str] = Field(default_factory=list)
     parameter_fields: list[AiPipelineCapabilityField] = Field(default_factory=list)
     context_mapping_targets: list[AiPipelineCapabilityContextTarget] = Field(default_factory=list)

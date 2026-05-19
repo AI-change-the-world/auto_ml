@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from models import AnnotationResult, TaskPayload
-from .base import Capability, ProviderResolver
+from .base import Capability, ProviderResolver, capability_metadata
 from .overlay import (
     ExtractWhiteAnnotationsCapability,
     RenderWhiteAnnotationOverlayCapability,
@@ -11,6 +11,43 @@ from .overlay import (
 )
 
 
+@capability_metadata(
+    display_name="组合辅助标注",
+    category="workflow",
+    provider_role="multimodal",
+    recommended_output_key="assist_annotations",
+    input_types=["image"],
+    output_type="annotations",
+    scene_types=["assist_annotation"],
+    parameter_fields=[
+        {
+            "key": "prompt",
+            "label": "提示词",
+            "widget": "textarea",
+        },
+        {
+            "key": "assist_min_annotation_count",
+            "label": "最小提取框数量",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 1,
+        },
+        {
+            "key": "assist_min_labeled_ratio",
+            "label": "最小已标注比例",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.75,
+        },
+        {
+            "key": "class_match_score",
+            "label": "类别匹配阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.72,
+        },
+    ],
+)
 class AssistAnnotationCapability(Capability):
     name = "assist_annotation"
     description = "Render white annotation overlays, extract them, and fallback to multimodal understanding when needed."

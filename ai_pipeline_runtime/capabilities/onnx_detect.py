@@ -8,11 +8,84 @@ import requests
 
 from models import AnnotationResult, TaskPayload
 from utils import strip_data_url_prefix
-from .base import AnnotationNormalizationMixin, Capability, ProviderResolver
+from .base import AnnotationNormalizationMixin, Capability, ProviderResolver, capability_metadata
 
 logger = logging.getLogger(__name__)
 
 
+@capability_metadata(
+    display_name="ONNX 检测模型",
+    category="model",
+    recommended_output_key="detections",
+    input_types=["image"],
+    output_type="annotations",
+    scene_types=["assist_annotation", "general"],
+    parameter_fields=[
+        {
+            "key": "resource_slot",
+            "label": "资源槽位",
+            "widget": "text",
+            "default_value": "detector_model",
+            "description": "从绑定层的资源槽位中读取模型资源。",
+        },
+        {
+            "key": "model_id",
+            "label": "模型资源",
+            "binding_kind": "resource",
+            "widget": "resource-select",
+            "resource_type": "onnx_model",
+            "task_kind": "detection_bbox",
+            "deployed_only": True,
+            "description": "默认绑定到模板资源槽位，运行时由项目 Binding 选择具体模型。",
+        },
+        {
+            "key": "score_threshold",
+            "label": "置信度阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.0,
+        },
+        {
+            "key": "class_match_score",
+            "label": "类别匹配阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.72,
+        },
+        {
+            "key": "inference_mode",
+            "label": "推理模式",
+            "widget": "select",
+            "options": [
+                {"label": "whole", "value": "whole"},
+                {"label": "tile", "value": "tile"},
+            ],
+        },
+        {
+            "key": "tile_size",
+            "label": "切片尺寸",
+            "widget": "text",
+        },
+        {
+            "key": "tile_overlap",
+            "label": "切片重叠",
+            "value_type": "number",
+            "widget": "number",
+        },
+        {
+            "key": "merge_iou",
+            "label": "合并 IoU",
+            "value_type": "number",
+            "widget": "number",
+        },
+        {
+            "key": "return_global_coords",
+            "label": "返回全局坐标",
+            "value_type": "boolean",
+            "widget": "switch",
+        },
+    ],
+)
 class OnnxDetectCapability(AnnotationNormalizationMixin, Capability):
     name = "onnx_detect"
     description = "Run a deployed ONNX detection model selected from resource bindings."

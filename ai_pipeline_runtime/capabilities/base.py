@@ -8,6 +8,15 @@ from ocr import normalize_label_to_allowed_classes
 from utils import clamp
 
 BoxTuple = tuple[int, int, int, int]
+CapabilityMetadata = dict[str, Any]
+
+
+def capability_metadata(**metadata: Any):
+    def wrapper(cls):
+        cls.metadata = dict(metadata)
+        return cls
+
+    return wrapper
 
 
 class ProviderResolver(Protocol):
@@ -19,12 +28,23 @@ class Capability(ABC):
     name: str
     description: str
     requires_provider: bool = False
+    metadata: CapabilityMetadata = {}
 
     def describe(self) -> CapabilityDescriptor:
+        metadata = dict(getattr(self, "metadata", {}) or {})
         return CapabilityDescriptor(
             name=self.name,
             description=self.description,
             requires_provider=self.requires_provider,
+            display_name=metadata.get("display_name"),
+            category=metadata.get("category") or "general",
+            provider_role=metadata.get("provider_role"),
+            recommended_output_key=metadata.get("recommended_output_key"),
+            input_types=metadata.get("input_types") or [],
+            output_type=metadata.get("output_type"),
+            scene_types=metadata.get("scene_types") or [],
+            parameter_fields=metadata.get("parameter_fields") or [],
+            context_mapping_targets=metadata.get("context_mapping_targets") or [],
         )
 
     @abstractmethod

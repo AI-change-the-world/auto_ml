@@ -1,5 +1,11 @@
 from .assist import AssistAnnotationCapability
-from .base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver
+from .base import (
+    AnnotationNormalizationMixin,
+    BoxTuple,
+    Capability,
+    ProviderResolver,
+    capability_metadata,
+)
 from .describe import DescribeImageCapability
 from .draft import DraftAnnotationCapability
 from .onnx_detect import OnnxDetectCapability
@@ -23,4 +29,5 @@ __all__ = [
     "ProviderResolver",
     "RenderWhiteAnnotationOverlayCapability",
     "UnderstandWhiteAnnotationsCapability",
+    "capability_metadata",
 ]

@@ -6,11 +6,52 @@ from typing import Any
 from models import AnnotationItem, AnnotationResult, OverlayRenderResult, TaskPayload
 from ocr import OCRTextLine, RapidOCRService
 from utils import image_size, load_cv2_image, require_cv2
-from .base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver
+from .base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver, capability_metadata
 
 logger = logging.getLogger(__name__)
 
 
+@capability_metadata(
+    display_name="生成白框叠图",
+    category="image_edit",
+    provider_role="image_edit",
+    recommended_output_key="overlay_result",
+    input_types=["image"],
+    output_type="overlay_image",
+    scene_types=["assist_annotation"],
+    parameter_fields=[
+        {
+            "key": "prompt",
+            "label": "编辑提示词",
+            "widget": "textarea",
+            "description": "为空时自动生成白框叠图提示词。",
+        },
+        {
+            "key": "size",
+            "label": "输出尺寸",
+            "widget": "text",
+            "placeholder": "如 1024x1024",
+        },
+        {
+            "key": "background",
+            "label": "背景模式",
+            "widget": "select",
+            "options": [
+                {"label": "auto", "value": "auto"},
+                {"label": "transparent", "value": "transparent"},
+                {"label": "opaque", "value": "opaque"},
+            ],
+        },
+    ],
+    context_mapping_targets=[
+        {
+            "key": "overlay_image",
+            "label": "覆盖输入图像",
+            "description": "通常供后续 OCR/理解节点使用。",
+            "accepted_output_types": ["image", "overlay_image"],
+        },
+    ],
+)
 class RenderWhiteAnnotationOverlayCapability(Capability):
     name = "render_white_annotation_overlay"
     description = "Use an image editing model to draw pure white boxes and labels for allowed classes."
@@ -82,6 +123,75 @@ class RenderWhiteAnnotationOverlayCapability(Capability):
         )
 
 
+@capability_metadata(
+    display_name="理解白框叠图",
+    category="annotation",
+    provider_role="multimodal",
+    recommended_output_key="overlay_annotations",
+    input_types=["image", "overlay_image"],
+    output_type="annotations",
+    scene_types=["assist_annotation"],
+    parameter_fields=[
+        {
+            "key": "prompt",
+            "label": "提示词",
+            "widget": "textarea",
+        },
+        {
+            "key": "json_mode",
+            "label": "JSON 模式",
+            "value_type": "boolean",
+            "widget": "switch",
+            "default_value": True,
+        },
+        {
+            "key": "json_response_type",
+            "label": "JSON 响应类型",
+            "widget": "select",
+            "default_value": "json_object",
+            "options": [
+                {"label": "json_object", "value": "json_object"},
+                {"label": "text", "value": "text"},
+            ],
+        },
+        {
+            "key": "class_match_score",
+            "label": "类别匹配阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.72,
+        },
+        {
+            "key": "max_label_distance_ratio",
+            "label": "标签距离比例",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.25,
+        },
+        {
+            "key": "temperature",
+            "label": "Temperature",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.0,
+        },
+        {
+            "key": "max_tokens",
+            "label": "最大输出 Token",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 1024,
+        },
+    ],
+    context_mapping_targets=[
+        {
+            "key": "overlay_image",
+            "label": "覆盖输入图像",
+            "description": "将上一步的 overlay 图注入当前 step 输入。",
+            "accepted_output_types": ["overlay_image", "preview_image", "image"],
+        },
+    ],
+)
 class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability):
     name = "understand_white_annotations"
     description = "Use a multimodal model to recover boxes and labels from a white-box overlay image."
@@ -170,6 +280,87 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
         )
 
 
+@capability_metadata(
+    display_name="提取白框标注",
+    category="vision",
+    recommended_output_key="overlay_annotations",
+    input_types=["image", "overlay_image"],
+    output_type="annotations",
+    scene_types=["assist_annotation"],
+    parameter_fields=[
+        {
+            "key": "infer_labels",
+            "label": "推断标签文本",
+            "value_type": "boolean",
+            "widget": "switch",
+            "default_value": True,
+        },
+        {
+            "key": "class_match_score",
+            "label": "OCR 类别匹配阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.6,
+        },
+        {
+            "key": "white_threshold",
+            "label": "白色阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 235,
+        },
+        {
+            "key": "min_area",
+            "label": "最小框面积",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 300,
+        },
+        {
+            "key": "min_width",
+            "label": "最小宽度",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 20,
+        },
+        {
+            "key": "min_height",
+            "label": "最小高度",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 20,
+        },
+        {
+            "key": "kernel_size",
+            "label": "形态学核大小",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 3,
+        },
+        {
+            "key": "line_scale",
+            "label": "线条提取尺度",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 30,
+        },
+        {
+            "key": "max_candidates",
+            "label": "最大候选数",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 200,
+        },
+    ],
+    context_mapping_targets=[
+        {
+            "key": "overlay_image",
+            "label": "覆盖输入图像",
+            "description": "将上一步的 overlay 图注入当前 step 输入。",
+            "accepted_output_types": ["overlay_image", "preview_image", "image"],
+        },
+    ],
+)
 class ExtractWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capability):
     name = "extract_white_annotations"
     description = "Use OpenCV to detect white boxes, then assign OCR text to the nearest box."

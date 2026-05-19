@@ -3,9 +3,40 @@ from __future__ import annotations
 from typing import Any
 
 from models import DescriptionResult, TaskPayload
-from .base import Capability, ProviderResolver
+from .base import Capability, ProviderResolver, capability_metadata
 
 
+@capability_metadata(
+    display_name="图像描述",
+    category="multimodal",
+    provider_role="multimodal",
+    recommended_output_key="scene_description",
+    input_types=["image"],
+    output_type="text",
+    scene_types=["assist_annotation", "general"],
+    parameter_fields=[
+        {
+            "key": "prompt",
+            "label": "提示词",
+            "widget": "textarea",
+            "description": "为空时使用默认图像描述提示词。",
+        },
+        {
+            "key": "temperature",
+            "label": "Temperature",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.1,
+        },
+        {
+            "key": "max_tokens",
+            "label": "最大输出 Token",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 512,
+        },
+    ],
+)
 class DescribeImageCapability(Capability):
     name = "describe_image"
     description = "Use a multimodal model to describe the scene, objects, and context."

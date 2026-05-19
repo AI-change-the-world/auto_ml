@@ -5,11 +5,80 @@ from typing import Any
 
 from models import AnnotationResult, TaskPayload
 from utils import image_size
-from .base import AnnotationNormalizationMixin, Capability, ProviderResolver
+from .base import AnnotationNormalizationMixin, Capability, ProviderResolver, capability_metadata
 
 logger = logging.getLogger(__name__)
 
 
+@capability_metadata(
+    display_name="多模态草稿标注",
+    category="annotation",
+    provider_role="multimodal",
+    recommended_output_key="draft_annotations",
+    input_types=["image", "text"],
+    output_type="annotations",
+    scene_types=["assist_annotation"],
+    parameter_fields=[
+        {
+            "key": "prompt",
+            "label": "提示词",
+            "widget": "textarea",
+            "description": "为空时自动按类别和图像尺寸生成提示词。",
+        },
+        {
+            "key": "json_mode",
+            "label": "JSON 模式",
+            "value_type": "boolean",
+            "widget": "switch",
+            "default_value": True,
+        },
+        {
+            "key": "json_response_type",
+            "label": "JSON 响应类型",
+            "widget": "select",
+            "default_value": "json_object",
+            "options": [
+                {"label": "json_object", "value": "json_object"},
+                {"label": "text", "value": "text"},
+            ],
+        },
+        {
+            "key": "class_match_score",
+            "label": "类别匹配阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.72,
+        },
+        {
+            "key": "score_threshold",
+            "label": "置信度阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.0,
+        },
+        {
+            "key": "max_label_distance_ratio",
+            "label": "标签距离比例",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.25,
+        },
+        {
+            "key": "temperature",
+            "label": "Temperature",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.0,
+        },
+        {
+            "key": "max_tokens",
+            "label": "最大输出 Token",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 1024,
+        },
+    ],
+)
 class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
     name = "draft_annotation"
     description = "Ask a multimodal model to draft bounding boxes with strict class constraints."

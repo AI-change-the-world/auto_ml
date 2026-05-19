@@ -7,12 +7,60 @@ from typing import Any
 from models import AnnotationItem, AnnotationResult, TaskPayload
 from storage import upload_bytes_to_s3
 from utils import clamp, load_cv2_image, require_cv2
-from .base import Capability, ProviderResolver
+from .base import Capability, ProviderResolver, capability_metadata
 from .draft import DraftAnnotationCapability
 
 logger = logging.getLogger(__name__)
 
 
+@capability_metadata(
+    display_name="草稿标注预览",
+    category="annotation",
+    provider_role="multimodal",
+    recommended_output_key="draft_preview",
+    input_types=["annotations"],
+    output_type="preview_image",
+    scene_types=["assist_annotation"],
+    parameter_fields=[
+        {
+            "key": "prompt",
+            "label": "提示词",
+            "widget": "textarea",
+        },
+        {
+            "key": "class_match_score",
+            "label": "类别匹配阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.72,
+        },
+        {
+            "key": "score_threshold",
+            "label": "置信度阈值",
+            "value_type": "number",
+            "widget": "number",
+            "default_value": 0.2,
+        },
+        {
+            "key": "preview_line_thickness",
+            "label": "预览线宽",
+            "value_type": "number",
+            "widget": "number",
+        },
+        {
+            "key": "preview_font_scale",
+            "label": "预览字体缩放",
+            "value_type": "number",
+            "widget": "number",
+        },
+        {
+            "key": "preview_s3_prefix",
+            "label": "预览存储前缀",
+            "widget": "text",
+            "default_value": "auto_augment/draft_previews",
+        },
+    ],
+)
 class DraftAnnotationPreviewCapability(Capability):
     name = "draft_annotation_preview"
     description = "Directly draft bbox annotations with a multimodal model, then render an OpenCV preview image and upload it to S3."

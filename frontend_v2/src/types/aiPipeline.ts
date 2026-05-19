@@ -155,6 +155,7 @@ export interface AiPipelineCapabilityContextTarget {
   key: string;
   label: string;
   description?: string | null;
+  accepted_output_types?: string[];
 }
 
 export interface AiPipelineCapabilityItem {
@@ -165,6 +166,8 @@ export interface AiPipelineCapabilityItem {
   requires_provider: boolean;
   provider_role?: string | null;
   recommended_output_key?: string | null;
+  input_types?: string[];
+  output_type?: string | null;
   scene_types: string[];
   parameter_fields: AiPipelineCapabilityField[];
   context_mapping_targets: AiPipelineCapabilityContextTarget[];

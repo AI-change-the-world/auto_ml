@@ -70,6 +70,15 @@ class CapabilityDescriptor(BaseModel):
     name: str
     description: str
     requires_provider: bool = False
+    display_name: str | None = None
+    category: str = "general"
+    provider_role: str | None = None
+    recommended_output_key: str | None = None
+    input_types: list[str] = Field(default_factory=list)
+    output_type: str | None = None
+    scene_types: list[str] = Field(default_factory=list)
+    parameter_fields: list[dict[str, Any]] = Field(default_factory=list)
+    context_mapping_targets: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ExecuteCapabilityRequest(BaseModel):
