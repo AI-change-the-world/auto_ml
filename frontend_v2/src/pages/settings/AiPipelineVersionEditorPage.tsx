@@ -24,7 +24,9 @@ import AiPipelineVersionBuilder, {
   deriveVersionPayloadFromSteps,
 } from './components/AiPipelineVersionBuilder';
 import {
+  parseVersionBuilderGraphFromTemplate,
   parseVersionBuilderStepsFromTemplate,
+  validateVersionBuilderSteps,
   type VersionBuilderFormValues,
 } from './components/aiPipelineVersionBuilderHelpers';
 
@@ -35,7 +37,7 @@ const buildVersionPayloadJson = (
   values: VersionBuilderFormValues,
   capabilities: AiPipelineCapabilityItem[],
 ) => {
-  const derived = deriveVersionPayloadFromSteps(values.steps ?? [], capabilities);
+  const derived = deriveVersionPayloadFromSteps(values.steps ?? [], capabilities, values.graph);
   const resourceSlots = Object.fromEntries(derived.resourceSlots.map((item) => [
     String(item.key),
     {
@@ -59,6 +61,7 @@ const buildVersionPayloadJson = (
       enabled: true,
       template_key: template.template_key,
       scene_type: template.scene_type,
+      editor_graph: values.graph,
       input_schema: { kind: template.input_kind || 'image' },
       output_schema: { kind: template.output_kind || 'annotation_bbox' },
       runtime_inputs: derived.runtimeInputs,
@@ -116,16 +119,18 @@ const AiPipelineVersionEditorPage: React.FC = () => {
         const scopedCapabilities = capabilityItems.filter((item) => (
           item.scene_types.length === 0 || item.scene_types.includes(detail.scene_type)
         ));
+        const parsedSteps = parseVersionBuilderStepsFromTemplate(
+          detail.definition_json,
+          detail.form_schema_json,
+          scopedCapabilities,
+        );
         setTemplateDetail(detail);
         setCapabilities(capabilityItems);
         form.setFieldsValue({
           change_note: detail.change_note || '',
           scene_type: detail.scene_type,
-          steps: parseVersionBuilderStepsFromTemplate(
-            detail.definition_json,
-            detail.form_schema_json,
-            scopedCapabilities,
-          ),
+          steps: parsedSteps,
+          graph: parseVersionBuilderGraphFromTemplate(detail.definition_json, parsedSteps),
         });
       } catch (error) {
         console.error('failed to load version editor page', error);
@@ -148,7 +153,13 @@ const AiPipelineVersionEditorPage: React.FC = () => {
   const handleSubmit = async () => {
     if (!templateDetail || !templateKey) return;
     try {
-      const values = await form.validateFields();
+      await form.validateFields();
+      const values = form.getFieldsValue(true) as VersionBuilderFormValues;
+      const validationIssues = validateVersionBuilderSteps(values.steps ?? [], values.graph);
+      if (validationIssues.length > 0) {
+        message.error(validationIssues[0].message);
+        return;
+      }
       const { definition_json, form_schema_json } = buildVersionPayloadJson(
         templateDetail,
         values,
@@ -172,15 +183,7 @@ const AiPipelineVersionEditorPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
-        <Spin size="large" />
-      </div>
-    );
-  }
-
-  if (!templateDetail) {
+  if (!loading && !templateDetail) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
         <Text type="secondary">模板不存在或加载失败</Text>
@@ -191,48 +194,56 @@ const AiPipelineVersionEditorPage: React.FC = () => {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
       <Form form={form} layout="vertical" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid #dbe3ef', background: '#f8fafc', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <SaveOutlined />
-            </div>
-            <div>
-              <div className="page-title" style={{ fontSize: 22, lineHeight: '30px' }}>{templateDetail.name}</div>
-              <div className="page-subtitle" style={{ marginTop: 2 }}>
-                {templateDetail.template_key} · {templateDetail.scene_type}
-              </div>
-            </div>
+        {loading || !templateDetail ? (
+          <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+            <Spin size="large" />
           </div>
-          <Space>
-            <Form.Item name="change_note" style={{ marginBottom: 0 }}>
-              <Input
-                style={{ width: 300 }}
-                placeholder="变更说明，如：新增视觉检测节点"
-              />
-            </Form.Item>
-            <Button icon={<CloseOutlined />} onClick={closeEditorPage}>
-              关闭
-            </Button>
-            <Button type="primary" loading={saving} onClick={() => void handleSubmit()}>
-              保存
-            </Button>
-          </Space>
-        </div>
-        <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 18, padding: '0 24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
-          <div className="caption-text" style={{ color: '#64748b' }}>输入</div>
-          <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{templateDetail.input_kind || '-'}</div>
-          <div className="caption-text" style={{ color: '#64748b' }}>输出</div>
-          <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{templateDetail.output_kind || '-'}</div>
-          <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/ai-pipeline')} style={{ padding: 0, marginLeft: 'auto' }}>
-            返回模板列表
-          </Button>
-        </div>
+        ) : (
+          <>
+            <div style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, border: '1px solid #dbe3ef', background: '#f8fafc', color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <SaveOutlined />
+                </div>
+                <div>
+                  <div className="page-title" style={{ fontSize: 22, lineHeight: '30px' }}>{templateDetail.name}</div>
+                  <div className="page-subtitle" style={{ marginTop: 2 }}>
+                    {templateDetail.template_key} · {templateDetail.scene_type}
+                  </div>
+                </div>
+              </div>
+              <Space>
+                <Form.Item name="change_note" style={{ marginBottom: 0 }}>
+                  <Input
+                    style={{ width: 300 }}
+                    placeholder="变更说明，如：新增视觉检测节点"
+                  />
+                </Form.Item>
+                <Button icon={<CloseOutlined />} onClick={closeEditorPage}>
+                  关闭
+                </Button>
+                <Button type="primary" loading={saving} onClick={() => void handleSubmit()}>
+                  保存
+                </Button>
+              </Space>
+            </div>
+            <div style={{ height: 52, display: 'flex', alignItems: 'center', gap: 18, padding: '0 24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
+              <div className="caption-text" style={{ color: '#64748b' }}>输入</div>
+              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{templateDetail.input_kind || '-'}</div>
+              <div className="caption-text" style={{ color: '#64748b' }}>输出</div>
+              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{templateDetail.output_kind || '-'}</div>
+              <Button type="link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/ai-pipeline')} style={{ padding: 0, marginLeft: 'auto' }}>
+                返回模板列表
+              </Button>
+            </div>
 
-        <AiPipelineVersionBuilder
-          form={form}
-          capabilities={capabilities}
-          capabilitiesLoading={false}
-        />
+            <AiPipelineVersionBuilder
+              form={form}
+              capabilities={capabilities}
+              capabilitiesLoading={false}
+            />
+          </>
+        )}
       </Form>
     </div>
   );

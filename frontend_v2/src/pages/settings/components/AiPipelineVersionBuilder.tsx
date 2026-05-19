@@ -1,12 +1,31 @@
 import React from 'react';
 import {
-  ArrowDownOutlined,
-  ArrowUpOutlined,
   DeleteOutlined,
   HolderOutlined,
   PartitionOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
+import {
+  addEdge,
+  Background,
+  ConnectionMode,
+  Controls,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
+  useReactFlow,
+  type Connection,
+  type Edge,
+  type EdgeChange,
+  type Node,
+  type NodeChange,
+  type NodeProps,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import {
   Button,
   Empty,
@@ -24,12 +43,20 @@ import type {
   AiPipelineCapabilityItem,
 } from '../../../types';
 import {
+  applyGraphToSteps,
   createStepFromCapability,
   defaultBindingMode,
+  deriveGraphFromSteps,
   deriveVersionPayloadFromSteps as deriveVersionPayloadFromStepsHelper,
+  getGraphInputNodeId,
+  getGraphOutputNodeId,
+  getGraphStepNodeId,
   safeKey,
-  type StepFieldBindingMode,
+  type GraphInputTarget,
   type VersionBuilderFormValues,
+  type VersionBuilderGraphEdgeValue,
+  type VersionBuilderGraphNodeValue,
+  type VersionBuilderGraphValue,
   type VersionBuilderStepValue,
 } from './aiPipelineVersionBuilderHelpers';
 
@@ -39,20 +66,46 @@ interface AiPipelineVersionBuilderProps {
   capabilitiesLoading?: boolean;
 }
 
+type BuilderNodeData = {
+  label: string;
+  subLabel?: string;
+  category?: string;
+  selected?: boolean;
+  contextTargets?: Array<{ key: string; label: string }>;
+};
+
+type BuilderNode = Node<BuilderNodeData, 'pipelineInput' | 'pipelineCapability' | 'pipelineOutput'>;
+type BuilderEdge = Edge<Record<string, never>>;
+
+const DRAG_CAPABILITY_KEY = 'application/x-automl-capability';
+const panelBorder = '#dbe3ef';
+const canvasBackground = '#f8fafc';
+const primaryTarget: GraphInputTarget = 'primary';
+
 const providerRoleOptions = [
   { label: 'multimodal', value: 'multimodal' },
   { label: 'image_edit', value: 'image_edit' },
 ];
 
-const capabilityAccentMap: Record<string, { border: string; fill: string; text: string }> = {
-  vision: { border: '#7c3aed', fill: '#f3e8ff', text: '#6d28d9' },
-  llm: { border: '#2563eb', fill: '#dbeafe', text: '#1d4ed8' },
-  control: { border: '#0f766e', fill: '#ccfbf1', text: '#0f766e' },
-  transform: { border: '#ea580c', fill: '#ffedd5', text: '#c2410c' },
+const capabilityAccentMap: Record<string, { border: string; fill: string; text: string; muted: string }> = {
+  vision: { border: '#2563eb', fill: '#eff6ff', text: '#1d4ed8', muted: '#dbeafe' },
+  multimodal: { border: '#2563eb', fill: '#eff6ff', text: '#1d4ed8', muted: '#dbeafe' },
+  annotation: { border: '#0f766e', fill: '#ecfeff', text: '#0f766e', muted: '#ccfbf1' },
+  model: { border: '#7c3aed', fill: '#f5f3ff', text: '#6d28d9', muted: '#ede9fe' },
+  workflow: { border: '#475569', fill: '#f8fafc', text: '#334155', muted: '#e2e8f0' },
 };
 
 const getCapabilityAccent = (category?: string | null) => (
-  capabilityAccentMap[category || ''] || { border: '#475569', fill: '#e2e8f0', text: '#334155' }
+  capabilityAccentMap[category || ''] || {
+    border: '#475569',
+    fill: '#f8fafc',
+    text: '#334155',
+    muted: '#e2e8f0',
+  }
+);
+
+const readDraggedCapability = (event: React.DragEvent) => (
+  event.dataTransfer.getData(DRAG_CAPABILITY_KEY) || event.dataTransfer.getData('text/plain')
 );
 
 const renderFixedValueInput = (field: AiPipelineCapabilityField) => {
@@ -82,61 +135,263 @@ const renderFixedValueInput = (field: AiPipelineCapabilityField) => {
   return <Input placeholder={placeholder} />;
 };
 
-const readStepFieldBindingMode = (
-  allSteps: VersionBuilderStepValue[],
-  stepIndex: number,
-  fieldKey: string,
-): StepFieldBindingMode | undefined => allSteps?.[stepIndex]?.field_bindings?.[fieldKey]?.mode;
-
-const renderBindingSummary = (
-  step: VersionBuilderStepValue,
-  field: AiPipelineCapabilityField,
-) => {
-  const binding = step.field_bindings?.[field.key];
-  const mode = binding?.mode || defaultBindingMode(field);
-
-  if (mode === 'resource_slot') {
-    return binding?.resource_slot_label || binding?.resource_slot_key || '资源槽位';
-  }
-  if (mode === 'runtime_input') {
-    return binding?.runtime_input_label || binding?.runtime_input_key || '运行参数';
-  }
-  if (binding?.value === undefined || binding?.value === null || binding?.value === '') {
-    return '固定值';
-  }
-  return Array.isArray(binding.value) ? binding.value.join(', ') : String(binding.value);
+const NodeShell: React.FC<React.PropsWithChildren<{
+  data: BuilderNodeData;
+  tone?: 'input' | 'output' | 'capability';
+}>> = ({ data, tone = 'capability', children }) => {
+  const accent = getCapabilityAccent(data.category);
+  const iconColor = tone === 'input' ? '#2563eb' : tone === 'output' ? '#475569' : accent.text;
+  const iconBg = tone === 'input' ? '#eff6ff' : tone === 'output' ? '#f1f5f9' : accent.muted;
+  return (
+    <div
+      style={{
+        width: 238,
+        borderRadius: 6,
+        border: `1px solid ${data.selected ? accent.border : panelBorder}`,
+        background: '#ffffff',
+        boxShadow: data.selected ? '0 0 0 2px rgba(37, 99, 235, 0.10)' : 'none',
+        overflow: 'visible',
+      }}
+    >
+      <div className="pipeline-node-drag-handle" style={{ display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr)', gap: 10, alignItems: 'center', padding: '10px 12px', cursor: 'grab' }}>
+        <div style={{ width: 30, height: 30, borderRadius: 6, background: iconBg, color: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {tone === 'input' ? <PartitionOutlined /> : <SettingOutlined />}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div className="body-text-sm" style={{ fontWeight: 700, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {data.label}
+          </div>
+          {data.subLabel ? (
+            <div className="caption-text" style={{ color: '#64748b', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {data.subLabel}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
 };
 
-const moveStep = (
+const PipelineInputNode: React.FC<NodeProps<BuilderNode>> = ({ data }) => (
+  <NodeShell data={data} tone="input">
+    <Handle type="source" id="input" position={Position.Right} style={{ width: 14, height: 14, background: '#2563eb', border: '2px solid #ffffff', zIndex: 20 }} />
+  </NodeShell>
+);
+
+const PipelineOutputNode: React.FC<NodeProps<BuilderNode>> = ({ data }) => (
+  <NodeShell data={data} tone="output">
+    <Handle type="target" id="result" position={Position.Left} style={{ width: 14, height: 14, background: '#475569', border: '2px solid #ffffff', zIndex: 20 }} />
+  </NodeShell>
+);
+
+const PipelineCapabilityNode: React.FC<NodeProps<BuilderNode>> = ({ data }) => (
+  <NodeShell data={data}>
+    <div style={{ borderTop: `1px solid ${panelBorder}`, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span className="caption-text" style={{ color: '#64748b' }}>input</span>
+      <span className="caption-text" style={{ color: '#64748b' }}>result</span>
+    </div>
+    <Handle type="target" id="primary" position={Position.Left} style={{ top: 48, width: 14, height: 14, background: '#2563eb', border: '2px solid #ffffff', zIndex: 20 }} />
+    {(data.contextTargets ?? []).map((target, index) => (
+      <Handle
+        key={target.key}
+        type="target"
+        id={target.key}
+        position={Position.Left}
+        style={{ top: 82 + index * 20, width: 14, height: 14, background: '#0f766e', border: '2px solid #ffffff', zIndex: 20 }}
+      />
+    ))}
+    <Handle type="source" id="result" position={Position.Right} style={{ width: 14, height: 14, background: '#475569', border: '2px solid #ffffff', zIndex: 20 }} />
+  </NodeShell>
+);
+
+const nodeTypes = {
+  pipelineInput: PipelineInputNode,
+  pipelineCapability: PipelineCapabilityNode,
+  pipelineOutput: PipelineOutputNode,
+};
+
+const createGraphEdge = (connection: Connection): VersionBuilderGraphEdgeValue => {
+  const sourceHandle = connection.sourceHandle || (connection.source === getGraphInputNodeId() ? 'input' : 'result');
+  const targetHandle = connection.targetHandle || (connection.target === getGraphOutputNodeId() ? 'result' : primaryTarget);
+  return {
+    id: `edge_${connection.source}_${sourceHandle}_${connection.target}_${targetHandle}_${Date.now()}`,
+    source: connection.source || '',
+    target: connection.target || '',
+    sourceHandle,
+    targetHandle,
+  };
+};
+
+const toFlowEdge = (edge: VersionBuilderGraphEdgeValue): BuilderEdge => ({
+  ...edge,
+  type: 'smoothstep',
+  markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+  style: { stroke: '#64748b', strokeWidth: 1.5 },
+  data: {},
+});
+
+const buildGraphFromFlow = (
+  nodes: BuilderNode[],
+  edges: BuilderEdge[],
+): VersionBuilderGraphValue => ({
+  nodes: nodes.map((node) => {
+    const baseNode = {
+      id: node.id,
+      position: node.position,
+    };
+    if (node.type === 'pipelineInput') {
+      return {
+        ...baseNode,
+        kind: 'input',
+      } satisfies VersionBuilderGraphNodeValue;
+    }
+    if (node.type === 'pipelineOutput') {
+      return {
+        ...baseNode,
+        kind: 'output',
+      } satisfies VersionBuilderGraphNodeValue;
+    }
+    return {
+      ...baseNode,
+      kind: 'capability',
+      step_id: node.id.replace(/^node_/, ''),
+    } satisfies VersionBuilderGraphNodeValue;
+  }),
+  edges: edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? undefined,
+    targetHandle: edge.targetHandle ?? undefined,
+  })),
+});
+
+const buildFlowNodes = (
+  graph: VersionBuilderGraphValue,
   steps: VersionBuilderStepValue[],
-  fromIndex: number,
-  toIndex: number,
-) => {
-  if (toIndex < 0 || toIndex >= steps.length || fromIndex === toIndex) {
-    return steps;
+  capabilityMap: Map<string, AiPipelineCapabilityItem>,
+  selectedNodeId: string,
+): BuilderNode[] => graph.nodes.map((node) => {
+  if (node.kind === 'input') {
+    return {
+      id: node.id,
+      type: 'pipelineInput',
+      position: node.position,
+      data: { label: 'Input', subLabel: 'runtime input', selected: node.id === selectedNodeId },
+      dragHandle: '.pipeline-node-drag-handle',
+      deletable: false,
+    };
   }
-  const next = [...steps];
-  const [moved] = next.splice(fromIndex, 1);
-  next.splice(toIndex, 0, moved);
-  return next;
+  if (node.kind === 'output') {
+    return {
+      id: node.id,
+      type: 'pipelineOutput',
+      position: node.position,
+      data: { label: 'Output', subLabel: 'pipeline result', selected: node.id === selectedNodeId },
+      dragHandle: '.pipeline-node-drag-handle',
+      deletable: false,
+    };
+  }
+  const step = steps.find((item) => item.id === node.step_id);
+  const capability = step ? capabilityMap.get(step.capability) : undefined;
+  return {
+    id: node.id,
+    type: 'pipelineCapability',
+    position: node.position,
+    dragHandle: '.pipeline-node-drag-handle',
+    data: {
+      label: capability?.display_name || step?.capability || 'Capability',
+      subLabel: step?.name,
+      category: capability?.category,
+      selected: node.id === selectedNodeId,
+      contextTargets: (capability?.context_mapping_targets ?? []).map((target) => ({
+        key: target.key,
+        label: target.label,
+      })),
+    },
+  };
+});
+
+const buildFlowEdges = (graph: VersionBuilderGraphValue): BuilderEdge[] => graph.edges.map(toFlowEdge);
+
+const getFlowNodeKind = (node?: BuilderNode): VersionBuilderGraphNodeValue['kind'] | undefined => {
+  if (!node) return undefined;
+  if (node.type === 'pipelineInput') return 'input';
+  if (node.type === 'pipelineOutput') return 'output';
+  return 'capability';
 };
 
-const DRAG_CAPABILITY_KEY = 'application/x-automl-capability';
+const buildUniqueStep = (
+  capability: AiPipelineCapabilityItem,
+  currentSteps: VersionBuilderStepValue[],
+  position: { x: number; y: number },
+) => {
+  const baseName = safeKey(capability.name) || 'step';
+  const usedNames = new Set(currentSteps.map((item) => item.name));
+  const usedIds = new Set(currentSteps.map((item) => item.id));
+  const usedOutputKeys = new Set(currentSteps.map((item) => item.output_key).filter(Boolean));
+  let nextName = baseName;
+  let suffix = 2;
+  while (usedNames.has(nextName)) {
+    nextName = `${baseName}_${suffix}`;
+    suffix += 1;
+  }
+  const idBase = `step_${nextName}`;
+  let nextId = idBase;
+  while (usedIds.has(nextId)) {
+    nextId = `step_${nextName}_${suffix}`;
+    suffix += 1;
+  }
+  let outputKey = capability.recommended_output_key || nextName;
+  if (usedOutputKeys.has(outputKey)) {
+    outputKey = nextName;
+  }
+  return createStepFromCapability(capability, {
+    id: nextId,
+    name: nextName,
+    output_key: outputKey,
+    position,
+  });
+};
 
 export const deriveVersionPayloadFromSteps = (
   steps: VersionBuilderStepValue[],
   capabilities: AiPipelineCapabilityItem[],
-) => deriveVersionPayloadFromStepsHelper(steps, capabilities);
+  graph?: VersionBuilderGraphValue,
+) => deriveVersionPayloadFromStepsHelper(steps, capabilities, graph);
 
-const AiPipelineVersionBuilder: React.FC<AiPipelineVersionBuilderProps> = ({
+const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = ({
   form,
   capabilities,
+  capabilitiesLoading,
 }) => {
+  const reactFlow = useReactFlow<BuilderNode, BuilderEdge>();
   const sceneType = Form.useWatch('scene_type', form) as string | undefined;
   const steps = (Form.useWatch('steps', form) as VersionBuilderStepValue[] | undefined) ?? [];
-  const [selectedStepIndex, setSelectedStepIndex] = React.useState<number>(0);
-  const [draggingCapability, setDraggingCapability] = React.useState<string | null>(null);
-  const [canvasDragging, setCanvasDragging] = React.useState(false);
+  const watchedGraph = Form.useWatch('graph', form) as VersionBuilderGraphValue | undefined;
+  const fallbackGraph = React.useMemo(() => deriveGraphFromSteps(steps), [steps]);
+  const graph = watchedGraph ?? fallbackGraph;
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string>(getGraphInputNodeId());
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<BuilderNode>([]);
+  const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<BuilderEdge>([]);
+  const draggingCapabilityNameRef = React.useRef<string | null>(null);
+  const lastFlowSyncSignatureRef = React.useRef('');
+  const lastDragOverLogRef = React.useRef(0);
+  const lastDropAtRef = React.useRef(0);
+
+  React.useEffect(() => {
+    if (!watchedGraph) {
+      form.setFieldValue('graph', fallbackGraph);
+    }
+  }, [fallbackGraph, form, watchedGraph]);
+
+  React.useEffect(() => {
+    if (!selectedNodeId || graph.nodes.some((node) => node.id === selectedNodeId)) {
+      return;
+    }
+    setSelectedNodeId(getGraphInputNodeId());
+  }, [graph.nodes, selectedNodeId]);
 
   const filteredCapabilities = React.useMemo(() => (
     capabilities.filter((item) => (
@@ -147,345 +402,396 @@ const AiPipelineVersionBuilder: React.FC<AiPipelineVersionBuilderProps> = ({
   ), [capabilities, sceneType]);
 
   const capabilityMap = React.useMemo(() => (
-    new Map(filteredCapabilities.map((item) => [item.name, item]))
-  ), [filteredCapabilities]);
+    new Map(capabilities.map((item) => [item.name, item]))
+  ), [capabilities]);
 
-  const derivedPayload = React.useMemo(() => (
-    deriveVersionPayloadFromSteps(steps, filteredCapabilities)
-  ), [steps, filteredCapabilities]);
+  const commitGraph = React.useCallback((nextGraph: VersionBuilderGraphValue, nextSteps = steps) => {
+    form.setFieldsValue({
+      graph: nextGraph,
+      steps: applyGraphToSteps(nextSteps, nextGraph),
+    });
+  }, [form, steps]);
 
-  const selectedStep = steps[selectedStepIndex];
-  const selectedCapability = selectedStep?.capability
-    ? capabilityMap.get(selectedStep.capability)
+  const selectNode = React.useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setFlowNodes((currentNodes) => currentNodes.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        selected: node.id === nodeId,
+      },
+    })));
+  }, [setFlowNodes]);
+
+  const selectedGraphNode = graph.nodes.find((node) => node.id === selectedNodeId);
+  const selectedStepId = selectedGraphNode?.kind === 'capability' ? selectedGraphNode.step_id : undefined;
+  const selectedStepIndex = steps.findIndex((step) => step.id === selectedStepId);
+  const selectedStep = selectedStepIndex >= 0 ? steps[selectedStepIndex] : undefined;
+  const selectedCapability = selectedStep ? capabilityMap.get(selectedStep.capability) : undefined;
+  const outputInputEdge = graph.edges.find((edge) => edge.target === getGraphOutputNodeId());
+  const outputSourceNode = outputInputEdge
+    ? graph.nodes.find((node) => node.id === outputInputEdge.source)
     : undefined;
+  const outputSourceStep = outputSourceNode?.kind === 'capability'
+    ? steps.find((step) => step.id === outputSourceNode.step_id)
+    : undefined;
+  const flowSyncSignature = React.useMemo(() => JSON.stringify({
+    nodes: graph.nodes,
+    edges: graph.edges,
+    steps: steps.map((step) => ({
+      id: step.id,
+      name: step.name,
+      capability: step.capability,
+    })),
+    capabilities: capabilities.map((capability) => ({
+      name: capability.name,
+      display_name: capability.display_name,
+      category: capability.category,
+    })),
+  }), [capabilities, graph.edges, graph.nodes, steps]);
 
   React.useEffect(() => {
-    if (steps.length === 0) {
-      setSelectedStepIndex(0);
+    if (lastFlowSyncSignatureRef.current === flowSyncSignature) {
       return;
     }
-    if (selectedStepIndex > steps.length - 1) {
-      setSelectedStepIndex(steps.length - 1);
-    }
-  }, [selectedStepIndex, steps.length]);
+    lastFlowSyncSignatureRef.current = flowSyncSignature;
+    setFlowNodes(buildFlowNodes(graph, steps, capabilityMap, selectedNodeId));
+    setFlowEdges(buildFlowEdges(graph));
+  }, [capabilityMap, flowSyncSignature, graph, selectedNodeId, setFlowEdges, setFlowNodes, steps]);
 
-  const appendCapabilityStep = React.useCallback((capabilityName: string) => {
-    const capability = capabilityMap.get(capabilityName);
-    if (!capability) {
-      message.warning('当前场景下找不到这个 Capability');
+  const isValidConnection = React.useCallback((connection: BuilderEdge | Connection) => {
+    if (!connection.source || !connection.target || connection.source === connection.target) {
+      console.debug('[AiPipelineBuilder] invalid connection: missing or same node', connection);
+      return false;
+    }
+    const sourceKind = getFlowNodeKind(flowNodes.find((node) => node.id === connection.source));
+    const targetKind = getFlowNodeKind(flowNodes.find((node) => node.id === connection.target));
+    if (!sourceKind || !targetKind || sourceKind === 'output' || targetKind === 'input') {
+      console.debug('[AiPipelineBuilder] invalid connection: unsupported endpoint', {
+        connection,
+        sourceKind,
+        targetKind,
+      });
+      return false;
+    }
+    if (targetKind === 'output' && sourceKind !== 'capability') {
+      console.debug('[AiPipelineBuilder] invalid connection: output requires capability source', connection);
+      return false;
+    }
+    if (targetKind === 'capability' && sourceKind === 'input' && connection.targetHandle && connection.targetHandle !== primaryTarget) {
+      console.debug('[AiPipelineBuilder] invalid connection: input can only connect to primary', connection);
+      return false;
+    }
+    return true;
+  }, [flowNodes]);
+
+  const handleConnect = React.useCallback((connection: Connection) => {
+    console.debug('[AiPipelineBuilder] connect', connection);
+    if (!isValidConnection(connection)) {
+      message.warning('这个连线方向不支持');
       return;
     }
-    const nextSteps = [...steps, createStepFromCapability(capability)];
-    form.setFieldValue('steps', nextSteps);
-    setSelectedStepIndex(nextSteps.length - 1);
-  }, [capabilityMap, form, steps]);
+    const nextEdge = createGraphEdge(connection);
+    const nextFlowEdges = addEdge(toFlowEdge(nextEdge), flowEdges)
+      .filter((edge) => !(edge.target === nextEdge.target && edge.targetHandle === nextEdge.targetHandle && edge.id !== nextEdge.id))
+      .filter((edge) => !(nextEdge.target === getGraphOutputNodeId() && edge.target === getGraphOutputNodeId() && edge.id !== nextEdge.id));
+    const nextGraph = buildGraphFromFlow(flowNodes, nextFlowEdges);
+    setFlowEdges(nextFlowEdges);
+    commitGraph(nextGraph);
+  }, [commitGraph, flowEdges, flowNodes, isValidConnection, setFlowEdges]);
 
-  const handleMoveStep = (fromIndex: number, toIndex: number) => {
-    const nextSteps = moveStep(steps, fromIndex, toIndex);
-    form.setFieldValue('steps', nextSteps);
-    setSelectedStepIndex(toIndex);
-  };
-
-  const handleDeleteStep = (index: number) => {
-    const nextSteps = steps.filter((_, currentIndex) => currentIndex !== index);
-    form.setFieldValue('steps', nextSteps);
-    if (nextSteps.length === 0) {
-      setSelectedStepIndex(0);
+  const handleFlowNodesChange = React.useCallback((changes: NodeChange<BuilderNode>[]) => {
+    onNodesChange(changes);
+    const removedNodeIds = changes.filter((change) => change.type === 'remove').map((change) => change.id);
+    if (removedNodeIds.length === 0) {
       return;
     }
-    setSelectedStepIndex(Math.max(0, index - 1));
-  };
+    const removedStepIds = graph.nodes
+      .filter((node) => removedNodeIds.includes(node.id) && node.kind === 'capability' && node.step_id)
+      .map((node) => node.step_id!);
+    const nextNodes = graph.nodes
+      .filter((node) => !removedNodeIds.includes(node.id) || node.kind !== 'capability');
+    const nextEdges = graph.edges.filter((edge) => !removedNodeIds.includes(edge.source) && !removedNodeIds.includes(edge.target));
+    const nextSteps = removedStepIds.length > 0
+      ? steps.filter((step) => !removedStepIds.includes(step.id))
+      : steps;
+    if (removedNodeIds.includes(selectedNodeId)) {
+      setSelectedNodeId(getGraphInputNodeId());
+    }
+    commitGraph({ nodes: nextNodes, edges: nextEdges }, nextSteps);
+  }, [commitGraph, graph.edges, graph.nodes, onNodesChange, selectedNodeId, steps]);
 
-  const handleCapabilityDragStart = (
-    event: React.DragEvent<HTMLButtonElement>,
-    capabilityName: string,
+  const handleNodeDragStop = React.useCallback((_: React.MouseEvent, node: BuilderNode) => {
+    console.debug('[AiPipelineBuilder] node drag stop', node.id, node.position);
+    const nextGraph = {
+      ...graph,
+      nodes: graph.nodes.map((item) => (
+        item.id === node.id ? { ...item, position: node.position } : item
+      )),
+    };
+    commitGraph(nextGraph);
+  }, [commitGraph, graph]);
+
+  const handleFlowEdgesChange = React.useCallback((changes: EdgeChange<BuilderEdge>[]) => {
+    onEdgesChange(changes);
+    const removedEdgeIds = changes.filter((change) => change.type === 'remove').map((change) => change.id);
+    if (removedEdgeIds.length === 0) {
+      return;
+    }
+    commitGraph({
+      ...graph,
+      edges: graph.edges.filter((edge) => !removedEdgeIds.includes(edge.id)),
+    });
+  }, [commitGraph, graph, onEdgesChange]);
+
+  const addCapabilityNodeAtPosition = React.useCallback((
+    capability: AiPipelineCapabilityItem,
+    position: { x: number; y: number },
   ) => {
-    event.dataTransfer.setData(DRAG_CAPABILITY_KEY, capabilityName);
-    event.dataTransfer.effectAllowed = 'copy';
-    setDraggingCapability(capabilityName);
-  };
+    const nextStep = buildUniqueStep(capability, steps, position);
+    const nextFlowNode: BuilderNode = {
+      id: getGraphStepNodeId(nextStep.id),
+      type: 'pipelineCapability',
+      position,
+      dragHandle: '.pipeline-node-drag-handle',
+      data: {
+        label: capability.display_name || capability.name,
+        subLabel: nextStep.name,
+        category: capability.category,
+        selected: true,
+        contextTargets: (capability.context_mapping_targets ?? []).map((target) => ({
+          key: target.key,
+          label: target.label,
+        })),
+      },
+    };
+    const nextFlowNodes = [
+      ...flowNodes.map((node) => ({
+        ...node,
+        data: { ...node.data, selected: false },
+      })),
+      nextFlowNode,
+    ];
+    const nextGraph = buildGraphFromFlow(nextFlowNodes, flowEdges);
+    const nextSteps = [...steps, nextStep];
+    setSelectedNodeId(nextFlowNode.id);
+    setFlowNodes(nextFlowNodes);
+    commitGraph(nextGraph, nextSteps);
+  }, [commitGraph, flowEdges, flowNodes, setFlowNodes, steps]);
 
-  const handleCanvasDrop = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const capabilityName = event.dataTransfer.getData(DRAG_CAPABILITY_KEY);
-    setCanvasDragging(false);
-    setDraggingCapability(null);
-    if (!capabilityName) {
+    event.stopPropagation();
+    const now = Date.now();
+    if (now - lastDropAtRef.current < 100) {
       return;
     }
-    appendCapabilityStep(capabilityName);
+    lastDropAtRef.current = now;
+    const capabilityName = readDraggedCapability(event) || draggingCapabilityNameRef.current;
+    console.debug('[AiPipelineBuilder] drop', {
+      capabilityName,
+      dataTypes: Array.from(event.dataTransfer.types),
+      dataTransferText: event.dataTransfer.getData('text/plain'),
+      clientX: event.clientX,
+      clientY: event.clientY,
+      viewportInitialized: reactFlow.viewportInitialized,
+    });
+    const capability = filteredCapabilities.find((item) => item.name === capabilityName);
+    if (!capability) {
+      console.debug('[AiPipelineBuilder] drop ignored: capability not found', capabilityName);
+      return;
+    }
+    const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    addCapabilityNodeAtPosition(capability, position);
+    draggingCapabilityNameRef.current = null;
+  }, [addCapabilityNodeAtPosition, filteredCapabilities, reactFlow]);
+
+  const handleCapabilityDragStart = (event: React.DragEvent<HTMLElement>, capabilityName: string) => {
+    console.debug('[AiPipelineBuilder] drag start', capabilityName);
+    draggingCapabilityNameRef.current = capabilityName;
+    event.dataTransfer.setData(DRAG_CAPABILITY_KEY, capabilityName);
+    event.dataTransfer.setData('text/plain', capabilityName);
+    event.dataTransfer.effectAllowed = 'copy';
+  };
+
+  const handleDeleteSelectedStep = () => {
+    if (!selectedStep) return;
+    const nodeId = getGraphStepNodeId(selectedStep.id);
+    const nextSteps = steps.filter((step) => step.id !== selectedStep.id);
+    const nextGraph = {
+      nodes: graph.nodes.filter((node) => node.id !== nodeId),
+      edges: graph.edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
+    };
+    setSelectedNodeId(getGraphInputNodeId());
+    setFlowNodes(buildFlowNodes(nextGraph, nextSteps, capabilityMap, getGraphInputNodeId()));
+    setFlowEdges(buildFlowEdges(nextGraph));
+    commitGraph(nextGraph, nextSteps);
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr) 360px', gap: 0, minHeight: 'calc(100vh - 140px)', background: '#f8fafc' }}>
-      <div style={{ borderRight: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid #e2e8f0' }}>
-          <div className="card-title" style={{ marginBottom: 4 }}>Node Library</div>
-          <div className="caption-text" style={{ color: '#64748b' }}>把左侧节点拖到画板中创建。</div>
+    <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr) 360px', height: 'calc(100vh - 124px)', minHeight: 560, background: canvasBackground }}>
+      <div style={{ borderRight: `1px solid ${panelBorder}`, background: '#ffffff', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${panelBorder}` }}>
+          <div className="card-title">Node Library</div>
+          <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>{filteredCapabilities.length} 个可用节点</div>
         </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filteredCapabilities.length === 0 ? (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="当前场景没有可用节点" />
-          ) : (
-            filteredCapabilities.map((capability) => {
-              const accent = getCapabilityAccent(capability.category);
-              const isDragging = draggingCapability === capability.name;
-              return (
-                <button
-                  key={capability.name}
-                  type="button"
-                  draggable
-                  onDragStart={(event) => handleCapabilityDragStart(event, capability.name)}
-                  onDragEnd={() => {
-                    setDraggingCapability(null);
-                    setCanvasDragging(false);
-                  }}
-                  style={{
-                    borderRadius: 14,
-                    border: `1px solid ${isDragging ? accent.border : '#e2e8f0'}`,
-                    background: isDragging ? accent.fill : '#ffffff',
-                    padding: 14,
-                    textAlign: 'left',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: accent.fill, color: accent.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <HolderOutlined />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={capabilitiesLoading ? '加载节点中' : '当前场景没有可用节点'} />
+          ) : filteredCapabilities.map((capability) => {
+            const accent = getCapabilityAccent(capability.category);
+            return (
+              <div
+                key={capability.name}
+                role="button"
+                tabIndex={0}
+                draggable
+                onDragStart={(event) => handleCapabilityDragStart(event, capability.name)}
+                onDragEnd={() => {
+                  console.debug('[AiPipelineBuilder] drag end', capability.name);
+                  draggingCapabilityNameRef.current = null;
+                }}
+                style={{
+                  border: `1px solid ${panelBorder}`,
+                  borderRadius: 6,
+                  background: '#ffffff',
+                  padding: 10,
+                  textAlign: 'left',
+                  cursor: 'grab',
+                  userSelect: 'none',
+                }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: '28px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 6, background: accent.muted, color: accent.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <HolderOutlined />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {capability.display_name}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>{capability.display_name}</div>
-                      <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>{capability.name}</div>
-                      <div className="caption-text" style={{ color: '#94a3b8', marginTop: 6, lineHeight: 1.6 }}>
-                        {capability.description || '拖到画板中创建节点'}
-                      </div>
+                    <div className="caption-text" style={{ color: '#64748b', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {capability.name}
                     </div>
                   </div>
-                </button>
-              );
-            })
-          )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
-          <div>
-            <div className="card-title" style={{ marginBottom: 2 }}>Pipeline Canvas</div>
-            <div className="caption-text" style={{ color: '#64748b' }}>从左侧拖拽节点到画板。点中节点后在右侧配置。</div>
-          </div>
-          <Space size={16}>
-            <div className="caption-text" style={{ color: '#64748b' }}>节点 {derivedPayload.steps.length}</div>
-            <div className="caption-text" style={{ color: '#64748b' }}>运行参数 {derivedPayload.runtimeInputs.length}</div>
-            <div className="caption-text" style={{ color: '#64748b' }}>资源槽位 {derivedPayload.resourceSlots.length}</div>
-          </Space>
-        </div>
-
-        <div
+      <div
+        style={{ minWidth: 0, minHeight: 0, height: '100%' }}
+        onDragEnter={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }}
+        onDrop={handleDrop}
+      >
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          onConnect={handleConnect}
+          onNodesChange={handleFlowNodesChange}
+          onNodeDragStop={handleNodeDragStop}
+          onEdgesChange={handleFlowEdgesChange}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+          }}
           onDragOver={(event) => {
             event.preventDefault();
             event.dataTransfer.dropEffect = 'copy';
-            setCanvasDragging(true);
+            const now = Date.now();
+            if (now - lastDragOverLogRef.current > 800) {
+              lastDragOverLogRef.current = now;
+              console.debug('[AiPipelineBuilder] drag over', {
+                draggingCapabilityName: draggingCapabilityNameRef.current,
+                dataTypes: Array.from(event.dataTransfer.types),
+                clientX: event.clientX,
+                clientY: event.clientY,
+              });
+            }
           }}
-          onDragLeave={() => setCanvasDragging(false)}
-          onDrop={handleCanvasDrop}
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: 24,
-            backgroundColor: canvasDragging ? '#eef4ff' : '#f8fafc',
-            backgroundImage: 'radial-gradient(#dbe4f0 1px, transparent 1px)',
-            backgroundSize: '18px 18px',
-            transition: 'background-color 0.15s ease',
+          onDrop={handleDrop}
+          onNodeClick={(_, node) => {
+            selectNode(node.id);
           }}
+          onPaneClick={() => selectNode('')}
+          isValidConnection={isValidConnection}
+          onConnectStart={(_, params) => {
+            console.debug('[AiPipelineBuilder] connect start', params);
+          }}
+          onConnectEnd={(event) => {
+            console.debug('[AiPipelineBuilder] connect end', event.type);
+          }}
+          connectionMode={ConnectionMode.Loose}
+          nodesConnectable
+          elementsSelectable
+          connectOnClick={false}
+          deleteKeyCode={['Backspace', 'Delete']}
+          defaultViewport={{ x: 80, y: 40, zoom: 0.85 }}
+          defaultEdgeOptions={{ type: 'smoothstep' }}
         >
-          {steps.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}>
-              <div style={{ width: 420, borderRadius: 20, border: `1px dashed ${canvasDragging ? '#3b82f6' : '#cbd5e1'}`, background: '#ffffff', padding: 28, textAlign: 'center' }}>
-                <div style={{ width: 56, height: 56, borderRadius: 18, background: '#e0e7ff', color: '#4338ca', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-                  <PartitionOutlined />
-                </div>
-                <div className="card-title" style={{ marginBottom: 8 }}>拖拽节点到画板</div>
-                <div className="caption-text" style={{ color: '#64748b', lineHeight: 1.7 }}>
-                  左侧选择 Capability，拖到这里创建 Pipeline 节点。
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, minHeight: '100%' }}>
-              <div style={{ width: '100%', maxWidth: 1160, display: 'flex', justifyContent: 'center' }}>
-                <div style={{ minWidth: 260, maxWidth: 320, borderRadius: 16, border: '1px solid #cbd5e1', background: '#ffffff', padding: 18, boxShadow: '0 10px 30px rgba(15,23,42,0.04)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 10, background: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <PartitionOutlined />
-                    </div>
-                    <div>
-                      <div className="body-text-sm" style={{ fontWeight: 600, color: '#0f172a' }}>输入节点</div>
-                      <div className="caption-text" style={{ color: '#64748b' }}>Pipeline 输入</div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                    <div className="caption-text" style={{ color: '#64748b' }}>source</div>
-                    <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>input</div>
-                  </div>
-                </div>
-              </div>
-
-              {steps.map((step, index) => {
-                const capability = capabilityMap.get(step.capability);
-                const accent = getCapabilityAccent(capability?.category);
-                const isSelected = selectedStepIndex === index;
-                return (
-                  <React.Fragment key={`${step.name}-${index}`}>
-                    <div style={{ width: 2, height: 22, background: '#cbd5e1' }} />
-                    <div style={{ width: '100%', maxWidth: 1160, display: 'flex', justifyContent: index % 2 === 0 ? 'flex-start' : 'flex-end' }}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStepIndex(index)}
-                        style={{
-                          width: 360,
-                          borderRadius: 18,
-                          border: `1px solid ${isSelected ? accent.border : '#cbd5e1'}`,
-                          background: '#ffffff',
-                          padding: 18,
-                          textAlign: 'left',
-                          boxShadow: isSelected ? '0 16px 36px rgba(37,99,235,0.12)' : '0 8px 28px rgba(15,23,42,0.05)',
-                          outline: 'none',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 12, background: accent.fill, color: accent.text, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <SettingOutlined />
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>
-                                {capability?.display_name || step.capability}
-                              </div>
-                              <div className="caption-text" style={{ color: '#64748b', marginTop: 2 }}>
-                                {step.name}
-                              </div>
-                            </div>
-                          </div>
-                          <Tag color="blue" style={{ marginInlineEnd: 0 }}>{capability?.category || 'capability'}</Tag>
-                        </div>
-
-                        <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                          <div style={{ padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                            <div className="caption-text" style={{ color: '#64748b' }}>输入</div>
-                            <div className="body-text-sm" style={{ color: '#0f172a' }}>{step.input_key || 'input'}</div>
-                          </div>
-                          <div style={{ padding: '10px 12px', borderRadius: 10, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                            <div className="caption-text" style={{ color: '#64748b' }}>输出</div>
-                            <div className="body-text-sm" style={{ color: '#0f172a' }}>{step.output_key || step.name}</div>
-                          </div>
-                        </div>
-
-                        {capability?.parameter_fields?.length ? (
-                          <div style={{ marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {capability.parameter_fields.slice(0, 3).map((field) => (
-                              <Tag key={field.key} style={{ borderRadius: 999, paddingInline: 10 }}>
-                                {field.label}: {renderBindingSummary(step, field)}
-                              </Tag>
-                            ))}
-                          </div>
-                        ) : null}
-                      </button>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
-
-              <div style={{ width: 2, height: 22, background: '#cbd5e1' }} />
-              <div style={{ width: '100%', maxWidth: 1160, display: 'flex', justifyContent: 'center' }}>
-                <div style={{ minWidth: 260, maxWidth: 320, borderRadius: 16, border: '1px dashed #cbd5e1', background: '#ffffff', padding: 18 }}>
-                  <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>输出节点</div>
-                  <div className="caption-text" style={{ color: '#64748b', marginTop: 6 }}>
-                    {derivedPayload.steps.length > 0 ? '最终输出来自最后一个节点。' : '暂无节点输出。'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          <Background gap={18} size={1} color="#dbe4f0" />
+          <Controls position="bottom-right" />
+        </ReactFlow>
       </div>
 
-      <div style={{ width: 360, borderLeft: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-        <div style={{ padding: '18px 20px', borderBottom: '1px solid #e2e8f0' }}>
-          <div className="card-title" style={{ marginBottom: 4 }}>Node Inspector</div>
-          <div className="caption-text" style={{ color: '#64748b' }}>
-            {selectedStep ? '点击左侧节点后在这里配置。' : '先在画板中选择一个节点。'}
+      <div style={{ borderLeft: `1px solid ${panelBorder}`, background: '#ffffff', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${panelBorder}` }}>
+          <div className="card-title">Node Inspector</div>
+          <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>
+            {selectedStep?.name || (selectedGraphNode?.kind === 'input' ? 'Input' : selectedGraphNode?.kind === 'output' ? 'Output' : '选择一个节点')}
           </div>
         </div>
-
-        {!selectedStep || !selectedCapability ? (
-          <div style={{ padding: 20 }}>
-            <div style={{ marginBottom: 20, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', padding: 16 }}>
-              <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>运行参数</div>
-              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{derivedPayload.runtimeInputs.length}</div>
+        {selectedGraphNode?.kind === 'input' ? (
+          <div style={{ padding: 18 }}>
+            <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 14, background: '#f8fafc' }}>
+              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>输入节点</div>
+              <div className="caption-text" style={{ color: '#64748b', marginTop: 8, lineHeight: 1.6 }}>
+                运行时输入固定写入 context.input，作为所有 Pipeline 的起点。
+              </div>
             </div>
-            <div style={{ marginBottom: 20, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', padding: 16 }}>
-              <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>资源槽位</div>
-              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{derivedPayload.resourceSlots.length}</div>
+          </div>
+        ) : selectedGraphNode?.kind === 'output' ? (
+          <div style={{ padding: 18 }}>
+            <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 14, background: '#f8fafc', marginBottom: 12 }}>
+              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>输出节点</div>
+              <div className="caption-text" style={{ color: '#64748b', marginTop: 8, lineHeight: 1.6 }}>
+                保存时只编译连接到 Output 的上游链路。
+              </div>
             </div>
-            <div style={{ marginBottom: 20, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', padding: 16 }}>
-              <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>节点数</div>
-              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{derivedPayload.steps.length}</div>
+            <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 14 }}>
+              <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>当前来源</div>
+              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>
+                {outputSourceStep ? `${outputSourceStep.name} -> ${outputSourceStep.output_key || outputSourceStep.name}` : '未连接'}
+              </div>
             </div>
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择一个节点后开始配置" />
+          </div>
+        ) : !selectedStep || !selectedCapability ? (
+          <div style={{ padding: 18 }}>
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="选择节点后配置参数" />
           </div>
         ) : (
-          <div style={{ flex: 1, overflow: 'auto', padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 20 }}>
-              <div>
-                <div className="body-text-sm" style={{ fontWeight: 700, color: '#0f172a' }}>
-                  {selectedCapability.display_name}
-                </div>
-                <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>
-                  {selectedCapability.name}
-                </div>
+          <div style={{ flex: 1, overflow: 'auto', padding: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>{selectedCapability.display_name}</div>
+                <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>{selectedCapability.name}</div>
               </div>
-              <Space size={4}>
-                <Button
-                  size="small"
-                  icon={<ArrowUpOutlined />}
-                  disabled={selectedStepIndex === 0}
-                  onClick={() => handleMoveStep(selectedStepIndex, selectedStepIndex - 1)}
-                />
-                <Button
-                  size="small"
-                  icon={<ArrowDownOutlined />}
-                  disabled={selectedStepIndex === steps.length - 1}
-                  onClick={() => handleMoveStep(selectedStepIndex, selectedStepIndex + 1)}
-                />
-                <Button
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDeleteStep(selectedStepIndex)}
-                />
-              </Space>
+              <Button size="small" danger icon={<DeleteOutlined />} onClick={handleDeleteSelectedStep} />
             </div>
 
-            <div style={{ marginBottom: 20, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', padding: 14 }}>
-              <div className="caption-text" style={{ color: '#64748b' }}>
-                {selectedCapability.description || '当前节点没有额外描述。'}
-              </div>
-            </div>
-
-            <Form.Item
-              label="节点 Key"
-              name={['steps', selectedStepIndex, 'name']}
-              rules={[{ required: true, message: '请输入节点 key' }]}
-            >
+            <Form.Item label="节点 Key" name={['steps', selectedStepIndex, 'name']} rules={[{ required: true, message: '请输入节点 key' }]}>
               <Input placeholder="如：draft_boxes" />
             </Form.Item>
-
-            <Form.Item
-              label="Capability"
-              name={['steps', selectedStepIndex, 'capability']}
-              rules={[{ required: true, message: '请选择 Capability' }]}
-            >
+            <Form.Item label="Capability" name={['steps', selectedStepIndex, 'capability']} rules={[{ required: true, message: '请选择 Capability' }]}>
               <Select
                 options={filteredCapabilities.map((item) => ({
                   label: `${item.display_name} · ${item.name}`,
@@ -493,108 +799,79 @@ const AiPipelineVersionBuilder: React.FC<AiPipelineVersionBuilderProps> = ({
                 }))}
               />
             </Form.Item>
-
-            <Form.Item
-              label="输入来源"
-              name={['steps', selectedStepIndex, 'input_key']}
-              rules={[{ required: true, message: '请输入输入来源' }]}
-            >
-              <Input placeholder="如：input / overlay_result" />
-            </Form.Item>
-
             <Form.Item label="输出 Key" name={['steps', selectedStepIndex, 'output_key']}>
               <Input placeholder="如：draft_annotations" />
             </Form.Item>
-
             <Form.Item label="Provider 名称" name={['steps', selectedStepIndex, 'provider']}>
               <Input placeholder="如：qwen_vl" />
             </Form.Item>
-
             <Form.Item label="Provider 角色" name={['steps', selectedStepIndex, 'provider_role']}>
               <Select allowClear options={providerRoleOptions} placeholder="仅作编排提示" />
             </Form.Item>
 
-            {selectedCapability.context_mapping_targets.length > 0 ? (
-              <div style={{ marginBottom: 20 }}>
-                <div className="card-title" style={{ marginBottom: 12 }}>上下文映射</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {selectedCapability.context_mapping_targets.map((target) => (
-                    <Form.Item
-                      key={target.key}
-                      label={target.label}
-                      name={['steps', selectedStepIndex, 'context_mapping', target.key]}
-                      extra={target.description || undefined}
-                    >
-                      <Input placeholder="如：overlay_result.overlay_image" />
-                    </Form.Item>
+            {selectedStep.input_bindings?.length ? (
+              <div style={{ marginBottom: 18 }}>
+                <div className="card-title" style={{ marginBottom: 8 }}>输入连线</div>
+                <Space size={[6, 6]} wrap>
+                  {selectedStep.input_bindings.map((binding) => (
+                    <Tag key={`${binding.sourceNodeId}-${binding.target}`} bordered={false}>
+                      {binding.target}: {binding.sourceNodeId === getGraphInputNodeId() ? 'Input' : binding.sourceNodeId}
+                    </Tag>
                   ))}
-                </div>
+                </Space>
               </div>
             ) : null}
 
             {selectedCapability.parameter_fields.length > 0 ? (
               <div>
                 <div className="card-title" style={{ marginBottom: 12 }}>参数绑定</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {selectedCapability.parameter_fields.map((paramField) => {
-                    const bindingPath = ['steps', selectedStepIndex, 'field_bindings', paramField.key] as (string | number)[];
-                    const mode = readStepFieldBindingMode(steps, selectedStepIndex, paramField.key);
-                    const effectiveMode = mode || defaultBindingMode(paramField);
-                    const modeOptions = paramField.binding_kind === 'resource'
-                      ? [{ label: '资源槽位', value: 'resource_slot' }]
-                      : [
-                        { label: '固定值', value: 'fixed' },
-                        { label: '运行参数', value: 'runtime_input' },
-                      ];
-
-                    return (
-                      <div key={paramField.key} style={{ borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, background: '#ffffff' }}>
-                        <div style={{ marginBottom: 12 }}>
-                          <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>{paramField.label}</div>
-                          <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>
-                            {paramField.description || paramField.key}
-                          </div>
-                        </div>
-
-                        <Form.Item label="绑定方式" name={[...bindingPath, 'mode']}>
-                          <Select options={modeOptions} />
+                {selectedCapability.parameter_fields.map((field) => {
+                  const bindingPath = ['steps', selectedStepIndex, 'field_bindings', field.key] as (string | number)[];
+                  const bindingMode = selectedStep.field_bindings?.[field.key]?.mode || defaultBindingMode(field);
+                  const modeOptions = field.binding_kind === 'resource'
+                    ? [{ label: '资源槽位', value: 'resource_slot' }]
+                    : [
+                      { label: '固定值', value: 'fixed' },
+                      { label: '运行参数', value: 'runtime_input' },
+                    ];
+                  return (
+                    <div key={field.key} style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12, marginBottom: 12 }}>
+                      <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600, marginBottom: 10 }}>{field.label}</div>
+                      <Form.Item label="绑定方式" name={[...bindingPath, 'mode']}>
+                        <Select options={modeOptions} />
+                      </Form.Item>
+                      {bindingMode === 'fixed' ? (
+                        <Form.Item
+                          label="固定值"
+                          name={[...bindingPath, 'value']}
+                          valuePropName={(field.widget === 'switch' || field.value_type === 'boolean') ? 'checked' : 'value'}
+                        >
+                          {renderFixedValueInput(field)}
                         </Form.Item>
-
-                        {effectiveMode === 'fixed' ? (
-                          <Form.Item
-                            label="固定值"
-                            name={[...bindingPath, 'value']}
-                            valuePropName={(paramField.widget === 'switch' || paramField.value_type === 'boolean') ? 'checked' : 'value'}
-                          >
-                            {renderFixedValueInput(paramField)}
+                      ) : null}
+                      {bindingMode === 'runtime_input' ? (
+                        <>
+                          <Form.Item label="运行参数 Key" name={[...bindingPath, 'runtime_input_key']}>
+                            <Input placeholder={safeKey(`${selectedStep.name}_${field.key}`)} />
                           </Form.Item>
-                        ) : null}
-
-                        {effectiveMode === 'runtime_input' ? (
-                          <>
-                            <Form.Item label="运行参数 Key" name={[...bindingPath, 'runtime_input_key']}>
-                              <Input placeholder={`如：${safeKey(`${selectedStep.name || 'step'}_${paramField.key}`)}`} />
-                            </Form.Item>
-                            <Form.Item label="运行参数名称" name={[...bindingPath, 'runtime_input_label']}>
-                              <Input placeholder={paramField.label} />
-                            </Form.Item>
-                          </>
-                        ) : null}
-
-                        {effectiveMode === 'resource_slot' ? (
-                          <>
-                            <Form.Item label="资源槽位 Key" name={[...bindingPath, 'resource_slot_key']}>
-                              <Input placeholder={`如：${safeKey(`${selectedStep.name || 'step'}_${paramField.key}`)}`} />
-                            </Form.Item>
-                            <Form.Item label="资源槽位名称" name={[...bindingPath, 'resource_slot_label']}>
-                              <Input placeholder={paramField.label} />
-                            </Form.Item>
-                          </>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
+                          <Form.Item label="运行参数名称" name={[...bindingPath, 'runtime_input_label']}>
+                            <Input placeholder={field.label} />
+                          </Form.Item>
+                        </>
+                      ) : null}
+                      {bindingMode === 'resource_slot' ? (
+                        <>
+                          <Form.Item label="资源槽位 Key" name={[...bindingPath, 'resource_slot_key']}>
+                            <Input placeholder={safeKey(`${selectedStep.name}_${field.key}`)} />
+                          </Form.Item>
+                          <Form.Item label="资源槽位名称" name={[...bindingPath, 'resource_slot_label']}>
+                            <Input placeholder={field.label} />
+                          </Form.Item>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </div>
@@ -603,5 +880,11 @@ const AiPipelineVersionBuilder: React.FC<AiPipelineVersionBuilderProps> = ({
     </div>
   );
 };
+
+const AiPipelineVersionBuilder: React.FC<AiPipelineVersionBuilderProps> = (props) => (
+  <ReactFlowProvider>
+    <AiPipelineVersionBuilderInner {...props} />
+  </ReactFlowProvider>
+);
 
 export default AiPipelineVersionBuilder;
