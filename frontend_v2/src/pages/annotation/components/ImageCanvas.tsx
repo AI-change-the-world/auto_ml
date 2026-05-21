@@ -12,7 +12,8 @@ import type { Annotation, BBoxAnnotation, PolygonAnnotation, OBBAnnotation, Poin
 import { parseYoloAnnotations } from '../../../utils/yolo';
 import { getRecordLabelText } from '../../../utils/annotationRecordContent';
 
-const MIN_BOX_SIZE = 5;
+const MIN_RESIZE_BOX_SIZE = 1;
+const MIN_CREATE_DRAG_DISTANCE_PX = 3;
 const VERTEX_RADIUS = 4;
 const HANDLE_RADIUS = 4;
 
@@ -69,32 +70,32 @@ const resizeOBB = (
 
   switch (handle) {
     case 'vertex-0':
-      left = Math.min(local.x, right - MIN_BOX_SIZE);
-      top = Math.min(local.y, bottom - MIN_BOX_SIZE);
+      left = Math.min(local.x, right - MIN_RESIZE_BOX_SIZE);
+      top = Math.min(local.y, bottom - MIN_RESIZE_BOX_SIZE);
       break;
     case 'vertex-1':
-      right = Math.max(local.x, left + MIN_BOX_SIZE);
-      top = Math.min(local.y, bottom - MIN_BOX_SIZE);
+      right = Math.max(local.x, left + MIN_RESIZE_BOX_SIZE);
+      top = Math.min(local.y, bottom - MIN_RESIZE_BOX_SIZE);
       break;
     case 'vertex-2':
-      right = Math.max(local.x, left + MIN_BOX_SIZE);
-      bottom = Math.max(local.y, top + MIN_BOX_SIZE);
+      right = Math.max(local.x, left + MIN_RESIZE_BOX_SIZE);
+      bottom = Math.max(local.y, top + MIN_RESIZE_BOX_SIZE);
       break;
     case 'vertex-3':
-      left = Math.min(local.x, right - MIN_BOX_SIZE);
-      bottom = Math.max(local.y, top + MIN_BOX_SIZE);
+      left = Math.min(local.x, right - MIN_RESIZE_BOX_SIZE);
+      bottom = Math.max(local.y, top + MIN_RESIZE_BOX_SIZE);
       break;
     case 'edge-0':
-      top = Math.min(local.y, bottom - MIN_BOX_SIZE);
+      top = Math.min(local.y, bottom - MIN_RESIZE_BOX_SIZE);
       break;
     case 'edge-1':
-      right = Math.max(local.x, left + MIN_BOX_SIZE);
+      right = Math.max(local.x, left + MIN_RESIZE_BOX_SIZE);
       break;
     case 'edge-2':
-      bottom = Math.max(local.y, top + MIN_BOX_SIZE);
+      bottom = Math.max(local.y, top + MIN_RESIZE_BOX_SIZE);
       break;
     case 'edge-3':
-      left = Math.min(local.x, right - MIN_BOX_SIZE);
+      left = Math.min(local.x, right - MIN_RESIZE_BOX_SIZE);
       break;
   }
 
@@ -117,10 +118,12 @@ const ImageCanvas: React.FC = () => {
 
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
+  const [fitScale, setFitScale] = useState(1);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<{ x: number; y: number; posX: number; posY: number } | null>(null);
+  const panMovedRef = useRef(false);
 
   // BBox / OBB 绘制状态
   const [isDrawing, setIsDrawing] = useState(false);
@@ -167,12 +170,31 @@ const ImageCanvas: React.FC = () => {
     const scaleX = stageSize.width / img.naturalWidth;
     const scaleY = stageSize.height / img.naturalHeight;
     const newScale = Math.min(scaleX, scaleY, 1);
+    setFitScale(newScale);
     setScale(newScale);
     setPosition({
       x: (stageSize.width - img.naturalWidth * newScale) / 2,
       y: (stageSize.height - img.naturalHeight * newScale) / 2,
     });
   }, [stageSize.height, stageSize.width]);
+
+  const canPanCanvas = Boolean(image) && scale > fitScale + 0.001;
+  const defaultCursor = isPanning
+    ? 'grabbing'
+    : canPanCanvas && (mode === LabelMode.Edit || isClassification || isPose)
+      ? 'grab'
+      : isClassification || isPose
+        ? 'default'
+        : mode === LabelMode.Add
+          ? 'crosshair'
+          : 'default';
+
+  const resetStageCursor = useCallback((target: Konva.Node) => {
+    const stage = target.getStage();
+    if (stage) {
+      stage.container().style.cursor = defaultCursor;
+    }
+  }, [defaultCursor]);
 
   // 容器尺寸响应
   useEffect(() => {
@@ -258,9 +280,18 @@ const ImageCanvas: React.FC = () => {
 
   const handleMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     const isSpacePressed = Boolean((window as unknown as { __canvasSpacePressed?: boolean }).__canvasSpacePressed);
+    const isLeftButton = e.evt.button === 0;
     const isMiddleButton = e.evt.button === 1;
-    if (isSpacePressed || isMiddleButton) {
+    const isRightButton = e.evt.button === 2;
+    const isBackgroundTarget = e.target === e.target.getStage() || e.target.name() === 'background-image';
+    const canStartDirectPan = canPanCanvas
+      && isLeftButton
+      && isBackgroundTarget
+      && (mode === LabelMode.Edit || annotationShape === AnnotationShape.Polygon || isClassification || isPose);
+
+    if (isSpacePressed || isMiddleButton || (isRightButton && canPanCanvas) || canStartDirectPan) {
       e.cancelBubble = true;
+      panMovedRef.current = false;
       setIsPanning(true);
       setPanStart({
         x: e.evt.clientX,
@@ -272,7 +303,7 @@ const ImageCanvas: React.FC = () => {
     }
 
     if (mode !== LabelMode.Add) return;
-    if (e.evt.button !== 0) return;
+    if (!isLeftButton) return;
     const pos = getImagePos(e);
     if (!pos) return;
 
@@ -283,13 +314,18 @@ const ImageCanvas: React.FC = () => {
     setIsDrawing(true);
     setDrawStart(pos);
     setDrawRect({ x: pos.x, y: pos.y, w: 0, h: 0 });
-  }, [mode, getImagePos, annotationShape, position.x, position.y]);
+  }, [mode, getImagePos, annotationShape, position.x, position.y, canPanCanvas, isClassification, isPose]);
 
   const handleMouseMove = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     if (isPanning && panStart) {
+      const deltaX = e.evt.clientX - panStart.x;
+      const deltaY = e.evt.clientY - panStart.y;
+      if (!panMovedRef.current && (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2)) {
+        panMovedRef.current = true;
+      }
       setPosition({
-        x: panStart.posX + (e.evt.clientX - panStart.x),
-        y: panStart.posY + (e.evt.clientY - panStart.y),
+        x: panStart.posX + deltaX,
+        y: panStart.posY + deltaY,
       });
       return;
     }
@@ -377,8 +413,8 @@ const ImageCanvas: React.FC = () => {
         case 'br': nw = ow + dx; nh = oh + dy; break;
       }
 
-      if (nw < MIN_BOX_SIZE) { nw = MIN_BOX_SIZE; nx = ox; }
-      if (nh < MIN_BOX_SIZE) { nh = MIN_BOX_SIZE; ny = oy; }
+      if (nw < MIN_RESIZE_BOX_SIZE) { nw = MIN_RESIZE_BOX_SIZE; nx = ox; }
+      if (nh < MIN_RESIZE_BOX_SIZE) { nh = MIN_RESIZE_BOX_SIZE; ny = oy; }
 
       updateAnnotation(resizing.uuid, { x: nx, y: ny, width: nw, height: nh });
       return;
@@ -438,7 +474,10 @@ const ImageCanvas: React.FC = () => {
     setIsDrawing(false);
     setDrawStart(null);
 
-    if (drawRect.w > MIN_BOX_SIZE && drawRect.h > MIN_BOX_SIZE) {
+    const drawDistanceOnScreen = Math.hypot(drawRect.w * scale, drawRect.h * scale);
+    const canCreateBox = drawRect.w > 0 && drawRect.h > 0 && drawDistanceOnScreen >= MIN_CREATE_DRAG_DISTANCE_PX;
+
+    if (canCreateBox) {
       if (annotationShape === AnnotationShape.BBox) {
         addAnnotation(createBBoxAnnotation(drawRect.x, drawRect.y, drawRect.w, drawRect.h, defaultClassId));
       } else if (annotationShape === AnnotationShape.OBB) {
@@ -461,9 +500,15 @@ const ImageCanvas: React.FC = () => {
     rotating,
     endBatch,
     isPanning,
+    scale,
   ]);
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (panMovedRef.current) {
+      panMovedRef.current = false;
+      return;
+    }
+
     if (mode === LabelMode.Add && annotationShape === AnnotationShape.Polygon) {
       const pos = getImagePos(e);
       if (!pos) return;
@@ -581,13 +626,8 @@ const ImageCanvas: React.FC = () => {
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const cursor = isClassification || isPose
-      ? 'default'
-      : mode === LabelMode.Add
-        ? 'crosshair'
-        : 'default';
-    stage.container().style.cursor = cursor;
-  }, [mode, isClassification, isPose]);
+    stage.container().style.cursor = defaultCursor;
+  }, [defaultCursor]);
 
   // ============ 渲染标注 ============
 
@@ -694,10 +734,7 @@ const ImageCanvas: React.FC = () => {
               const stage = e.target.getStage();
               if (stage) stage.container().style.cursor = h.cursor;
             }}
-            onMouseLeave={(e) => {
-              const stage = e.target.getStage();
-              if (stage) stage.container().style.cursor = 'default';
-            }}
+            onMouseLeave={(e) => resetStageCursor(e.target)}
             onMouseDown={(e) => {
               e.cancelBubble = true;
               const pos = getImagePos(e);
@@ -734,10 +771,7 @@ const ImageCanvas: React.FC = () => {
             const stage = e.target.getStage();
             if (stage) stage.container().style.cursor = editable ? 'grab' : 'pointer';
           }}
-          onMouseLeave={(e) => {
-            const stage = e.target.getStage();
-            if (stage) stage.container().style.cursor = 'default';
-          }}
+          onMouseLeave={(e) => resetStageCursor(e.target)}
           onMouseDown={(e) => {
             if (mode !== LabelMode.Edit || !isSelected) return;
             e.cancelBubble = true;
@@ -765,10 +799,7 @@ const ImageCanvas: React.FC = () => {
               const stage = e.target.getStage();
               if (stage) stage.container().style.cursor = 'pointer';
             }}
-            onMouseLeave={(e) => {
-              const stage = e.target.getStage();
-              if (stage) stage.container().style.cursor = 'default';
-            }}
+            onMouseLeave={(e) => resetStageCursor(e.target)}
             onMouseDown={(e) => {
               e.cancelBubble = true;
               setDraggingPolygonVertex({ uuid: a.uuid, vertexIndex: i });
@@ -842,10 +873,7 @@ const ImageCanvas: React.FC = () => {
                 const stage = e.target.getStage();
                 if (stage) stage.container().style.cursor = 'pointer';
               }}
-              onMouseLeave={(e) => {
-                const stage = e.target.getStage();
-                if (stage) stage.container().style.cursor = 'default';
-              }}
+              onMouseLeave={(e) => resetStageCursor(e.target)}
               onMouseDown={(e) => {
                 e.cancelBubble = true;
                 const pos = getImagePos(e);
@@ -876,10 +904,7 @@ const ImageCanvas: React.FC = () => {
                 const stage = e.target.getStage();
                 if (stage) stage.container().style.cursor = 'pointer';
               }}
-              onMouseLeave={(e) => {
-                const stage = e.target.getStage();
-                if (stage) stage.container().style.cursor = 'default';
-              }}
+              onMouseLeave={(e) => resetStageCursor(e.target)}
               onMouseDown={(e) => {
                 e.cancelBubble = true;
                 const pos = getImagePos(e);
@@ -915,10 +940,7 @@ const ImageCanvas: React.FC = () => {
               const stage = e.target.getStage();
               if (stage) stage.container().style.cursor = 'pointer';
             }}
-            onMouseLeave={(e) => {
-              const stage = e.target.getStage();
-              if (stage) stage.container().style.cursor = 'default';
-            }}
+            onMouseLeave={(e) => resetStageCursor(e.target)}
             onMouseDown={(e) => {
               e.cancelBubble = true;
               const pos = getImagePos(e);
@@ -960,10 +982,7 @@ const ImageCanvas: React.FC = () => {
                 const stage = e.target.getStage();
                 if (stage) stage.container().style.cursor = 'grab';
               }}
-              onMouseLeave={(e) => {
-                const stage = e.target.getStage();
-                if (stage) stage.container().style.cursor = 'default';
-              }}
+              onMouseLeave={(e) => resetStageCursor(e.target)}
               onMouseDown={(e) => {
                 e.cancelBubble = true;
                 const pos = getImagePos(e);
@@ -984,14 +1003,6 @@ const ImageCanvas: React.FC = () => {
     );
   };
 
-  // ============ 光标样式 ============
-
-  const getCursor = () => {
-    if (isClassification || isPose) return 'default';
-    if (mode !== LabelMode.Add) return 'default';
-    return 'crosshair';
-  };
-
   const classificationAnnotation = annotations[0];
   const classificationLabel = classificationAnnotation && classificationAnnotation.classId >= 0 && classificationAnnotation.classId < classes.length
     ? classes[classificationAnnotation.classId]
@@ -1000,11 +1011,12 @@ const ImageCanvas: React.FC = () => {
   return (
     <div
       ref={containerRef}
+      onContextMenu={(e) => e.preventDefault()}
       style={{
         flex: 1,
         overflow: 'hidden',
         background: '#f0f0f0',
-        cursor: getCursor(),
+        cursor: defaultCursor,
         position: 'relative',
       }}
     >
