@@ -42,6 +42,11 @@ class AnnotationResponse(BaseModel):
         from_attributes = True
 
 
+class AnnotationSummaryResponse(BaseModel):
+    total: int
+    recent_annotations: list[AnnotationResponse] = Field(default_factory=list)
+
+
 class AnnotationTypeDefinitionResponse(BaseModel):
     value: int
     code: str
@@ -89,6 +94,10 @@ class AnnotationAssistPipelineResponse(BaseModel):
     supported_annotation_types: List[int] = Field(default_factory=list)
     supported_shapes: List[str] = Field(default_factory=list)
     enabled: bool = True
+
+
+class AnnotationAssistPipelineDetailResponse(AnnotationAssistPipelineResponse):
+    steps: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AnnotationAssistItem(BaseModel):

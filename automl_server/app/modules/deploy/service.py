@@ -12,7 +12,7 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
-from app.db.models import ModelInferenceLog
+from app.db.models import AvailableModel, ModelInferenceLog
 from app.utils.annotation_classes import parse_annotation_classes
 from app.utils.s3_delegate import get_s3_delegate
 from app.utils.http_client import HttpClient
@@ -22,6 +22,7 @@ from .schemas import (
     RenameModelRequest,
     AvailableModelResponse,
     DeployStatusResponse,
+    DeploymentHomeSummaryResponse,
     DeploymentDetailResponse,
     DeploymentOverviewItem,
     DeploymentOverviewResponse,
@@ -50,6 +51,25 @@ class DeployService:
         offset = (page - 1) * page_size
         items, total = await crud.get_available_models(db, offset, page_size, deployed_only)
         return [AvailableModelResponse.model_validate(item) for item in items], total
+
+    async def get_home_summary(self, db: AsyncSession) -> DeploymentHomeSummaryResponse:
+        total = (
+            await db.execute(
+                select(func.count()).select_from(AvailableModel).where(AvailableModel.is_deleted == False)
+            )
+        ).scalar() or 0
+        deployed = (
+            await db.execute(
+                select(func.count()).select_from(AvailableModel).where(
+                    AvailableModel.is_deleted == False,
+                    AvailableModel.is_deployed == True,
+                )
+            )
+        ).scalar() or 0
+        return DeploymentHomeSummaryResponse(
+            total=int(total),
+            deployed=int(deployed),
+        )
 
     async def get_deployment_overview(
         self,

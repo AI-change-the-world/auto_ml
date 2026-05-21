@@ -7,7 +7,7 @@ from typing import Any
 import uuid
 from typing import List, Optional
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.constants import (
     AnnotationType,
@@ -35,12 +35,14 @@ from app.utils.s3_delegate import get_s3_delegate
 from . import crud
 from .schemas import (
     AnnotationAssistRequest,
+    AnnotationAssistPipelineDetailResponse,
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
     AnnotationExportItem,
     AnnotationRecordResponse,
     AnnotationRecordSave,
+    AnnotationSummaryResponse,
     AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
     AnnotationResponse,
@@ -107,6 +109,18 @@ class AnnotationService:
         items, total = await crud.get_annotations(db, offset, page_size, keyword)
         return [AnnotationResponse.model_validate(item) for item in items], total
 
+    async def get_home_summary(self, db: AsyncSession) -> AnnotationSummaryResponse:
+        total = (
+            await db.execute(
+                select(func.count()).select_from(Annotation).where(Annotation.is_deleted == False)
+            )
+        ).scalar() or 0
+        items, _ = await crud.get_annotations(db, 0, 5)
+        return AnnotationSummaryResponse(
+            total=int(total),
+            recent_annotations=[AnnotationResponse.model_validate(item) for item in items],
+        )
+
     async def update_annotation(self, db: AsyncSession, annotation_id: int, data: AnnotationUpdate) -> AnnotationResponse:
         update_data = data.model_dump(exclude_unset=True)
         if "classes" in update_data:
@@ -156,7 +170,7 @@ class AnnotationService:
         self,
         db: AsyncSession,
     ) -> list[AnnotationAssistPipelineResponse]:
-        raw_items = await self._load_platform_pipeline_catalog(db)
+        raw_items = await self.ai_pipeline_service.list_assist_template_detail_descriptors(db)
         items: list[AnnotationAssistPipelineResponse] = []
         for item in raw_items:
             parsed = self._parse_pipeline_descriptor(item)
@@ -168,39 +182,38 @@ class AnnotationService:
     async def list_platform_assist_pipeline_details(
         self,
         db: AsyncSession,
-    ) -> list[dict[str, Any]]:
-        raw_items = await self._load_platform_pipeline_catalog(db)
-        items: list[dict[str, Any]] = []
+    ) -> list[AnnotationAssistPipelineDetailResponse]:
+        raw_items = await self.ai_pipeline_service.list_assist_template_detail_descriptors(db)
+        items: list[AnnotationAssistPipelineDetailResponse] = []
         for item in raw_items:
             parsed = self._parse_pipeline_descriptor(item)
             if parsed is None:
                 continue
-            items.append({
-                **parsed.model_dump(mode="json"),
-                "steps": self._parse_pipeline_steps(item),
-            })
+            items.append(
+                AnnotationAssistPipelineDetailResponse(
+                    **parsed.model_dump(mode="python"),
+                    steps=self._parse_pipeline_steps(item),
+                )
+            )
         return items
 
-    async def _load_platform_pipeline_catalog(
+    async def list_home_platform_assist_pipeline_details(
         self,
         db: AsyncSession,
-    ) -> list[dict[str, Any]]:
-        try:
-            db_items = await self.ai_pipeline_service.list_assist_template_detail_descriptors(db)
-        except Exception as exc:
-            logger.warning(f"Failed to load assist pipelines from DB, fallback to MQ: {exc}")
-            db_items = []
-
-        if db_items:
-            return db_items
-
-        payload = await self._fetch_pipeline_catalog()
-        if isinstance(payload, list):
-            return payload
-        if isinstance(payload, dict):
-            pipelines = payload.get("pipelines", [])
-            return pipelines if isinstance(pipelines, list) else []
-        return []
+    ) -> list[AnnotationAssistPipelineDetailResponse]:
+        raw_items = await self.ai_pipeline_service.list_home_assist_template_descriptors(db)
+        items: list[AnnotationAssistPipelineDetailResponse] = []
+        for item in raw_items:
+            parsed = self._parse_pipeline_descriptor(item)
+            if parsed is None:
+                continue
+            items.append(
+                AnnotationAssistPipelineDetailResponse(
+                    **parsed.model_dump(mode="python"),
+                    steps=self._parse_pipeline_steps(item),
+                )
+            )
+        return items
 
     async def list_annotation_records(
         self,

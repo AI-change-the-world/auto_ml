@@ -27,6 +27,14 @@ export async function listAnnotations(page = 1, pageSize = 10, keyword?: string)
   return res.data.data;
 }
 
+export async function getAnnotationSummary() {
+  const res = await apiClient.get<Result<{
+    total: number;
+    recent_annotations: AnnotationProject[];
+  }>>('/annotation/summary');
+  return res.data.data;
+}
+
 /** 获取当前后端支持的标注类型 */
 export async function listAnnotationTypes() {
   const res = await apiClient.get<Result<AnnotationTypeDefinition[]>>('/annotation/types');
@@ -94,6 +102,17 @@ export async function listAnnotationAssistPipelines(annotationId: number, shape?
     params: shape ? { shape } : undefined,
   });
   return res.data.data;
+}
+
+export async function listPlatformAssistPipelines() {
+  const res = await apiClient.get<Result<Array<AnnotationAssistPipeline & {
+    steps: {
+      name: string;
+      capability: string;
+      provider?: string | null;
+    }[];
+  }>>>('/annotation/assist/pipelines/platform');
+  return res.data.data ?? [];
 }
 
 /** 获取当前标注项目可用的 AI Pipeline 绑定 */

@@ -442,6 +442,31 @@ class AiPipelineService:
     ) -> list[dict[str, Any]]:
         return await self._list_legacy_assist_descriptors(db)
 
+    async def list_home_assist_template_descriptors(
+        self,
+        db: AsyncSession,
+    ) -> list[dict[str, Any]]:
+        templates, _ = await crud.list_templates(
+            db,
+            offset=0,
+            limit=500,
+            scene_type="assist_annotation",
+        )
+        items: list[dict[str, Any]] = []
+        for template in templates:
+            target_version = template.published_version or template.latest_version
+            version = None
+            if target_version:
+                version = await crud.get_template_version(
+                    db,
+                    template_id=template.id,
+                    version=target_version,
+                )
+            descriptor = self._build_home_assist_descriptor(template, version)
+            if descriptor is not None:
+                items.append(descriptor)
+        return items
+
     async def list_model_resources(
         self,
         db: AsyncSession,
@@ -556,6 +581,59 @@ class AiPipelineService:
             "input_kind": template.input_kind,
             "output_kind": template.output_kind,
             "source": "db",
+        }
+
+    def _build_home_assist_descriptor(
+        self,
+        template,
+        version=None,
+    ) -> dict[str, Any] | None:
+        definition = crud.load_json_value(getattr(version, "definition_json", None)) if version else None
+        form_schema = crud.load_json_value(getattr(version, "form_schema_json", None)) if version else None
+
+        definition_dict = definition if isinstance(definition, dict) else {}
+        form_schema_dict = form_schema if isinstance(form_schema, dict) else {}
+        legacy_metadata = form_schema_dict.get("legacy_metadata")
+        if not isinstance(legacy_metadata, dict):
+            legacy_metadata = {}
+
+        pipeline_type = str(
+            definition_dict.get("pipeline_type")
+            or template.scene_type
+            or ""
+        ).strip() or "generic"
+        if pipeline_type != "assist_annotation":
+            return None
+
+        supported_annotation_types = self._normalize_int_list(
+            definition_dict.get("supported_annotation_types")
+            or legacy_metadata.get("supported_annotation_types")
+        )
+        supported_shapes = self._normalize_string_list(
+            definition_dict.get("supported_shapes")
+            or legacy_metadata.get("supported_shapes")
+        )
+        steps = definition_dict.get("steps")
+        if not isinstance(steps, list):
+            steps = []
+
+        return {
+            "id": template.template_key,
+            "name": template.template_key,
+            "display_name": template.name,
+            "description": template.description,
+            "pipeline_type": pipeline_type,
+            "supported_annotation_types": supported_annotation_types,
+            "supported_shapes": supported_shapes,
+            "steps": steps,
+            "enabled": template.status != "disabled",
+            "template_id": template.id,
+            "template_version": getattr(version, "version", 0) if version else 0,
+            "scene_type": template.scene_type,
+            "input_kind": template.input_kind,
+            "output_kind": template.output_kind,
+            "source": "db",
+            "status": template.status,
         }
 
     async def _build_binding_response(

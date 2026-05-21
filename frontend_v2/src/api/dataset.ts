@@ -63,6 +63,15 @@ export async function getDatasetSamples(datasetId: number, page = 1, pageSize = 
   return res.data.data;
 }
 
+export async function getDatasetSummary() {
+  const res = await apiClient.get<Result<{
+    total: number;
+    images: number;
+    recent_datasets: Dataset[];
+  }>>('/dataset/summary');
+  return res.data.data;
+}
+
 /** 创建数据集样本 */
 export async function createDatasetSample(datasetId: number, data: SampleItemCreate) {
   const res = await apiClient.post<Result<SampleItem>>(`/dataset/${datasetId}/samples`, data);

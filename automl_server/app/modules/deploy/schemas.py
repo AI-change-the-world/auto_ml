@@ -108,6 +108,11 @@ class DeploymentOverviewSummary(BaseModel):
     total_inference_calls: int
 
 
+class DeploymentHomeSummaryResponse(BaseModel):
+    total: int
+    deployed: int
+
+
 class DeploymentOverviewResponse(BaseModel):
     summary: DeploymentOverviewSummary
     items: list[DeploymentOverviewItem]

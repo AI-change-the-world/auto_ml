@@ -1,8 +1,10 @@
 """标注 API 路由"""
+import asyncio
 import json
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
 from app.config.database import get_db
@@ -10,12 +12,14 @@ from app.modules.ai_pipeline.service import AiPipelineService, get_ai_pipeline_s
 from app.modules.ai_pipeline.schemas import AiPipelineBindingResponse
 from .schemas import (
     AnnotationAssistRequest,
+    AnnotationAssistPipelineDetailResponse,
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
     AnnotationRecordBatchQuery,
     AnnotationRecordResponse,
     AnnotationRecordSave,
+    AnnotationSummaryResponse,
     AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
     AnnotationResponse,
@@ -52,6 +56,35 @@ async def list_annotation_types(
     service: AnnotationService = Depends(get_annotation_service),
 ):
     return Result.ok(service.list_annotation_types())
+
+
+@router.get("/summary", response_model=Result[AnnotationSummaryResponse], summary="获取首页标注摘要")
+async def get_annotation_summary(
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.get_home_summary(db)
+    return Result.ok(result)
+
+
+@router.get(
+    "/assist/pipelines/platform",
+    response_model=Result[list[AnnotationAssistPipelineDetailResponse]],
+    summary="获取平台辅助标注 Pipeline 列表",
+)
+async def list_platform_assist_pipelines(
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    try:
+        result = await asyncio.wait_for(
+            service.list_home_platform_assist_pipeline_details(db),
+            timeout=5,
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to load platform assist pipelines: {exc}")
+        result = []
+    return Result.ok(result)
 
 
 @router.get("/{annotation_id}", response_model=Result[AnnotationResponse], summary="获取标注项目详情")
