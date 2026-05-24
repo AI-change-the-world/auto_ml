@@ -10,6 +10,7 @@ from .schemas import (
     RenameModelRequest,
     AvailableModelResponse,
     DeploymentDetailResponse,
+    DeploymentHomeSummaryResponse,
     DeployStatusResponse,
     DeploymentOverviewResponse,
     ModelInferenceActivityResponse,
@@ -40,6 +41,15 @@ async def get_deployment_overview(
     service: DeployService = Depends(get_deploy_service),
 ):
     result = await service.get_deployment_overview(db, deployed_only=deployed_only)
+    return Result.ok(result)
+
+
+@router.get("/summary", response_model=Result[DeploymentHomeSummaryResponse], summary="获取首页部署摘要")
+async def get_deployment_summary(
+    db: AsyncSession = Depends(get_db),
+    service: DeployService = Depends(get_deploy_service),
+):
+    result = await service.get_home_summary(db)
     return Result.ok(result)
 
 

@@ -12,6 +12,7 @@ from .schemas import (
     TaskResponse,
     TaskLogResponse,
     BaseModelResponse,
+    TaskSummaryResponse,
     TrainerStatusResponse,
     TrainingHistoryCandidateResponse,
     TrainingHistoryQuery,
@@ -70,6 +71,15 @@ async def get_trainer_status(
 ):
     status = await service.get_trainer_status()
     return Result.ok(status)
+
+
+@router.get("/summary", response_model=Result[TaskSummaryResponse], summary="获取首页任务摘要")
+async def get_task_summary(
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    result = await service.get_home_summary(db)
+    return Result.ok(result)
 
 
 @router.get("/stream", summary="任务 SSE 事件流")

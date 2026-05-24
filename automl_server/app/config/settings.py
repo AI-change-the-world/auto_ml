@@ -48,9 +48,9 @@ class ModelDeployConfig(BaseModel):
     timeout: int = 60
 
 
-class AutoAugmentPipelineConfig(BaseModel):
-    """Auto Augment Pipeline 服务配置"""
-    base_url: str = "http://auto-augment-pipeline:8010"
+class AiPipelineRuntimeConfig(BaseModel):
+    """AI Pipeline Runtime 服务配置"""
+    base_url: str = "http://ai-pipeline-runtime:8010"
     timeout: int = 120
 
 
@@ -69,7 +69,7 @@ class Settings(BaseModel):
     nacos: NacosConfig = NacosConfig()
     model_trainer: ModelTrainerConfig = ModelTrainerConfig()
     model_deploy: ModelDeployConfig = ModelDeployConfig()
-    auto_augment_pipeline: AutoAugmentPipelineConfig = AutoAugmentPipelineConfig()
+    ai_pipeline_runtime: AiPipelineRuntimeConfig = AiPipelineRuntimeConfig()
 
 
 def _load_from_nacos(nacos_config: NacosConfig) -> dict:
@@ -171,15 +171,23 @@ def _load_settings() -> Settings:
         )),
     )
 
-    augment_nacos = nacos_data.get("auto-augment-pipeline", {})
-    auto_augment_pipeline = AutoAugmentPipelineConfig(
+    runtime_nacos = nacos_data.get("ai-pipeline-runtime", {})
+    if not isinstance(runtime_nacos, dict) or not runtime_nacos:
+        runtime_nacos = nacos_data.get("auto-augment-pipeline", {})
+    ai_pipeline_runtime = AiPipelineRuntimeConfig(
         base_url=os.getenv(
-            "AUTO_AUGMENT_PIPELINE_URL",
-            augment_nacos.get("base_url", "http://auto-augment-pipeline:8010"),
+            "AI_PIPELINE_RUNTIME_URL",
+            os.getenv(
+                "AUTO_AUGMENT_PIPELINE_URL",
+                runtime_nacos.get("base_url", "http://ai-pipeline-runtime:8010"),
+            ),
         ),
         timeout=int(os.getenv(
-            "AUTO_AUGMENT_PIPELINE_TIMEOUT",
-            augment_nacos.get("timeout", 120),
+            "AI_PIPELINE_RUNTIME_TIMEOUT",
+            os.getenv(
+                "AUTO_AUGMENT_PIPELINE_TIMEOUT",
+                runtime_nacos.get("timeout", 120),
+            ),
         )),
     )
 
@@ -199,7 +207,7 @@ def _load_settings() -> Settings:
         nacos=nacos_config,
         model_trainer=model_trainer,
         model_deploy=model_deploy,
-        auto_augment_pipeline=auto_augment_pipeline,
+        ai_pipeline_runtime=ai_pipeline_runtime,
     )
 
 

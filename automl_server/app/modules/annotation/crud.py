@@ -40,8 +40,7 @@ async def update_annotation(db: AsyncSession, annotation_id: int, **kwargs) -> O
     if not ann:
         return None
     for key, value in kwargs.items():
-        if value is not None:
-            setattr(ann, key, value)
+        setattr(ann, key, value)
     await db.flush()
     await db.refresh(ann)
     return ann

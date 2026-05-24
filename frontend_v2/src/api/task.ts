@@ -25,6 +25,15 @@ export async function listTasks(page = 1, pageSize = 10, status?: number) {
   return res.data.data;
 }
 
+export async function getTaskSummary() {
+  const res = await apiClient.get<Result<{
+    total: number;
+    running: number;
+    completed: number;
+  }>>('/task/summary');
+  return res.data.data;
+}
+
 /** 获取任务详情 */
 export async function getTask(taskId: number) {
   const res = await apiClient.get<Result<TaskResponse>>(`/task/${taskId}`);

@@ -10,6 +10,7 @@ from app.common import Result, PageResult
 from app.config.database import get_db
 from .schemas import (
     DatasetCreate, DatasetUpdate, DatasetResponse,
+    DatasetSummaryResponse,
     FilePreviewResponse, FileContentResponse,
     SampleItemCreate, SampleItemUpdate, SampleItemResponse,
 )
@@ -41,6 +42,15 @@ async def list_datasets(
     items, total = await service.list_datasets(db, page, page_size, keyword)
     page_result = PageResult.create(items, total, page, page_size)
     return Result.ok(page_result)
+
+
+@router.get("/summary", response_model=Result[DatasetSummaryResponse], summary="获取首页数据集摘要")
+async def get_dataset_summary(
+    db: AsyncSession = Depends(get_db),
+    service: DatasetService = Depends(get_dataset_service),
+):
+    result = await service.get_home_summary(db)
+    return Result.ok(result)
 
 
 @router.get("/{dataset_id}", response_model=Result[DatasetResponse], summary="获取数据集详情")

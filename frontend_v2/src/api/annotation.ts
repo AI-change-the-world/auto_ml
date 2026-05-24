@@ -8,6 +8,7 @@ import type {
   AnnotationAssistRequest,
   AnnotationAssistResponse,
   AnnotationAssistPipeline,
+  AnnotationAiPipelineBinding,
   AnnotationCreate,
   AnnotationTypeDefinition,
 } from '../types';
@@ -26,6 +27,14 @@ export async function listAnnotations(page = 1, pageSize = 10, keyword?: string)
   return res.data.data;
 }
 
+export async function getAnnotationSummary() {
+  const res = await apiClient.get<Result<{
+    total: number;
+    recent_annotations: AnnotationProject[];
+  }>>('/annotation/summary');
+  return res.data.data;
+}
+
 /** 获取当前后端支持的标注类型 */
 export async function listAnnotationTypes() {
   const res = await apiClient.get<Result<AnnotationTypeDefinition[]>>('/annotation/types');
@@ -39,7 +48,16 @@ export async function getAnnotation(annotationId: number) {
 }
 
 /** 更新标注项目 */
-export async function updateAnnotation(annotationId: number, data: { name?: string; classes?: string; prompt?: string; assist_pipeline?: string | null }) {
+export async function updateAnnotation(
+  annotationId: number,
+  data: {
+    name?: string;
+    classes?: string;
+    prompt?: string;
+    assist_pipeline?: string | null;
+    default_ai_pipeline_binding_id?: number | null;
+  },
+) {
   const res = await apiClient.put<Result<AnnotationProject>>(`/annotation/${annotationId}`, data);
   return res.data.data;
 }
@@ -74,7 +92,11 @@ export async function saveAnnotationRecord(annotationId: number, data: Annotatio
 
 /** 辅助标注当前图片 */
 export async function assistCurrentAnnotation(annotationId: number, data: AnnotationAssistRequest) {
-  const res = await apiClient.post<Result<AnnotationAssistResponse>>(`/annotation/${annotationId}/assist/current`, data);
+  const res = await apiClient.post<Result<AnnotationAssistResponse>>(
+    `/annotation/${annotationId}/assist/current`,
+    data,
+    { timeout: 180000 },
+  );
   return res.data.data;
 }
 
@@ -84,6 +106,23 @@ export async function listAnnotationAssistPipelines(annotationId: number, shape?
     params: shape ? { shape } : undefined,
   });
   return res.data.data;
+}
+
+export async function listPlatformAssistPipelines() {
+  const res = await apiClient.get<Result<Array<AnnotationAssistPipeline & {
+    steps: {
+      name: string;
+      capability: string;
+      provider?: string | null;
+    }[];
+  }>>>('/annotation/assist/pipelines/platform');
+  return res.data.data ?? [];
+}
+
+/** 获取当前标注项目可用的 AI Pipeline 绑定 */
+export async function listAnnotationAiPipelineBindings(annotationId: number) {
+  const res = await apiClient.get<Result<AnnotationAiPipelineBinding[]>>(`/annotation/${annotationId}/ai-pipeline-bindings`);
+  return res.data.data ?? [];
 }
 
 /** 导出 DPO 标注结果 */

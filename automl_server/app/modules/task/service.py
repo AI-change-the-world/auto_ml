@@ -4,11 +4,12 @@ from datetime import datetime
 import json
 from typing import Any, List, Optional
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common.exceptions import NotFoundException, BadRequestException, AppException
 from app.common.constants import TaskStatus, TaskType, AnnotationType, DataType
 from app.config.settings import get_settings
+from app.db.models import Task
 from app.db.models import Dataset, Annotation, Asset, SampleItem, AnnotationRecord, AvailableModel
 from app.mq.publisher import get_publisher
 from app.utils.annotation_classes import parse_annotation_classes
@@ -25,6 +26,7 @@ from .schemas import (
     TaskLogResponse,
     BaseModelResponse,
     TrainerStatusResponse,
+    TaskSummaryResponse,
     TaskSourceResponse,
     TaskConfigPayload,
     TrainingHistoryCandidateResponse,
@@ -178,6 +180,34 @@ class TaskService:
             for item in items
         ]
         return serialized, total
+
+    async def get_home_summary(self, db: AsyncSession) -> TaskSummaryResponse:
+        total = (
+            await db.execute(
+                select(func.count()).select_from(Task).where(Task.is_deleted == False)
+            )
+        ).scalar() or 0
+        running = (
+            await db.execute(
+                select(func.count()).select_from(Task).where(
+                    Task.is_deleted == False,
+                    Task.status == TaskStatus.RUNNING.value,
+                )
+            )
+        ).scalar() or 0
+        completed = (
+            await db.execute(
+                select(func.count()).select_from(Task).where(
+                    Task.is_deleted == False,
+                    Task.status == TaskStatus.COMPLETED.value,
+                )
+            )
+        ).scalar() or 0
+        return TaskSummaryResponse(
+            total=int(total),
+            running=int(running),
+            completed=int(completed),
+        )
 
     async def get_task_logs(self, db: AsyncSession, task_id: int, page: int = 1, page_size: int = 100) -> tuple[List[TaskLogResponse], int]:
         task = await crud.get_task_by_id(db, task_id)

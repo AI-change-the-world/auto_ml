@@ -32,7 +32,7 @@ AutoML is an open-source end-to-end computer vision platform that provides a com
 - 💾 **Object Storage Integration**: Supports MinIO/S3 storage for efficient management of large-scale datasets and models
 - 🌐 **Modern Frontend**: React 19 + TypeScript + Ant Design 6, smooth user experience
 - 🔌 **Plugin Design**: Independent training and deployment services, flexible extensibility
-- 🤖 **AI-Assisted Annotation**: Integrated Auto Augment Pipeline for intelligent annotation generation and extraction
+- 🤖 **AI-Assisted Annotation**: Integrated AI Pipeline Runtime for intelligent annotation generation and extraction
 
 ---
 
@@ -143,7 +143,7 @@ AutoML is an open-source end-to-end computer vision platform that provides a com
 **Microservices**
 - Model Trainer Service
 - Model Deploy Service
-- Auto Augment Pipeline (AI-Assisted Annotation Service)
+- AI Pipeline Runtime (AI-Assisted Annotation Service)
 
 ---
 
@@ -288,7 +288,7 @@ auto_ml/
 │   ├── utils/               # Utilities
 │   └── server.py            # Service entry
 │
-├── auto_augment_pipeline/   # AI-Assisted Annotation Service
+├── ai_pipeline_runtime/     # AI-Assisted Annotation Service
 │   ├── capabilities.py      # Reusable AI capabilities (image description, annotation generation, white box extraction, etc.)
 │   ├── providers.py         # Model provider wrappers (OpenAI Compatible, Mock)
 │   ├── ocr.py               # RapidOCR integration and text normalization

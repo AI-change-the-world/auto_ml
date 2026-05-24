@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AppstoreOutlined,
+  ApartmentOutlined,
   CloudServerOutlined,
   DownOutlined,
   EditOutlined,
@@ -18,10 +19,10 @@ import {
 } from '@ant-design/icons';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { listAnnotations } from '../api/annotation';
-import { getDeploymentOverview } from '../api/deploy';
-import { getHomeStats } from '../api/home';
-import { listTasks } from '../api/task';
+import { getAnnotationSummary, listAnnotations, listPlatformAssistPipelines } from '../api/annotation';
+import { getDatasetSummary } from '../api/dataset';
+import { getDeploymentOverview, getDeploymentSummary } from '../api/deploy';
+import { getTaskSummary, listTasks } from '../api/task';
 import WorkbenchAssistantModal from '../components/WorkbenchAssistantModal';
 import {
   ANNOTATIONS_CHANGED_EVENT,
@@ -35,6 +36,24 @@ interface NavItem {
   label: string;
   children?: { key: string; label: string; icon?: React.ReactNode; badge?: string }[];
 }
+
+const emptyHomeStats: HomeStats = {
+  datasets: 0,
+  images: 0,
+  annotations: 0,
+  tasks: {
+    total: 0,
+    running: 0,
+    completed: 0,
+  },
+  models: {
+    total: 0,
+    deployed: 0,
+  },
+  recent_annotations: [],
+  recent_datasets: [],
+  assist_pipelines: [],
+};
 
 function isEditableTarget(target: EventTarget | null) {
   const element = target as HTMLElement | null;
@@ -88,8 +107,31 @@ const MainLayout: React.FC = () => {
 
   const refreshHomeStats = useCallback(() => {
     setAssistantLoading(true);
-    getHomeStats().then((res) => {
-      setHomeStats(res);
+    Promise.allSettled([
+      getDatasetSummary(),
+      getAnnotationSummary(),
+      getTaskSummary(),
+      getDeploymentSummary(),
+      listPlatformAssistPipelines(),
+    ]).then(([datasetSummary, annotationSummary, taskSummary, deploymentSummary, pipelineSummary]) => {
+      setHomeStats({
+        ...emptyHomeStats,
+        datasets: datasetSummary.status === 'fulfilled' ? datasetSummary.value.total : 0,
+        images: datasetSummary.status === 'fulfilled' ? datasetSummary.value.images : 0,
+        recent_datasets: datasetSummary.status === 'fulfilled' ? datasetSummary.value.recent_datasets : [],
+        annotations: annotationSummary.status === 'fulfilled' ? annotationSummary.value.total : 0,
+        recent_annotations: annotationSummary.status === 'fulfilled' ? annotationSummary.value.recent_annotations : [],
+        tasks: {
+          total: taskSummary.status === 'fulfilled' ? taskSummary.value.total : 0,
+          running: taskSummary.status === 'fulfilled' ? taskSummary.value.running : 0,
+          completed: taskSummary.status === 'fulfilled' ? taskSummary.value.completed : 0,
+        },
+        models: {
+          total: deploymentSummary.status === 'fulfilled' ? deploymentSummary.value.total : 0,
+          deployed: deploymentSummary.status === 'fulfilled' ? deploymentSummary.value.deployed : 0,
+        },
+        assist_pipelines: pipelineSummary.status === 'fulfilled' ? pipelineSummary.value : [],
+      });
     }).catch(() => { }).finally(() => {
       setAssistantLoading(false);
     });
@@ -261,6 +303,7 @@ const MainLayout: React.FC = () => {
     if (location.pathname.startsWith('/annotations')) return t('nav.annotation');
     if (location.pathname.startsWith('/tasks')) return t('nav.training');
     if (location.pathname.startsWith('/deploy')) return t('nav.deploy');
+    if (location.pathname.startsWith('/ai-pipeline')) return t('nav.aiPipeline');
     if (location.pathname.startsWith('/settings')) return t('nav.settings');
     return t('nav.home');
   })();
@@ -314,6 +357,7 @@ const MainLayout: React.FC = () => {
           {[
             { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
             { key: '/datasets', icon: <AppstoreOutlined className="text-[18px]" />, label: t('nav.browse'), tour: 'nav-browse' },
+            { key: '/ai-pipeline', icon: <ApartmentOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
           ].map((item) => {
             const active = isActive(item.key);
             return (

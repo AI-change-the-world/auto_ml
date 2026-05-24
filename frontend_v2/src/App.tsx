@@ -14,6 +14,8 @@ import DatasetListPage from './pages/dataset/DatasetListPage';
 import DatasetDetailPage from './pages/dataset/DatasetDetailPage';
 import AnnotationListPage from './pages/annotation/AnnotationListPage';
 import AnnotationPage from './pages/annotation/AnnotationPage';
+import AnnotationAiBindingPage from './pages/annotation/AnnotationAiBindingPage';
+import AnnotationAiPipelinePage from './pages/annotation/AnnotationAiPipelinePage';
 import AnnotationWorkbenchRouter from './pages/annotation/AnnotationWorkbenchRouter';
 import AerialAnnotationPage from './pages/annotation/aerial/AerialAnnotationPage';
 import ClassificationAnnotationPage from './pages/annotation/classification/ClassificationAnnotationPage';
@@ -28,6 +30,9 @@ import TaskDetailPage from './pages/task/TaskDetailPage';
 import DeployPage from './pages/deploy/DeployPage';
 import DeployDetailPage from './pages/deploy/DeployDetailPage';
 import SettingsPage from './pages/settings/SettingsPage';
+import AiPipelineTemplateManagementPage from './pages/settings/AiPipelineTemplateManagementPage';
+import AiPipelineProviderManagementPage from './pages/settings/AiPipelineProviderManagementPage';
+import AiPipelineVersionEditorPage from './pages/settings/AiPipelineVersionEditorPage';
 import ExampleDatasetPage from './pages/example/ExampleDatasetPage';
 
 const App: React.FC = () => {
@@ -46,17 +51,25 @@ const App: React.FC = () => {
     >
       <HistoryRouter history={appHistory}>
         <Routes>
+          <Route path="/ai-pipeline/editor" element={<AiPipelineVersionEditorPage />} />
+          <Route path="/ai-pipeline/editor/:templateKey" element={<AiPipelineVersionEditorPage />} />
+
           {/* 主布局路由 */}
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/datasets" element={<DatasetListPage />} />
             <Route path="/datasets/:id" element={<DatasetDetailPage />} />
             <Route path="/annotations" element={<AnnotationListPage />} />
+            <Route path="/annotations/:annotationId/ai-binding" element={<AnnotationAiBindingPage />} />
+            <Route path="/annotations/:annotationId/ai-pipeline" element={<AnnotationAiPipelinePage />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskDetailPage />} />
             <Route path="/deploy" element={<DeployPage />} />
             <Route path="/deploy/:id" element={<DeployDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/ai-pipeline" element={<AiPipelineTemplateManagementPage />} />
+            <Route path="/ai-pipeline/providers" element={<AiPipelineProviderManagementPage />} />
+            <Route path="/settings/ai-pipeline/templates" element={<Navigate to="/ai-pipeline" replace />} />
             <Route path="/example-dataset" element={<ExampleDatasetPage />} />
           </Route>
 

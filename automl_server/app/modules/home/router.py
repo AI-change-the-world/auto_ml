@@ -96,7 +96,7 @@ async def get_stats(
 
     assist_pipelines = []
     try:
-        assist_pipelines = await annotation_service.list_platform_assist_pipeline_details()
+        assist_pipelines = await annotation_service.list_platform_assist_pipeline_details(db)
     except Exception as exc:
         logger.warning(f"Failed to load assist pipelines for home stats: {exc}")
 

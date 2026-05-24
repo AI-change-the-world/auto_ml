@@ -158,6 +158,12 @@ class TrainerStatusResponse(BaseModel):
     message: Optional[str] = None
 
 
+class TaskSummaryResponse(BaseModel):
+    total: int
+    running: int
+    completed: int
+
+
 class TaskStreamEvent(BaseModel):
     event: str
     data: dict

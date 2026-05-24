@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Switch, message } from 'antd';
+import { Button, Switch, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import {
@@ -32,6 +33,7 @@ const getConfiguredApiBaseUrl = () => {
 };
 
 const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation('settings');
   const tc = useTranslation('common').t;
   const [backendVersion, setBackendVersion] = useState<string>('-');
@@ -141,6 +143,18 @@ const SettingsPage: React.FC = () => {
           <Switch checked={taskDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setTaskDeleteConfirmEnabledState, setTaskDeleteConfirmEnabled, '任务删除')} />
           <span className="body-text-sm" style={{ color: '#555' }}>部署下线需要确认</span>
           <Switch checked={deployConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDeployConfirmEnabledState, setDeployConfirmEnabled, '部署下线')} />
+        </div>
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+          <div>
+            <h3 className="card-title" style={{ marginBottom: 8 }}>{t('aiPipelineTitle')}</h3>
+            <div className="body-text-sm" style={{ color: '#666' }}>{t('aiPipelineDescription')}</div>
+          </div>
+          <Button onClick={() => navigate('/ai-pipeline')}>
+            {t('aiPipelineAction')}
+          </Button>
         </div>
       </div>
 

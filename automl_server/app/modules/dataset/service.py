@@ -13,15 +13,18 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import UploadFile
 from loguru import logger
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.constants import DataType, DatasetScenarioType, is_dpo_dataset_scenario
 from app.common.exceptions import NotFoundException, BadRequestException
+from app.db.models import Dataset
 from app.utils.s3_delegate import get_s3_delegate
 from . import crud
 from .schemas import (
     AssetResponse,
     DatasetCreate,
+    DatasetSummaryResponse,
     DatasetUpdate,
     DatasetResponse,
     FilePreviewResponse,
@@ -212,6 +215,24 @@ class DatasetService:
         offset = (page - 1) * page_size
         items, total = await crud.get_datasets(db, offset, page_size, keyword)
         return [self._to_response(item) for item in items], total
+
+    async def get_home_summary(self, db: AsyncSession) -> DatasetSummaryResponse:
+        total = (
+            await db.execute(
+                select(func.count()).select_from(Dataset).where(Dataset.is_deleted == False)
+            )
+        ).scalar() or 0
+        images = (
+            await db.execute(
+                select(func.coalesce(func.sum(Dataset.count), 0)).select_from(Dataset).where(Dataset.is_deleted == False)
+            )
+        ).scalar() or 0
+        recent_items, _ = await crud.get_datasets(db, 0, 5)
+        return DatasetSummaryResponse(
+            total=int(total),
+            images=int(images),
+            recent_datasets=[self._to_response(item) for item in recent_items],
+        )
 
     async def update_dataset(
         self,

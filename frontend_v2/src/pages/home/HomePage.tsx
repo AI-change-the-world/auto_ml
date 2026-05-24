@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Modal, Spin } from 'antd';
+import { Modal, Skeleton } from 'antd';
 import {
   ArrowRightOutlined,
   CloudServerOutlined,
@@ -15,7 +15,10 @@ import {
   VideoCameraOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { getHomeStats } from '../../api/home';
+import { getAnnotationSummary, listPlatformAssistPipelines } from '../../api/annotation';
+import { getDatasetSummary } from '../../api/dataset';
+import { getDeploymentSummary } from '../../api/deploy';
+import { getTaskSummary } from '../../api/task';
 import type { HomeStats } from '../../types/home';
 import { AnnotationTypeLabels, DataTypeLabels } from '../../types';
 
@@ -64,6 +67,77 @@ const pipelineCapabilityLabels: Record<string, string> = {
   assist_annotation: '辅助标注',
 };
 
+const initialStats: HomeStats = {
+  datasets: 0,
+  images: 0,
+  annotations: 0,
+  tasks: {
+    total: 0,
+    running: 0,
+    completed: 0,
+  },
+  models: {
+    total: 0,
+    deployed: 0,
+  },
+  recent_annotations: [],
+  recent_datasets: [],
+  assist_pipelines: [],
+};
+
+type HomeSectionStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+interface HomeSectionState<T> {
+  data: T;
+  status: HomeSectionStatus;
+}
+
+const initialDatasetSection: HomeSectionState<{
+  total: number;
+  images: number;
+  recent_datasets: HomeStats['recent_datasets'];
+}> = {
+  data: {
+    total: 0,
+    images: 0,
+    recent_datasets: [],
+  },
+  status: 'loading',
+};
+
+const initialAnnotationSection: HomeSectionState<{
+  total: number;
+  recent_annotations: HomeStats['recent_annotations'];
+}> = {
+  data: {
+    total: 0,
+    recent_annotations: [],
+  },
+  status: 'loading',
+};
+
+const initialTaskSection: HomeSectionState<HomeStats['tasks']> = {
+  data: {
+    total: 0,
+    running: 0,
+    completed: 0,
+  },
+  status: 'loading',
+};
+
+const initialModelSection: HomeSectionState<HomeStats['models']> = {
+  data: {
+    total: 0,
+    deployed: 0,
+  },
+  status: 'loading',
+};
+
+const initialPipelineSection: HomeSectionState<HomeStats['assist_pipelines']> = {
+  data: [],
+  status: 'loading',
+};
+
 const numberFormatter = new Intl.NumberFormat();
 
 function formatNumber(value?: number) {
@@ -96,52 +170,198 @@ function formatPipelineCapability(value: string) {
   return pipelineCapabilityLabels[value] ?? value.replaceAll('_', ' ');
 }
 
+function isSectionLoading(status: HomeSectionStatus) {
+  return status === 'loading' || status === 'idle';
+}
+
+function isSectionError(status: HomeSectionStatus) {
+  return status === 'error';
+}
+
+function renderSectionBadge(status: HomeSectionStatus, label: string) {
+  if (!isSectionError(status)) {
+    return null;
+  }
+  return (
+    <span className="tag-text rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+      {label}
+    </span>
+  );
+}
+
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('home');
-  const [stats, setStats] = useState<HomeStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [datasetSection, setDatasetSection] = useState(initialDatasetSection);
+  const [annotationSection, setAnnotationSection] = useState(initialAnnotationSection);
+  const [taskSection, setTaskSection] = useState(initialTaskSection);
+  const [modelSection, setModelSection] = useState(initialModelSection);
+  const [pipelineSection, setPipelineSection] = useState(initialPipelineSection);
   const [selectedPipeline, setSelectedPipeline] = useState<HomeStats['assist_pipelines'][number] | null>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await getHomeStats();
-        if (res) {
-          setStats(res);
+    let active = true;
+
+    setDatasetSection((prev) => ({ ...prev, status: 'loading' }));
+    getDatasetSummary()
+      .then((res) => {
+        if (!active) {
+          return;
         }
-      } catch {
-        /* ignore */
-      } finally {
-        setLoading(false);
-      }
-    })();
+        setDatasetSection({
+          data: {
+            total: res?.total ?? 0,
+            images: res?.images ?? 0,
+            recent_datasets: res?.recent_datasets ?? [],
+          },
+          status: 'ready',
+        });
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setDatasetSection((prev) => ({
+          data: prev.data,
+          status: 'error',
+        }));
+      });
+
+    setAnnotationSection((prev) => ({ ...prev, status: 'loading' }));
+    getAnnotationSummary()
+      .then((res) => {
+        if (!active) {
+          return;
+        }
+        setAnnotationSection({
+          data: {
+            total: res?.total ?? 0,
+            recent_annotations: res?.recent_annotations ?? [],
+          },
+          status: 'ready',
+        });
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setAnnotationSection((prev) => ({
+          data: prev.data,
+          status: 'error',
+        }));
+      });
+
+    setTaskSection((prev) => ({ ...prev, status: 'loading' }));
+    getTaskSummary()
+      .then((res) => {
+        if (!active) {
+          return;
+        }
+        setTaskSection({
+          data: {
+            total: res?.total ?? 0,
+            running: res?.running ?? 0,
+            completed: res?.completed ?? 0,
+          },
+          status: 'ready',
+        });
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setTaskSection((prev) => ({
+          data: prev.data,
+          status: 'error',
+        }));
+      });
+
+    setModelSection((prev) => ({ ...prev, status: 'loading' }));
+    getDeploymentSummary()
+      .then((res) => {
+        if (!active) {
+          return;
+        }
+        setModelSection({
+          data: {
+            total: res?.total ?? 0,
+            deployed: res?.deployed ?? 0,
+          },
+          status: 'ready',
+        });
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setModelSection((prev) => ({
+          data: prev.data,
+          status: 'error',
+        }));
+      });
+
+    setPipelineSection((prev) => ({ ...prev, status: 'loading' }));
+    listPlatformAssistPipelines()
+      .then((res) => {
+        if (!active) {
+          return;
+        }
+        setPipelineSection({
+          data: res ?? [],
+          status: 'ready',
+        });
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setPipelineSection((prev) => ({
+          data: prev.data,
+          status: 'error',
+        }));
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const stats = useMemo<HomeStats>(() => ({
+    ...initialStats,
+    datasets: datasetSection.data.total,
+    images: datasetSection.data.images,
+    recent_datasets: datasetSection.data.recent_datasets,
+    annotations: annotationSection.data.total,
+    recent_annotations: annotationSection.data.recent_annotations,
+    tasks: taskSection.data,
+    models: modelSection.data,
+    assist_pipelines: pipelineSection.data,
+  }), [annotationSection.data, datasetSection.data, modelSection.data, pipelineSection.data, taskSection.data]);
 
   const overviewMetrics = useMemo(
     () => [
       {
         key: 'datasets',
         label: t('datasets'),
-        value: formatNumber(stats?.datasets),
+        value: formatNumber(stats.datasets),
         icon: <DatabaseOutlined className="h-4 w-4" />,
       },
       {
         key: 'samples',
         label: t('images'),
-        value: formatNumber(stats?.images),
+        value: formatNumber(stats.images),
         icon: <PictureOutlined className="h-4 w-4" />,
       },
       {
         key: 'annotations',
         label: t('annotations'),
-        value: formatNumber(stats?.annotations),
+        value: formatNumber(stats.annotations),
         icon: <TagsOutlined className="h-4 w-4" />,
       },
       {
         key: 'models',
         label: t('models'),
-        value: formatNumber(stats?.models?.total),
+        value: formatNumber(stats.models.total),
         icon: <ExperimentOutlined className="h-4 w-4" />,
       },
     ],
@@ -153,46 +373,47 @@ const HomePage: React.FC = () => {
       {
         key: 'tasks',
         label: t('tasks'),
-        value: formatNumber(stats?.tasks?.total),
+        value: formatNumber(stats.tasks.total),
         accent: 'bg-slate-500',
       },
       {
         key: 'running',
         label: t('runningTasks'),
-        value: formatNumber(stats?.tasks?.running),
+        value: formatNumber(stats.tasks.running),
         accent: 'bg-emerald-500',
       },
       {
         key: 'completed',
         label: t('completedTasks'),
-        value: formatNumber(stats?.tasks?.completed),
+        value: formatNumber(stats.tasks.completed),
         accent: 'bg-blue-500',
       },
       {
         key: 'deployments',
         label: t('deployments'),
-        value: formatNumber(stats?.models?.deployed),
+        value: formatNumber(stats.models.deployed),
         accent: 'bg-violet-500',
       },
     ],
     [stats, t],
   );
 
-  const recentDatasets = stats?.recent_datasets ?? [];
-  const recentAnnotations = stats?.recent_annotations ?? [];
-  const assistPipelines = stats?.assist_pipelines ?? [];
+  const recentDatasets = stats.recent_datasets;
+  const recentAnnotations = stats.recent_annotations;
+  const assistPipelines = stats.assist_pipelines;
   const displayedDatasets = recentDatasets.slice(0, 3);
   const displayedAnnotations = recentAnnotations.slice(0, 3);
   const displayedPipelines = assistPipelines.slice(0, 3);
   const fallbackTimeText = t('unknownTime');
-
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Spin size="large" />
-      </div>
-    );
-  }
+  const overviewLoading = isSectionLoading(datasetSection.status) || isSectionLoading(annotationSection.status) || isSectionLoading(modelSection.status);
+  const taskOverviewLoading = isSectionLoading(taskSection.status) || isSectionLoading(modelSection.status);
+  const datasetsLoading = isSectionLoading(datasetSection.status);
+  const annotationsLoading = isSectionLoading(annotationSection.status);
+  const pipelinesLoading = isSectionLoading(pipelineSection.status);
+  const taskOverviewError = isSectionError(taskSection.status) || isSectionError(modelSection.status);
+  const datasetsError = isSectionError(datasetSection.status);
+  const annotationsError = isSectionError(annotationSection.status);
+  const pipelinesError = isSectionError(pipelineSection.status);
 
   return (
     <div className="page-container">
@@ -237,6 +458,7 @@ const HomePage: React.FC = () => {
                 <div className="flex flex-col gap-3">
                   <h2 className="section-title tracking-tight">{t('heroTitle')}</h2>
                   <p className="body-text max-w-xl text-slate-500">{t('heroSubtitle')}</p>
+                  {/* {overviewError ? renderSectionBadge('error', t('partialUnavailable')) : null} */}
                 </div>
               </div>
             </div>
@@ -249,7 +471,11 @@ const HomePage: React.FC = () => {
                 >
                   <div>
                     <p className="body-text-sm mb-1 font-medium text-slate-500">{item.label}</p>
-                    <p className="metric-value-lg text-slate-900">{item.value}</p>
+                    {overviewLoading ? (
+                      <Skeleton.Button active size="small" className="!h-8 !w-20" />
+                    ) : (
+                      <p className="metric-value-lg text-slate-900">{item.value}</p>
+                    )}
                   </div>
                   <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${overviewToneMap[index]}`}>
                     {item.icon}
@@ -260,9 +486,12 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="border-t border-slate-100 bg-slate-50/50 px-8 py-6">
-            <div className="card-title mb-6 flex items-center gap-2 text-slate-800">
-              <CloudServerOutlined className="h-5 w-5 text-slate-500" />
-              {t('taskOverview')}
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <div className="card-title flex items-center gap-2 text-slate-800">
+                <CloudServerOutlined className="h-5 w-5 text-slate-500" />
+                {t('taskOverview')}
+              </div>
+              {taskOverviewError ? renderSectionBadge('error', t('partialUnavailable')) : null}
             </div>
             <div className="grid grid-cols-2 gap-4 divide-slate-200/60 md:grid-cols-4 md:divide-x">
               {taskMetrics.map((item, index) => (
@@ -274,7 +503,13 @@ const HomePage: React.FC = () => {
                     <span className={`h-2.5 w-2.5 rounded-full ${item.accent}`} />
                     {item.label}
                   </div>
-                  <p className="metric-value-sm ml-[18px] text-slate-900">{item.value}</p>
+                  {taskOverviewLoading ? (
+                    <div className="ml-[18px]">
+                      <Skeleton.Button active size="small" className="!h-7 !w-16" />
+                    </div>
+                  ) : (
+                    <p className="metric-value-sm ml-[18px] text-slate-900">{item.value}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -283,9 +518,25 @@ const HomePage: React.FC = () => {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="card-title mb-4">{t('recentDatasets')}</h3>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="card-title">{t('recentDatasets')}</h3>
+              {datasetsError ? renderSectionBadge('error', t('partialUnavailable')) : null}
+            </div>
             <div className="flex-1 overflow-y-auto">
-              {displayedDatasets.length === 0 ? (
+              {datasetsLoading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <Skeleton active paragraph={{ rows: 2 }} title={false} />
+                    </div>
+                  ))}
+                </div>
+              ) : datasetsError && displayedDatasets.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-5 text-center">
+                  <p className="font-medium text-amber-800">{t('sectionUnavailable')}</p>
+                  <p className="body-text-sm mt-1 text-amber-700">{t('retryLater')}</p>
+                </div>
+              ) : displayedDatasets.length === 0 ? (
                 <button
                   type="button"
                   onClick={() => navigate('/datasets')}
@@ -331,8 +582,24 @@ const HomePage: React.FC = () => {
           </section>
 
           <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="card-title mb-4">{t('recentAnnotations')}</h3>
-            {displayedAnnotations.length === 0 ? (
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="card-title">{t('recentAnnotations')}</h3>
+              {annotationsError ? renderSectionBadge('error', t('partialUnavailable')) : null}
+            </div>
+            {annotationsLoading ? (
+              <div className="flex-1 space-y-3 overflow-y-auto">
+                {[0, 1, 2].map((item) => (
+                  <div key={item} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <Skeleton active paragraph={{ rows: 2 }} title={false} />
+                  </div>
+                ))}
+              </div>
+            ) : annotationsError && displayedAnnotations.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-5 text-center">
+                <p className="font-medium text-amber-800">{t('sectionUnavailable')}</p>
+                <p className="body-text-sm mt-1 text-amber-700">{t('retryLater')}</p>
+              </div>
+            ) : displayedAnnotations.length === 0 ? (
               <button
                 type="button"
                 onClick={() => navigate('/annotations')}
@@ -381,13 +648,29 @@ const HomePage: React.FC = () => {
 
           <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="card-title">{t('pipelineOverview')}</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="card-title">{t('pipelineOverview')}</h3>
+                {pipelinesError ? renderSectionBadge('error', t('partialUnavailable')) : null}
+              </div>
               <span className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
-                {t('pipelineCount', { count: assistPipelines.length })}
+                {pipelinesLoading ? '...' : t('pipelineCount', { count: assistPipelines.length })}
               </span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3">
-              {displayedPipelines.length === 0 ? (
+              {pipelinesLoading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                      <Skeleton active paragraph={{ rows: 2 }} title={false} />
+                    </div>
+                  ))}
+                </div>
+              ) : pipelinesError && displayedPipelines.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-5 text-center">
+                  <p className="font-medium text-amber-800">{t('sectionUnavailable')}</p>
+                  <p className="body-text-sm mt-1 text-amber-700">{t('retryLater')}</p>
+                </div>
+              ) : displayedPipelines.length === 0 ? (
                 <div className="body-text flex h-full items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-5 text-center text-slate-500">
                   {t('emptyPipelines')}
                 </div>

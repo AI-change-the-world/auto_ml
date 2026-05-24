@@ -23,6 +23,14 @@ export async function listModels(page = 1, pageSize = 10, deployedOnly?: boolean
   return res.data.data;
 }
 
+export async function getDeploymentSummary() {
+  const res = await apiClient.get<Result<{
+    total: number;
+    deployed: number;
+  }>>('/deploy/summary');
+  return res.data.data;
+}
+
 /** 部署模型 */
 export async function deployModel(modelId: number, device = 'cpu', version = 'v1') {
   const res = await apiClient.post<Result<DeployStatusResponse>>(`/deploy/${modelId}/deploy`, null, {

@@ -51,6 +51,12 @@ class DatasetResponse(BaseModel):
         from_attributes = True
 
 
+class DatasetSummaryResponse(BaseModel):
+    total: int
+    images: int
+    recent_datasets: list[DatasetResponse] = Field(default_factory=list)
+
+
 class AssetResponse(BaseModel):
     """原始资源响应"""
     id: int

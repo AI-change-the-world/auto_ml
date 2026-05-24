@@ -53,7 +53,9 @@ async def init_db():
         from app.db.models import (
             Dataset, Asset, SampleItem, Annotation, AnnotationRecord,
             Task, TaskLog, TaskSource, BaseModels,
-            AvailableModel, ModelInferenceLog
+            AvailableModel, ModelInferenceLog,
+            AiPipelineTemplate, AiPipelineTemplateVersion, AiPipelineBinding, AiPipelineProviderResource,
+            AiPipelineRun, AiPipelineRunStep, AiPipelineArtifact, AiPipelineEventLog,
         )
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)

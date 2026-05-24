@@ -15,6 +15,7 @@ export type {
   AnnotationAssistResponse,
   AnnotationAssistItem,
   AnnotationAssistPipeline,
+  AnnotationAiPipelineBinding,
   AnnotationCreate,
 } from './annotation';
 export {
@@ -120,3 +121,26 @@ export type {
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
 export type { ToolModelCreate, ToolModelResponse } from './tool';
+export type {
+  AiPipelineTemplateListItem,
+  AiPipelineTemplateDetail,
+  AiPipelineTemplateCreateRequest,
+  AiPipelineTemplatePublishRequest,
+  AiPipelineTemplateVersionCreateRequest,
+  AiPipelineTemplateDraftSaveRequest,
+  AiPipelineBindingResponse,
+  AiPipelineBindingCreateRequest,
+  AiPipelineBindingUpdateRequest,
+  AiPipelineModelResourceItem,
+  AiPipelineProviderResourceItem,
+  AiPipelineProviderResourceOption,
+  AiPipelineProviderResourceCreateRequest,
+  AiPipelineProviderResourceUpdateRequest,
+  AiPipelineFieldSchema,
+  AiPipelineResourceSlotSchema,
+  AiPipelineTemplateFormSchema,
+  AiPipelineCapabilityFieldOption,
+  AiPipelineCapabilityField,
+  AiPipelineCapabilityContextTarget,
+  AiPipelineCapabilityItem,
+} from './aiPipeline';

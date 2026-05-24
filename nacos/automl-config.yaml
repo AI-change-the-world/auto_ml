@@ -56,8 +56,8 @@ model-deploy:
   runtime_max_port: 9100
   health_check_interval: 30
 
-auto-augment-pipeline:
-  base_url: ${AUTO_AUGMENT_PIPELINE_URL}
+ai-pipeline-runtime:
+  base_url: ${AI_PIPELINE_RUNTIME_URL}
   timeout: 120
   default_profile: assist_default
 

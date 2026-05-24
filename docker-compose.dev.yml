@@ -16,7 +16,8 @@ x-dev-config: &dev-config
   MINIO_ENDPOINT: ${DEV_MINIO_ENDPOINT:-http://127.0.0.1:9000}
   MODEL_TRAINER_URL: ${DEV_MODEL_TRAINER_URL:-http://127.0.0.1:8081}
   MODEL_DEPLOY_URL: ${DEV_MODEL_DEPLOY_URL:-http://127.0.0.1:8082}
-  AUTO_AUGMENT_PIPELINE_URL: ${DEV_AUTO_AUGMENT_PIPELINE_URL:-http://127.0.0.1:8010}
+  AI_PIPELINE_RUNTIME_URL: ${DEV_AI_PIPELINE_RUNTIME_URL:-http://127.0.0.1:8010}
+  AUTO_AUGMENT_PIPELINE_URL: ${DEV_AUTO_AUGMENT_PIPELINE_URL:-${DEV_AI_PIPELINE_RUNTIME_URL:-http://127.0.0.1:8010}}
 
 services:
   mysql:
@@ -147,7 +148,6 @@ services:
     volumes:
       - ./nacos/init-config.sh:/init-config.sh
       - ./nacos/automl-config.yaml:/config/automl-config.yaml
-      - ./nacos/auto-augment-config.yaml:/config/auto-augment-config.yaml
       - minio_dev_shared:/shared
     networks:
       - auto-ml-dev-network
@@ -156,10 +156,8 @@ services:
       NACOS_PORT: 8848
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
       DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
-      AUGMENT_DATA_ID: AUTO_AUGMENT_PIPELINE
       GROUP: ${NACOS_GROUP:-AUTO_ML}
       CONFIG_FILE: /config/automl-config.yaml
-      AUGMENT_CONFIG_FILE: /config/auto-augment-config.yaml
       MINIO_ENV_FILE: /shared/minio.env
       <<: *dev-config
     entrypoint:

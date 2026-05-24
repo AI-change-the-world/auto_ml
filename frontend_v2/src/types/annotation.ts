@@ -347,6 +347,7 @@ export interface AnnotationProject {
   save_path: string | null;
   prompt: string | null;
   assist_pipeline: string | null;
+  default_ai_pipeline_binding_id: number | null;
   dataset_id: number | null;
   created_at: string;
   updated_at: string;
@@ -372,6 +373,7 @@ export interface AnnotationRecordSaveRequest {
 export interface AnnotationAssistRequest {
   sample_item_id: number;
   pipeline_id?: string;
+  binding_id?: number;
   shape?: string;
   target_classes?: string[];
   replace_existing?: boolean;
@@ -385,6 +387,28 @@ export interface AnnotationAssistPipeline {
   supported_annotation_types: number[];
   supported_shapes: string[];
   enabled: boolean;
+}
+
+export interface AnnotationAiPipelineBinding {
+  id: number;
+  binding_type: string;
+  binding_target_id: number;
+  template_id: number;
+  template_version: number;
+  template_key?: string | null;
+  template_name?: string | null;
+  name?: string | null;
+  description?: string | null;
+  pipeline_type?: string | null;
+  supported_annotation_types: number[];
+  supported_shapes: string[];
+  enabled: boolean;
+  is_default: boolean;
+  runtime_input_defaults_json?: Record<string, unknown> | unknown[] | string | null;
+  resource_bindings_json?: Record<string, unknown> | unknown[] | string | null;
+  created_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface AnnotationAssistItem {
