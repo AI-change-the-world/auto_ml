@@ -148,7 +148,6 @@ services:
     volumes:
       - ./nacos/init-config.sh:/init-config.sh
       - ./nacos/automl-config.yaml:/config/automl-config.yaml
-      - ./nacos/ai-pipeline-runtime-config.yaml:/config/ai-pipeline-runtime-config.yaml
       - minio_dev_shared:/shared
     networks:
       - auto-ml-dev-network
@@ -157,10 +156,8 @@ services:
       NACOS_PORT: 8848
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
       DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
-      AUGMENT_DATA_ID: AI_PIPELINE_RUNTIME
       GROUP: ${NACOS_GROUP:-AUTO_ML}
       CONFIG_FILE: /config/automl-config.yaml
-      AUGMENT_CONFIG_FILE: /config/ai-pipeline-runtime-config.yaml
       MINIO_ENV_FILE: /shared/minio.env
       <<: *dev-config
     entrypoint:

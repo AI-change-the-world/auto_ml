@@ -7,12 +7,7 @@ from threading import RLock
 from fastapi import FastAPI, HTTPException, Request
 from loguru import logger
 
-from config import (
-    get_runtime_config,
-    register_runtime_config_callback,
-    unregister_runtime_config_callback,
-)
-from logging_config import configure_logging
+from config import get_runtime_config
 from models import (
     ExecuteCapabilityRequest,
     InlinePipelineRunRequest,
@@ -22,7 +17,6 @@ from models import (
 )
 from logging_config import configure_logging
 from mq import RabbitMQRpcWorker, load_rabbitmq_config
-from nacos_config_center import get_config_center
 from service import AutoAugmentService
 
 configure_logging("ai_pipeline_runtime")
@@ -40,17 +34,8 @@ def create_app() -> FastAPI:
                     "AI pipeline runtime service is not initialized")
             return service
 
-    def _on_runtime_config_update(config) -> None:
-        with service_lock:
-            service = service_holder["service"]
-            if service is None:
-                return
-            service.reload(config)
-        logger.info("Auto augment runtime config reloaded")
-
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        get_config_center().start()
         config = get_runtime_config()
         service = AutoAugmentService(config)
         mq_config = load_rabbitmq_config()
@@ -62,18 +47,12 @@ def create_app() -> FastAPI:
             service_holder["service"] = service
         app.state.service = service
         app.state.rpc_worker = rpc_worker
-        register_runtime_config_callback(
-            "ai_pipeline_runtime",
-            _on_runtime_config_update,
-        )
         rpc_worker.start()
         logger.info("AI pipeline runtime service is ready")
         yield
-        unregister_runtime_config_callback("ai_pipeline_runtime")
         rpc_worker.stop()
         with service_lock:
             service_holder["service"] = None
-        get_config_center().stop()
 
     app = FastAPI(
         title="AI Pipeline Runtime",

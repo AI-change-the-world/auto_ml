@@ -135,18 +135,9 @@
 
 ## 配置方式
 
-运行配置只从 Nacos 获取：
+运行配置不再依赖本地文件，辅助标注链路会通过主服务下发 `definition` 和 `resource_bindings`。
 
-- `AI_PIPELINE_RUNTIME_NACOS_DATA_ID`，默认 `AI_PIPELINE_RUNTIME`
-- `NACOS_GROUP`，默认 `DEFAULT_GROUP`
-- `NACOS_SERVER_ADDR`，默认 `127.0.0.1:8848`
-
-可选环境变量：
-
-- `AI_PIPELINE_RUNTIME_NACOS_NAMESPACE`
-- `AI_PIPELINE_RUNTIME_WATCH_NACOS`
-- `AI_PIPELINE_RUNTIME_NACOS_LOG_DIR`
-- `AI_PIPELINE_RUNTIME_NACOS_CACHE_DIR`
+MQ 仍然从 Nacos 读取 `AUTO_ML_CONFIG`。
 
 OCR 不需要额外配置 provider，默认使用内置 `RapidOCR`。
 图像编辑推荐单独配一个 `image_edit_provider`，比如 `nano banana2 pro`。

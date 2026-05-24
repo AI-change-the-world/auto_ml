@@ -178,7 +178,6 @@ services:
     volumes:
       - ./nacos/init-config.sh:/init-config.sh
       - ./nacos/automl-config.yaml:/config/automl-config.yaml
-      - ./nacos/ai-pipeline-runtime-config.yaml:/config/ai-pipeline-runtime-config.yaml
       - minio_shared:/shared
     networks:
       - auto-ml-network
@@ -187,10 +186,8 @@ services:
       NACOS_PORT: 8848
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
       DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
-      AUGMENT_DATA_ID: AI_PIPELINE_RUNTIME
       GROUP: ${NACOS_GROUP:-AUTO_ML}
       CONFIG_FILE: /config/automl-config.yaml
-      AUGMENT_CONFIG_FILE: /config/ai-pipeline-runtime-config.yaml
       MINIO_ENV_FILE: /shared/minio.env
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -324,10 +321,8 @@ services:
       nacos-init:
         condition: service_completed_successfully
     environment:
-      AI_PIPELINE_RUNTIME_WATCH_NACOS: "true"
       NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-nacos:8848}
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
-      AI_PIPELINE_RUNTIME_NACOS_DATA_ID: AI_PIPELINE_RUNTIME
       NACOS_GROUP: ${NACOS_GROUP:-AUTO_ML}
     ports:
       - "${AI_PIPELINE_RUNTIME_PORT:-8010}:${AI_PIPELINE_RUNTIME_PORT:-8010}"

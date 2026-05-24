@@ -101,6 +101,5 @@ publish_config() {
 }
 
 publish_config "$CONFIG_FILE" "${DATA_ID}"
-publish_config "${AUGMENT_CONFIG_FILE:-/config/ai-pipeline-runtime-config.yaml}" "${AUGMENT_DATA_ID:-AI_PIPELINE_RUNTIME}"
 
 echo "✅ Nacos initialization completed!"
