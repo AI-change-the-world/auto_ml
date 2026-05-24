@@ -1043,7 +1043,7 @@ class AiPipelineService:
         )
         items: list[dict[str, Any]] = []
         for template in templates:
-            if template.status not in {"published", "disabled"}:
+            if template.status not in {"active", "published", "disabled"}:
                 continue
 
             target_version = template.published_version or template.latest_version

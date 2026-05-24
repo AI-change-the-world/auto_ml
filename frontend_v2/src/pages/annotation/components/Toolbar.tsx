@@ -264,7 +264,7 @@ const Toolbar: React.FC = () => {
       message.success(`辅助标注完成，返回 ${nextAnnotations.length} 个框`);
     } catch (error) {
       console.error('assist annotation failed', error);
-      message.error('辅助标注失败');
+      message.error(error instanceof Error && error.message ? `辅助标注失败：${error.message}` : '辅助标注失败');
     }
   };
 

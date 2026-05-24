@@ -17,6 +17,19 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 
+def _preview_payload(value: Any, limit: int = 4000) -> str:
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False)
+        except Exception:
+            text = str(value)
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}...(truncated {len(text) - limit} chars)"
+
+
 DEFAULT_DRAFT_PROMPT_TEMPLATE = (
     "图像尺寸是 {{width}}x{{height}}。请做辅助标注草稿，只返回 JSON。\n"
     "allowed_classes = {{classes_json}}\n"
@@ -162,6 +175,11 @@ class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
                 else None
             ),
         )
+        logger.info(
+            "draft_annotation raw provider=%s payload=%s",
+            provider.name,
+            _preview_payload(raw),
+        )
         normalized = self._normalize_annotations(
             raw,
             width=width,
@@ -176,6 +194,13 @@ class DraftAnnotationCapability(AnnotationNormalizationMixin, Capability):
             for item in normalized
             if item.confidence is None or item.confidence >= score_threshold
         ]
+        logger.info(
+            "draft_annotation normalized provider=%s normalized_count=%s filtered_count=%s score_threshold=%s",
+            provider.name,
+            len(normalized),
+            len(annotations),
+            score_threshold,
+        )
 
         summary = raw.get("summary") if isinstance(raw, dict) else None
         return AnnotationResult(

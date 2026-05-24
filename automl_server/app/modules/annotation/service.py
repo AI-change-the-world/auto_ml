@@ -20,7 +20,7 @@ from app.common.constants import (
 )
 from app.common.exceptions import NotFoundException, BadRequestException
 from app.config.settings import get_settings
-from app.db.models import SampleItem
+from app.db.models import Annotation, SampleItem
 from app.modules.ai_pipeline.service import AiPipelineService
 from app.modules.dataset import crud as dataset_crud
 from app.mq.rpc_client import get_assist_rpc_client

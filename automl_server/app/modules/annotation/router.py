@@ -177,6 +177,14 @@ async def assist_current_annotation(
     db: AsyncSession = Depends(get_db),
     service: AnnotationService = Depends(get_annotation_service),
 ):
+    logger.info(
+        "Assist annotation api request annotation_id={} sample_item_id={} pipeline_id={} binding_id={} shape={}",
+        annotation_id,
+        data.sample_item_id,
+        data.pipeline_id,
+        data.binding_id,
+        data.shape,
+    )
     result = await service.assist_current_file(db, annotation_id, data)
     return Result.ok(result)
 

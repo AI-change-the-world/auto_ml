@@ -4,6 +4,7 @@ import base64
 import binascii
 import json
 import logging
+import os
 import re
 import uuid
 from io import BytesIO
@@ -23,6 +24,20 @@ from utils import (
 )
 
 logger = logging.getLogger(__name__)
+_LOG_TEXT_LIMIT = max(200, int(os.getenv("AI_PIPELINE_RUNTIME_LOG_TEXT_LIMIT", "4000")))
+
+
+def _preview_for_log(value: Any, *, limit: int = _LOG_TEXT_LIMIT) -> str:
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False)
+        except Exception:
+            text = str(value)
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}...(truncated {len(text) - limit} chars)"
 
 
 class ProviderError(RuntimeError):
@@ -137,7 +152,14 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
             temperature=self.config.temperature if temperature is None else temperature,
             max_tokens=self.config.max_tokens if max_tokens is None else max_tokens,
         )
-        return content_to_text(response.choices[0].message.content).strip()
+        content = content_to_text(response.choices[0].message.content).strip()
+        logger.info(
+            "Provider text response provider=%s model=%s content=%s",
+            self.name,
+            self.config.model,
+            _preview_for_log(content),
+        )
+        return content
 
     def generate_json(
         self,
@@ -193,16 +215,35 @@ class OpenAICompatibleProvider(BaseMultimodalProvider):
                 max_tokens=self.config.max_tokens if max_tokens is None else max_tokens,
                 **request_kwargs,
             )
-            content = content_to_text(
-                response.choices[0].message.content).strip()
+            content = content_to_text(response.choices[0].message.content).strip()
+            logger.info(
+                "Provider raw JSON response provider=%s model=%s content=%s",
+                self.name,
+                self.config.model,
+                _preview_for_log(content),
+            )
             try:
-                return json.loads(content)
+                parsed = json.loads(content)
+                logger.info(
+                    "Provider parsed JSON response provider=%s model=%s payload=%s",
+                    self.name,
+                    self.config.model,
+                    _preview_for_log(parsed),
+                )
+                return parsed
             except json.JSONDecodeError:
                 logger.warning(
                     "provider `%s` returned invalid JSON in native JSON mode, falling back to block extraction",
                     self.name,
                 )
-                return extract_json_block(content)
+                extracted = extract_json_block(content)
+                logger.info(
+                    "Provider extracted JSON block provider=%s model=%s payload=%s",
+                    self.name,
+                    self.config.model,
+                    _preview_for_log(extracted),
+                )
+                return extracted
         except Exception as exc:
             logger.warning(
                 "provider `%s` native JSON mode failed (%s), falling back to text parsing",
@@ -349,7 +390,14 @@ class DashScopeMultimodalProvider(BaseMultimodalProvider):
         message = getattr(choices[0], "message", None)
         content = getattr(message, "content",
                           None) if message is not None else None
-        return content_to_text(content).strip()
+        text = content_to_text(content).strip()
+        logger.info(
+            "DashScope multimodal response provider=%s model=%s content=%s",
+            self.name,
+            self.config.model,
+            _preview_for_log(text),
+        )
+        return text
 
     def edit_image(
         self,

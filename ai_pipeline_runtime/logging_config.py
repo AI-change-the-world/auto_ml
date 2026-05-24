@@ -1,5 +1,7 @@
-import os
+from __future__ import annotations
+
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -8,7 +10,7 @@ from loguru import logger
 _CONFIGURED = False
 
 
-class _InterceptHandler(logging.Handler):
+class InterceptHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
         try:
             level: str | int = logger.level(record.levelname).name
@@ -21,22 +23,25 @@ class _InterceptHandler(logging.Handler):
             frame = frame.f_back
             depth += 1
 
-        logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level,
+            record.getMessage(),
+        )
 
 
-def _configure_logger() -> None:
+def configure_logging(service_name: str = "ai_pipeline_runtime") -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
 
-    level_name = os.getenv("MODEL_DEPLOY_LOG_LEVEL", os.getenv("LOG_LEVEL", "INFO")).upper()
-    colorize = os.getenv("MODEL_DEPLOY_COLOR_LOGS", "true").lower() == "true"
-    logs_dir = Path(os.getenv("MODEL_DEPLOY_LOG_DIR", "logs"))
+    level_name = os.getenv("AI_PIPELINE_RUNTIME_LOG_LEVEL", os.getenv("LOG_LEVEL", "INFO")).upper()
+    colorize = os.getenv("AI_PIPELINE_RUNTIME_COLOR_LOGS", "true").lower() == "true"
+    logs_dir = Path(os.getenv("AI_PIPELINE_RUNTIME_LOG_DIR", "logs"))
     logs_dir.mkdir(parents=True, exist_ok=True)
-    log_file = logs_dir / "deploy.log"
+    log_file = logs_dir / f"{service_name}.log"
 
     logger.remove()
-    logger.configure(extra={"service": "model_deploy"})
+    logger.configure(extra={"service": service_name})
     logger.add(
         sys.stdout,
         level=level_name,
@@ -66,13 +71,15 @@ def _configure_logger() -> None:
             "{name}:{function}:{line} - {message}"
         ),
     )
-    intercept_handler = _InterceptHandler()
+
+    intercept_handler = InterceptHandler()
     logging.basicConfig(handlers=[intercept_handler], level=0, force=True)
     for logger_name in (
         "uvicorn",
         "uvicorn.error",
         "uvicorn.access",
         "fastapi",
+        "httpx",
         "pika",
         "urllib3",
         "asyncio",
@@ -80,8 +87,6 @@ def _configure_logger() -> None:
         target_logger = logging.getLogger(logger_name)
         target_logger.handlers = [intercept_handler]
         target_logger.propagate = False
+
     logging.captureWarnings(True)
     _CONFIGURED = True
-
-
-_configure_logger()

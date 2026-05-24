@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-import logging
 import os
 from contextlib import asynccontextmanager
 from threading import RLock
 
 from fastapi import FastAPI, HTTPException, Request
+from loguru import logger
 
 from config import (
     get_runtime_config,
     register_runtime_config_callback,
     unregister_runtime_config_callback,
 )
+from logging_config import configure_logging
 from models import (
     ExecuteCapabilityRequest,
     InlinePipelineRunRequest,
@@ -19,12 +20,12 @@ from models import (
     PipelineDefinition,
     TaskPayload,
 )
+from logging_config import configure_logging
 from mq import RabbitMQRpcWorker, load_rabbitmq_config
 from nacos_config_center import get_config_center
 from service import AutoAugmentService
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+configure_logging("ai_pipeline_runtime")
 
 
 def create_app() -> FastAPI:

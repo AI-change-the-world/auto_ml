@@ -92,7 +92,11 @@ export async function saveAnnotationRecord(annotationId: number, data: Annotatio
 
 /** 辅助标注当前图片 */
 export async function assistCurrentAnnotation(annotationId: number, data: AnnotationAssistRequest) {
-  const res = await apiClient.post<Result<AnnotationAssistResponse>>(`/annotation/${annotationId}/assist/current`, data);
+  const res = await apiClient.post<Result<AnnotationAssistResponse>>(
+    `/annotation/${annotationId}/assist/current`,
+    data,
+    { timeout: 180000 },
+  );
   return res.data.data;
 }
 
