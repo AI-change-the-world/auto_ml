@@ -40,6 +40,7 @@ export interface VersionBuilderStepValue {
   output_key?: string;
   provider?: string;
   provider_role?: string;
+  provider_slot_key?: string;
   context_mapping?: Record<string, string>;
   field_bindings?: Record<string, StepFieldBinding>;
   position?: GraphNodePosition;
@@ -68,11 +69,20 @@ export interface VersionBuilderGraphValue {
   edges: VersionBuilderGraphEdgeValue[];
 }
 
+export interface VersionBuilderInputSchemaValue {
+  kind: string;
+  image_source?: 'binary' | 'url';
+  text_enabled?: boolean;
+  text_required?: boolean;
+  image_required?: boolean;
+}
+
 export interface VersionBuilderFormValues {
   change_note?: string;
   scene_type?: string;
   steps?: VersionBuilderStepValue[];
   graph?: VersionBuilderGraphValue;
+  input_schema?: VersionBuilderInputSchemaValue;
 }
 
 export interface DerivedVersionPayload {
@@ -92,6 +102,13 @@ const DEFAULT_NODE_X = 220;
 const DEFAULT_NODE_Y_GAP = 180;
 const DEFAULT_OUTPUT_HANDLE = 'result';
 const DEFAULT_PRIMARY_TARGET: GraphInputTarget = 'primary';
+const DEFAULT_INPUT_SCHEMA: VersionBuilderInputSchemaValue = {
+  kind: 'image',
+  image_source: 'binary',
+  text_enabled: false,
+  text_required: false,
+  image_required: true,
+};
 
 const normalizeStepFieldBindingValue = (value: unknown): StepFieldBindingValue | undefined => {
   if (value == null) return null;
@@ -105,6 +122,12 @@ const normalizeStepFieldBindingValue = (value: unknown): StepFieldBindingValue |
 };
 
 export const safeKey = (value: string) => value.trim().replace(/[^a-zA-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+
+const normalizeProviderRole = (value?: string | null) => safeKey(value || '').toLowerCase() || 'provider';
+
+const buildProviderSlotKey = (role?: string | null) => `${normalizeProviderRole(role)}_provider`;
+
+const buildProviderSlotLabel = (role?: string | null) => `Provider (${role || 'provider'})`;
 
 const inferRuntimeValueType = (field: AiPipelineCapabilityField) => {
   if (field.value_type) return field.value_type;
@@ -158,6 +181,7 @@ export const createStepFromCapability = (
     output_key: options?.output_key || capability.recommended_output_key || baseKey,
     provider: undefined,
     provider_role: capability.provider_role || undefined,
+    provider_slot_key: capability.requires_provider ? buildProviderSlotKey(capability.provider_role) : undefined,
     context_mapping: {},
     field_bindings: buildDefaultFieldBindings(capability, baseKey),
     position: options?.position,
@@ -170,6 +194,32 @@ const normalizeObject = (value: unknown): Record<string, unknown> => (
     ? value as Record<string, unknown>
     : {}
 );
+
+const normalizeBoolean = (value: unknown, fallback: boolean) => (
+  typeof value === 'boolean' ? value : fallback
+);
+
+export const parseVersionBuilderInputSchema = (
+  definitionJson: unknown,
+  templateInputKind?: string | null,
+): VersionBuilderInputSchemaValue => {
+  const definition = normalizeObject(definitionJson);
+  const inputSchema = normalizeObject(definition.input_schema);
+  const kind = typeof inputSchema.kind === 'string' && inputSchema.kind.trim()
+    ? inputSchema.kind.trim()
+    : (templateInputKind?.trim() || DEFAULT_INPUT_SCHEMA.kind);
+  const imageSource = inputSchema.image_source === 'url' ? 'url' : 'binary';
+  const textEnabled = normalizeBoolean(inputSchema.text_enabled, kind === 'text' || kind === 'mixed');
+  const textRequired = normalizeBoolean(inputSchema.text_required, kind === 'text');
+  const imageRequired = normalizeBoolean(inputSchema.image_required, kind !== 'text');
+  return {
+    kind,
+    image_source: imageSource,
+    text_enabled: textEnabled,
+    text_required: textRequired,
+    image_required: imageRequired,
+  };
+};
 
 const findRuntimeInputSchema = (
   runtimeInputs: AiPipelineFieldSchema[],
@@ -462,6 +512,8 @@ export const deriveVersionPayloadFromSteps = (
     const capability = capabilityMap.get(step.capability);
     const params: Record<string, unknown> = {};
     const fieldBindings = step.field_bindings ?? {};
+    const providerRole = step.provider_role || capability?.provider_role || undefined;
+    const requiresProvider = capability?.requires_provider === true;
 
     for (const field of capability?.parameter_fields ?? []) {
       const binding = fieldBindings[field.key] ?? {};
@@ -512,6 +564,24 @@ export const deriveVersionPayloadFromSteps = (
       }
     }
 
+    if (requiresProvider) {
+      const providerSlotKey = step.provider_slot_key || buildProviderSlotKey(providerRole);
+      resourceSlots.set(providerSlotKey, {
+        key: providerSlotKey,
+        label: buildProviderSlotLabel(providerRole),
+        value_type: 'resource_ref',
+        required: true,
+        description: `Select provider resource for role ${providerRole || 'provider'}.`,
+        widget: 'resource-select',
+        widget_props: {
+          resource_type: 'provider',
+          provider_role: providerRole || 'multimodal',
+        },
+        resource_type: 'provider',
+      });
+      params.provider_resource_slot = providerSlotKey;
+    }
+
     const inputBindings = step.input_bindings ?? [];
     return {
       name: step.name,
@@ -520,7 +590,7 @@ export const deriveVersionPayloadFromSteps = (
       input_key: buildInputKeyFromBindings(inputBindings, stepById),
       output_key: step.output_key || step.name,
       provider: step.provider || undefined,
-      provider_role: step.provider_role || undefined,
+      provider_role: providerRole,
       context_mapping: buildContextMappingFromBindings(inputBindings, stepById),
       params,
     };
@@ -600,6 +670,9 @@ export const parseVersionBuilderStepsFromTemplate = (
       const rawEditorId = typeof step.editor_id === 'string' ? step.editor_id.trim() : '';
       const stepId = rawEditorId || `step_${safeKey(rawName) || index + 1}`;
       const outputKey = typeof step.output_key === 'string' ? step.output_key : '';
+      const providerRole = typeof step.provider_role === 'string'
+        ? step.provider_role
+        : capability?.provider_role;
       const baseStep = capability ? createStepFromCapability(capability, {
         id: stepId,
         name: rawName,
@@ -665,6 +738,10 @@ export const parseVersionBuilderStepsFromTemplate = (
         }
       }
 
+      const providerSlotKey = typeof params.provider_resource_slot === 'string' && params.provider_resource_slot.trim()
+        ? params.provider_resource_slot.trim()
+        : (capability?.requires_provider ? buildProviderSlotKey(providerRole) : undefined);
+
       return {
         ...baseStep,
         name: rawName,
@@ -672,7 +749,8 @@ export const parseVersionBuilderStepsFromTemplate = (
         input_key: typeof step.input_key === 'string' ? step.input_key : baseStep.input_key,
         output_key: outputKey || baseStep.output_key,
         provider: typeof step.provider === 'string' ? step.provider : baseStep.provider,
-        provider_role: typeof step.provider_role === 'string' ? step.provider_role : baseStep.provider_role,
+        provider_role: providerRole || baseStep.provider_role,
+        provider_slot_key: providerSlotKey || baseStep.provider_slot_key,
         context_mapping: normalizeObject(step.context_mapping) as Record<string, string>,
         field_bindings: fieldBindings,
       };

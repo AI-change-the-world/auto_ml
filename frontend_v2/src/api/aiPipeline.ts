@@ -10,6 +10,10 @@ import type {
   AiPipelineBindingResponse,
   AiPipelineBindingUpdateRequest,
   AiPipelineModelResourceItem,
+  AiPipelineProviderResourceItem,
+  AiPipelineProviderResourceOption,
+  AiPipelineProviderResourceCreateRequest,
+  AiPipelineProviderResourceUpdateRequest,
   AiPipelineTemplateListItem,
 } from '../types';
 
@@ -91,4 +95,36 @@ export async function listAiPipelineModelResources(deployedOnly = true) {
     params: { deployed_only: deployedOnly },
   });
   return res.data.data ?? [];
+}
+
+export async function listAiPipelineProviderResources(enabledOnly = true) {
+  const res = await apiClient.get<Result<AiPipelineProviderResourceOption[]>>('/ai-pipeline/resources/providers', {
+    params: { enabled_only: enabledOnly },
+  });
+  return res.data.data ?? [];
+}
+
+export async function listAiPipelineProviderResourceItems(enabledOnly = false) {
+  const res = await apiClient.get<Result<AiPipelineProviderResourceItem[]>>('/ai-pipeline/provider-resources', {
+    params: { enabled_only: enabledOnly },
+  });
+  return res.data.data ?? [];
+}
+
+export async function createAiPipelineProviderResource(data: AiPipelineProviderResourceCreateRequest) {
+  const res = await apiClient.post<Result<AiPipelineProviderResourceItem>>('/ai-pipeline/provider-resources', data);
+  return res.data.data;
+}
+
+export async function updateAiPipelineProviderResource(
+  resourceId: number,
+  data: AiPipelineProviderResourceUpdateRequest,
+) {
+  const res = await apiClient.put<Result<AiPipelineProviderResourceItem>>(`/ai-pipeline/provider-resources/${resourceId}`, data);
+  return res.data.data;
+}
+
+export async function deleteAiPipelineProviderResource(resourceId: number) {
+  const res = await apiClient.delete<Result>(`/ai-pipeline/provider-resources/${resourceId}`);
+  return res.data;
 }

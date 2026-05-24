@@ -57,6 +57,7 @@ import {
   getGraphStepNodeId,
   safeKey,
   type GraphInputTarget,
+  type VersionBuilderInputSchemaValue,
   type VersionBuilderFormValues,
   type VersionBuilderGraphEdgeValue,
   type VersionBuilderGraphNodeValue,
@@ -75,6 +76,8 @@ type BuilderNodeData = {
   subLabel?: string;
   category?: string;
   selected?: boolean;
+  stepId?: string;
+  capabilityName?: string;
   contextTargets?: Array<{ key: string; label: string }>;
 };
 
@@ -86,9 +89,15 @@ const panelBorder = '#dbe3ef';
 const canvasBackground = '#f9fafb';
 const primaryTarget: GraphInputTarget = 'primary';
 
-const providerRoleOptions = [
-  { label: 'multimodal', value: 'multimodal' },
-  { label: 'image_edit', value: 'image_edit' },
+const inputKindOptions = [
+  { label: 'Image', value: 'image' },
+  { label: 'Text', value: 'text' },
+  { label: 'Image + Text', value: 'mixed' },
+];
+
+const inputImageSourceOptions = [
+  { label: 'Binary Upload', value: 'binary' },
+  { label: 'Presigned URL', value: 'url' },
 ];
 
 const capabilityAccentMap: Record<string, { border: string; fill: string; text: string; muted: string }> = {
@@ -134,6 +143,31 @@ const getCapabilityGroupLabel = (category: string, t: (key: string, options?: Re
   return t('pipelineBuilder.groups.workflow');
 };
 
+const isAdvancedField = (field: AiPipelineCapabilityField) => {
+  const normalizedKey = field.key.trim().toLowerCase();
+  return [
+    'json_mode',
+    'json_response_type',
+    'max_label_distance_ratio',
+    'temperature',
+    'max_tokens',
+    'class_match_score',
+    'preview_line_thickness',
+    'preview_font_scale',
+    'preview_s3_prefix',
+    'tile_size',
+    'tile_overlap',
+    'merge_iou',
+    'kernel_size',
+    'line_scale',
+    'max_candidates',
+    'min_area',
+    'min_width',
+    'min_height',
+    'white_threshold',
+  ].includes(normalizedKey);
+};
+
 const renderFixedValueInput = (
   field: AiPipelineCapabilityField,
   t: (key: string, options?: Record<string, unknown>) => string,
@@ -162,6 +196,60 @@ const renderFixedValueInput = (
     return <Select mode="tags" tokenSeparators={[',']} placeholder={placeholder} />;
   }
   return <Input placeholder={placeholder} />;
+};
+
+const renderParameterBindingField = (
+  field: AiPipelineCapabilityField,
+  selectedStep: VersionBuilderStepValue,
+  selectedStepIndex: number,
+  t: (key: string, options?: Record<string, unknown>) => string,
+) => {
+  const bindingPath = ['steps', selectedStepIndex, 'field_bindings', field.key] as (string | number)[];
+  const bindingMode = selectedStep.field_bindings?.[field.key]?.mode || defaultBindingMode(field);
+  const modeOptions = field.binding_kind === 'resource'
+    ? [{ label: t('pipelineBuilder.resourceSlot'), value: 'resource_slot' }]
+    : [
+      { label: t('pipelineBuilder.fixedValue'), value: 'fixed' },
+      { label: t('pipelineBuilder.runtimeInput'), value: 'runtime_input' },
+    ];
+
+  return (
+    <div key={field.key} style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12, marginBottom: 12 }}>
+      <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600, marginBottom: 10 }}>{field.label}</div>
+      <Form.Item label={t('pipelineBuilder.bindingMode')} name={[...bindingPath, 'mode']}>
+        <Select options={modeOptions} />
+      </Form.Item>
+      {bindingMode === 'fixed' ? (
+        <Form.Item
+          label={t('pipelineBuilder.fixedValue')}
+          name={[...bindingPath, 'value']}
+          valuePropName={(field.widget === 'switch' || field.value_type === 'boolean') ? 'checked' : 'value'}
+        >
+          {renderFixedValueInput(field, t)}
+        </Form.Item>
+      ) : null}
+      {bindingMode === 'runtime_input' ? (
+        <>
+          <Form.Item label={t('pipelineBuilder.runtimeInputKey')} name={[...bindingPath, 'runtime_input_key']}>
+            <Input placeholder={safeKey(`${selectedStep.name}_${field.key}`)} />
+          </Form.Item>
+          <Form.Item label={t('pipelineBuilder.runtimeInputLabel')} name={[...bindingPath, 'runtime_input_label']}>
+            <Input placeholder={field.label} />
+          </Form.Item>
+        </>
+      ) : null}
+      {bindingMode === 'resource_slot' ? (
+        <>
+          <Form.Item label={t('pipelineBuilder.resourceSlotKey')} name={[...bindingPath, 'resource_slot_key']}>
+            <Input placeholder={safeKey(`${selectedStep.name}_${field.key}`)} />
+          </Form.Item>
+          <Form.Item label={t('pipelineBuilder.resourceSlotLabel')} name={[...bindingPath, 'resource_slot_label']}>
+            <Input placeholder={field.label} />
+          </Form.Item>
+        </>
+      ) : null}
+    </div>
+  );
 };
 
 const NodeShell: React.FC<React.PropsWithChildren<{
@@ -284,7 +372,7 @@ const buildGraphFromFlow = (
     return {
       ...baseNode,
       kind: 'capability',
-      step_id: node.id.replace(/^node_/, ''),
+      step_id: node.data.stepId || node.id.replace(/^node_/, ''),
     } satisfies VersionBuilderGraphNodeValue;
   }),
   edges: edges.map((edge) => ({
@@ -299,15 +387,17 @@ const buildGraphFromFlow = (
 const buildFlowNodes = (
   graph: VersionBuilderGraphValue,
   steps: VersionBuilderStepValue[],
-  capabilityMap: Map<string, AiPipelineCapabilityItem>,
+  capabilities: AiPipelineCapabilityItem[],
   selectedNodeId: string,
 ): BuilderNode[] => graph.nodes.map((node) => {
+  const isSelected = node.id === selectedNodeId;
   if (node.kind === 'input') {
     return {
       id: node.id,
       type: 'pipelineInput',
       position: node.position,
-      data: { label: 'Input', subLabel: 'runtime input', selected: node.id === selectedNodeId },
+      selected: isSelected,
+      data: { label: 'Input', subLabel: 'runtime input', selected: isSelected },
       dragHandle: '.pipeline-node-drag-handle',
       deletable: false,
     };
@@ -317,23 +407,29 @@ const buildFlowNodes = (
       id: node.id,
       type: 'pipelineOutput',
       position: node.position,
-      data: { label: 'Output', subLabel: 'pipeline result', selected: node.id === selectedNodeId },
+      selected: isSelected,
+      data: { label: 'Output', subLabel: 'pipeline result', selected: isSelected },
       dragHandle: '.pipeline-node-drag-handle',
       deletable: false,
     };
   }
   const step = steps.find((item) => item.id === node.step_id);
-  const capability = step ? capabilityMap.get(step.capability) : undefined;
+  const capability = step
+    ? findCapabilityByIdentity(capabilities, [step.capability, node.step_id, node.id])
+    : undefined;
   return {
     id: node.id,
     type: 'pipelineCapability',
     position: node.position,
+    selected: isSelected,
     dragHandle: '.pipeline-node-drag-handle',
     data: {
       label: capability?.display_name || step?.capability || 'Capability',
       subLabel: step?.name,
       category: capability?.category,
-      selected: node.id === selectedNodeId,
+      selected: isSelected,
+      stepId: step?.id,
+      capabilityName: capability?.name || step?.capability,
       contextTargets: (capability?.context_mapping_targets ?? []).map((target) => ({
         key: target.key,
         label: target.label,
@@ -351,6 +447,115 @@ const getFlowNodeKind = (node?: BuilderNode): VersionBuilderGraphNodeValue['kind
   return 'capability';
 };
 
+const inferNodeKindById = (nodeId?: string | null): VersionBuilderGraphNodeValue['kind'] | undefined => {
+  if (!nodeId) return undefined;
+  if (nodeId === getGraphInputNodeId()) return 'input';
+  if (nodeId === getGraphOutputNodeId()) return 'output';
+  if (nodeId.startsWith('node_')) return 'capability';
+  return undefined;
+};
+
+const normalizeIdentity = (value?: string | null) => safeKey(value || '').toLowerCase();
+
+const findStepByIdentity = (
+  steps: VersionBuilderStepValue[],
+  identity?: string | null,
+) => {
+  const trimmed = identity?.trim();
+  if (!trimmed) return undefined;
+  const normalizedIdentity = normalizeIdentity(trimmed);
+  return steps.find((step) => (
+    step.id === trimmed
+    || step.name === trimmed
+    || normalizeIdentity(step.id) === normalizedIdentity
+    || normalizeIdentity(step.name) === normalizedIdentity
+  ));
+};
+
+const findStepByNodeData = (
+  steps: VersionBuilderStepValue[],
+  nodeData?: BuilderNodeData,
+) => (
+  findStepByIdentity(steps, nodeData?.stepId)
+  || findStepByIdentity(steps, nodeData?.subLabel)
+);
+
+const resolveStepForNode = (
+  nodeId: string,
+  graph: VersionBuilderGraphValue,
+  flowNodes: BuilderNode[],
+  steps: VersionBuilderStepValue[],
+) => {
+  if (getBuilderNodeKind(nodeId, graph, flowNodes) !== 'capability') {
+    return undefined;
+  }
+  const graphNode = graph.nodes.find((node) => node.id === nodeId);
+  const flowNode = flowNodes.find((node) => node.id === nodeId);
+  const fromNodeData = findStepByNodeData(steps, flowNode?.data);
+  if (fromNodeData) {
+    return fromNodeData;
+  }
+  for (const candidate of [graphNode?.step_id, getStepIdFromFlowNodeId(nodeId), flowNode?.data.subLabel?.trim()]) {
+    const step = findStepByIdentity(steps, candidate);
+    if (step) {
+      return step;
+    }
+  }
+  return undefined;
+};
+
+const findCapabilityByIdentity = (
+  capabilities: AiPipelineCapabilityItem[],
+  identifiers: Array<string | null | undefined>,
+) => {
+  for (const identifier of identifiers) {
+    const trimmed = identifier?.trim();
+    if (!trimmed) continue;
+    const normalizedIdentity = normalizeIdentity(trimmed);
+    const match = capabilities.find((capability) => (
+      capability.name === trimmed
+      || capability.display_name === trimmed
+      || normalizeIdentity(capability.name) === normalizedIdentity
+      || normalizeIdentity(capability.display_name) === normalizedIdentity
+    ));
+    if (match) {
+      return match;
+    }
+  }
+  return undefined;
+};
+
+const resolveCapabilityForNode = (
+  nodeId: string,
+  graph: VersionBuilderGraphValue,
+  flowNodes: BuilderNode[],
+  steps: VersionBuilderStepValue[],
+  capabilities: AiPipelineCapabilityItem[],
+) => {
+  const step = resolveStepForNode(nodeId, graph, flowNodes, steps);
+  if (!step) {
+    return undefined;
+  }
+  const flowNode = flowNodes.find((node) => node.id === nodeId);
+  return findCapabilityByIdentity(capabilities, [
+    flowNode?.data.capabilityName,
+    step.capability,
+    flowNode?.data.label,
+    flowNode?.data.subLabel,
+  ]);
+};
+
+const getBuilderNodeKind = (
+  nodeId: string | null | undefined,
+  graph: VersionBuilderGraphValue,
+  flowNodes: BuilderNode[],
+): VersionBuilderGraphNodeValue['kind'] | undefined => {
+  if (!nodeId) return undefined;
+  return graph.nodes.find((node) => node.id === nodeId)?.kind
+    || getFlowNodeKind(flowNodes.find((node) => node.id === nodeId))
+    || inferNodeKindById(nodeId);
+};
+
 const getStepIdFromFlowNodeId = (nodeId?: string | null) => (
   nodeId?.startsWith('node_') ? nodeId.replace(/^node_/, '') : undefined
 );
@@ -358,32 +563,81 @@ const getStepIdFromFlowNodeId = (nodeId?: string | null) => (
 const getCapabilityOutputType = (
   nodeId: string,
   steps: VersionBuilderStepValue[],
-  capabilityMap: Map<string, AiPipelineCapabilityItem>,
+  capabilities: AiPipelineCapabilityItem[],
+  graph: VersionBuilderGraphValue,
+  flowNodes: BuilderNode[],
 ) => {
   if (nodeId === getGraphInputNodeId()) return 'image';
-  const stepId = getStepIdFromFlowNodeId(nodeId);
-  const step = steps.find((item) => item.id === stepId);
-  return step ? capabilityMap.get(step.capability)?.output_type || undefined : undefined;
+  const capability = resolveCapabilityForNode(nodeId, graph, flowNodes, steps, capabilities);
+  return capability?.output_type || undefined;
 };
 
 const getCapabilityAcceptedTypes = (
   nodeId: string,
   targetHandle: string | null | undefined,
   steps: VersionBuilderStepValue[],
-  capabilityMap: Map<string, AiPipelineCapabilityItem>,
+  capabilities: AiPipelineCapabilityItem[],
+  graph: VersionBuilderGraphValue,
+  flowNodes: BuilderNode[],
 ) => {
   if (nodeId === getGraphOutputNodeId()) return undefined;
-  const stepId = getStepIdFromFlowNodeId(nodeId);
-  const step = steps.find((item) => item.id === stepId);
-  const capability = step ? capabilityMap.get(step.capability) : undefined;
+  const capability = resolveCapabilityForNode(nodeId, graph, flowNodes, steps, capabilities);
   if (!capability) return undefined;
   if (!targetHandle || targetHandle === primaryTarget) return capability.input_types;
   return capability.context_mapping_targets.find((target) => target.key === targetHandle)?.accepted_output_types;
 };
 
-const isTypeCompatible = (sourceType?: string, acceptedTypes?: string[]) => (
-  Boolean(sourceType && acceptedTypes && acceptedTypes.length > 0 && acceptedTypes.includes(sourceType))
+const normalizeConnectionType = (value?: string | null) => value?.trim().toLowerCase() || undefined;
+
+const normalizeAcceptedTypes = (values?: string[] | null) => (
+  (values ?? [])
+    .map((value) => normalizeConnectionType(value))
+    .filter((value): value is string => Boolean(value))
 );
+
+const isTypeCompatible = (sourceType?: string, acceptedTypes?: string[]) => {
+  const normalizedSourceType = normalizeConnectionType(sourceType);
+  const normalizedAcceptedTypes = normalizeAcceptedTypes(acceptedTypes);
+  return Boolean(
+    normalizedSourceType
+    && normalizedAcceptedTypes.length > 0
+    && normalizedAcceptedTypes.includes(normalizedSourceType),
+  );
+};
+
+type ConnectionValidationReason = 'missing_endpoint' | 'unsupported_endpoint' | 'output_requires_capability' | 'input_requires_primary' | 'type_mismatch';
+
+const getConnectionValidationReason = (
+  connection: BuilderEdge | Connection,
+  graph: VersionBuilderGraphValue,
+  flowNodes: BuilderNode[],
+  steps: VersionBuilderStepValue[],
+  capabilities: AiPipelineCapabilityItem[],
+): ConnectionValidationReason | null => {
+  if (!connection.source || !connection.target || connection.source === connection.target) {
+    return 'missing_endpoint';
+  }
+  const sourceKind = getBuilderNodeKind(connection.source, graph, flowNodes);
+  const targetKind = getBuilderNodeKind(connection.target, graph, flowNodes);
+  if (!sourceKind || !targetKind || sourceKind === 'output' || targetKind === 'input') {
+    return 'unsupported_endpoint';
+  }
+  if (targetKind === 'output' && sourceKind !== 'capability') {
+    return 'output_requires_capability';
+  }
+  if (targetKind === 'capability' && sourceKind === 'input' && connection.targetHandle && connection.targetHandle !== primaryTarget) {
+    return 'input_requires_primary';
+  }
+  if (targetKind === 'output') {
+    return null;
+  }
+  const sourceType = getCapabilityOutputType(connection.source, steps, capabilities, graph, flowNodes);
+  const acceptedTypes = getCapabilityAcceptedTypes(connection.target, connection.targetHandle, steps, capabilities, graph, flowNodes);
+  if (!isTypeCompatible(sourceType, acceptedTypes)) {
+    return 'type_mismatch';
+  }
+  return null;
+};
 
 const buildUniqueStep = (
   capability: AiPipelineCapabilityItem,
@@ -431,9 +685,16 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
 }) => {
   const { t } = useTranslation('settings');
   const reactFlow = useReactFlow<BuilderNode, BuilderEdge>();
-  const sceneType = Form.useWatch('scene_type', form) as string | undefined;
-  const steps = (Form.useWatch('steps', form) as VersionBuilderStepValue[] | undefined) ?? [];
-  const watchedGraph = Form.useWatch('graph', form) as VersionBuilderGraphValue | undefined;
+  const sceneType = Form.useWatch('scene_type', { form, preserve: true }) as string | undefined;
+  const inputSchema = (Form.useWatch('input_schema', { form, preserve: true }) as VersionBuilderInputSchemaValue | undefined) ?? {
+    kind: 'image',
+    image_source: 'binary',
+    text_enabled: false,
+    text_required: false,
+    image_required: true,
+  };
+  const steps = (Form.useWatch('steps', { form, preserve: true }) as VersionBuilderStepValue[] | undefined) ?? [];
+  const watchedGraph = Form.useWatch('graph', { form, preserve: true }) as VersionBuilderGraphValue | undefined;
   const fallbackGraph = React.useMemo(() => deriveGraphFromSteps(steps), [steps]);
   const graph = watchedGraph ?? fallbackGraph;
   const [selectedNodeId, setSelectedNodeId] = React.useState<string>(getGraphInputNodeId());
@@ -474,10 +735,6 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
     return Array.from(groups.entries()).sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey));
   }, [filteredCapabilities]);
 
-  const capabilityMap = React.useMemo(() => (
-    new Map(capabilities.map((item) => [item.name, item]))
-  ), [capabilities]);
-
   const commitGraph = React.useCallback((nextGraph: VersionBuilderGraphValue, nextSteps = steps) => {
     form.setFieldsValue({
       graph: nextGraph,
@@ -489,6 +746,7 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
     setSelectedNodeId(nodeId);
     setFlowNodes((currentNodes) => currentNodes.map((node) => ({
       ...node,
+      selected: node.id === nodeId,
       data: {
         ...node.data,
         selected: node.id === nodeId,
@@ -496,23 +754,38 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
     })));
   }, [setFlowNodes]);
 
+  const handleSelectionChange = React.useCallback((params: { nodes: BuilderNode[] }) => {
+    const nextNodeId = params.nodes[params.nodes.length - 1]?.id;
+    if (nextNodeId) {
+      selectNode(nextNodeId);
+    }
+  }, [selectNode]);
+
   const selectedFlowNode = flowNodes.find((node) => node.id === selectedNodeId);
-  const selectedNodeKind = getFlowNodeKind(selectedFlowNode);
-  const selectedGraphNode = selectedFlowNode
-    ? graph.nodes.find((node) => node.id === selectedNodeId)
-    : undefined;
-  const selectedStepId = selectedNodeKind === 'capability'
-    ? getStepIdFromFlowNodeId(selectedNodeId)
-    : undefined;
-  const selectedStepIndex = steps.findIndex((step) => step.id === selectedStepId);
-  const selectedStep = selectedStepIndex >= 0 ? steps[selectedStepIndex] : undefined;
-  const selectedCapability = selectedStep ? capabilityMap.get(selectedStep.capability) : undefined;
+  const selectedGraphNode = graph.nodes.find((node) => node.id === selectedNodeId);
+  const selectedNodeKind = getBuilderNodeKind(selectedNodeId, graph, flowNodes);
+  const hasSelectedInspector = Boolean(selectedNodeId && (selectedGraphNode || selectedFlowNode || selectedNodeKind));
+  const selectedStep = React.useMemo(() => {
+    if (selectedNodeKind !== 'capability') {
+      return undefined;
+    }
+    return resolveStepForNode(selectedNodeId, graph, flowNodes, steps);
+  }, [flowNodes, graph, selectedNodeId, selectedNodeKind, steps]);
+  const selectedStepIndex = steps.findIndex((step) => step.id === selectedStep?.id);
+  const selectedCapability = React.useMemo(() => {
+    return findCapabilityByIdentity(capabilities, [
+      selectedFlowNode?.data.capabilityName,
+      selectedStep?.capability,
+      selectedFlowNode?.data.label,
+      selectedFlowNode?.data.subLabel,
+    ]);
+  }, [capabilities, selectedFlowNode?.data.capabilityName, selectedFlowNode?.data.label, selectedFlowNode?.data.subLabel, selectedStep?.capability]);
   const outputInputEdge = graph.edges.find((edge) => edge.target === getGraphOutputNodeId());
   const outputSourceFlowNode = outputInputEdge
     ? flowNodes.find((node) => node.id === outputInputEdge.source)
     : undefined;
-  const outputSourceStep = getFlowNodeKind(outputSourceFlowNode) === 'capability'
-    ? steps.find((step) => step.id === getStepIdFromFlowNodeId(outputSourceFlowNode?.id))
+  const outputSourceStep = outputSourceFlowNode
+    ? resolveStepForNode(outputSourceFlowNode.id, graph, flowNodes, steps)
     : undefined;
   const flowSyncSignature = React.useMemo(() => JSON.stringify({
     nodes: graph.nodes,
@@ -528,24 +801,53 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
       category: capability.category,
     })),
   }), [capabilities, graph.edges, graph.nodes, steps]);
+  const selectedParameterFields = React.useMemo(() => {
+    if (!selectedCapability) return { primary: [], advanced: [] } as {
+      primary: AiPipelineCapabilityField[];
+      advanced: AiPipelineCapabilityField[];
+    };
+    return selectedCapability.parameter_fields.reduce<{
+      primary: AiPipelineCapabilityField[];
+      advanced: AiPipelineCapabilityField[];
+    }>((result, field) => {
+      if (isAdvancedField(field)) {
+        result.advanced.push(field);
+      } else {
+        result.primary.push(field);
+      }
+      return result;
+    }, { primary: [], advanced: [] });
+  }, [selectedCapability]);
 
   React.useEffect(() => {
     if (lastFlowSyncSignatureRef.current === flowSyncSignature) {
       return;
     }
     lastFlowSyncSignatureRef.current = flowSyncSignature;
-    setFlowNodes(buildFlowNodes(graph, steps, capabilityMap, selectedNodeId));
+    setFlowNodes(buildFlowNodes(graph, steps, capabilities, selectedNodeId));
     setFlowEdges(buildFlowEdges(graph));
-  }, [capabilityMap, flowSyncSignature, graph, selectedNodeId, setFlowEdges, setFlowNodes, steps]);
+  }, [capabilities, flowSyncSignature, graph, selectedNodeId, setFlowEdges, setFlowNodes, steps]);
 
   const isValidConnection = React.useCallback((connection: BuilderEdge | Connection) => {
-    if (!connection.source || !connection.target || connection.source === connection.target) {
+    const reason = getConnectionValidationReason(connection, graph, flowNodes, steps, capabilities);
+    if (!reason) {
+      return true;
+    }
+    if (reason === 'type_mismatch') {
+      console.debug('[AiPipelineBuilder] invalid connection: type mismatch', {
+        connection,
+        sourceType: getCapabilityOutputType(connection.source || '', steps, capabilities, graph, flowNodes),
+        acceptedTypes: getCapabilityAcceptedTypes(connection.target || '', connection.targetHandle, steps, capabilities, graph, flowNodes),
+      });
+      return false;
+    }
+    if (reason === 'missing_endpoint') {
       console.debug('[AiPipelineBuilder] invalid connection: missing or same node', connection);
       return false;
     }
-    const sourceKind = getFlowNodeKind(flowNodes.find((node) => node.id === connection.source));
-    const targetKind = getFlowNodeKind(flowNodes.find((node) => node.id === connection.target));
-    if (!sourceKind || !targetKind || sourceKind === 'output' || targetKind === 'input') {
+    if (reason === 'unsupported_endpoint') {
+      const sourceKind = getBuilderNodeKind(connection.source, graph, flowNodes);
+      const targetKind = getBuilderNodeKind(connection.target, graph, flowNodes);
       console.debug('[AiPipelineBuilder] invalid connection: unsupported endpoint', {
         connection,
         sourceKind,
@@ -553,32 +855,21 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
       });
       return false;
     }
-    if (targetKind === 'output' && sourceKind !== 'capability') {
+    if (reason === 'output_requires_capability') {
       console.debug('[AiPipelineBuilder] invalid connection: output requires capability source', connection);
       return false;
     }
-    if (targetKind === 'capability' && sourceKind === 'input' && connection.targetHandle && connection.targetHandle !== primaryTarget) {
-      console.debug('[AiPipelineBuilder] invalid connection: input can only connect to primary', connection);
-      return false;
-    }
-    const sourceType = getCapabilityOutputType(connection.source, steps, capabilityMap);
-    const acceptedTypes = getCapabilityAcceptedTypes(connection.target, connection.targetHandle, steps, capabilityMap);
-    if (!isTypeCompatible(sourceType, acceptedTypes)) {
-      console.debug('[AiPipelineBuilder] invalid connection: type mismatch', {
-        connection,
-        sourceType,
-        acceptedTypes,
-      });
-      message.warning(t('pipelineBuilder.incompatibleConnection'));
-      return false;
-    }
-    return true;
-  }, [capabilityMap, flowNodes, steps, t]);
+    console.debug('[AiPipelineBuilder] invalid connection: input can only connect to primary', connection);
+    return false;
+  }, [capabilities, flowNodes, graph, steps]);
 
   const handleConnect = React.useCallback((connection: Connection) => {
     console.debug('[AiPipelineBuilder] connect', connection);
-    if (!isValidConnection(connection)) {
-      message.warning(t('pipelineBuilder.unsupportedConnection'));
+    const reason = getConnectionValidationReason(connection, graph, flowNodes, steps, capabilities);
+    if (reason) {
+      message.warning(reason === 'type_mismatch'
+        ? t('pipelineBuilder.incompatibleConnection')
+        : t('pipelineBuilder.unsupportedConnection'));
       return;
     }
     const nextEdge = createGraphEdge(connection);
@@ -588,7 +879,7 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
     const nextGraph = buildGraphFromFlow(flowNodes, nextFlowEdges);
     setFlowEdges(nextFlowEdges);
     commitGraph(nextGraph);
-  }, [commitGraph, flowEdges, flowNodes, isValidConnection, setFlowEdges, t]);
+  }, [capabilities, commitGraph, flowEdges, flowNodes, graph, setFlowEdges, steps, t]);
 
   const handleFlowNodesChange = React.useCallback((changes: NodeChange<BuilderNode>[]) => {
     onNodesChange(changes);
@@ -643,12 +934,15 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
       id: getGraphStepNodeId(nextStep.id),
       type: 'pipelineCapability',
       position,
+      selected: true,
       dragHandle: '.pipeline-node-drag-handle',
       data: {
         label: capability.display_name || capability.name,
         subLabel: nextStep.name,
         category: capability.category,
         selected: true,
+        stepId: nextStep.id,
+        capabilityName: capability.name,
         contextTargets: (capability.context_mapping_targets ?? []).map((target) => ({
           key: target.key,
           label: target.label,
@@ -658,6 +952,7 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
     const nextFlowNodes = [
       ...flowNodes.map((node) => ({
         ...node,
+        selected: false,
         data: { ...node.data, selected: false },
       })),
       nextFlowNode,
@@ -713,13 +1008,13 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
       edges: graph.edges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
     };
     setSelectedNodeId(getGraphInputNodeId());
-    setFlowNodes(buildFlowNodes(nextGraph, nextSteps, capabilityMap, getGraphInputNodeId()));
+    setFlowNodes(buildFlowNodes(nextGraph, nextSteps, capabilities, getGraphInputNodeId()));
     setFlowEdges(buildFlowEdges(nextGraph));
     commitGraph(nextGraph, nextSteps);
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: selectedGraphNode ? '260px minmax(0, 1fr) 340px' : '260px minmax(0, 1fr)', height: 'calc(100vh - 124px)', minHeight: 560, background: canvasBackground }}>
+    <div style={{ display: 'grid', gridTemplateColumns: hasSelectedInspector ? '260px minmax(0, 1fr) 340px' : '260px minmax(0, 1fr)', height: 'calc(100vh - 124px)', minHeight: 560, background: canvasBackground }}>
       <div style={{ borderRight: `1px solid ${panelBorder}`, background: '#ffffff', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 14px', borderBottom: `1px solid ${panelBorder}` }}>
           <div className="card-title">{t('pipelineBuilder.nodeLibrary')}</div>
@@ -850,10 +1145,17 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
             }
           }}
           onDrop={handleDrop}
-          onNodeClick={(_, node) => {
+          onSelectionChange={handleSelectionChange}
+          onPaneClick={() => {
+            selectNode(getGraphInputNodeId());
+          }}
+          onNodeDragStart={(event) => {
+            event.stopPropagation();
+          }}
+          onNodeClick={(event, node) => {
+            event.stopPropagation();
             selectNode(node.id);
           }}
-          onPaneClick={() => selectNode('')}
           isValidConnection={isValidConnection}
           onConnectStart={(_, params) => {
             console.debug('[AiPipelineBuilder] connect start', params);
@@ -874,7 +1176,7 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
         </ReactFlow>
       </div>
 
-      {selectedGraphNode ? (
+      {hasSelectedInspector ? (
       <div style={{ borderLeft: `1px solid ${panelBorder}`, background: '#ffffff', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '14px 16px', borderBottom: `1px solid ${panelBorder}` }}>
           <div className="card-title">{t('pipelineBuilder.nodeInspector')}</div>
@@ -884,12 +1186,35 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
         </div>
         {selectedNodeKind === 'input' ? (
           <div style={{ padding: 18 }}>
-            <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 14, background: '#f8fafc' }}>
+            <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 14, background: '#f8fafc', marginBottom: 14 }}>
               <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>{t('pipelineBuilder.inputNode')}</div>
               <div className="caption-text" style={{ color: '#64748b', marginTop: 8, lineHeight: 1.6 }}>
                 {t('pipelineBuilder.inputNodeDescription')}
               </div>
             </div>
+            <Form.Item label={t('pipelineBuilder.inputKind')} name={['input_schema', 'kind']}>
+              <Select options={inputKindOptions} />
+            </Form.Item>
+            {inputSchema.kind !== 'text' ? (
+              <>
+                <Form.Item label={t('pipelineBuilder.inputImageSource')} name={['input_schema', 'image_source']}>
+                  <Select options={inputImageSourceOptions} />
+                </Form.Item>
+                <Form.Item label={t('pipelineBuilder.inputImageRequired')} name={['input_schema', 'image_required']} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </>
+            ) : null}
+            {inputSchema.kind !== 'image' ? (
+              <>
+                <Form.Item label={t('pipelineBuilder.inputTextEnabled')} name={['input_schema', 'text_enabled']} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+                <Form.Item label={t('pipelineBuilder.inputTextRequired')} name={['input_schema', 'text_required']} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </>
+            ) : null}
           </div>
         ) : selectedNodeKind === 'output' ? (
           <div style={{ padding: 18 }}>
@@ -906,7 +1231,7 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
               </div>
             </div>
           </div>
-        ) : !selectedStep || !selectedCapability ? (
+        ) : !selectedStep ? (
           <div style={{ padding: 18 }}>
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('pipelineBuilder.selectNodeToConfigure')} />
           </div>
@@ -914,8 +1239,12 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
           <div style={{ flex: 1, overflow: 'auto', padding: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
               <div style={{ minWidth: 0 }}>
-                <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>{selectedCapability.display_name}</div>
-                <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>{selectedCapability.name}</div>
+                <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 700 }}>
+                  {selectedCapability?.display_name || selectedStep.name}
+                </div>
+                <div className="caption-text" style={{ color: '#64748b', marginTop: 4 }}>
+                  {selectedCapability?.name || selectedStep.capability}
+                </div>
               </div>
               <Tooltip title={t('pipelineBuilder.deleteNode')}>
                 <Button size="small" danger icon={<DeleteOutlined />} onClick={handleDeleteSelectedStep} />
@@ -936,12 +1265,41 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
             <Form.Item label={t('pipelineBuilder.outputKey')} name={['steps', selectedStepIndex, 'output_key']}>
               <Input placeholder={t('pipelineBuilder.outputKeyPlaceholder')} />
             </Form.Item>
-            <Form.Item label={t('pipelineBuilder.providerName')} name={['steps', selectedStepIndex, 'provider']}>
-              <Input placeholder={t('pipelineBuilder.providerNamePlaceholder')} />
-            </Form.Item>
-            <Form.Item label={t('pipelineBuilder.providerRole')} name={['steps', selectedStepIndex, 'provider_role']}>
-              <Select allowClear options={providerRoleOptions} placeholder={t('pipelineBuilder.providerRolePlaceholder')} />
-            </Form.Item>
+            <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12, marginBottom: 18, background: '#f8fafc' }}>
+              <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>{t('pipelineBuilder.providerStrategy')}</div>
+              <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600 }}>
+                {selectedCapability?.requires_provider
+                  ? t('pipelineBuilder.providerStrategyBinding', { role: selectedCapability.provider_role || selectedStep.provider_role || 'provider' })
+                  : t('pipelineBuilder.providerStrategyNotRequired')}
+              </div>
+              {(selectedCapability?.provider_role || selectedStep.provider_role) ? (
+                <div className="caption-text" style={{ color: '#64748b', marginTop: 6 }}>
+                  {t('pipelineBuilder.providerRoleHint', { role: selectedCapability?.provider_role || selectedStep.provider_role })}
+                </div>
+              ) : null}
+              {selectedCapability?.requires_provider && selectedStep.provider_slot_key ? (
+                <div className="caption-text" style={{ color: '#64748b', marginTop: 6 }}>
+                  {t('pipelineBuilder.providerSlotHint', { slot: selectedStep.provider_slot_key })}
+                </div>
+              ) : null}
+            </div>
+
+            <div style={{ marginBottom: 18, display: 'grid', gap: 10 }}>
+              <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12 }}>
+                <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>{t('pipelineBuilder.inputTypes')}</div>
+                <Space size={[6, 6]} wrap>
+                  {(selectedCapability?.input_types?.length
+                    ? selectedCapability.input_types
+                    : ['-']).map((item) => (
+                    <Tag key={item} bordered={false}>{item}</Tag>
+                  ))}
+                </Space>
+              </div>
+              <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12 }}>
+                <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>{t('pipelineBuilder.outputType')}</div>
+                <Tag bordered={false}>{selectedCapability?.output_type || '-'}</Tag>
+              </div>
+            </div>
 
             {selectedStep.input_bindings?.length ? (
               <div style={{ marginBottom: 18 }}>
@@ -956,56 +1314,29 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
               </div>
             ) : null}
 
-            {selectedCapability.parameter_fields.length > 0 ? (
+            {selectedCapability && selectedCapability.parameter_fields.length > 0 ? (
               <div>
                 <div className="card-title" style={{ marginBottom: 12 }}>{t('pipelineBuilder.parameterBindings')}</div>
-                {selectedCapability.parameter_fields.map((field) => {
-                  const bindingPath = ['steps', selectedStepIndex, 'field_bindings', field.key] as (string | number)[];
-                  const bindingMode = selectedStep.field_bindings?.[field.key]?.mode || defaultBindingMode(field);
-                  const modeOptions = field.binding_kind === 'resource'
-                    ? [{ label: t('pipelineBuilder.resourceSlot'), value: 'resource_slot' }]
-                    : [
-                      { label: t('pipelineBuilder.fixedValue'), value: 'fixed' },
-                      { label: t('pipelineBuilder.runtimeInput'), value: 'runtime_input' },
-                    ];
-                  return (
-                    <div key={field.key} style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12, marginBottom: 12 }}>
-                      <div className="body-text-sm" style={{ color: '#0f172a', fontWeight: 600, marginBottom: 10 }}>{field.label}</div>
-                      <Form.Item label={t('pipelineBuilder.bindingMode')} name={[...bindingPath, 'mode']}>
-                        <Select options={modeOptions} />
-                      </Form.Item>
-                      {bindingMode === 'fixed' ? (
-                        <Form.Item
-                          label={t('pipelineBuilder.fixedValue')}
-                          name={[...bindingPath, 'value']}
-                          valuePropName={(field.widget === 'switch' || field.value_type === 'boolean') ? 'checked' : 'value'}
-                        >
-                          {renderFixedValueInput(field, t)}
-                        </Form.Item>
-                      ) : null}
-                      {bindingMode === 'runtime_input' ? (
-                        <>
-                          <Form.Item label={t('pipelineBuilder.runtimeInputKey')} name={[...bindingPath, 'runtime_input_key']}>
-                            <Input placeholder={safeKey(`${selectedStep.name}_${field.key}`)} />
-                          </Form.Item>
-                          <Form.Item label={t('pipelineBuilder.runtimeInputLabel')} name={[...bindingPath, 'runtime_input_label']}>
-                            <Input placeholder={field.label} />
-                          </Form.Item>
-                        </>
-                      ) : null}
-                      {bindingMode === 'resource_slot' ? (
-                        <>
-                          <Form.Item label={t('pipelineBuilder.resourceSlotKey')} name={[...bindingPath, 'resource_slot_key']}>
-                            <Input placeholder={safeKey(`${selectedStep.name}_${field.key}`)} />
-                          </Form.Item>
-                          <Form.Item label={t('pipelineBuilder.resourceSlotLabel')} name={[...bindingPath, 'resource_slot_label']}>
-                            <Input placeholder={field.label} />
-                          </Form.Item>
-                        </>
-                      ) : null}
-                    </div>
-                  );
-                })}
+                {selectedParameterFields.primary.length > 0 ? (
+                  <div style={{ marginBottom: 8 }}>
+                    <div className="caption-text" style={{ color: '#64748b', marginBottom: 10 }}>{t('pipelineBuilder.primaryParameters')}</div>
+                    {selectedParameterFields.primary.map((field) => (
+                      renderParameterBindingField(field, selectedStep, selectedStepIndex, t)
+                    ))}
+                  </div>
+                ) : null}
+                {selectedParameterFields.advanced.length > 0 ? (
+                  <Collapse
+                    ghost
+                    items={[{
+                      key: 'advanced-params',
+                      label: t('pipelineBuilder.advancedParameters'),
+                      children: selectedParameterFields.advanced.map((field) => (
+                        renderParameterBindingField(field, selectedStep, selectedStepIndex, t)
+                      )),
+                    }]}
+                  />
+                ) : null}
               </div>
             ) : null}
           </div>

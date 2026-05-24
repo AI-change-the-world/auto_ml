@@ -614,19 +614,23 @@ class ProviderRegistry:
     def __init__(self, providers: dict[str, BaseMultimodalProvider]) -> None:
         self._providers = providers
 
+    @staticmethod
+    def build_provider(name: str, config: ProviderConfig) -> BaseMultimodalProvider:
+        if config.kind == "openai_compatible":
+            return OpenAICompatibleProvider(name=name, config=config)
+        if config.kind == "dashscope_multimodal":
+            return DashScopeMultimodalProvider(name=name, config=config)
+        if config.kind == "mock":
+            return MockProvider(name=name, config=config)
+        raise ProviderError(f"unsupported provider kind `{config.kind}`")
+
     @classmethod
     def from_config(cls, config: RuntimeConfig) -> "ProviderRegistry":
         providers: dict[str, BaseMultimodalProvider] = {}
         for name, item in config.providers.items():
-            if item.kind == "openai_compatible":
-                providers[name] = OpenAICompatibleProvider(
-                    name=name, config=item)
-            elif item.kind == "dashscope_multimodal":
-                providers[name] = DashScopeMultimodalProvider(
-                    name=name, config=item)
-            elif item.kind == "mock":
-                providers[name] = MockProvider(name=name, config=item)
-            else:
+            try:
+                providers[name] = cls.build_provider(name=name, config=item)
+            except ProviderError:
                 logger.warning(
                     "Unsupported provider kind `%s`, skipping `%s`", item.kind, name)
         return cls(providers)

@@ -170,6 +170,9 @@ const AiPipelineTemplateManagementPage: React.FC = () => {
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/settings')}>
             返回设置
           </Button>
+          <Button onClick={() => navigate('/ai-pipeline/providers')}>
+            Provider 资源
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openTemplateDrawer}>
             新建模板
           </Button>

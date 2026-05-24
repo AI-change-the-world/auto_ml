@@ -1,7 +1,7 @@
 """
 AI Pipeline 相关模型
 """
-from sqlalchemy import Column, BigInteger, String, Integer, Text, Boolean, DateTime
+from sqlalchemy import Column, BigInteger, String, Integer, Float, Text, Boolean, DateTime
 
 from .base_entity import BaseEntity
 
@@ -49,6 +49,28 @@ class AiPipelineBinding(BaseEntity):
     is_default = Column(Boolean, nullable=False, default=False, comment="是否默认绑定")
     runtime_input_defaults_json = Column(Text, nullable=True, comment="默认运行参数 JSON")
     resource_bindings_json = Column(Text, nullable=True, comment="资源绑定 JSON")
+    created_by = Column(String(64), nullable=True, comment="创建人")
+
+
+class AiPipelineProviderResource(BaseEntity):
+    """AI Provider 资源表"""
+    __tablename__ = "ai_pipeline_provider_resource"
+
+    resource_id = Column(String(128), nullable=False, unique=True, index=True, comment="资源稳定标识")
+    provider_name = Column(String(128), nullable=False, unique=True, index=True, comment="运行时 provider 名称")
+    display_name = Column(String(255), nullable=False, comment="展示名称")
+    description = Column(Text, nullable=True, comment="资源描述")
+    kind = Column(String(64), nullable=False, comment="provider 类型")
+    role = Column(String(64), nullable=False, comment="provider 角色")
+    base_url = Column(String(512), nullable=True, comment="provider base url")
+    api_key = Column(Text, nullable=True, comment="provider api key")
+    model = Column(String(255), nullable=True, comment="provider model")
+    timeout_seconds = Column(Float, nullable=False, default=60.0, comment="超时时间")
+    temperature = Column(Float, nullable=False, default=0.0, comment="默认温度")
+    max_tokens = Column(Integer, nullable=False, default=1024, comment="默认最大 token")
+    extra_headers_json = Column(Text, nullable=True, comment="额外请求头 JSON")
+    extra_json = Column(Text, nullable=True, comment="额外配置 JSON")
+    enabled = Column(Boolean, nullable=False, default=True, comment="是否启用")
     created_by = Column(String(64), nullable=True, comment="创建人")
 
 

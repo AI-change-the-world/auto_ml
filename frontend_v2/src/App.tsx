@@ -31,6 +31,7 @@ import DeployPage from './pages/deploy/DeployPage';
 import DeployDetailPage from './pages/deploy/DeployDetailPage';
 import SettingsPage from './pages/settings/SettingsPage';
 import AiPipelineTemplateManagementPage from './pages/settings/AiPipelineTemplateManagementPage';
+import AiPipelineProviderManagementPage from './pages/settings/AiPipelineProviderManagementPage';
 import AiPipelineVersionEditorPage from './pages/settings/AiPipelineVersionEditorPage';
 import ExampleDatasetPage from './pages/example/ExampleDatasetPage';
 
@@ -67,6 +68,7 @@ const App: React.FC = () => {
             <Route path="/deploy/:id" element={<DeployDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/ai-pipeline" element={<AiPipelineTemplateManagementPage />} />
+            <Route path="/ai-pipeline/providers" element={<AiPipelineProviderManagementPage />} />
             <Route path="/settings/ai-pipeline/templates" element={<Navigate to="/ai-pipeline" replace />} />
             <Route path="/example-dataset" element={<ExampleDatasetPage />} />
           </Route>

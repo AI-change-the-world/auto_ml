@@ -3,6 +3,7 @@ import { Form, Input, InputNumber, Select, Switch } from 'antd';
 import type {
   AiPipelineFieldSchema,
   AiPipelineModelResourceItem,
+  AiPipelineProviderResourceOption,
   AiPipelineResourceSlotSchema,
 } from '../../../types';
 
@@ -10,6 +11,7 @@ interface AiBindingDynamicFieldsProps {
   runtimeFields: AiPipelineFieldSchema[];
   resourceFields: AiPipelineResourceSlotSchema[];
   modelResources: AiPipelineModelResourceItem[];
+  providerResources: AiPipelineProviderResourceOption[];
 }
 
 const toSelectOptions = (options?: Array<{ label: string; value: string | number | boolean }>) => (
@@ -22,8 +24,21 @@ const toSelectOptions = (options?: Array<{ label: string; value: string | number
 const buildResourceOptions = (
   field: AiPipelineResourceSlotSchema,
   modelResources: AiPipelineModelResourceItem[],
+  providerResources: AiPipelineProviderResourceOption[],
 ) => {
   const widgetProps = field.widget_props ?? {};
+  const resourceType = typeof widgetProps.resource_type === 'string' ? widgetProps.resource_type : undefined;
+  const providerRole = typeof widgetProps.provider_role === 'string' ? widgetProps.provider_role : undefined;
+
+  if (resourceType === 'provider') {
+    return providerResources
+      .filter((item) => !providerRole || item.role === providerRole)
+      .map((item) => ({
+        label: `${item.display_name}${item.model ? ` · ${item.model}` : ''}`,
+        value: item.resource_id,
+      }));
+  }
+
   const taskKind = typeof widgetProps.task_kind === 'string' ? widgetProps.task_kind : undefined;
   const runtimeTemplate = typeof widgetProps.runtime_template === 'string' ? widgetProps.runtime_template : undefined;
   const deployedOnly = widgetProps.deployed_only !== false;
@@ -68,6 +83,7 @@ const renderRuntimeField = (field: AiPipelineFieldSchema) => {
 const renderResourceField = (
   field: AiPipelineResourceSlotSchema,
   modelResources: AiPipelineModelResourceItem[],
+  providerResources: AiPipelineProviderResourceOption[],
 ) => {
   const widget = field.widget || 'resource-select';
   if (widget === 'select') {
@@ -79,7 +95,7 @@ const renderResourceField = (
       showSearch
       optionFilterProp="label"
       placeholder={field.description || `请选择${field.label}`}
-      options={buildResourceOptions(field, modelResources)}
+      options={buildResourceOptions(field, modelResources, providerResources)}
     />
   );
 };
@@ -88,6 +104,7 @@ const AiBindingDynamicFields: React.FC<AiBindingDynamicFieldsProps> = ({
   runtimeFields,
   resourceFields,
   modelResources,
+  providerResources,
 }) => {
   return (
     <>
@@ -120,7 +137,7 @@ const AiBindingDynamicFields: React.FC<AiBindingDynamicFieldsProps> = ({
               rules={field.required ? [{ required: true, message: `请选择${field.label}` }] : undefined}
               extra={field.description}
             >
-              {renderResourceField(field, modelResources)}
+              {renderResourceField(field, modelResources, providerResources)}
             </Form.Item>
           ))}
         </div>

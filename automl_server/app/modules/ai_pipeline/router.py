@@ -11,6 +11,10 @@ from .schemas import (
     AiPipelineBindingCreate,
     AiPipelineCapabilityItem,
     AiPipelineModelResourceItem,
+    AiPipelineProviderResourceItem,
+    AiPipelineProviderResourceOption,
+    AiPipelineProviderResourceCreate,
+    AiPipelineProviderResourceUpdate,
     AiPipelineBindingResponse,
     AiPipelineBindingUpdate,
     AiPipelineTemplateCreate,
@@ -214,3 +218,84 @@ async def list_model_resources(
         limit=limit,
     )
     return Result.ok(result)
+
+
+@router.get(
+    "/resources/providers",
+    response_model=Result[list[AiPipelineProviderResourceOption]],
+    summary="获取 AI Pipeline 可选 Provider 资源",
+)
+async def list_provider_resources(
+    enabled_only: bool = Query(default=True),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.list_provider_resource_options(
+        db,
+        enabled_only=enabled_only,
+        limit=limit,
+    )
+    return Result.ok(result)
+
+
+@router.get(
+    "/provider-resources",
+    response_model=Result[list[AiPipelineProviderResourceItem]],
+    summary="获取 AI Pipeline Provider 资源管理列表",
+)
+async def list_provider_resource_items(
+    enabled_only: bool = Query(default=False),
+    limit: int = Query(default=200, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.list_provider_resources(
+        db,
+        enabled_only=enabled_only,
+        limit=limit,
+    )
+    return Result.ok(result)
+
+
+@router.post(
+    "/provider-resources",
+    response_model=Result[AiPipelineProviderResourceItem],
+    summary="创建 AI Pipeline Provider 资源",
+)
+async def create_provider_resource(
+    data: AiPipelineProviderResourceCreate,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.create_provider_resource(db, data)
+    return Result.ok(result, "AI pipeline provider resource created")
+
+
+@router.put(
+    "/provider-resources/{resource_id}",
+    response_model=Result[AiPipelineProviderResourceItem],
+    summary="更新 AI Pipeline Provider 资源",
+)
+async def update_provider_resource(
+    resource_id: int,
+    data: AiPipelineProviderResourceUpdate,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    result = await service.update_provider_resource(db, resource_id, data)
+    return Result.ok(result, "AI pipeline provider resource updated")
+
+
+@router.delete(
+    "/provider-resources/{resource_id}",
+    response_model=Result,
+    summary="删除 AI Pipeline Provider 资源",
+)
+async def delete_provider_resource(
+    resource_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: AiPipelineService = Depends(get_ai_pipeline_service),
+):
+    await service.delete_provider_resource(db, resource_id)
+    return Result.ok(message="AI pipeline provider resource deleted")

@@ -108,6 +108,74 @@ export interface AiPipelineModelResourceItem {
   deployed_at?: string | null;
 }
 
+export interface AiPipelineProviderResourceItem {
+  id?: number;
+  resource_id: string;
+  provider_name: string;
+  display_name: string;
+  description?: string | null;
+  role: string;
+  kind?: string | null;
+  base_url?: string | null;
+  api_key_configured: boolean;
+  model?: string | null;
+  timeout_seconds?: number | null;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  extra_headers_json?: Record<string, unknown> | unknown[] | string | null;
+  extra_json?: Record<string, unknown> | unknown[] | string | null;
+  enabled?: boolean;
+  created_by?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface AiPipelineProviderResourceOption {
+  id?: number;
+  resource_id: string;
+  provider_name: string;
+  display_name: string;
+  role: string;
+  kind?: string | null;
+  model?: string | null;
+  enabled?: boolean;
+}
+
+export interface AiPipelineProviderResourceCreateRequest {
+  resource_id: string;
+  provider_name: string;
+  display_name: string;
+  description?: string;
+  kind: string;
+  role: string;
+  base_url?: string;
+  api_key?: string;
+  model?: string;
+  timeout_seconds?: number;
+  temperature?: number;
+  max_tokens?: number;
+  extra_headers_json?: Record<string, unknown> | unknown[] | string | null;
+  extra_json?: Record<string, unknown> | unknown[] | string | null;
+  enabled?: boolean;
+  created_by?: string;
+}
+
+export interface AiPipelineProviderResourceUpdateRequest {
+  display_name?: string;
+  description?: string;
+  kind?: string;
+  role?: string;
+  base_url?: string;
+  api_key?: string;
+  model?: string;
+  timeout_seconds?: number;
+  temperature?: number;
+  max_tokens?: number;
+  extra_headers_json?: Record<string, unknown> | unknown[] | string | null;
+  extra_json?: Record<string, unknown> | unknown[] | string | null;
+  enabled?: boolean;
+}
+
 export interface AiPipelineFieldSchema {
   key: string;
   label: string;

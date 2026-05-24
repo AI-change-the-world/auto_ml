@@ -54,7 +54,7 @@ async def init_db():
             Dataset, Asset, SampleItem, Annotation, AnnotationRecord,
             Task, TaskLog, TaskSource, BaseModels,
             AvailableModel, ModelInferenceLog,
-            AiPipelineTemplate, AiPipelineTemplateVersion, AiPipelineBinding,
+            AiPipelineTemplate, AiPipelineTemplateVersion, AiPipelineBinding, AiPipelineProviderResource,
             AiPipelineRun, AiPipelineRunStep, AiPipelineArtifact, AiPipelineEventLog,
         )
         # 创建所有表

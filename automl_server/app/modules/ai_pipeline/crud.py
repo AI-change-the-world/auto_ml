@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
     AiPipelineBinding,
+    AiPipelineProviderResource,
     AiPipelineTemplate,
     AiPipelineTemplateVersion,
     AvailableModel,
@@ -313,6 +314,114 @@ async def delete_binding(
     binding: AiPipelineBinding,
 ) -> None:
     binding.is_deleted = True
+    await db.flush()
+
+
+async def list_bindings_with_resource_bindings(
+    db: AsyncSession,
+) -> list[AiPipelineBinding]:
+    stmt = (
+        select(AiPipelineBinding)
+        .where(
+            AiPipelineBinding.is_deleted == False,
+            AiPipelineBinding.resource_bindings_json.is_not(None),
+        )
+        .order_by(AiPipelineBinding.updated_at.desc(), AiPipelineBinding.id.desc())
+    )
+    return list((await db.execute(stmt)).scalars().all())
+
+
+async def list_provider_resources(
+    db: AsyncSession,
+    *,
+    enabled_only: bool = False,
+    offset: int = 0,
+    limit: int = 200,
+):
+    conditions = [AiPipelineProviderResource.is_deleted == False]
+    if enabled_only:
+        conditions.append(AiPipelineProviderResource.enabled == True)
+
+    count_stmt = select(func.count()).select_from(AiPipelineProviderResource).where(*conditions)
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    stmt = (
+        select(AiPipelineProviderResource)
+        .where(*conditions)
+        .order_by(AiPipelineProviderResource.updated_at.desc(), AiPipelineProviderResource.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    items = list((await db.execute(stmt)).scalars().all())
+    return items, total
+
+
+async def get_provider_resource_by_id(
+    db: AsyncSession,
+    resource_id: int,
+) -> Optional[AiPipelineProviderResource]:
+    stmt = select(AiPipelineProviderResource).where(
+        AiPipelineProviderResource.id == resource_id,
+        AiPipelineProviderResource.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_provider_resource_by_key(
+    db: AsyncSession,
+    provider_key: str,
+) -> Optional[AiPipelineProviderResource]:
+    stmt = select(AiPipelineProviderResource).where(
+        AiPipelineProviderResource.resource_id == provider_key,
+        AiPipelineProviderResource.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_provider_resource_by_provider_name(
+    db: AsyncSession,
+    provider_name: str,
+) -> Optional[AiPipelineProviderResource]:
+    stmt = select(AiPipelineProviderResource).where(
+        AiPipelineProviderResource.provider_name == provider_name,
+        AiPipelineProviderResource.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def create_provider_resource(db: AsyncSession, **kwargs) -> AiPipelineProviderResource:
+    payload = dict(kwargs)
+    payload["extra_headers_json"] = _dump_json(payload.get("extra_headers_json"))
+    payload["extra_json"] = _dump_json(payload.get("extra_json"))
+    item = AiPipelineProviderResource(**payload)
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return item
+
+
+async def update_provider_resource(
+    db: AsyncSession,
+    resource: AiPipelineProviderResource,
+    **kwargs,
+) -> AiPipelineProviderResource:
+    payload = dict(kwargs)
+    if "extra_headers_json" in payload:
+        payload["extra_headers_json"] = _dump_json(payload.get("extra_headers_json"))
+    if "extra_json" in payload:
+        payload["extra_json"] = _dump_json(payload.get("extra_json"))
+    for key, value in payload.items():
+        setattr(resource, key, value)
+    await db.flush()
+    await db.refresh(resource)
+    return resource
+
+
+async def delete_provider_resource(
+    db: AsyncSession,
+    resource: AiPipelineProviderResource,
+) -> None:
+    resource.is_deleted = True
     await db.flush()
 
 

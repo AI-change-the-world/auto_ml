@@ -111,6 +111,74 @@ class AiPipelineModelResourceItem(BaseModel):
     deployed_at: Optional[datetime] = None
 
 
+class AiPipelineProviderResourceItem(BaseModel):
+    id: Optional[int] = None
+    resource_id: str
+    provider_name: str
+    display_name: str
+    description: Optional[str] = None
+    role: str
+    kind: Optional[str] = None
+    base_url: Optional[str] = None
+    api_key_configured: bool = False
+    model: Optional[str] = None
+    timeout_seconds: Optional[float] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    extra_headers_json: Optional[dict[str, Any] | list[Any] | str] = None
+    extra_json: Optional[dict[str, Any] | list[Any] | str] = None
+    enabled: bool = True
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class AiPipelineProviderResourceOption(BaseModel):
+    id: Optional[int] = None
+    resource_id: str
+    provider_name: str
+    display_name: str
+    role: str
+    kind: Optional[str] = None
+    model: Optional[str] = None
+    enabled: bool = True
+
+
+class AiPipelineProviderResourceCreate(BaseModel):
+    resource_id: str = Field(..., min_length=1, max_length=128)
+    provider_name: str = Field(..., min_length=1, max_length=128)
+    display_name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    kind: str = Field(..., min_length=1, max_length=64)
+    role: str = Field(..., min_length=1, max_length=64)
+    base_url: Optional[str] = Field(default=None, max_length=512)
+    api_key: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=255)
+    timeout_seconds: float = Field(default=60, ge=1, le=600)
+    temperature: float = Field(default=0.0, ge=0.0, le=5.0)
+    max_tokens: int = Field(default=1024, ge=1, le=65536)
+    extra_headers_json: Optional[dict[str, Any] | list[Any] | str] = None
+    extra_json: Optional[dict[str, Any] | list[Any] | str] = None
+    enabled: bool = True
+    created_by: Optional[str] = Field(default=None, max_length=64)
+
+
+class AiPipelineProviderResourceUpdate(BaseModel):
+    display_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    kind: Optional[str] = Field(default=None, min_length=1, max_length=64)
+    role: Optional[str] = Field(default=None, min_length=1, max_length=64)
+    base_url: Optional[str] = Field(default=None, max_length=512)
+    api_key: Optional[str] = None
+    model: Optional[str] = Field(default=None, max_length=255)
+    timeout_seconds: Optional[float] = Field(default=None, ge=1, le=600)
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=5.0)
+    max_tokens: Optional[int] = Field(default=None, ge=1, le=65536)
+    extra_headers_json: Optional[dict[str, Any] | list[Any] | str] = None
+    extra_json: Optional[dict[str, Any] | list[Any] | str] = None
+    enabled: Optional[bool] = None
+
+
 class AiPipelineCapabilityFieldOption(BaseModel):
     label: str
     value: str | int | float | bool

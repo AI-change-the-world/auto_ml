@@ -8,12 +8,13 @@ from pydantic import BaseModel, Field, model_validator
 class ImagePayload(BaseModel):
     path: str | None = None
     base64_data: str | None = None
+    url: str | None = None
     mime_type: str = "image/png"
 
     @model_validator(mode="after")
     def validate_source(self) -> "ImagePayload":
-        if not self.path and not self.base64_data:
-            raise ValueError("either `path` or `base64_data` must be provided")
+        if not self.path and not self.base64_data and not self.url:
+            raise ValueError("either `path`, `base64_data` or `url` must be provided")
         return self
 
 
@@ -83,6 +84,7 @@ class CapabilityDescriptor(BaseModel):
 
 class ExecuteCapabilityRequest(BaseModel):
     provider: str | None = None
+    provider_role: str | None = None
     input: TaskPayload
     params: dict[str, Any] = Field(default_factory=dict)
 
@@ -93,6 +95,7 @@ class PipelineStep(BaseModel):
     input_key: str = "input"
     output_key: str | None = None
     provider: str | None = None
+    provider_role: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     context_mapping: dict[str, str] = Field(default_factory=dict)
 

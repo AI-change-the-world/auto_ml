@@ -2,6 +2,7 @@ import type {
   AiPipelineBindingResponse,
   AiPipelineFieldSchema,
   AiPipelineModelResourceItem,
+  AiPipelineProviderResourceOption,
   AiPipelineResourceSlotSchema,
   AiPipelineTemplateDetail,
   AiPipelineTemplateFormSchema,
@@ -214,7 +215,43 @@ const normalizeResourcePayload = (
   slotKey: string,
   rawValue: unknown,
   modelResources: AiPipelineModelResourceItem[],
+  providerResources: AiPipelineProviderResourceOption[],
+  field?: AiPipelineResourceSlotSchema,
 ): Record<string, unknown> | null => {
+  const widgetProps = isObject(field?.widget_props) ? field.widget_props : {};
+  const resourceType = typeof widgetProps.resource_type === 'string' ? widgetProps.resource_type : undefined;
+  const providerRole = typeof widgetProps.provider_role === 'string' ? widgetProps.provider_role : undefined;
+
+  if (resourceType === 'provider') {
+    if (isObject(rawValue)) {
+      const providerName = typeof rawValue.provider_name === 'string' ? rawValue.provider_name.trim() : '';
+      const resourceId = typeof rawValue.resource_id === 'string' ? rawValue.resource_id.trim() : '';
+      if (providerName || resourceId) {
+      return {
+        ...rawValue,
+        slot_key: slotKey,
+        resource_type: 'provider',
+        provider_name: providerName || undefined,
+        resource_id: resourceId || (providerName ? `provider:${providerName}` : undefined),
+        role: typeof rawValue.role === 'string' ? rawValue.role : providerRole,
+      };
+      }
+    }
+    if (typeof rawValue === 'string' && rawValue.trim()) {
+      const normalizedValue = rawValue.trim();
+      const matched = providerResources.find((item) => item.resource_id === normalizedValue || item.provider_name === normalizedValue);
+      const providerName = matched?.provider_name || normalizedValue.replace(/^provider:/, '');
+      return {
+        slot_key: slotKey,
+        resource_type: 'provider',
+        resource_id: matched?.resource_id || (normalizedValue.startsWith('provider:') ? normalizedValue : `provider:${providerName}`),
+        provider_name: providerName,
+        role: matched?.role || providerRole,
+      };
+    }
+    return null;
+  }
+
   if (isObject(rawValue)) {
     const resourceId = typeof rawValue.resource_id === 'string' ? rawValue.resource_id : undefined;
     const modelId = typeof rawValue.model_id === 'number' ? rawValue.model_id : undefined;
@@ -257,6 +294,7 @@ export const buildBindingPayloadFromForm = (
   },
   schema: AiPipelineTemplateFormSchema,
   modelResources: AiPipelineModelResourceItem[],
+  providerResources: AiPipelineProviderResourceOption[],
 ) => {
   const runtimeInputDefaultsJson: Record<string, unknown> = {};
   const resourceBindingsJson: Record<string, unknown> = {};
@@ -272,6 +310,8 @@ export const buildBindingPayloadFromForm = (
       field.key,
       readNestedPathValue(values, 'resource', field.key),
       modelResources,
+      providerResources,
+      field,
     );
     if (!normalized) continue;
     resourceBindingsJson[field.key] = normalized;

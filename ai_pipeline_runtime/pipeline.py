@@ -54,6 +54,7 @@ class PipelineRunner:
                 step.capability,
                 ExecuteCapabilityRequest(
                     provider=step.provider,
+                    provider_role=step.provider_role,
                     input=step_input,
                     params=step_params,
                 ),

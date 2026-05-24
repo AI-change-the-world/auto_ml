@@ -24,6 +24,7 @@ import AiPipelineVersionBuilder, {
   deriveVersionPayloadFromSteps,
 } from './components/AiPipelineVersionBuilder';
 import {
+  parseVersionBuilderInputSchema,
   parseVersionBuilderGraphFromTemplate,
   parseVersionBuilderStepsFromTemplate,
   validateVersionBuilderSteps,
@@ -62,7 +63,7 @@ const buildVersionPayloadJson = (
       template_key: template.template_key,
       scene_type: template.scene_type,
       editor_graph: values.graph,
-      input_schema: { kind: template.input_kind || 'image' },
+      input_schema: values.input_schema ?? { kind: template.input_kind || 'image' },
       output_schema: { kind: template.output_kind || 'annotation_bbox' },
       runtime_inputs: derived.runtimeInputs,
       resource_slots: resourceSlots,
@@ -129,6 +130,7 @@ const AiPipelineVersionEditorPage: React.FC = () => {
         form.setFieldsValue({
           change_note: detail.change_note || '',
           scene_type: detail.scene_type,
+          input_schema: parseVersionBuilderInputSchema(detail.definition_json, detail.input_kind),
           steps: parsedSteps,
           graph: parseVersionBuilderGraphFromTemplate(detail.definition_json, parsedSteps),
         });

@@ -13,6 +13,10 @@ from . import crud
 from .schemas import (
     AiPipelineBindingCreate,
     AiPipelineModelResourceItem,
+    AiPipelineProviderResourceItem,
+    AiPipelineProviderResourceOption,
+    AiPipelineProviderResourceCreate,
+    AiPipelineProviderResourceUpdate,
     AiPipelineCapabilityContextTarget,
     AiPipelineCapabilityField,
     AiPipelineCapabilityFieldOption,
@@ -298,6 +302,10 @@ class AiPipelineService:
             )
 
         create_payload = data.model_dump()
+        await self._validate_binding_resource_refs(
+            db,
+            create_payload.get("resource_bindings_json"),
+        )
         create_payload["template_version"] = version.version
         created = await crud.create_binding(db, **create_payload)
         if data.is_default and data.binding_type == "annotation_project" and annotation is not None:
@@ -321,6 +329,10 @@ class AiPipelineService:
             raise NotFoundException(f"AI pipeline binding `{binding_id}` not found")
 
         update_data = data.model_dump(exclude_unset=True)
+        await self._validate_binding_resource_refs(
+            db,
+            update_data.get("resource_bindings_json"),
+        )
         template_id = update_data.get("template_id", binding.template_id)
         if template_id != binding.template_id:
             template = await crud.get_template_by_id(db, template_id)
@@ -412,6 +424,11 @@ class AiPipelineService:
         if descriptor is None:
             return None
 
+        runtime_resource_bindings = await self._resolve_runtime_resource_bindings(
+            db,
+            crud.load_json_value(binding.resource_bindings_json),
+        )
+
         return {
             "binding_id": binding.id,
             "binding_type": binding.binding_type,
@@ -424,9 +441,7 @@ class AiPipelineService:
             "runtime_input_defaults_json": crud.load_json_value(
                 binding.runtime_input_defaults_json
             ),
-            "resource_bindings_json": crud.load_json_value(
-                binding.resource_bindings_json
-            ),
+            "resource_bindings_json": runtime_resource_bindings,
             "pipeline_descriptor": descriptor,
         }
 
@@ -500,6 +515,313 @@ class AiPipelineService:
                 )
             )
         return result
+
+    async def list_provider_resources(
+        self,
+        db: AsyncSession,
+        *,
+        enabled_only: bool = False,
+        limit: int = 200,
+    ) -> list[AiPipelineProviderResourceItem]:
+        items, _ = await crud.list_provider_resources(
+            db,
+            enabled_only=enabled_only,
+            offset=0,
+            limit=limit,
+        )
+        return [self._build_provider_resource_item(item) for item in items]
+
+    async def list_provider_resource_options(
+        self,
+        db: AsyncSession,
+        *,
+        enabled_only: bool = True,
+        limit: int = 200,
+    ) -> list[AiPipelineProviderResourceOption]:
+        items, _ = await crud.list_provider_resources(
+            db,
+            enabled_only=enabled_only,
+            offset=0,
+            limit=limit,
+        )
+        return [self._build_provider_resource_option(item) for item in items]
+
+    async def create_provider_resource(
+        self,
+        db: AsyncSession,
+        data: AiPipelineProviderResourceCreate,
+    ) -> AiPipelineProviderResourceItem:
+        payload = self._normalize_provider_resource_payload(data.model_dump())
+        existing = await crud.get_provider_resource_by_key(db, payload["resource_id"])
+        if existing:
+            raise BadRequestException(f"AI pipeline provider resource `{payload['resource_id']}` already exists")
+        existing_provider = await crud.get_provider_resource_by_provider_name(db, payload["provider_name"])
+        if existing_provider:
+            raise BadRequestException(f"AI pipeline provider `{payload['provider_name']}` already exists")
+        created = await crud.create_provider_resource(db, **payload)
+        return self._build_provider_resource_item(created)
+
+    async def update_provider_resource(
+        self,
+        db: AsyncSession,
+        resource_id: int,
+        data: AiPipelineProviderResourceUpdate,
+    ) -> AiPipelineProviderResourceItem:
+        resource = await crud.get_provider_resource_by_id(db, resource_id)
+        if not resource:
+            raise NotFoundException(f"AI pipeline provider resource `{resource_id}` not found")
+        payload = self._normalize_provider_resource_payload(data.model_dump(exclude_unset=True))
+        if "resource_id" in payload:
+            raise BadRequestException("resource_id cannot be updated")
+        if "provider_name" in payload:
+            raise BadRequestException("provider_name cannot be updated")
+        if payload.get("api_key") is None:
+            payload.pop("api_key", None)
+        updated = await crud.update_provider_resource(db, resource, **payload)
+        return self._build_provider_resource_item(updated)
+
+    async def delete_provider_resource(
+        self,
+        db: AsyncSession,
+        resource_id: int,
+    ) -> None:
+        resource = await crud.get_provider_resource_by_id(db, resource_id)
+        if not resource:
+            raise NotFoundException(f"AI pipeline provider resource `{resource_id}` not found")
+        bindings = await crud.list_bindings_with_resource_bindings(db)
+        referencing_bindings = [
+            binding
+            for binding in bindings
+            if self._binding_references_provider_resource(
+                crud.load_json_value(getattr(binding, "resource_bindings_json", None)),
+                resource,
+            )
+        ]
+        if referencing_bindings:
+            binding_labels = ", ".join(
+                (
+                    self._normalize_optional_string(getattr(binding, "name", None))
+                    or f"Binding #{binding.id}"
+                )
+                for binding in referencing_bindings[:3]
+            )
+            raise BadRequestException(
+                "AI pipeline provider resource is still referenced by "
+                f"{len(referencing_bindings)} binding(s): {binding_labels}"
+            )
+        await crud.delete_provider_resource(db, resource)
+
+    def _build_provider_resource_item(
+        self,
+        resource,
+    ) -> AiPipelineProviderResourceItem:
+        return AiPipelineProviderResourceItem(
+            id=getattr(resource, "id", None),
+            resource_id=getattr(resource, "resource_id", ""),
+            provider_name=getattr(resource, "provider_name", ""),
+            display_name=getattr(resource, "display_name", "") or getattr(resource, "provider_name", ""),
+            description=getattr(resource, "description", None),
+            role=getattr(resource, "role", ""),
+            kind=getattr(resource, "kind", None),
+            base_url=getattr(resource, "base_url", None),
+            api_key_configured=bool(self._normalize_optional_string(getattr(resource, "api_key", None))),
+            model=getattr(resource, "model", None),
+            timeout_seconds=float(getattr(resource, "timeout_seconds", 60) or 60),
+            temperature=float(getattr(resource, "temperature", 0.0) or 0.0),
+            max_tokens=int(getattr(resource, "max_tokens", 1024) or 1024),
+            extra_headers_json=crud.load_json_value(getattr(resource, "extra_headers_json", None)),
+            extra_json=crud.load_json_value(getattr(resource, "extra_json", None)),
+            enabled=bool(getattr(resource, "enabled", True)),
+            created_by=getattr(resource, "created_by", None),
+            created_at=getattr(resource, "created_at", None),
+            updated_at=getattr(resource, "updated_at", None),
+        )
+
+    def _build_provider_resource_option(
+        self,
+        resource,
+    ) -> AiPipelineProviderResourceOption:
+        return AiPipelineProviderResourceOption(
+            id=getattr(resource, "id", None),
+            resource_id=getattr(resource, "resource_id", ""),
+            provider_name=getattr(resource, "provider_name", ""),
+            display_name=getattr(resource, "display_name", "") or getattr(resource, "provider_name", ""),
+            role=getattr(resource, "role", ""),
+            kind=getattr(resource, "kind", None),
+            model=getattr(resource, "model", None),
+            enabled=bool(getattr(resource, "enabled", True)),
+        )
+
+    def _normalize_provider_resource_payload(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        result = dict(payload)
+        for key in ("resource_id", "provider_name", "display_name", "description", "kind", "role", "base_url", "model", "api_key"):
+            if key in result:
+                result[key] = self._normalize_optional_string(result.get(key))
+        for key in ("resource_id", "provider_name", "display_name", "kind", "role"):
+            if key in result and result.get(key) is None:
+                raise BadRequestException(f"{key} is required")
+        return result
+
+    async def _find_provider_resource_by_reference(
+        self,
+        db: AsyncSession,
+        reference: Any,
+    ):
+        normalized_reference = self._normalize_optional_string(reference)
+        if not normalized_reference:
+            return None
+        resource = await crud.get_provider_resource_by_key(db, normalized_reference)
+        if resource:
+            return resource
+        provider_name = normalized_reference
+        if provider_name.startswith("provider:"):
+            provider_name = provider_name.split(":", 1)[1].strip()
+        return await crud.get_provider_resource_by_provider_name(db, provider_name)
+
+    async def _validate_binding_resource_refs(
+        self,
+        db: AsyncSession,
+        raw_value: Any,
+    ) -> None:
+        if raw_value is None:
+            return
+        if not isinstance(raw_value, dict):
+            raise BadRequestException("resource_bindings_json must be an object")
+        for binding_value in raw_value.values():
+            if isinstance(binding_value, str):
+                provider_resource = await self._find_provider_resource_by_reference(
+                    db,
+                    binding_value,
+                )
+                if provider_resource:
+                    if not bool(getattr(provider_resource, "enabled", True)):
+                        raise BadRequestException(f"provider resource `{binding_value}` is disabled")
+                continue
+            if not isinstance(binding_value, dict):
+                continue
+            resource_id = self._normalize_optional_string(binding_value.get("resource_id"))
+            provider_name = self._normalize_optional_string(binding_value.get("provider_name"))
+            resource_type = self._normalize_optional_string(binding_value.get("resource_type"))
+            if not resource_id and not provider_name:
+                continue
+            provider_resource = await self._find_provider_resource_by_reference(
+                db,
+                resource_id or provider_name,
+            )
+            if resource_type == "provider" and not provider_resource:
+                reference = resource_id or provider_name
+                raise BadRequestException(f"provider resource `{reference}` does not exist")
+            if not provider_resource:
+                continue
+            if not bool(getattr(provider_resource, "enabled", True)):
+                reference = resource_id or provider_name
+                raise BadRequestException(f"provider resource `{reference}` is disabled")
+
+    async def _resolve_runtime_resource_bindings(
+        self,
+        db: AsyncSession,
+        raw_value: Any,
+    ) -> Any:
+        if not isinstance(raw_value, dict):
+            return raw_value
+        result: dict[str, Any] = {}
+        for slot_key, binding_value in raw_value.items():
+            result[slot_key] = await self._resolve_runtime_resource_binding_item(
+                db,
+                slot_key=slot_key,
+                raw_value=binding_value,
+            )
+        return result
+
+    async def _resolve_runtime_resource_binding_item(
+        self,
+        db: AsyncSession,
+        *,
+        slot_key: str,
+        raw_value: Any,
+    ) -> Any:
+        if isinstance(raw_value, str):
+            resource = await self._find_provider_resource_by_reference(db, raw_value)
+            if resource:
+                if not bool(getattr(resource, "enabled", True)):
+                    raise BadRequestException(f"AI pipeline provider resource `{raw_value}` is disabled")
+                return self._build_provider_runtime_binding(slot_key, resource)
+            return raw_value
+        if not isinstance(raw_value, dict):
+            return raw_value
+
+        resource_id = self._normalize_optional_string(raw_value.get("resource_id"))
+        provider_name = self._normalize_optional_string(raw_value.get("provider_name"))
+        if resource_id or provider_name:
+            resource = await self._find_provider_resource_by_reference(
+                db,
+                resource_id or provider_name,
+            )
+            if resource:
+                if not bool(getattr(resource, "enabled", True)):
+                    reference = resource_id or provider_name
+                    raise BadRequestException(f"AI pipeline provider resource `{reference}` is disabled")
+                merged = dict(raw_value)
+                merged.update(self._build_provider_runtime_binding(slot_key, resource))
+                return merged
+        return raw_value
+
+    def _binding_references_provider_resource(
+        self,
+        raw_value: Any,
+        resource,
+    ) -> bool:
+        if not isinstance(raw_value, dict):
+            return False
+        resource_id = self._normalize_optional_string(getattr(resource, "resource_id", None))
+        provider_name = self._normalize_optional_string(getattr(resource, "provider_name", None))
+        legacy_provider_key = f"provider:{provider_name}" if provider_name else None
+        for binding_value in raw_value.values():
+            if isinstance(binding_value, str):
+                candidate = self._normalize_optional_string(binding_value)
+                if candidate and candidate in {resource_id, provider_name, legacy_provider_key}:
+                    return True
+                continue
+            if not isinstance(binding_value, dict):
+                continue
+            candidate_resource_id = self._normalize_optional_string(binding_value.get("resource_id"))
+            candidate_provider_name = self._normalize_optional_string(binding_value.get("provider_name"))
+            if candidate_resource_id and candidate_resource_id in {resource_id, legacy_provider_key}:
+                return True
+            if candidate_provider_name and candidate_provider_name == provider_name:
+                return True
+        return False
+
+    def _build_provider_runtime_binding(
+        self,
+        slot_key: str,
+        resource,
+    ) -> dict[str, Any]:
+        return {
+            "slot_key": slot_key,
+            "resource_type": "provider",
+            "resource_id": getattr(resource, "resource_id", None),
+            "provider_name": getattr(resource, "provider_name", None),
+            "display_name": getattr(resource, "display_name", None),
+            "role": getattr(resource, "role", None),
+            "kind": getattr(resource, "kind", None),
+            "model": getattr(resource, "model", None),
+            "provider_config": {
+                "kind": getattr(resource, "kind", None),
+                "role": getattr(resource, "role", None),
+                "base_url": getattr(resource, "base_url", None),
+                "api_key": getattr(resource, "api_key", None),
+                "model": getattr(resource, "model", None),
+                "timeout_seconds": float(getattr(resource, "timeout_seconds", 60) or 60),
+                "temperature": float(getattr(resource, "temperature", 0.0) or 0.0),
+                "max_tokens": int(getattr(resource, "max_tokens", 1024) or 1024),
+                "extra_headers": crud.load_json_value(getattr(resource, "extra_headers_json", None)) or {},
+                "extra": crud.load_json_value(getattr(resource, "extra_json", None)) or {},
+            },
+        }
 
     async def _list_legacy_assist_descriptors(
         self,

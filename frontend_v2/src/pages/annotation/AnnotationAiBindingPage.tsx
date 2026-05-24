@@ -28,11 +28,13 @@ import {
   getAiPipelineTemplateDetail,
   listAiPipelineBindings,
   listAiPipelineModelResources,
+  listAiPipelineProviderResources,
   listAiPipelineTemplates,
   updateAiPipelineBinding,
 } from '../../api/aiPipeline';
 import type {
   AiPipelineBindingResponse,
+  AiPipelineProviderResourceOption,
   AiPipelineTemplateDetail,
   AiPipelineTemplateListItem,
   AnnotationProject,
@@ -76,6 +78,7 @@ const AnnotationAiBindingPage: React.FC = () => {
   const [templates, setTemplates] = React.useState<AiPipelineTemplateListItem[]>([]);
   const [bindings, setBindings] = React.useState<AiPipelineBindingResponse[]>([]);
   const [modelResources, setModelResources] = React.useState<ReturnType<typeof listAiPipelineModelResources> extends Promise<infer T> ? T : never>([]);
+  const [providerResources, setProviderResources] = React.useState<AiPipelineProviderResourceOption[]>([]);
   const [editingBinding, setEditingBinding] = React.useState<AiPipelineBindingResponse | null>(null);
   const [selectedTemplateDetail, setSelectedTemplateDetail] = React.useState<AiPipelineTemplateDetail | null>(null);
   const [templateLoading, setTemplateLoading] = React.useState(false);
@@ -85,7 +88,7 @@ const AnnotationAiBindingPage: React.FC = () => {
     if (!annotationId || Number.isNaN(annotationNumericId)) return;
     setLoading(true);
     try {
-      const [annotation, templatePage, bindingPage, models] = await Promise.all([
+      const [annotation, templatePage, bindingPage, models, providers] = await Promise.all([
         getAnnotation(annotationNumericId),
         listAiPipelineTemplates({ page: 1, page_size: 100, scene_type: 'assist_annotation' }),
         listAiPipelineBindings({
@@ -95,11 +98,13 @@ const AnnotationAiBindingPage: React.FC = () => {
           binding_target_id: annotationNumericId,
         }),
         listAiPipelineModelResources(true),
+        listAiPipelineProviderResources(),
       ]);
       setProject(annotation);
       setTemplates((templatePage?.items ?? []).filter((item) => item.status !== 'disabled'));
       setBindings(bindingPage?.items ?? []);
       setModelResources(models);
+      setProviderResources(providers);
     } catch (error) {
       console.error('failed to load annotation ai binding page', error);
       message.error('加载项目 AI Binding 配置失败');
@@ -181,6 +186,7 @@ const AnnotationAiBindingPage: React.FC = () => {
         values,
         getTemplateFormSchema(selectedTemplateDetail),
         modelResources,
+        providerResources,
       );
       setSaving(true);
       if (editingBinding) {
@@ -281,9 +287,19 @@ const AnnotationAiBindingPage: React.FC = () => {
                 <div className="body-text-sm" style={{ color: '#111' }}>{modelResources.length}</div>
               </div>
               <div>
+                <div className="caption-text" style={{ color: '#888' }}>可选 Provider 资源</div>
+                <div className="body-text-sm" style={{ color: '#111' }}>{providerResources.length}</div>
+              </div>
+              <div>
                 <div className="caption-text" style={{ color: '#888' }}>模板定义入口</div>
                 <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/ai-pipeline')}>
                   前往平台模板管理
+                </Button>
+              </div>
+              <div>
+                <div className="caption-text" style={{ color: '#888' }}>Provider 资源入口</div>
+                <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/ai-pipeline/providers')}>
+                  前往 Provider 资源管理
                 </Button>
               </div>
             </Space>
@@ -412,6 +428,7 @@ const AnnotationAiBindingPage: React.FC = () => {
               runtimeFields={selectedSchema.runtime_inputs ?? []}
               resourceFields={selectedSchema.resource_slots ?? []}
               modelResources={modelResources}
+              providerResources={providerResources}
             />
           )}
 

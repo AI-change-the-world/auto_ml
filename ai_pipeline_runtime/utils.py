@@ -4,6 +4,7 @@ import base64
 import json
 from pathlib import Path
 from typing import Any
+from urllib.request import urlopen
 
 from models import ImagePayload
 
@@ -35,6 +36,9 @@ def strip_data_url_prefix(data: str) -> str:
 def load_image_bytes(payload: ImagePayload) -> bytes:
     if payload.path:
         return Path(payload.path).expanduser().read_bytes()
+    if payload.url:
+        with urlopen(payload.url) as response:
+            return response.read()
     if not payload.base64_data:
         raise ValueError("image payload is empty")
     return base64.b64decode(strip_data_url_prefix(payload.base64_data))
