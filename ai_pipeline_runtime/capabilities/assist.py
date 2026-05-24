@@ -24,6 +24,12 @@ from .overlay import (
             "key": "prompt",
             "label": "提示词",
             "widget": "textarea",
+            "default_value": (
+                "这是辅助标注任务。请先生成白框叠图，再根据叠图恢复结构化标注；"
+                "如果结果不稳定，优先返回最可靠的标注，不要发散。\n"
+                "allowed_classes = {{classes_json}}\n"
+                "不要输出解释。"
+            ),
         },
         {
             "key": "assist_min_annotation_count",

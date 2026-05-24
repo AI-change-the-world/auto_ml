@@ -20,6 +20,7 @@ from .base import Capability, ProviderResolver, capability_metadata
             "label": "提示词",
             "widget": "textarea",
             "description": "为空时使用默认图像描述提示词。",
+            "default_value": "请用中文简要描述图像中的主要对象、动作、场景和与标注有关的关键信息，保持简洁。",
         },
         {
             "key": "temperature",
@@ -57,7 +58,7 @@ class DescribeImageCapability(Capability):
         prompt = (
             payload.prompt
             or params.get("prompt")
-            or "Describe the image in Chinese. Focus on objects, actions, and annotation-relevant details."
+            or "请用中文简要描述图像中的主要对象、动作、场景和与标注有关的关键信息，保持简洁。"
         )
         summary = provider.generate_text(
             prompt=prompt,

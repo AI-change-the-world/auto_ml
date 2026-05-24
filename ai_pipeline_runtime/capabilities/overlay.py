@@ -1,14 +1,63 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 from models import AnnotationItem, AnnotationResult, OverlayRenderResult, TaskPayload
 from ocr import OCRTextLine, RapidOCRService
 from utils import image_size, load_cv2_image, require_cv2
-from .base import AnnotationNormalizationMixin, BoxTuple, Capability, ProviderResolver, capability_metadata
+from .base import (
+    AnnotationNormalizationMixin,
+    BoxTuple,
+    Capability,
+    ProviderResolver,
+    capability_metadata,
+    render_prompt_template,
+)
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_RENDER_PROMPT_TEMPLATE = (
+    "图像尺寸是 {{width}}x{{height}}。请生成白框叠图，只返回编辑后的图片。\n"
+    "allowed_classes = {{classes_json}}\n"
+    "规则：\n"
+    "1. 只标注 clearly 属于 allowed_classes 的目标。\n"
+    "2. 保留原始场景，不要替换背景，不要生成空白图。\n"
+    "3. 每个标注都用纯白色矩形框 #FFFFFF 覆盖在原图上。\n"
+    "4. 每个框附近放一个纯白色类别标签，优先放在左上角或框上方。\n"
+    "5. 标签文字必须严格来自 allowed_classes 中的一个值。\n"
+    "6. 不要添加图例、解释、水印、箭头、mask 或装饰性标记。\n"
+    "7. 无法明确归类的目标不要标注。\n"
+    "8. 框重叠时仍然分别绘制每个可见框。\n"
+    "只返回编辑后的图片。"
+)
+
+DEFAULT_UNDERSTAND_PROMPT_TEMPLATE = (
+    "图像尺寸是 {{width}}x{{height}}。这是一张在原始图像上叠加了纯白色标注框和纯白色类别文字的结果图。\n"
+    "allowed_classes = {{classes_json}}\n"
+    "请根据白色矩形框和离框最近的白色标签文字，还原结构化标注，只返回 JSON。\n"
+    "规则：\n"
+    "1. 一个白色矩形框对应一个 annotation。\n"
+    "2. label 只能从 allowed_classes 中选。\n"
+    "3. 如果多个框重叠，仍然要把每个可见框单独返回。\n"
+    "4. label_anchor 是图中该标签文字实际所在的大致位置，必须靠近对应框。\n"
+    "5. 如果某段文字无法明确归属某个框，不要强行关联。\n"
+    "JSON schema:\n"
+    "{\n"
+    '  "annotations": [\n'
+    "    {\n"
+    '      "label": "class-name",\n'
+    '      "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0},\n'
+    '      "label_anchor": {"x": 0, "y": 0},\n'
+    '      "confidence": 0.0\n'
+    "    }\n"
+    "  ],\n"
+    '  "summary": "optional short summary"\n'
+    "}\n"
+    "不要输出 markdown，不要解释。"
+)
 
 
 @capability_metadata(
@@ -25,6 +74,7 @@ logger = logging.getLogger(__name__)
             "label": "编辑提示词",
             "widget": "textarea",
             "description": "为空时自动生成白框叠图提示词。",
+            "default_value": DEFAULT_RENDER_PROMPT_TEMPLATE,
         },
         {
             "key": "size",
@@ -73,12 +123,18 @@ class RenderWhiteAnnotationOverlayCapability(Capability):
             raise ValueError("render_white_annotation_overlay requires non-empty `classes`")
 
         provider = context.resolve_provider(provider_name, role="image_edit")
-        edit_prompt = payload.prompt or params.get("prompt")
-        image_dimensions: dict[str, int] | None = None
-        if edit_prompt is None:
-            width, height = image_size(image)
-            image_dimensions = {"width": width, "height": height}
+        width, height = image_size(image)
+        image_dimensions: dict[str, int] = {"width": width, "height": height}
+        edit_prompt_template = payload.prompt or params.get("prompt")
+        if edit_prompt_template is None:
             edit_prompt = self._build_edit_prompt(width, height, classes)
+        else:
+            edit_prompt = render_prompt_template(
+                str(edit_prompt_template),
+                width=width,
+                height=height,
+                classes_json=json.dumps(classes, ensure_ascii=False),
+            )
         logger.info(
             "render_white_annotation_overlay classes=%s prompt=%s",
             classes,
@@ -136,6 +192,7 @@ class RenderWhiteAnnotationOverlayCapability(Capability):
             "key": "prompt",
             "label": "提示词",
             "widget": "textarea",
+            "default_value": DEFAULT_UNDERSTAND_PROMPT_TEMPLATE,
         },
         {
             "key": "json_mode",
@@ -211,7 +268,16 @@ class UnderstandWhiteAnnotationsCapability(AnnotationNormalizationMixin, Capabil
         provider = context.resolve_provider(provider_name, role="multimodal")
         width, height = image_size(image)
         classes = self._require_classes(payload, params)
-        prompt = payload.prompt or params.get("prompt") or self._build_overlay_prompt(width, height, classes)
+        prompt_template = payload.prompt or params.get("prompt")
+        if prompt_template is None:
+            prompt = self._build_overlay_prompt(width, height, classes)
+        else:
+            prompt = render_prompt_template(
+                str(prompt_template),
+                width=width,
+                height=height,
+                classes_json=json.dumps(classes, ensure_ascii=False),
+            )
         logger.info(
             "understand_white_annotations classes=%s prompt=%s",
             classes,

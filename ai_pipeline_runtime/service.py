@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -18,6 +19,8 @@ from config import ProviderConfig, RuntimeConfig
 from models import CapabilityDescriptor, ExecuteCapabilityRequest, PipelineDefinition, TaskPayload
 from pipeline import PipelineRunner
 from providers import BaseMultimodalProvider, ProviderRegistry
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -51,12 +54,24 @@ class ServiceExecutionContext:
             slot_value = resource_bindings.get(slot_key)
             provider_name = self._read_provider_name(slot_value)
             if provider_name:
+                logger.info(
+                    "Resolved provider from params role=%s slot=%s provider=%s",
+                    role,
+                    slot_key,
+                    provider_name,
+                )
                 return provider_name
 
         for slot_value in resource_bindings.values():
             provider_name = self._read_provider_name(slot_value)
             if provider_name:
+                logger.info(
+                    "Resolved provider from params role=%s provider=%s",
+                    role,
+                    provider_name,
+                )
                 return provider_name
+        logger.info("No provider override found in params role=%s", role)
         return None
 
     def _read_provider_name(self, value: Any) -> str | None:
@@ -111,6 +126,7 @@ class ServiceExecutionContext:
         resource_bindings = params.get("resource_bindings")
         if not isinstance(resource_bindings, dict):
             return
+        loaded_providers: list[str] = []
         for binding in resource_bindings.values():
             if not isinstance(binding, dict):
                 continue
@@ -121,6 +137,12 @@ class ServiceExecutionContext:
             self.provider_overrides[provider_name] = ProviderRegistry.build_provider(
                 provider_name,
                 ProviderConfig.model_validate(provider_config),
+            )
+            loaded_providers.append(provider_name)
+        if loaded_providers:
+            logger.info(
+                "Loaded provider overrides from params providers=%s",
+                sorted(set(loaded_providers)),
             )
 
 
@@ -138,7 +160,9 @@ class AutoAugmentService:
         self.pipeline_runner = PipelineRunner(self.execute_capability)
 
     def list_capabilities(self) -> list[CapabilityDescriptor]:
-        return [capability.describe() for capability in self.capabilities.values()]
+        descriptors = [capability.describe() for capability in self.capabilities.values()]
+        logger.debug("Capability catalog loaded count=%s", len(descriptors))
+        return descriptors
 
     def list_pipelines(self) -> list[PipelineDefinition]:
         return list(self.config.pipelines.values())
@@ -158,12 +182,26 @@ class AutoAugmentService:
             request.params,
             role=request.provider_role or "multimodal",
         )
-        return capability.execute(
+        logger.info(
+            "Execute capability start capability=%s provider=%s provider_role=%s input_keys=%s params_keys=%s",
+            capability_name,
+            provider_name,
+            request.provider_role or "multimodal",
+            sorted(request.input.model_dump(mode="json", warnings=False).keys()),
+            sorted((request.params or {}).keys()),
+        )
+        result = capability.execute(
             payload=request.input,
             params=dict(request.params),
             context=context,
             provider_name=provider_name,
         )
+        logger.info(
+            "Execute capability end capability=%s result_type=%s",
+            capability_name,
+            type(result).__name__,
+        )
+        return result
 
     def run_pipeline(
         self,
@@ -181,11 +219,25 @@ class AutoAugmentService:
             pipeline_definition = self.config.pipelines.get(name)
             if pipeline_definition is None:
                 raise ValueError(f"pipeline `{name}` is not configured")
-        return self.pipeline_runner.run_with_options(
+        logger.info(
+            "Run pipeline start pipeline=%s source=%s step_count=%s params_keys=%s",
+            pipeline_definition.name,
+            "inline_definition" if definition is not None else "configured_pipeline",
+            len(pipeline_definition.steps),
+            sorted((params or {}).keys()),
+        )
+        result = self.pipeline_runner.run_with_options(
             pipeline_definition,
             payload,
             params=params,
         )
+        logger.info(
+            "Run pipeline end pipeline=%s step_count=%s context_keys=%s",
+            pipeline_definition.name,
+            len(result.steps),
+            sorted(result.context.keys()),
+        )
+        return result
 
     def _build_capabilities(self) -> dict[str, Capability]:
         items: list[Capability] = [

@@ -19,6 +19,13 @@ def capability_metadata(**metadata: Any):
     return wrapper
 
 
+def render_prompt_template(template: str, **values: Any) -> str:
+    result = template
+    for key, value in values.items():
+        result = result.replace(f"{{{{{key}}}}}", str(value))
+    return result
+
+
 class ProviderResolver(Protocol):
     def resolve_provider(self, explicit_name: str | None = None, role: str = "multimodal") -> Any:
         ...

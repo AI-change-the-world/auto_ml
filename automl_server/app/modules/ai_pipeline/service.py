@@ -1,8 +1,11 @@
 """AI Pipeline service"""
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import BadRequestException, NotFoundException
@@ -78,6 +81,11 @@ class AiPipelineService:
         )
 
     async def list_capabilities(self) -> list[AiPipelineCapabilityItem]:
+        try:
+            return self._list_local_capabilities()
+        except Exception:
+            pass
+
         settings = get_settings()
         client = HttpClient(
             base_url=settings.ai_pipeline_runtime.base_url,
@@ -108,6 +116,46 @@ class AiPipelineService:
             for item in payload
             if isinstance(item, dict) and str(item.get("name") or "").strip()
         ]
+
+    def _list_local_capabilities(self) -> list[AiPipelineCapabilityItem]:
+        runtime_dir = Path(__file__).resolve().parents[4] / "ai_pipeline_runtime"
+        runtime_path = str(runtime_dir)
+        path_added = False
+        if runtime_path not in sys.path:
+            sys.path.insert(0, runtime_path)
+            path_added = True
+        try:
+            from capabilities import (  # type: ignore[import-not-found]
+                AssistAnnotationCapability,
+                DescribeImageCapability,
+                DraftAnnotationCapability,
+                DraftAnnotationPreviewCapability,
+                ExtractWhiteAnnotationsCapability,
+                OnnxDetectCapability,
+                RenderWhiteAnnotationOverlayCapability,
+                UnderstandWhiteAnnotationsCapability,
+            )
+
+            capabilities = [
+                DescribeImageCapability(),
+                DraftAnnotationCapability(),
+                OnnxDetectCapability(),
+                DraftAnnotationPreviewCapability(),
+                RenderWhiteAnnotationOverlayCapability(),
+                UnderstandWhiteAnnotationsCapability(),
+                ExtractWhiteAnnotationsCapability(),
+                AssistAnnotationCapability(),
+            ]
+            return [
+                self._build_capability_item(item.describe().model_dump())
+                for item in capabilities
+            ]
+        finally:
+            if path_added:
+                try:
+                    sys.path.remove(runtime_path)
+                except ValueError:
+                    pass
 
     async def create_template(
         self,
@@ -404,12 +452,19 @@ class AiPipelineService:
         db: AsyncSession,
         binding_id: int,
     ) -> dict[str, Any] | None:
+        logger.info("Building AI pipeline binding execution context binding_id={}", binding_id)
         binding = await crud.get_binding_by_id(db, binding_id)
         if not binding:
+            logger.warning("AI pipeline binding {} not found", binding_id)
             return None
 
         template = await crud.get_template_by_id(db, binding.template_id)
         if not template:
+            logger.warning(
+                "AI pipeline binding {} skipped because template {} not found",
+                binding_id,
+                binding.template_id,
+            )
             return None
 
         version = await crud.get_template_version(
@@ -418,15 +473,42 @@ class AiPipelineService:
             version=binding.template_version,
         )
         if not version:
+            logger.warning(
+                "AI pipeline binding {} skipped because template version {} not found",
+                binding_id,
+                binding.template_version,
+            )
             return None
 
         descriptor = self._build_legacy_assist_descriptor(template, version)
         if descriptor is None:
+            logger.warning(
+                "AI pipeline binding {} skipped because template {} version {} is not assist pipeline",
+                binding_id,
+                template.template_key,
+                binding.template_version,
+            )
             return None
 
+        definition_json = crud.load_json_value(getattr(version, "definition_json", None))
+        form_schema_json = crud.load_json_value(getattr(version, "form_schema_json", None))
+        merged_resource_bindings = self._merge_resource_bindings(
+            self._extract_template_default_resource_bindings(
+                definition_json=definition_json,
+                form_schema_json=form_schema_json,
+            ),
+            crud.load_json_value(binding.resource_bindings_json),
+        )
         runtime_resource_bindings = await self._resolve_runtime_resource_bindings(
             db,
-            crud.load_json_value(binding.resource_bindings_json),
+            merged_resource_bindings,
+        )
+        logger.info(
+            "Built AI pipeline binding execution context binding_id={} template_key={} template_version={} resource_slots={}",
+            binding.id,
+            template.template_key,
+            version.version,
+            sorted(runtime_resource_bindings.keys()) if isinstance(runtime_resource_bindings, dict) else [],
         )
 
         return {
@@ -437,7 +519,7 @@ class AiPipelineService:
             "template_key": template.template_key,
             "template_version": version.version,
             "template_name": template.name,
-            "definition_json": crud.load_json_value(getattr(version, "definition_json", None)),
+            "definition_json": definition_json,
             "runtime_input_defaults_json": crud.load_json_value(
                 binding.runtime_input_defaults_json
             ),
@@ -729,6 +811,11 @@ class AiPipelineService:
             return raw_value
         result: dict[str, Any] = {}
         for slot_key, binding_value in raw_value.items():
+            logger.debug(
+                "Resolving runtime resource binding slot={} value_type={}",
+                slot_key,
+                type(binding_value).__name__,
+            )
             result[slot_key] = await self._resolve_runtime_resource_binding_item(
                 db,
                 slot_key=slot_key,
@@ -748,6 +835,12 @@ class AiPipelineService:
             if resource:
                 if not bool(getattr(resource, "enabled", True)):
                     raise BadRequestException(f"AI pipeline provider resource `{raw_value}` is disabled")
+                logger.info(
+                    "Resolved runtime provider binding slot={} resource_id={} provider_name={}",
+                    slot_key,
+                    getattr(resource, "resource_id", None),
+                    getattr(resource, "provider_name", None),
+                )
                 return self._build_provider_runtime_binding(slot_key, resource)
             return raw_value
         if not isinstance(raw_value, dict):
@@ -766,6 +859,12 @@ class AiPipelineService:
                     raise BadRequestException(f"AI pipeline provider resource `{reference}` is disabled")
                 merged = dict(raw_value)
                 merged.update(self._build_provider_runtime_binding(slot_key, resource))
+                logger.info(
+                    "Resolved runtime provider binding slot={} resource_id={} provider_name={}",
+                    slot_key,
+                    getattr(resource, "resource_id", None),
+                    getattr(resource, "provider_name", None),
+                )
                 return merged
         return raw_value
 
@@ -822,6 +921,116 @@ class AiPipelineService:
                 "extra": crud.load_json_value(getattr(resource, "extra_json", None)) or {},
             },
         }
+
+    def _extract_template_default_resource_bindings(
+        self,
+        *,
+        definition_json: Any,
+        form_schema_json: Any,
+    ) -> dict[str, Any]:
+        items: dict[str, Any] = {}
+        form_schema = form_schema_json if isinstance(form_schema_json, dict) else {}
+        definition = definition_json if isinstance(definition_json, dict) else {}
+
+        raw_slots = form_schema.get("resource_slots")
+        if isinstance(raw_slots, list):
+            for slot in raw_slots:
+                if not isinstance(slot, dict):
+                    continue
+                slot_key = self._normalize_optional_string(slot.get("key"))
+                if not slot_key:
+                    continue
+                binding = self._normalize_template_default_resource_binding(
+                    slot_key=slot_key,
+                    slot_schema=slot,
+                )
+                if binding is not None:
+                    items[slot_key] = binding
+            if items:
+                return items
+
+        raw_slot_map = definition.get("resource_slots")
+        if not isinstance(raw_slot_map, dict):
+            return items
+        for slot_key, raw_slot in raw_slot_map.items():
+            normalized_key = self._normalize_optional_string(slot_key)
+            if not normalized_key or not isinstance(raw_slot, dict):
+                continue
+            binding = self._normalize_template_default_resource_binding(
+                slot_key=normalized_key,
+                slot_schema=raw_slot,
+            )
+            if binding is not None:
+                items[normalized_key] = binding
+        return items
+
+    def _normalize_template_default_resource_binding(
+        self,
+        *,
+        slot_key: str,
+        slot_schema: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        default_value = slot_schema.get("default_value")
+        if default_value is None:
+            return None
+
+        widget_props = slot_schema.get("widget_props")
+        widget_props_dict = widget_props if isinstance(widget_props, dict) else {}
+        resource_type = self._normalize_optional_string(
+            widget_props_dict.get("resource_type") or slot_schema.get("resource_type")
+        )
+        provider_role = self._normalize_optional_string(widget_props_dict.get("provider_role"))
+
+        if isinstance(default_value, dict):
+            binding = dict(default_value)
+            binding.setdefault("slot_key", slot_key)
+            if resource_type:
+                binding.setdefault("resource_type", resource_type)
+            if resource_type == "provider" and provider_role:
+                binding.setdefault("role", provider_role)
+            if "resource_id" not in binding:
+                return None
+            return binding
+
+        if isinstance(default_value, (int, float)) and int(default_value) > 0:
+            model_id = int(default_value)
+            return {
+                "slot_key": slot_key,
+                "resource_id": f"model:{model_id}",
+                "model_id": model_id,
+                "resource_type": resource_type,
+            }
+
+        resource_id = self._normalize_optional_string(default_value)
+        if not resource_id:
+            return None
+
+        binding: dict[str, Any] = {
+            "slot_key": slot_key,
+            "resource_id": resource_id,
+        }
+        if resource_type:
+            binding["resource_type"] = resource_type
+        if resource_type == "provider" and provider_role:
+            binding["role"] = provider_role
+        if resource_id.startswith("model:"):
+            model_id_text = resource_id.split(":", 1)[1].strip()
+            if model_id_text.isdigit():
+                binding["model_id"] = int(model_id_text)
+        return binding
+
+    def _merge_resource_bindings(
+        self,
+        template_defaults: Any,
+        binding_overrides: Any,
+    ) -> Any:
+        default_bindings = template_defaults if isinstance(template_defaults, dict) else {}
+        override_bindings = binding_overrides if isinstance(binding_overrides, dict) else {}
+        if not default_bindings:
+            return override_bindings or binding_overrides
+        merged = dict(default_bindings)
+        merged.update(override_bindings)
+        return merged
 
     async def _list_legacy_assist_descriptors(
         self,

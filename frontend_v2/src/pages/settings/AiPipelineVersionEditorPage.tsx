@@ -44,6 +44,7 @@ const buildVersionPayloadJson = (
     {
       label: item.label,
       required: item.required === true,
+      default_value: item.default_value,
       widget: 'resource-select',
       widget_props: (item as Record<string, unknown>).widget_props ?? {
         resource_type: (item as Record<string, unknown>).resource_type,
@@ -75,6 +76,7 @@ const buildVersionPayloadJson = (
         key: item.key,
         label: item.label,
         required: item.required === true,
+        default_value: item.default_value,
         widget: 'resource-select',
         value_type: 'resource_ref',
         widget_props: (item as Record<string, unknown>).widget_props ?? {

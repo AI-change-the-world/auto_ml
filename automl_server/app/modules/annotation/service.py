@@ -409,6 +409,16 @@ class AnnotationService:
             raise BadRequestException("annotation assist requires non-empty classes")
         selected_classes = self._normalize_target_classes(data.target_classes, classes)
         shape = (data.shape or "bbox").strip().lower()
+        logger.info(
+            "Assist annotation start annotation_id={} sample_item_id={} requested_pipeline_id={} requested_binding_id={} shape={} target_classes={} request_param_keys={}",
+            annotation_id,
+            data.sample_item_id,
+            data.pipeline_id,
+            data.binding_id,
+            shape,
+            selected_classes,
+            sorted((data.params or {}).keys()),
+        )
         resolved_pipeline = await self._resolve_assist_pipeline(
             db,
             ann,
@@ -470,14 +480,15 @@ class AnnotationService:
             "params": merged_params,
         }
         logger.info(
-            "Assist annotation request annotation_id=%s file=%s pipeline=%s binding_id=%s shape=%s classes=%s prompt=%s",
+            "Assist annotation request annotation_id={} file={} pipeline={} binding_id={} shape={} classes={} prompt_present={} prompt_length={}",
             annotation_id,
             file_name,
             pipeline.id,
             binding_context.get("binding_id") if binding_context else None,
             shape,
             selected_classes,
-            request_payload["input"]["prompt"],
+            bool(request_payload["input"]["prompt"]),
+            len(str(request_payload["input"]["prompt"] or "")),
         )
         try:
             rpc_payload = {
@@ -489,6 +500,13 @@ class AnnotationService:
                 definition_json = binding_context.get("definition_json")
                 if isinstance(definition_json, dict):
                     rpc_payload["definition"] = definition_json
+            logger.info(
+                "Assist annotation dispatch annotation_id={} pipeline={} binding_id={} rpc_payload_keys={}",
+                annotation_id,
+                pipeline.id,
+                binding_context.get("binding_id") if binding_context else None,
+                sorted(rpc_payload.keys()),
+            )
             payload = await asyncio.to_thread(
                 self.assist_rpc_client.call,
                 rpc_payload,
@@ -498,6 +516,12 @@ class AnnotationService:
             logger.error(f"Failed to call ai_pipeline_runtime by MQ: {exc}")
             raise BadRequestException(f"ai_pipeline_runtime unavailable: {exc}")
 
+        logger.info(
+            "Assist annotation pipeline response annotation_id={} pipeline={} payload_type={}",
+            annotation_id,
+            pipeline.id,
+            type(payload).__name__,
+        )
         result = self._extract_pipeline_annotation_result(payload, pipeline.id)
         raw_annotations = result.get("annotations", [])
         items = []
@@ -521,6 +545,15 @@ class AnnotationService:
                     "source": item.get("source"),
                 }
             )
+        logger.info(
+            "Assist annotation result annotation_id={} pipeline={} annotation_count={} image_width={} image_height={} has_debug={}",
+            annotation_id,
+            pipeline.id,
+            len(items),
+            int(result.get("image_width", 0) or 0),
+            int(result.get("image_height", 0) or 0),
+            isinstance(result.get("raw"), dict),
+        )
 
         return AnnotationAssistResponse(
             sample_item_id=sample_item.id,
@@ -552,6 +585,14 @@ class AnnotationService:
         requested_binding_id: Optional[int] = None,
     ) -> dict[str, Any]:
         pipelines = await self.list_assist_pipelines(db, ann.id, shape=shape)
+        logger.info(
+            "Resolving assist pipeline annotation_id={} shape={} requested_pipeline_id={} requested_binding_id={} candidate_count={}",
+            ann.id,
+            shape,
+            requested_pipeline_id,
+            requested_binding_id,
+            len(pipelines),
+        )
         if not pipelines:
             raise BadRequestException(f"no annotation assist pipeline supports shape `{shape}`")
 
@@ -572,6 +613,12 @@ class AnnotationService:
                 or binding_descriptor.get("id")
                 or ""
             ).strip() or None
+            logger.info(
+                "Assist binding context linked annotation_id={} binding_id={} binding_pipeline_id={}",
+                ann.id,
+                binding_context.get("binding_id"),
+                binding_pipeline_id,
+            )
 
         pipeline_id = requested_pipeline_id or binding_pipeline_id or getattr(ann, "assist_pipeline", None)
         if pipeline_id:
@@ -579,14 +626,33 @@ class AnnotationService:
             if matched:
                 if getattr(ann, "assist_pipeline", None) != matched.id:
                     await crud.update_annotation(db, ann.id, assist_pipeline=matched.id)
+                logger.info(
+                    "Assist pipeline resolved annotation_id={} pipeline_id={} source={} binding_id={}",
+                    ann.id,
+                    matched.id,
+                    "requested" if requested_pipeline_id else ("binding" if binding_pipeline_id == matched.id else "annotation"),
+                    binding_context.get("binding_id") if binding_context and binding_pipeline_id == matched.id else None,
+                )
                 return {
                     "pipeline": matched,
                     "binding_context": binding_context if binding_pipeline_id == matched.id else None,
                 }
+            logger.warning(
+                "Assist pipeline unsupported annotation_id={} pipeline_id={} shape={} available_pipeline_ids={}",
+                ann.id,
+                pipeline_id,
+                shape,
+                [item.id for item in pipelines],
+            )
             raise BadRequestException(f"annotation assist pipeline `{pipeline_id}` does not support current annotation shape")
 
         selected = pipelines[0]
         await crud.update_annotation(db, ann.id, assist_pipeline=selected.id)
+        logger.info(
+            "Assist pipeline auto-selected annotation_id={} pipeline_id={}",
+            ann.id,
+            selected.id,
+        )
         return {
             "pipeline": selected,
             "binding_context": binding_context if binding_pipeline_id == selected.id else None,
@@ -600,7 +666,18 @@ class AnnotationService:
     ) -> dict[str, Any] | None:
         binding_id = requested_binding_id or getattr(ann, "default_ai_pipeline_binding_id", None)
         if not binding_id:
+            logger.debug(
+                "No assist binding configured annotation_id={} requested_binding_id={}",
+                ann.id,
+                requested_binding_id,
+            )
             return None
+        logger.info(
+            "Loading assist binding context annotation_id={} binding_id={} source={}",
+            ann.id,
+            binding_id,
+            "requested" if requested_binding_id else "default",
+        )
         try:
             binding_context = await self.ai_pipeline_service.get_binding_execution_context(
                 db,
@@ -608,14 +685,22 @@ class AnnotationService:
             )
         except Exception as exc:
             logger.warning(
-                f"Failed to load annotation default AI pipeline binding {binding_id}: {exc}"
+                "Failed to load annotation AI pipeline binding {} for annotation {}: {}",
+                binding_id,
+                ann.id,
+                exc,
             )
             return None
         if not binding_context:
+            logger.warning(
+                "Empty assist binding context annotation_id={} binding_id={}",
+                ann.id,
+                binding_id,
+            )
             return None
         if binding_context.get("binding_type") != "annotation_project":
             logger.warning(
-                "Ignore AI pipeline binding %s for annotation %s due to binding_type=%s",
+                "Ignore AI pipeline binding {} for annotation {} due to binding_type={}",
                 binding_id,
                 ann.id,
                 binding_context.get("binding_type"),
@@ -623,12 +708,27 @@ class AnnotationService:
             return None
         if int(binding_context.get("binding_target_id") or 0) != int(ann.id):
             logger.warning(
-                "Ignore AI pipeline binding %s for annotation %s due to binding_target_id=%s",
+                "Ignore AI pipeline binding {} for annotation {} due to binding_target_id={}",
                 binding_id,
                 ann.id,
                 binding_context.get("binding_target_id"),
             )
             return None
+        logger.info(
+            "Loaded assist binding context annotation_id={} binding_id={} binding_type={} binding_target_id={} template_key={} template_version={} runtime_default_keys={} resource_binding_keys={}",
+            ann.id,
+            binding_id,
+            binding_context.get("binding_type"),
+            binding_context.get("binding_target_id"),
+            binding_context.get("template_key"),
+            binding_context.get("template_version"),
+            sorted((binding_context.get("runtime_input_defaults_json") or {}).keys())
+            if isinstance(binding_context.get("runtime_input_defaults_json"), dict)
+            else [],
+            sorted((binding_context.get("resource_bindings_json") or {}).keys())
+            if isinstance(binding_context.get("resource_bindings_json"), dict)
+            else [],
+        )
         return binding_context
 
     def _merge_assist_runtime_params(
@@ -640,17 +740,21 @@ class AnnotationService:
         selected_classes: list[str],
     ) -> dict[str, Any]:
         merged: dict[str, Any] = {}
+        runtime_default_keys: list[str] = []
+        binding_id = None
         if binding_context:
             runtime_defaults = binding_context.get("runtime_input_defaults_json")
             if isinstance(runtime_defaults, dict):
                 merged.update(runtime_defaults)
+                runtime_default_keys = sorted(runtime_defaults.keys())
 
             resource_bindings = binding_context.get("resource_bindings_json")
             if resource_bindings is not None:
                 merged["resource_bindings"] = resource_bindings
                 merged["ai_pipeline_resource_bindings"] = resource_bindings
 
-            merged["ai_pipeline_binding_id"] = binding_context.get("binding_id")
+            binding_id = binding_context.get("binding_id")
+            merged["ai_pipeline_binding_id"] = binding_id
             merged["ai_pipeline_template_key"] = binding_context.get("template_key")
             merged["ai_pipeline_template_version"] = binding_context.get("template_version")
 
@@ -658,6 +762,14 @@ class AnnotationService:
         merged["classes"] = selected_classes
         if ann.prompt and "prompt" not in merged:
             merged["prompt"] = ann.prompt
+        logger.info(
+            "Merged assist runtime params annotation_id={} binding_id={} default_keys={} request_keys={} final_keys={}",
+            ann.id,
+            binding_id,
+            runtime_default_keys,
+            sorted(request_params.keys()),
+            sorted(merged.keys()),
+        )
         return merged
 
     def _resolve_assist_prompt(
@@ -755,13 +867,33 @@ class AnnotationService:
         return selected
 
     def _extract_pipeline_annotation_result(self, payload: Any, pipeline_id: str) -> dict[str, Any]:
+        logger.info(
+            "Extracting pipeline annotation result pipeline_id={} payload_type={}",
+            pipeline_id,
+            type(payload).__name__,
+        )
         if not isinstance(payload, dict):
+            logger.warning(
+                "Pipeline annotation result payload is not dict pipeline_id={} payload_type={}",
+                pipeline_id,
+                type(payload).__name__,
+            )
             return {"annotations": [], "raw": {"pipeline_payload": payload}}
         if "annotations" in payload:
+            logger.info(
+                "Pipeline annotation result found at root pipeline_id={} keys={}",
+                pipeline_id,
+                sorted(payload.keys()),
+            )
             return payload
 
         context = payload.get("context")
         if not isinstance(context, dict):
+            logger.warning(
+                "Pipeline annotation result payload has no context pipeline_id={} keys={}",
+                pipeline_id,
+                sorted(payload.keys()),
+            )
             return {"annotations": [], "raw": {"pipeline_payload": payload}}
 
         candidate_keys = [
@@ -773,11 +905,28 @@ class AnnotationService:
         for key in candidate_keys:
             candidate = context.get(key)
             if isinstance(candidate, dict) and "annotations" in candidate:
+                logger.info(
+                    "Pipeline annotation result found in context pipeline_id={} candidate_key={} candidate_keys={}",
+                    pipeline_id,
+                    key,
+                    sorted(candidate.keys()),
+                )
                 return candidate
 
-        for candidate in reversed(list(context.values())):
+        for candidate_key, candidate in reversed(list(context.items())):
             if isinstance(candidate, dict) and "annotations" in candidate:
+                logger.info(
+                    "Pipeline annotation result fallback hit pipeline_id={} candidate_key={} candidate_keys={}",
+                    pipeline_id,
+                    candidate_key,
+                    sorted(candidate.keys()),
+                )
                 return candidate
+        logger.warning(
+            "Pipeline annotation result not found pipeline_id={} context_keys={}",
+            pipeline_id,
+            sorted(context.keys()),
+        )
         return {"annotations": [], "raw": {"pipeline_payload": payload}}
 
     async def _build_annotation_record_response(self, record) -> AnnotationRecordResponse:

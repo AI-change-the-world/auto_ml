@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Callable
 
 from models import (
@@ -9,6 +10,8 @@ from models import (
     StepExecutionResult,
     TaskPayload,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineRunner:
@@ -31,6 +34,12 @@ class PipelineRunner:
         context: dict[str, Any] = {"input": payload}
         step_results: list[StepExecutionResult] = []
         runtime_params = params or {}
+        logger.info(
+            "Pipeline run start pipeline=%s steps=%s params_keys=%s",
+            definition.name,
+            len(definition.steps),
+            sorted(runtime_params.keys()),
+        )
         scoped_param_keys = {
             "*",
             *(step.name for step in definition.steps),
@@ -50,6 +59,17 @@ class PipelineRunner:
             step_params.update(runtime_params.get(step.name, {}))
             step_params.update(runtime_params.get(step.capability, {}))
             step_params.update(runtime_params.get("*", {}))
+            logger.info(
+                "Pipeline step start pipeline=%s step=%s capability=%s provider=%s provider_role=%s input_key=%s context_mapping_keys=%s params_keys=%s",
+                definition.name,
+                step.name,
+                step.capability,
+                step.provider,
+                step.provider_role,
+                step.input_key,
+                sorted(step.context_mapping.keys()),
+                sorted(step_params.keys()),
+            )
             result = self._executor(
                 step.capability,
                 ExecuteCapabilityRequest(
@@ -68,7 +88,20 @@ class PipelineRunner:
                     output_key=output_key,
                 )
             )
+            logger.info(
+                "Pipeline step end pipeline=%s step=%s output_key=%s output_type=%s",
+                definition.name,
+                step.name,
+                output_key,
+                type(result).__name__,
+            )
 
+        logger.info(
+            "Pipeline run end pipeline=%s step_count=%s context_keys=%s",
+            definition.name,
+            len(step_results),
+            sorted(context.keys()),
+        )
         return PipelineRunResult(
             pipeline=definition.name,
             description=definition.description,

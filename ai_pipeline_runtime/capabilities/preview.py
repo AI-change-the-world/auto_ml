@@ -8,7 +8,7 @@ from models import AnnotationItem, AnnotationResult, TaskPayload
 from storage import upload_bytes_to_s3
 from utils import clamp, load_cv2_image, require_cv2
 from .base import Capability, ProviderResolver, capability_metadata
-from .draft import DraftAnnotationCapability
+from .draft import DEFAULT_DRAFT_PROMPT_TEMPLATE, DraftAnnotationCapability
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
             "key": "prompt",
             "label": "提示词",
             "widget": "textarea",
+            "default_value": DEFAULT_DRAFT_PROMPT_TEMPLATE,
         },
         {
             "key": "class_match_score",

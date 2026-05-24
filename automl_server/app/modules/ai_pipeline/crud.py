@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
@@ -463,7 +463,8 @@ async def list_model_resources(
         .where(*conditions)
         .order_by(
             AvailableModel.is_deployed.desc(),
-            AvailableModel.deployed_at.desc().nullslast(),
+            case((AvailableModel.deployed_at.is_(None), 1), else_=0),
+            AvailableModel.deployed_at.desc(),
             AvailableModel.created_at.desc(),
             AvailableModel.id.desc(),
         )

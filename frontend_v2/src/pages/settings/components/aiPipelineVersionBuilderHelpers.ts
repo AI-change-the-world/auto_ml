@@ -19,6 +19,7 @@ export interface StepFieldBinding {
   runtime_input_label?: string;
   resource_slot_key?: string;
   resource_slot_label?: string;
+  default_resource_id?: string;
 }
 
 export interface GraphNodePosition {
@@ -41,6 +42,7 @@ export interface VersionBuilderStepValue {
   provider?: string;
   provider_role?: string;
   provider_slot_key?: string;
+  provider_default_resource_id?: string;
   context_mapping?: Record<string, string>;
   field_bindings?: Record<string, StepFieldBinding>;
   position?: GraphNodePosition;
@@ -182,6 +184,7 @@ export const createStepFromCapability = (
     provider: undefined,
     provider_role: capability.provider_role || undefined,
     provider_slot_key: capability.requires_provider ? buildProviderSlotKey(capability.provider_role) : undefined,
+    provider_default_resource_id: undefined,
     context_mapping: {},
     field_bindings: buildDefaultFieldBindings(capability, baseKey),
     position: options?.position,
@@ -230,6 +233,23 @@ const findResourceSlotSchema = (
   resourceSlots: Array<AiPipelineResourceSlotSchema & Record<string, unknown>>,
   key: string,
 ) => resourceSlots.find((item) => item.key === key);
+
+const readResourceSlotDefaultValue = (
+  slotSchema?: (AiPipelineResourceSlotSchema & Record<string, unknown>) | undefined,
+) => {
+  const rawValue = slotSchema?.default_value;
+  if (typeof rawValue === 'string' && rawValue.trim()) {
+    return rawValue.trim();
+  }
+  if (typeof rawValue === 'object' && rawValue !== null && !Array.isArray(rawValue)) {
+    const rawObject = rawValue as Record<string, unknown>;
+    const resourceId = rawObject.resource_id;
+    if (typeof resourceId === 'string' && resourceId.trim()) {
+      return resourceId.trim();
+    }
+  }
+  return undefined;
+};
 
 const getStepNodeId = (stepId: string) => `node_${stepId}`;
 
@@ -545,6 +565,7 @@ export const deriveVersionPayloadFromSteps = (
           label: binding.resource_slot_label || field.label,
           value_type: 'resource_ref',
           required: field.required === true,
+          default_value: binding.default_resource_id || undefined,
           description: field.description || undefined,
           widget: 'resource-select',
           widget_props: {
@@ -571,6 +592,7 @@ export const deriveVersionPayloadFromSteps = (
         label: buildProviderSlotLabel(providerRole),
         value_type: 'resource_ref',
         required: true,
+        default_value: step.provider_default_resource_id || undefined,
         description: `Select provider resource for role ${providerRole || 'provider'}.`,
         widget: 'resource-select',
         widget_props: {
@@ -703,6 +725,7 @@ export const parseVersionBuilderStepsFromTemplate = (
             mode: 'resource_slot',
             resource_slot_key: slotKey,
             resource_slot_label: slotSchema?.label || field.label,
+            default_resource_id: readResourceSlotDefaultValue(slotSchema),
           };
           continue;
         }
@@ -723,6 +746,7 @@ export const parseVersionBuilderStepsFromTemplate = (
             mode: 'resource_slot',
             resource_slot_key: slotKey,
             resource_slot_label: slotSchema?.label || field.label,
+            default_resource_id: readResourceSlotDefaultValue(slotSchema),
           };
           continue;
         }
@@ -751,6 +775,9 @@ export const parseVersionBuilderStepsFromTemplate = (
         provider: typeof step.provider === 'string' ? step.provider : baseStep.provider,
         provider_role: providerRole || baseStep.provider_role,
         provider_slot_key: providerSlotKey || baseStep.provider_slot_key,
+        provider_default_resource_id: readResourceSlotDefaultValue(
+          providerSlotKey ? findResourceSlotSchema(resourceSlots, providerSlotKey) : undefined,
+        ),
         context_mapping: normalizeObject(step.context_mapping) as Record<string, string>,
         field_bindings: fieldBindings,
       };

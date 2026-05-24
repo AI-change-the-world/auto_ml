@@ -42,9 +42,12 @@ import {
   Tooltip,
   message,
 } from 'antd';
+import { listAiPipelineModelResources, listAiPipelineProviderResources } from '../../../api/aiPipeline';
 import type {
   AiPipelineCapabilityField,
   AiPipelineCapabilityItem,
+  AiPipelineModelResourceItem,
+  AiPipelineProviderResourceOption,
 } from '../../../types';
 import {
   applyGraphToSteps,
@@ -64,6 +67,7 @@ import {
   type VersionBuilderGraphValue,
   type VersionBuilderStepValue,
 } from './aiPipelineVersionBuilderHelpers';
+import ExpandableTextAreaField from './ExpandableTextAreaField';
 
 interface AiPipelineVersionBuilderProps {
   form: ReturnType<typeof Form.useForm<VersionBuilderFormValues>>[0];
@@ -175,7 +179,7 @@ const renderFixedValueInput = (
   const placeholder = field.placeholder || field.description || t('pipelineBuilder.enterField', { label: field.label });
   const widget = field.widget || field.value_type || 'text';
   if (widget === 'textarea') {
-    return <Input.TextArea rows={3} placeholder={placeholder} />;
+    return <ExpandableTextAreaField title={field.label} placeholder={placeholder} rows={3} />;
   }
   if (widget === 'number' || field.value_type === 'number') {
     return <InputNumber style={{ width: '100%' }} placeholder={placeholder} />;
@@ -202,6 +206,8 @@ const renderParameterBindingField = (
   field: AiPipelineCapabilityField,
   selectedStep: VersionBuilderStepValue,
   selectedStepIndex: number,
+  modelResources: AiPipelineModelResourceItem[],
+  providerResources: AiPipelineProviderResourceOption[],
   t: (key: string, options?: Record<string, unknown>) => string,
 ) => {
   const bindingPath = ['steps', selectedStepIndex, 'field_bindings', field.key] as (string | number)[];
@@ -246,10 +252,45 @@ const renderParameterBindingField = (
           <Form.Item label={t('pipelineBuilder.resourceSlotLabel')} name={[...bindingPath, 'resource_slot_label']}>
             <Input placeholder={field.label} />
           </Form.Item>
+          <Form.Item label={t('pipelineBuilder.defaultResource')} name={[...bindingPath, 'default_resource_id']}>
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('pipelineBuilder.defaultResourcePlaceholder')}
+              options={buildTemplateResourceOptions(field, modelResources, providerResources)}
+            />
+          </Form.Item>
         </>
       ) : null}
     </div>
   );
+};
+
+const buildTemplateResourceOptions = (
+  field: AiPipelineCapabilityField,
+  modelResources: AiPipelineModelResourceItem[],
+  providerResources: AiPipelineProviderResourceOption[],
+) => {
+  if (field.resource_type === 'provider') {
+    return providerResources
+      .filter((item) => !field.task_kind || item.role === field.task_kind)
+      .map((item) => ({
+        label: `${item.display_name}${item.model ? ` · ${item.model}` : ''}`,
+        value: item.resource_id,
+      }));
+  }
+
+  return modelResources
+    .filter((item) => {
+      if (field.deployed_only !== false && !item.is_deployed) return false;
+      if (field.task_kind && item.model_type && item.model_type !== field.task_kind && item.model_type !== 'detection') return false;
+      return true;
+    })
+    .map((item) => ({
+      label: `${item.display_name}${item.deployment_device ? ` · ${item.deployment_device}` : ''}`,
+      value: item.resource_id,
+    }));
 };
 
 const NodeShell: React.FC<React.PropsWithChildren<{
@@ -700,10 +741,36 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
   const [selectedNodeId, setSelectedNodeId] = React.useState<string>(getGraphInputNodeId());
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<BuilderNode>([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState<BuilderEdge>([]);
+  const [modelResources, setModelResources] = React.useState<AiPipelineModelResourceItem[]>([]);
+  const [providerResources, setProviderResources] = React.useState<AiPipelineProviderResourceOption[]>([]);
   const draggingCapabilityNameRef = React.useRef<string | null>(null);
   const lastFlowSyncSignatureRef = React.useRef('');
   const lastDragOverLogRef = React.useRef(0);
   const lastDropAtRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const loadResources = async () => {
+      const [modelsResult, providersResult] = await Promise.allSettled([
+        listAiPipelineModelResources(true),
+        listAiPipelineProviderResources(true),
+      ]);
+
+      if (modelsResult.status === 'fulfilled') {
+        setModelResources(modelsResult.value);
+      } else {
+        console.error('failed to load ai pipeline model resources', modelsResult.reason);
+        setModelResources([]);
+      }
+
+      if (providersResult.status === 'fulfilled') {
+        setProviderResources(providersResult.value);
+      } else {
+        console.error('failed to load ai pipeline provider resources', providersResult.reason);
+        setProviderResources([]);
+      }
+    };
+    void loadResources();
+  }, []);
 
   React.useEffect(() => {
     if (!watchedGraph) {
@@ -1284,6 +1351,30 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
               ) : null}
             </div>
 
+            {selectedCapability?.requires_provider && selectedStep.provider_slot_key ? (
+              <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12, marginBottom: 18 }}>
+                <Form.Item
+                  label={t('pipelineBuilder.providerDefaultResource')}
+                  name={['steps', selectedStepIndex, 'provider_default_resource_id']}
+                  extra={t('pipelineBuilder.providerDefaultResourceHint')}
+                  style={{ marginBottom: 0 }}
+                >
+                  <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    placeholder={t('pipelineBuilder.providerDefaultResourcePlaceholder')}
+                    options={providerResources
+                      .filter((item) => !selectedStep.provider_role || item.role === selectedStep.provider_role)
+                      .map((item) => ({
+                        label: `${item.display_name}${item.model ? ` · ${item.model}` : ''}`,
+                        value: item.resource_id,
+                      }))}
+                  />
+                </Form.Item>
+              </div>
+            ) : null}
+
             <div style={{ marginBottom: 18, display: 'grid', gap: 10 }}>
               <div style={{ border: `1px solid ${panelBorder}`, borderRadius: 6, padding: 12 }}>
                 <div className="caption-text" style={{ color: '#64748b', marginBottom: 8 }}>{t('pipelineBuilder.inputTypes')}</div>
@@ -1318,10 +1409,10 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
               <div>
                 <div className="card-title" style={{ marginBottom: 12 }}>{t('pipelineBuilder.parameterBindings')}</div>
                 {selectedParameterFields.primary.length > 0 ? (
-                  <div style={{ marginBottom: 8 }}>
-                    <div className="caption-text" style={{ color: '#64748b', marginBottom: 10 }}>{t('pipelineBuilder.primaryParameters')}</div>
-                    {selectedParameterFields.primary.map((field) => (
-                      renderParameterBindingField(field, selectedStep, selectedStepIndex, t)
+                    <div style={{ marginBottom: 8 }}>
+                      <div className="caption-text" style={{ color: '#64748b', marginBottom: 10 }}>{t('pipelineBuilder.primaryParameters')}</div>
+                      {selectedParameterFields.primary.map((field) => (
+                      renderParameterBindingField(field, selectedStep, selectedStepIndex, modelResources, providerResources, t)
                     ))}
                   </div>
                 ) : null}
@@ -1332,7 +1423,7 @@ const AiPipelineVersionBuilderInner: React.FC<AiPipelineVersionBuilderProps> = (
                       key: 'advanced-params',
                       label: t('pipelineBuilder.advancedParameters'),
                       children: selectedParameterFields.advanced.map((field) => (
-                        renderParameterBindingField(field, selectedStep, selectedStepIndex, t)
+                        renderParameterBindingField(field, selectedStep, selectedStepIndex, modelResources, providerResources, t)
                       )),
                     }]}
                   />
