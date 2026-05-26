@@ -339,6 +339,15 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+  
+  frontend:
+    image: automl-frontend:latest
+    container_name: frontend
+    restart: unless-stopped
+    depends_on:
+      - automl-server
+    ports:
+      - "3000:80"
 
   frontend:
     build:
