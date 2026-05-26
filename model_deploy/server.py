@@ -21,6 +21,7 @@ from utils.mq import get_mq_client
 from utils.runtime_env import ensure_runtime_dependencies, runtime_dependency_status
 
 SERVICE_NAME = "model-deploy"
+SERVICE_VERSION = "1.0.0"
 
 
 def wait_for_mq_ready():
@@ -98,6 +99,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Model Deploy Service",
     description="轻量级模型部署服务（基于 RabbitMQ）",
+    version=SERVICE_VERSION,
     lifespan=lifespan,
 )
 
@@ -209,7 +211,7 @@ async def health_check():
 
     return HealthResponse(
         status="healthy" if deps_ok else "unhealthy",
-        version="2.0.0",
+        version=SERVICE_VERSION,
         mq_connected=mq_connected,
         runtime_dependencies_ok=deps_ok,
         runtime_dependencies_error=None if deps_ok else deps_message,

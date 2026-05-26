@@ -1,77 +1,48 @@
 # Model Trainer Service
 
-轻量级模型训练服务，专门用于 YOLO 模型的训练。
-训练任务统一通过 RabbitMQ 下发，服务内部按并发限制消费执行。
+模型训练服务，作为可选插件式能力面向训练任务。当前主要支持 YOLO 系列的检测和分类，训练请求通过 RabbitMQ 下发，服务按配置并发执行并回传状态。
 
-## 架构特点
+## 服务特性
 
-- **独立服务**: 可单独部署，通过 HTTP API 或消息队列接收训练任务
-- **串行训练**: 单 GPU/CPU 场景下串行执行训练任务
-- **异步处理**: 训练任务在后台线程中执行，API 立即返回
-- **状态追踪**: 实时记录训练日志和进度到数据库
-- **模型上传**: 训练完成后自动上传模型到 S3
+- 独立部署：可通过 HTTP API 或消息队列接收训练任务
+- 异步执行：训练任务在后台线程中运行，API 立即返回
+- 并发控制：由部署配置控制同时执行的训练数
+- 状态追踪：实时记录训练日志和进度到数据库
+- 模型上传：训练完成后自动上传模型到 S3 / MinIO
 
-## 支持的模型类型
+## 当前支持
 
-1. **目标检测 (Detection)**: YOLOv8/v11 检测模型
-2. **图像分类 (Classification)**: YOLOv8/v11 分类模型
+1. 目标检测 (Detection): YOLOv8 / YOLOv11 检测模型
+2. 图像分类 (Classification): YOLOv8 / YOLOv11 分类模型
 
-## 快速开始
+## 扩展性
 
-### 本地运行
+- 训练入口和任务结构已预留，后续可接入分割、姿态、OBB 等任务类型
+- 模型适配层与数据处理逻辑分离，后续可扩展到其他训练后端
+- 任务参数、导出格式和标签规范可按新模型继续扩展
 
-```bash
-cd model_trainer
-pip install -r requirements.txt
+## 部署方式
 
-# 设置环境变量
-export DATABASE_URL="mysql+pymysql://user:password@localhost:3306/auto_ml"
-export S3_ACCESS_KEY="minioadmin"
-export S3_SECRET_KEY="minioadmin"
-export S3_ENDPOINT="http://localhost:9000"
-export S3_MODELS_BUCKET="auto-ml-models"
-export S3_DATASETS_BUCKET="auto-ml-datasets"
-
-# 启动服务
-export PORT=8081
-python server.py
-```
-
-### Docker 运行
+按需启用时启动该服务：
 
 ```bash
-# 构建镜像
-docker build -t model-trainer ./model_trainer
-
-# 运行容器
-docker run -d \
-  -p 8081:8080 \
-  -e DATABASE_URL="mysql+pymysql://user:password@host:3306/auto_ml" \
-  -e S3_ACCESS_KEY="minioadmin" \
-  -e S3_SECRET_KEY="minioadmin" \
-  -e S3_ENDPOINT="http://minio:9000" \
-  model-trainer
-```
-
-### Docker Compose
-
-```bash
-# 复制环境变量模板
-cp .env.example .env
-# 编辑 .env 文件配置你的环境变量
-
-# 启动所有服务
 docker-compose up -d model-trainer
 ```
+
+配置项见下表，通常由 `docker-compose.yml`、Nacos 或部署平台统一注入。
 
 ## API 接口
 
 ### 健康检查
+
+`/health` 会返回服务状态、并发信息和版本号，当前版本为 `1.0.0`。
+
 ```bash
 GET /health
 ```
 
 ### MQ 训练任务
+
 ```bash
 {
   "task_id": 1,
@@ -165,18 +136,30 @@ model_trainer/
 └── Dockerfile
 ```
 
-## 环境变量
+## 配置项
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| DATABASE_URL | 数据库连接 URL | - |
 | S3_ACCESS_KEY | S3 Access Key | - |
 | S3_SECRET_KEY | S3 Secret Key | - |
 | S3_ENDPOINT | S3 服务端点 | - |
-| S3_MODELS_BUCKET | 模型存储 Bucket | - |
 | S3_DATASETS_BUCKET | 数据集 Bucket | - |
+| S3_MODELS_BUCKET | 模型存储 Bucket | - |
+| S3_ANNOTATIONS_BUCKET | 标注 Bucket | - |
+| RABBITMQ_HOST | RabbitMQ 主机 | localhost |
+| RABBITMQ_PORT | RabbitMQ 端口 | 5672 |
+| RABBITMQ_USER | RabbitMQ 用户名 | automl |
+| RABBITMQ_PASSWORD | RabbitMQ 密码 | automl123456 |
+| RABBITMQ_VHOST | RabbitMQ 虚拟主机 | / |
+| RABBITMQ_EXCHANGE | RabbitMQ Exchange | auto_ml_exchange |
+| RABBITMQ_EXCHANGE_TYPE | RabbitMQ Exchange 类型 | topic |
 | TRAINER_MAX_CONCURRENT | 最大并发训练数 | 1 |
 | TRAINER_TASK_QUEUE | 训练任务队列名 | trainer.task.queue |
 | TRAINER_TASK_ROUTING_KEY | 训练任务路由键 | trainer.task.submit |
+| USE_NACOS | 是否启用 Nacos | true |
+| NACOS_SERVER_ADDR | Nacos 地址 | 127.0.0.1:8848 |
+| NACOS_NAMESPACE | Nacos Namespace | public |
+| NACOS_DATA_ID | Nacos Data ID | AUTO_ML_CONFIG |
+| NACOS_GROUP | Nacos Group | AUTO_ML |
 | HOST | 服务监听地址 | 0.0.0.0 |
 | PORT | 服务端口 | 8081 |

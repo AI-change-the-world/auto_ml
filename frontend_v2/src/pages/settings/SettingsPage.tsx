@@ -22,6 +22,10 @@ type HealthResponse = {
   service: string;
   version?: string;
   modules?: Partial<Record<'dataset_mgmt' | 'annotation_mgmt' | 'train_task' | 'model_deploy' | 'predict_service' | 'user_mgmt', ModuleState>>;
+  dependencies?: Partial<Record<'model_trainer' | 'model_deploy' | 'ai_pipeline_runtime', {
+    status: ModuleState;
+    version?: string | null;
+  }>>;
 };
 
 const getConfiguredApiBaseUrl = () => {
@@ -37,7 +41,7 @@ const SettingsPage: React.FC = () => {
   const { t } = useTranslation('settings');
   const tc = useTranslation('common').t;
   const [backendVersion, setBackendVersion] = useState<string>('-');
-  const [platformName, setPlatformName] = useState<string>('AutoML Platform');
+  const [platformName, setPlatformName] = useState<string>('AutoML Studio');
   const [datasetDeleteConfirmEnabled, setDatasetDeleteConfirmEnabledState] = useState(true);
   const [annotationDeleteConfirmEnabled, setAnnotationDeleteConfirmEnabledState] = useState(true);
   const [taskDeleteConfirmEnabled, setTaskDeleteConfirmEnabledState] = useState(true);
@@ -50,6 +54,7 @@ const SettingsPage: React.FC = () => {
     predict_service: 'enabled',
     user_mgmt: 'disabled',
   });
+  const [dependencyMap, setDependencyMap] = useState<NonNullable<HealthResponse['dependencies']>>({});
 
   const modules = [
     { key: 'dataset_mgmt', name: t('datasetMgmt') },
@@ -59,6 +64,11 @@ const SettingsPage: React.FC = () => {
     { key: 'user_mgmt', name: t('userMgmt') },
     { key: 'predict_service', name: t('predictService') },
   ];
+  const dependencyRows = [
+    { key: 'model_trainer', label: t('trainTask') },
+    { key: 'model_deploy', label: t('modelDeploy') },
+    { key: 'ai_pipeline_runtime', label: t('aiPipelineRuntime') },
+  ] as const;
   const apiBaseUrl = getConfiguredApiBaseUrl();
 
   useEffect(() => {
@@ -73,17 +83,23 @@ const SettingsPage: React.FC = () => {
         const response = await apiClient.get<HealthResponse>('/health');
         if (!active) return;
         setBackendVersion(response.data.version || '-');
-        setPlatformName(response.data.service || 'AutoML Platform');
+        setPlatformName(response.data.service || 'AutoML Studio');
         if (response.data.modules) {
           setModuleStatusMap((prev) => ({
             ...prev,
             ...response.data.modules,
           }));
         }
+        if (response.data.dependencies) {
+          setDependencyMap((prev) => ({
+            ...prev,
+            ...response.data.dependencies,
+          }));
+        }
       } catch {
         if (!active) return;
         setBackendVersion('-');
-        setPlatformName('AutoML Platform');
+        setPlatformName('AutoML Studio');
       }
     };
 
@@ -129,7 +145,32 @@ const SettingsPage: React.FC = () => {
             <span className="body-text-sm" style={{ color: '#888' }}>{item.label}</span>
             <span className="body-text-sm" style={{ color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
           </div>
-        ))}
+          ))}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
+        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('serviceVersions')}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
+          {dependencyRows.map((item) => {
+            const detail = dependencyMap[item.key];
+            const version = detail?.version || '-';
+            const status = detail?.status || 'unavailable';
+            const versionText = version === '-' ? '-' : `v${version}`;
+            return (
+              <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fafafa', borderRadius: 8 }}>
+                <span className="body-text-sm" style={{ color: '#555' }}>{item.label}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="body-text-sm" style={{ color: '#111', fontFamily: 'monospace' }}>{versionText}</span>
+                  {status === 'enabled' ? (
+                    <span className="caption-text" style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>{tc('status.enabled')}</span>
+                  ) : (
+                    <span className="caption-text" style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>{tc('status.notAvailable')}</span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>

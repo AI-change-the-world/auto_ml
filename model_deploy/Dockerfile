@@ -26,7 +26,7 @@ COPY . .
 RUN mkdir -p logs models
 
 # 暴露端口
-EXPOSE 8080
+EXPOSE 8082
 
 # 启动命令
 CMD ["python", "server.py"]

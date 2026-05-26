@@ -1,439 +1,167 @@
+# AutoML Studio
+
+A platform for multi-modal dataset management, annotation, training, deployment, and AI-assisted labeling. It covers image, text, multimodal conversation, and preference labeling scenarios.
+
 <div align="center">
-  <img src="./readme/icon_v2.png" width="300" height="300">
+  <img src="./readme/icon_v2.png" width="220" alt="AutoML Studio" />
 </div>
 
-<p align="center">📘 Other Language Versions</p>
-<p align="center">
-  <a href="README_en.md">English</a> | <a href="README.md">简体中文</a>
-</p>
+## Platform Scope
 
-<p align="center">
-  <strong>All-in-One Computer Vision AutoML Platform</strong>
-</p>
+- Dataset management for image, text, and multimodal conversation data
+- Annotation workbenches for detection, classification, segmentation, pose, LLM/MLLM conversation, and DPO preference labeling
+- Training services, currently focused on YOLO detection and classification
+- Deployment services, currently focused on ONNX model serving and inference
+- AI-assisted annotation capabilities for scene understanding, draft labeling, and white-overlay extraction
 
-<p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-quick-start">Quick Start</a> •
-  <a href="#-project-structure">Project Structure</a> •
-  <a href="#-development-guide">Development Guide</a>
-</p>
+## Pluggable Services
 
----
+`model_trainer`, `model_deploy`, and `ai_pipeline_runtime` are optional extension services. They do not have to run alongside the core platform, and can be enabled on demand as new training backends, inference backends, or AI capabilities are added.
 
-## 📖 Introduction
+## Components
 
-AutoML is an open-source end-to-end computer vision platform that provides a complete workflow from **data management**, **image annotation**, **model training** to **model deployment**. Built with a modern microservices architecture and visual interface, AutoML makes AI model development simple and efficient.
+- `frontend_v2`: React + TypeScript frontend, Vite dev server, default port `3000`
+- `automl_server`: main API service that orchestrates datasets, annotations, tasks, deployments, and AI pipelines, default port `45678`
+- `model_trainer`: optional training service, default port `8081`
+- `model_deploy`: optional deployment service, default port `8082`
+- `ai_pipeline_runtime`: optional AI capability runtime, default port `8010`
+- Infrastructure: MySQL, MinIO, RabbitMQ, Nacos
 
-**Key Advantages:**
-- 🎯 **Full Process Coverage**: Dataset Management → Annotation → Training → Deployment, all in one place
-- 🏷️ **Professional Annotation Tool**: Supports BBox, OBB (Oriented Bounding Box), Polygon, and more
-- 🚀 **Microservices Architecture**: Distributed architecture based on Docker + RabbitMQ + Nacos, easy to scale
-- 💾 **Object Storage Integration**: Supports MinIO/S3 storage for efficient management of large-scale datasets and models
-- 🌐 **Modern Frontend**: React 19 + TypeScript + Ant Design 6, smooth user experience
-- 🔌 **Plugin Design**: Independent training and deployment services, flexible extensibility
-- 🤖 **AI-Assisted Annotation**: Integrated AI Pipeline Runtime for intelligent annotation generation and extraction
+## Architecture
 
----
+```mermaid
+flowchart TB
+    B[Browser] --> F[frontend_v2\n:3000]
+    F -->|/api| S[automl_server\n:45678]
 
-## ✨ Features
+    S --> DB[(MySQL)]
+    S --> M[(MinIO)]
+    S --> Q[(RabbitMQ)]
+    S --> N[(Nacos)]
+    S --> T[model_trainer\n:8081]
+    S --> D[model_deploy\n:8082]
+    S --> A[ai_pipeline_runtime\n:8010]
 
-### 📂 Dataset Management
-- Support for images, videos, text, and other data types
-- ZIP/TAR batch import for rapid dataset creation
-- S3/MinIO object storage for large-scale data management
-- Complete operations: preview, export, append, and more
-
-### 🏷️ Image Annotation
-- **BBox Annotation**: Standard bounding boxes for object detection
-- **OBB Annotation**: Rotated bounding boxes for oriented object detection
-- **Polygon Annotation**: Polygon annotations for instance segmentation
-- Annotation project management with custom classes
-- High-performance rendering engine based on Konva
-- Efficient annotation experience with undo/redo and keyboard shortcuts
-- Interactive annotation tutorial (Example Dataset)
-
-### 🤖 AI-Assisted Annotation
-- **Smart Annotation Generation**: Auto annotation drafts based on multimodal large models
-- **White Box Extraction**: OpenCV + RapidOCR intelligent extraction of overlay annotations
-- **Multimodal Understanding**: MLLM image understanding and annotation restoration
-- **Composable Capabilities**: Independent AI capability modules for flexible invocation
-- **Pipeline Orchestration**: Lightweight serial orchestration for multi-step processing
-
-### 🧪 Model Training
-- Support for mainstream object detection models like YOLO
-- Visual training task management
-- Real-time training log viewing
-- Base model library management
-- Asynchronous task scheduling based on RabbitMQ
-
-### ☁️ Model Deployment
-- One-click deployment of trained models
-- Dynamic port allocation for concurrent multi-model deployment
-- RESTful API inference endpoints
-- Model health checks and status monitoring
-- Hot load/unload without service restart
-
-### 🏠 Visual Dashboard
-- Statistics for datasets, annotations, and models
-- Recent activity tracking
-- Storage usage overview
-- Quick creation shortcuts
-
----
-
-## 🏗️ Architecture
-
-### System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Frontend (React + TypeScript)           │
-│                    http://localhost:5173                     │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP/REST
-┌────────────────────────▼────────────────────────────────────┐
-│                  AutoML Server (FastAPI)                     │
-│                    Port: 45678                               │
-│  ┌──────────┬──────────┬──────┬────────┬────────┐           │
-│  │ Dataset  │Annotation│ Task │ Deploy │  Home  │           │
-│  └──────────┴──────────┴──────┴────────┴────────┘           │
-└────┬──────────────┬──────────────┬──────────────────────────┘
-     │              │              │
-     ▼              ▼              ▼
-┌────────┐    ┌──────────┐   ┌──────────┐
-│ MySQL  │    │  MinIO   │   │ RabbitMQ │
-│  :3306 │    │  :9000   │   │  :5672   │
-└────────┘    └──────────┘   └────┬─────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │                           │
-          ┌─────────▼─────────┐      ┌─────────▼─────────┐
-          │  Model Trainer    │      │  Model Deploy     │
-          │  Port: 8081       │      │  Port: 8082       │
-          │                   │      │                   │
-          └───────────────────┘      └───────────────────┘
+    T --> Q
+    D --> Q
+    A --> Q
+    T --> N
+    D --> N
+    A --> N
 ```
 
-### Tech Stack
+## Repository Layout
 
-**Frontend**
-- React 19 + TypeScript
-- Vite 8 (Build Tool)
-- Ant Design 6 (UI Components)
-- React Router 7 (Routing)
-- Zustand (State Management)
-- Konva + React-Konva (Canvas Rendering)
-- i18next (Internationalization)
-- Axios (HTTP Client)
-
-**Backend**
-- Python 3.10+
-- FastAPI (Web Framework)
-- SQLAlchemy 2.0 + AsyncIO (Async ORM)
-- Uvicorn (ASGI Server)
-
-**Infrastructure**
-- MySQL 8.0 (Relational Database)
-- MinIO (Object Storage)
-- RabbitMQ (Message Queue)
-- Nacos (Configuration Center)
-- Docker & Docker Compose (Container Orchestration)
-
-**Microservices**
-- Model Trainer Service
-- Model Deploy Service
-- AI Pipeline Runtime (AI-Assisted Annotation Service)
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Docker** 20.10+ and **Docker Compose** 2.0+
-- **Node.js** 18+ (for frontend development)
-- **Python** 3.10+ (for backend development)
-- **Git** 2.0+
-
-### Option 1: One-Click Docker Start (Recommended)
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/your-org/auto_ml.git
-cd auto_ml
-
-# 2. Configure environment variables
-cp .env.example .env
-# Modify the .env file as needed
-
-# 3. Start all services
-docker-compose up -d
-
-# 4. Check service status
-docker-compose ps
-
-# 5. View logs
-docker-compose logs -f
-```
-
-After services are started, access:
-- **Frontend Dev Server**: `http://localhost:5173` (requires separate start, see Development Mode below)
-- **AutoML Server API**: `http://localhost:45678`
-- **API Docs (Swagger)**: `http://localhost:45678/swagger-ui`
-- **Model Trainer**: `http://localhost:8081`
-- **Model Deploy**: `http://localhost:8082`
-- **RabbitMQ Management**: `http://localhost:15672` (user: automl / automl123456)
-- **MinIO Console**: `http://localhost:9010` (user: minioadmin / minioadmin123)
-- **Nacos Console**: `http://localhost:8848`
-
-### Option 2: Development Mode
-
-#### 1. Start Infrastructure
-
-```bash
-# Start only database, message queue, object storage, etc.
-docker-compose up -d mysql rabbitmq minio nacos
-```
-
-#### 2. Start Frontend
-
-```bash
-cd frontend_v2
-
-# Install dependencies
-pnpm install
-
-# Start development server
-pnpm dev
-```
-
-The frontend will run at `http://localhost:5173` with proxy configured to forward to the backend.
-
-#### 3. Start Backend
-
-```bash
-cd automl_server
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Start server
-python run.py
-```
-
-The backend will run at `http://localhost:45678`.
-
-#### 4. Start Microservices (Optional)
-
-```bash
-# Model Trainer Service
-cd model_trainer
-pip install -r requirements.txt
-python server.py
-
-# Model Deploy Service
-cd model_deploy
-pip install -r requirements.txt
-python server.py
-```
-
----
-
-## 📁 Project Structure
-
-```
+```text
 auto_ml/
-├── frontend_v2/              # Frontend (React + TypeScript)
-│   ├── src/
-│   │   ├── api/             # API clients
-│   │   ├── pages/           # Page components
-│   │   │   ├── home/        # Dashboard
-│   │   │   ├── dataset/     # Dataset management
-│   │   │   ├── annotation/  # Annotation tool
-│   │   │   ├── task/        # Training tasks
-│   │   │   └── deploy/      # Model deployment
-│   │   ├── layouts/         # Layout components
-│   │   ├── stores/          # State management
-│   │   ├── types/           # TypeScript type definitions
-│   │   └── i18n/            # Internationalization
-│   └── package.json
-│
-├── automl_server/           # Main Server (FastAPI)
-│   ├── app/
-│   │   ├── modules/         # Business modules
-│   │   │   ├── dataset/     # Dataset module
-│   │   │   ├── annotation/  # Annotation module
-│   │   │   ├── task/        # Training task module
-│   │   │   ├── deploy/      # Deployment module
-│   │   │   └── home/        # Dashboard module
-│   │   ├── db/              # Database models
-│   │   ├── mq/              # RabbitMQ message handling
-│   │   ├── config/          # Configuration management
-│   │   └── common/          # Common utilities
-│   └── requirements.txt
-│
-├── model_trainer/           # Model Training Microservice
-│   ├── core/                # Training core logic
-│   ├── utils/               # Utilities
-│   └── server.py            # Service entry
-│
-├── model_deploy/            # Model Deployment Microservice
-│   ├── core/                # Deployment core logic
-│   ├── runtime/             # Model runtime
-│   ├── utils/               # Utilities
-│   └── server.py            # Service entry
-│
-├── ai_pipeline_runtime/     # AI-Assisted Annotation Service
-│   ├── capabilities.py      # Reusable AI capabilities (image description, annotation generation, white box extraction, etc.)
-│   ├── providers.py         # Model provider wrappers (OpenAI Compatible, Mock)
-│   ├── ocr.py               # RapidOCR integration and text normalization
-│   ├── pipeline.py          # Lightweight Pipeline orchestrator
-│   ├── config.py            # YAML/Nacos configuration management
-│   └── app.py               # FastAPI service entry
-│
-├── docker-compose.yml       # Docker Compose configuration
-├── mysql/init/              # Database initialization scripts
-├── nacos/                   # Nacos configuration
-└── readme/                  # Documentation images
+├── frontend_v2/
+├── automl_server/
+├── model_trainer/
+├── model_deploy/
+├── ai_pipeline_runtime/
+├── mysql/
+├── nacos/
+├── docker-compose.yml
+├── docker-compose.dev.yml
+└── .env.example
 ```
 
----
+## Requirements
 
-## 🛠️ Development Guide
+- Docker 20.10+
+- Docker Compose v2
+- Node.js `^20.19.0 || >=22.12.0`
+- Python 3.10+
+- pnpm `>=10`
 
-### Database Management
+## Quick Start
 
-Database initialization script is located at `mysql/init/01_init_automl.sql`, executed automatically on first container startup.
+### 1. Start the core platform
 
-To reset the database:
 ```bash
-docker-compose down -v
-docker-compose up -d mysql
+cp .env.example .env
+docker compose up -d
 ```
 
-### Configuration Management
+Endpoints:
 
-The project uses Nacos as the configuration center. Configuration files are located at `nacos/automl-config.yaml`.
+- Frontend: `http://localhost:3000`
+- Main API: `http://localhost:45678`
+- Swagger UI: `http://localhost:45678/swagger-ui`
+- Trainer: `http://localhost:8081`
+- Deploy: `http://localhost:8082`
+- AI runtime: `http://localhost:8010`
+- RabbitMQ: `http://localhost:15672`
+- MinIO: `http://localhost:9010`
+- Nacos: `http://localhost:8848`
 
-Main configuration items:
-- MySQL connection details
-- MinIO/S3 storage configuration
-- RabbitMQ message queue configuration
-- Microservice URL configuration
+Optional service endpoints are available only when those services are enabled.
 
-### API Documentation
+### 2. Local development
 
-Access Swagger UI after starting the service:
+```bash
+docker compose -f docker-compose.dev.yml up -d mysql rabbitmq minio nacos nacos-init
 ```
-http://localhost:45678/swagger-ui
-```
 
-### Frontend Development
+Frontend:
 
 ```bash
 cd frontend_v2
-
-# Install dependencies
 pnpm install
-
-# Start development server (with hot reload)
 pnpm dev
-
-# Build for production
-pnpm build
-
-# Lint code
-pnpm lint
 ```
 
-### Backend Development
+Main service:
 
 ```bash
 cd automl_server
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Start development server (with hot reload)
 python run.py
-
-# Or use uvicorn directly
-uvicorn app.main:app --reload --host 0.0.0.0 --port 45678
 ```
 
----
+Other services:
 
+- `model_trainer/server.py`
+- `model_deploy/server.py`
+- `ai_pipeline_runtime/app.py`
 
-## 🔧 Troubleshooting
+## Configuration
 
-### 1. Service Start Failure
+- Root [.env.example](./.env.example) is used by `docker-compose.yml`
+- `automl_server/.env.example` is for standalone backend runs
+- `frontend_v2/.env.example` is for frontend development/builds
+- `nacos/automl-config.yaml` is the Nacos config source
 
-Check Docker container status and logs:
-```bash
-docker-compose ps
-docker-compose logs <service-name>
-```
+## Docs
 
-### 2. Database Connection Error
+- [Main service architecture](./automl_server/ARCHITECTURE.md)
+- [Trainer service](./model_trainer/readme.md)
+- [Deploy service](./model_deploy/readme.md)
+- [AI runtime](./ai_pipeline_runtime/readme.md)
 
-Ensure MySQL container is running and healthy:
-```bash
-docker-compose exec mysql mysql -u automl -p auto_ml
-```
+## Database
 
-### 3. MinIO Access Issues
+- Initial schema: `mysql/init/01_init_automl.sql`
+- Migrations: `mysql/migrations/*.sql`
 
-Check MinIO Console at `http://localhost:9010` and confirm buckets are created:
-- `auto-ml-datasets`
-- `auto-ml-models`
-- `auto-ml-annotations`
+## Run Notes
 
-### 4. Frontend Cannot Connect to Backend
+- `docker-compose.yml` starts the core platform; optional services can be enabled on demand
+- `/api` is proxied from the frontend container to the main service
+- Runtime configuration is primarily provided by Nacos; `.env.example` files are for local development and container startup
+- Each service `/health` now returns version information; optional services currently use `1.0.0`
 
-Verify proxy configuration in `.env.development`:
-```
-VITE_API_BASE_URL=http://localhost:45678
-```
+## Acknowledgments
 
----
+This project is built on top of the following open-source projects:
 
-
-## 🤝 Contributing
-
-Contributions are welcome! Whether it's code, bug reports, or feature suggestions.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the [AGPL License](LICENSE).
-
----
-
-## 🙏 Acknowledgments
-
-Thanks to the following open-source projects:
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [React](https://react.dev/)
+- [Vite](https://vite.dev/)
 - [Ant Design](https://ant.design/)
 - [Konva](https://konvajs.org/)
-- [YOLO](https://github.com/ultralytics/ultralytics)
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
 - [RabbitMQ](https://www.rabbitmq.com/)
 - [MinIO](https://min.io/)
-
----
-
-<div align="center">
-  <strong>AutoML</strong> - Making Computer Vision Development Easier
-</div>
+- [Nacos](https://nacos.io/)
+- [Docker](https://www.docker.com/)

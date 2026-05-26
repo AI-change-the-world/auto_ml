@@ -20,6 +20,7 @@ from mq import RabbitMQRpcWorker, load_rabbitmq_config
 from service import AutoAugmentService
 
 configure_logging("ai_pipeline_runtime")
+SERVICE_VERSION = "1.0.0"
 
 
 def create_app() -> FastAPI:
@@ -56,12 +57,13 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="AI Pipeline Runtime",
+        version=SERVICE_VERSION,
         lifespan=lifespan,
     )
 
     @app.get("/health")
     async def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "version": SERVICE_VERSION}
 
     @app.get("/")
     async def root() -> dict[str, str]:

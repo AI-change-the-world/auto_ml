@@ -27,6 +27,7 @@ from utils.mq import (
 )
 
 SERVICE_NAME = "model-trainer"
+SERVICE_VERSION = "1.0.0"
 task_dispatcher: Optional["TrainingDispatcher"] = None
 consumer_stop_event = threading.Event()
 consumer_connection_lock = threading.RLock()
@@ -350,6 +351,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Model Trainer Service",
     description="轻量级 YOLO 模型训练服务（基于 RabbitMQ）",
+    version=SERVICE_VERSION,
     lifespan=lifespan,
 )
 
@@ -411,7 +413,7 @@ async def health_check():
 
     return HealthResponse(
         status="healthy",
-        version="2.0.0",
+        version=SERVICE_VERSION,
         mq_connected=mq_consumer_connected,
         mq_publish_connected=mq_publish_connected,
         mq_consumer_connected=mq_consumer_connected,

@@ -349,6 +349,23 @@ services:
     ports:
       - "3000:80"
 
+  frontend:
+    build:
+      context: ./frontend_v2
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    image: automl-frontend:latest
+    container_name: automl-frontend
+    restart: unless-stopped
+    depends_on:
+      automl-server:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    networks:
+      - auto-ml-network
+
   # =========================
   # AutoML 主服务
   # =========================

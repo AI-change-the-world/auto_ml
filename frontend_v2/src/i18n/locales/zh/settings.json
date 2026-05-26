@@ -5,6 +5,7 @@
     "version": "版本",
     "apiAddress": "API 地址",
     "backendProxy": "后端代理",
+    "serviceVersions": "子服务版本",
     "aiPipelineTitle": "AI Pipeline 模板",
     "aiPipelineDescription": "平台统一定义模板、版本和发布状态，项目侧只做 Binding 配置。",
     "aiPipelineAction": "进入模板管理",
@@ -13,6 +14,7 @@
     "annotationMgmt": "标注管理",
     "trainTask": "训练任务",
     "modelDeploy": "模型部署",
+    "aiPipelineRuntime": "AI Pipeline 运行时",
     "userMgmt": "用户管理",
     "predictService": "预测服务",
     "pipelineBuilder": {

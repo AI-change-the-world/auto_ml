@@ -1,466 +1,167 @@
-﻿<div align="center">
-  <img src="./readme/icon_v2.png" width="300" height="300">
-</div>
+# AutoML Studio
 
-<p align="center">📘 其他语言版本</p>
-<p align="center">
-  <a href="README_en.md">English</a> | <a href="README.md">简体中文</a>
-</p>
-
-<p align="center">
-  <strong>一站式计算机视觉 AutoML 平台</strong>
-</p>
-
-<p align="center">
-  <a href="#-功能特性">功能特性</a> •
-  <a href="#-技术架构">技术架构</a> •
-  <a href="#-快速开始">快速开始</a> •
-  <a href="#-项目结构">项目结构</a> •
-  <a href="#-开发指南">开发指南</a>
-</p>
-
----
-
-## 📖 项目简介
-
-AutoML 是一个开源的端到端计算机视觉平台，提供从**数据管理**、**图像标注**、**模型训练**到**模型部署**的完整工作流。平台采用现代化微服务架构，支持可视化操作，让 AI 模型开发变得简单高效。
-
-**核心优势：**
-- 🎯 **全流程覆盖**：数据集管理 → 标注 → 训练 → 部署，一站式完成
-- 🏷️ **专业标注工具**：支持 BBox、OBB 旋转框、Polygon 多边形等多种标注类型
-- 🚀 **微服务架构**：基于 Docker + RabbitMQ + Nacos 的分布式架构，易于扩展
-- 💾 **对象存储集成**：支持 MinIO/S3 存储，高效管理大规模数据集和模型
-- 🌐 **现代前端**：React 19 + TypeScript + Ant Design 6，流畅的用户体验
-- 🔌 **插件化设计**：训练和部署服务独立运行，支持灵活扩展
-- 🤖 **AI 辅助标注**：集成 AI Pipeline Runtime，支持智能标注生成与提取
-
----
-
-## ✨ 功能特性
-
-### 📂 数据集管理
-- 支持图像、视频、文本等多种数据类型
-- ZIP/TAR 批量导入，快速构建数据集
-- S3/MinIO 对象存储，支持大规模数据管理
-- 数据集预览、导出、追加等完整操作
-
-### 🏷️ 图像标注
-- **BBox 标注**：标准边界框标注，适用于目标检测
-- **OBB 标注**：旋转边界框，适用于倾斜目标检测
-- **Polygon 标注**：多边形标注，适用于实例分割
-- 标注项目管理，支持自定义类别
-- 基于 Konva 的高性能渲染引擎
-- 撤销/重做、快捷键等高效标注体验
-- 交互式标注教学（Example Dataset）
-
-### 🤖 AI 辅助标注
-- **智能标注生成**：基于多模态大模型的自动标注草稿
-- **白框标注提取**：OpenCV + RapidOCR 智能提取叠加标注
-- **多模态理解**：MLLM 图像理解与标注还原
-- **可组合能力**：独立 AI 能力模块，支持灵活调用
-- **Pipeline 编排**：轻量级串行编排，支持多步骤处理
-
-### 🧪 模型训练
-- 支持 YOLO 等主流目标检测模型
-- 可视化训练任务管理
-- 实时训练日志查看
-- 基础模型库管理
-- 基于 RabbitMQ 的异步任务调度
-
-### ☁️ 模型部署
-- 一键部署训练完成的模型
-- 动态端口分配，支持多模型并发部署
-- RESTful API 推理接口
-- 模型健康检查与状态监控
-- 热加载/卸载，无需重启服务
-
-### 🏠 可视化仪表盘
-- 数据集、标注、模型统计信息
-- 最近活动追踪
-- 存储使用情况
-- 快速创建入口
-
----
-
-## 🏗️ 技术架构
-
-### 系统架构图
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      前端 (React + TypeScript)               │
-│                    http://localhost:5173                     │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTP/REST
-┌────────────────────────▼────────────────────────────────────┐
-│                  AutoML Server (FastAPI)                     │
-│                    Port: 45678                               │
-│  ┌──────────┬──────────┬──────┬────────┬────────┐           │
-│  │ Dataset  │Annotation│ Task │ Deploy │  Home  │           │
-│  └──────────┴──────────┴──────┴────────┴────────┘           │
-└────┬──────────────┬──────────────┬──────────────┬───────────┘
-     │              │              │              │
-     ▼              ▼              ▼              ▼
-┌────────┐    ┌──────────┐   ┌──────────┐  ┌──────────────┐
-│ MySQL  │    │  MinIO   │   │ RabbitMQ │  │Auto Augment  │
-│  :3306 │    │  :9000   │   │  :5672   │  │  Port: 8010  │
-└────────┘    └──────────┘   └────┬─────┘  └──────────────┘
-                                  │
-                    ┌─────────────┴─────────────┐
-                    │                           │
-          ┌─────────▼─────────┐      ┌─────────▼─────────┐
-          │  Model Trainer    │      │  Model Deploy     │
-          │  Port: 8081       │      │  Port: 8082       │
-          │                   │      │                   │
-          └───────────────────┘      └───────────────────┘
-```
-
-### 技术栈
-
-**前端**
-- React 19 + TypeScript
-- Vite 8（构建工具）
-- Ant Design 6（UI 组件库）
-- React Router 7（路由管理）
-- Zustand（状态管理）
-- Konva + React-Konva（Canvas 渲染）
-- i18next（国际化）
-- Axios（HTTP 客户端）
-
-**后端**
-- Python 3.10+
-- FastAPI（Web 框架）
-- SQLAlchemy 2.0 + AsyncIO（异步 ORM）
-- Uvicorn（ASGI 服务器）
-
-**基础设施**
-- MySQL 8.0（关系型数据库）
-- MinIO（对象存储）
-- RabbitMQ（消息队列）
-- Nacos（配置中心）
-- Docker & Docker Compose（容器编排）
-
-**微服务**
-- Model Trainer Service（模型训练服务）
-- Model Deploy Service（模型部署服务）
-- AI Pipeline Runtime（AI 辅助标注服务）
-
----
-
-## 🚀 快速开始
-
-### 环境要求
-
-- **Docker** 20.10+ 和 **Docker Compose** 2.0+
-- **Node.js** 18+（前端开发）
-- **Python** 3.10+（后端开发）
-- **Git** 2.0+
-
-### 方式一：Docker 一键启动（推荐）
-
-```bash
-# 1. 克隆项目
-git clone https://github.com/your-org/auto_ml.git
-cd auto_ml
-
-# 2. 配置环境变量
-cp .env.example .env
-# 根据需要修改 .env 文件中的配置
-
-# 3. 启动所有服务
-docker-compose up -d
-
-# 4. 查看服务状态
-docker-compose ps
-
-# 5. 查看日志
-docker-compose logs -f
-```
-
-服务启动后访问：
-- **前端开发服务器**：`http://localhost:5173`（需单独启动，见下方开发模式）
-- **AutoML Server API**：`http://localhost:45678`
-- **API 文档 (Swagger)**：`http://localhost:45678/swagger-ui`
-- **Model Trainer**：`http://localhost:8081`
-- **Model Deploy**：`http://localhost:8082`
-- **RabbitMQ 管理界面**：`http://localhost:15672` (账号: automl / automl123456)
-- **MinIO 控制台**：`http://localhost:9010` (账号: minioadmin / minioadmin123)
-- **Nacos 控制台**：`http://localhost:8848`
-
-### 方式二：开发模式
-
-#### 1. 启动基础设施
-
-```bash
-# 启动数据库、消息队列、对象存储、Nacos 以及 Nacos 初始化
-docker-compose -f docker-compose.dev.yml up -d mysql rabbitmq minio nacos nacos-init
-```
-
-数据库变更约定：
-
-- 新库初始化统一来自 `mysql/init/01_init_automl.sql`
-- 已有库升级统一通过 `mysql/migrations/*.sql` 手动执行
-- 不再依赖应用启动时自动 `ALTER TABLE` 或自动补种子数据
-
-例如：
-
-```bash
-mysql -u automl -p auto_ml < mysql/migrations/20260510_manual_schema_sync.sql
-```
-
-#### 2. 启动前端
-
-```bash
-cd frontend_v2
-
-# 安装依赖
-pnpm install
-
-# 启动开发服务器
-pnpm dev
-```
-
-前端将运行在 `http://localhost:5173`，已配置代理转发到后端。
-
-#### 3. 启动后端
-
-```bash
-cd automl_server
-
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动服务
-python run.py
-```
-
-后端将运行在 `http://localhost:45678`。
-
-#### 4. 启动微服务（可选）
-
-```bash
-# 模型训练服务
-cd model_trainer
-pip install -r requirements.txt
-export PORT=8081
-python server.py
-
-# 模型部署服务
-cd model_deploy
-pip install -r requirements.txt
-export PORT=8082
-python server.py
-
-# AI pipeline runtime
-cd ai_pipeline_runtime
-pip install -r requirements.txt
-export PORT=8010
-cd ai_pipeline_runtime && python app.py
-```
-
-本机直跑时请固定使用以下端口，并确保 Nacos 里的服务地址与之保持一致：
-
-- `model_trainer`: `127.0.0.1:8081`
-- `model_deploy`: `127.0.0.1:8082`
-- `ai_pipeline_runtime`: `127.0.0.1:8010`
-
----
-
-## 📁 项目结构
-
-```
-auto_ml/
-├── frontend_v2/              # 前端项目 (React + TypeScript)
-│   ├── src/
-│   │   ├── api/             # API 客户端
-│   │   ├── pages/           # 页面组件
-│   │   │   ├── home/        # 首页
-│   │   │   ├── dataset/     # 数据集管理
-│   │   │   ├── annotation/  # 标注工具
-│   │   │   ├── task/        # 训练任务
-│   │   │   └── deploy/      # 模型部署
-│   │   ├── layouts/         # 布局组件
-│   │   ├── stores/          # 状态管理
-│   │   ├── types/           # TypeScript 类型定义
-│   │   └── i18n/            # 国际化配置
-│   └── package.json
-│
-├── automl_server/           # 主服务 (FastAPI)
-│   ├── app/
-│   │   ├── modules/         # 业务模块
-│   │   │   ├── dataset/     # 数据集模块
-│   │   │   ├── annotation/  # 标注模块
-│   │   │   ├── task/        # 训练任务模块
-│   │   │   ├── deploy/      # 部署模块
-│   │   │   └── home/        # 首页模块
-│   │   ├── db/              # 数据库模型
-│   │   ├── mq/              # RabbitMQ 消息处理
-│   │   ├── config/          # 配置管理
-│   │   └── common/          # 公共组件
-│   └── requirements.txt
-│
-├── model_trainer/           # 模型训练微服务
-│   ├── core/                # 训练核心逻辑
-│   ├── utils/               # 工具类
-│   └── server.py            # 服务入口
-│
-├── model_deploy/            # 模型部署微服务
-│   ├── core/                # 部署核心逻辑
-│   ├── runtime/             # 模型运行时
-│   ├── utils/               # 工具类
-│   └── server.py            # 服务入口
-│
-├── ai_pipeline_runtime/     # AI 辅助标注服务
-│   ├── capabilities.py      # 可复用 AI 能力（图像描述、标注生成、白框提取等）
-│   ├── providers.py         # 模型供应商封装（OpenAI Compatible、Mock）
-│   ├── ocr.py               # RapidOCR 集成与文本归一化
-│   ├── pipeline.py          # 轻量级 Pipeline 编排器
-│   ├── config.py            # YAML/Nacos 配置管理
-│   └── app.py               # FastAPI 服务入口
-│
-├── docker-compose.yml       # Docker 编排配置
-├── mysql/init/              # 数据库初始化脚本
-├── nacos/                   # Nacos 配置
-└── readme/                  # 文档图片
-```
-
----
-
-## 🛠️ 开发指南
-
-### 数据库管理
-
-数据库初始化脚本位于 `mysql/init/01_init_automl.sql`，容器首次启动时自动执行。
-
-如需重置数据库：
-```bash
-docker-compose down -v
-docker-compose up -d mysql
-```
-
-### 配置管理
-
-项目使用 Nacos 作为配置中心，配置文件位于 `nacos/automl-config.yaml`。
-
-主要配置项：
-- MySQL 连接信息
-- MinIO/S3 存储配置
-- RabbitMQ 消息队列配置
-- 微服务地址配置
-
-### API 文档
-
-启动服务后访问 Swagger UI：
-```
-http://localhost:45678/swagger-ui
-```
-
-### 前端开发
-
-```bash
-cd frontend_v2
-
-# 安装依赖
-pnpm install
-
-# 启动开发服务器（热重载）
-pnpm dev
-
-# 构建生产版本
-pnpm build
-
-# 代码检查
-pnpm lint
-```
-
-### 后端开发
-
-```bash
-cd automl_server
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 启动开发服务器（热重载）
-python run.py
-
-# 或直接使用 uvicorn
-uvicorn app.main:app --reload --host 0.0.0.0 --port 45678
-```
-
----
-
-
-## 🔧 常见问题
-
-### 1. 服务启动失败
-
-检查 Docker 容器状态和日志：
-```bash
-docker-compose ps
-docker-compose logs <service-name>
-```
-
-### 2. 数据库连接错误
-
-确保 MySQL 容器已启动并健康：
-```bash
-docker-compose exec mysql mysql -u automl -p auto_ml
-```
-
-### 3. MinIO 访问问题
-
-检查 MinIO 控制台 `http://localhost:9010`，确认 buckets 已创建：
-- `auto-ml-datasets`
-- `auto-ml-models`
-- `auto-ml-annotations`
-
-### 4. 前端无法连接后端
-
-确认 `.env.development` 中的代理配置正确：
-```
-VITE_API_BASE_URL=http://localhost:45678
-```
-
-
----
-
-## 🤝 贡献指南
-
-欢迎贡献代码、报告问题或提出新功能建议！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
-
----
-
-## 📄 许可证
-
-本项目采用 [AGPL License](LICENSE) 开源协议。
-
-
----
-
-## 🙏 致谢
-
-感谢以下开源项目：
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [React](https://react.dev/)
-- [Ant Design](https://ant.design/)
-- [Konva](https://konvajs.org/)
-- [YOLO](https://github.com/ultralytics/ultralytics)
-- [RabbitMQ](https://www.rabbitmq.com/)
-- [MinIO](https://min.io/)
-
----
+一套面向多模态数据集管理、标注、训练、部署和 AI 辅助标注的平台，覆盖图像、文本、图文对话和偏好标注等场景。
 
 <div align="center">
-  <strong>AutoML</strong> - 让计算机视觉开发更简单
+  <img src="./readme/icon_v2.png" width="220" alt="AutoML Studio" />
 </div>
+
+## 平台范围
+
+- 数据集管理：图像、文本、图文对话等数据
+- 标注工作台：检测、分类、分割、姿态、LLM/MLLM 对话、DPO 偏好标注
+- 训练服务：当前主要支持 YOLO 检测与分类训练
+- 部署服务：当前主要支持 ONNX 模型部署与推理
+- AI 辅助标注：图像理解、草稿标注、白框图生成与提取
+
+## 可插拔能力
+
+`model_trainer`、`model_deploy` 和 `ai_pipeline_runtime` 是按需启用的扩展服务，不要求随核心平台一起常驻启动。后续新增训练后端、推理后端或 AI 能力时，可以继续按同样方式接入。
+
+## 组成
+
+- `frontend_v2`: React + TypeScript 前端，Vite 开发，默认端口 `3000`
+- `automl_server`: 主业务 API，统一编排数据集、标注、任务、部署与 AI Pipeline，默认端口 `45678`
+- `model_trainer`: 可选训练服务，默认端口 `8081`
+- `model_deploy`: 可选部署服务，默认端口 `8082`
+- `ai_pipeline_runtime`: 可选 AI 能力运行时，默认端口 `8010`
+- 基础设施：MySQL、MinIO、RabbitMQ、Nacos
+
+## 整体架构
+
+```mermaid
+flowchart TB
+    B[Browser] --> F[frontend_v2\n:3000]
+    F -->|/api| S[automl_server\n:45678]
+
+    S --> DB[(MySQL)]
+    S --> M[(MinIO)]
+    S --> Q[(RabbitMQ)]
+    S --> N[(Nacos)]
+    S --> T[model_trainer\n:8081]
+    S --> D[model_deploy\n:8082]
+    S --> A[ai_pipeline_runtime\n:8010]
+
+    T --> Q
+    D --> Q
+    A --> Q
+    T --> N
+    D --> N
+    A --> N
+```
+
+## 目录
+
+```text
+auto_ml/
+├── frontend_v2/
+├── automl_server/
+├── model_trainer/
+├── model_deploy/
+├── ai_pipeline_runtime/
+├── mysql/
+├── nacos/
+├── docker-compose.yml
+├── docker-compose.dev.yml
+└── .env.example
+```
+
+## 环境要求
+
+- Docker 20.10+
+- Docker Compose v2
+- Node.js `^20.19.0 || >=22.12.0`
+- Python 3.10+
+- pnpm `>=10`
+
+## 快速开始
+
+### 1. 启动核心平台
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+服务地址：
+
+- 前端：`http://localhost:3000`
+- 主服务 API：`http://localhost:45678`
+- Swagger UI：`http://localhost:45678/swagger-ui`
+- 训练服务：`http://localhost:8081`
+- 部署服务：`http://localhost:8082`
+- AI 运行时：`http://localhost:8010`
+- RabbitMQ：`http://localhost:15672`
+- MinIO：`http://localhost:9010`
+- Nacos：`http://localhost:8848`
+
+子服务启用后，对应端口才会对外可用。
+
+### 2. 本地开发
+
+```bash
+docker compose -f docker-compose.dev.yml up -d mysql rabbitmq minio nacos nacos-init
+```
+
+前端：
+
+```bash
+cd frontend_v2
+pnpm install
+pnpm dev
+```
+
+主服务：
+
+```bash
+cd automl_server
+pip install -r requirements.txt
+python run.py
+```
+
+按需启用的子服务：
+
+- `model_trainer/server.py`
+- `model_deploy/server.py`
+- `ai_pipeline_runtime/app.py`
+
+## 配置
+
+- 根目录 [.env.example](./.env.example) 用于 `docker-compose.yml`
+- `automl_server/.env.example` 用于主服务本地直跑
+- `frontend_v2/.env.example` 用于前端开发和构建
+- `nacos/automl-config.yaml` 是 Nacos 配置源
+
+## 文档
+
+- [主服务架构](./automl_server/ARCHITECTURE.md)
+- [训练服务说明](./model_trainer/readme.md)
+- [部署服务说明](./model_deploy/readme.md)
+- [AI 运行时说明](./ai_pipeline_runtime/readme.md)
+
+## 数据库
+
+- 初始化脚本：`mysql/init/01_init_automl.sql`
+- 迁移脚本：`mysql/migrations/*.sql`
+
+## 运行说明
+
+- `docker-compose.yml` 会拉起核心平台，子服务按需启用
+- `/api` 由前端容器反向代理到主服务
+- 平台运行配置主要由 Nacos 提供，`.env.example` 用于本地开发和容器启动
+- 各服务 `/health` 会返回版本信息，子服务当前统一为 `1.0.0`
+
+## 致谢
+
+本项目基于以下开源项目构建：
+
+- [FastAPI](https://fastapi.tiangolo.com/)
+- [React](https://react.dev/)
+- [Vite](https://vite.dev/)
+- [Ant Design](https://ant.design/)
+- [Konva](https://konvajs.org/)
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics)
+- [RabbitMQ](https://www.rabbitmq.com/)
+- [MinIO](https://min.io/)
+- [Nacos](https://nacos.io/)
+- [Docker](https://www.docker.com/)
