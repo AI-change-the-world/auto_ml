@@ -24,13 +24,24 @@
 cd model_trainer
 pip install -r requirements.txt
 
-# 设置环境变量
-export DATABASE_URL="mysql+pymysql://user:password@localhost:3306/auto_ml"
+# 关闭 Nacos，直接走本地环境变量
+export USE_NACOS=false
 export S3_ACCESS_KEY="minioadmin"
 export S3_SECRET_KEY="minioadmin"
 export S3_ENDPOINT="http://localhost:9000"
 export S3_MODELS_BUCKET="auto-ml-models"
 export S3_DATASETS_BUCKET="auto-ml-datasets"
+export S3_ANNOTATIONS_BUCKET="auto-ml-annotations"
+export RABBITMQ_HOST="localhost"
+export RABBITMQ_PORT=5672
+export RABBITMQ_USER="automl"
+export RABBITMQ_PASSWORD="automl123456"
+export RABBITMQ_VHOST="/"
+export RABBITMQ_EXCHANGE="auto_ml_exchange"
+export RABBITMQ_EXCHANGE_TYPE="topic"
+export TRAINER_TASK_QUEUE="trainer.task.queue"
+export TRAINER_TASK_ROUTING_KEY="trainer.task.submit"
+export TRAINER_MAX_CONCURRENT=1
 
 # 启动服务
 export PORT=8081
@@ -45,11 +56,23 @@ docker build -t model-trainer ./model_trainer
 
 # 运行容器
 docker run -d \
-  -p 8081:8080 \
-  -e DATABASE_URL="mysql+pymysql://user:password@host:3306/auto_ml" \
+  -p 8081:8081 \
+  -e USE_NACOS=false \
   -e S3_ACCESS_KEY="minioadmin" \
   -e S3_SECRET_KEY="minioadmin" \
   -e S3_ENDPOINT="http://minio:9000" \
+  -e S3_DATASETS_BUCKET="auto-ml-datasets" \
+  -e S3_MODELS_BUCKET="auto-ml-models" \
+  -e S3_ANNOTATIONS_BUCKET="auto-ml-annotations" \
+  -e RABBITMQ_HOST="rabbitmq" \
+  -e RABBITMQ_PORT=5672 \
+  -e RABBITMQ_USER="automl" \
+  -e RABBITMQ_PASSWORD="automl123456" \
+  -e RABBITMQ_VHOST="/" \
+  -e RABBITMQ_EXCHANGE="auto_ml_exchange" \
+  -e RABBITMQ_EXCHANGE_TYPE="topic" \
+  -e TRAINER_TASK_QUEUE="trainer.task.queue" \
+  -e TRAINER_TASK_ROUTING_KEY="trainer.task.submit" \
   model-trainer
 ```
 
@@ -169,14 +192,26 @@ model_trainer/
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| DATABASE_URL | 数据库连接 URL | - |
 | S3_ACCESS_KEY | S3 Access Key | - |
 | S3_SECRET_KEY | S3 Secret Key | - |
 | S3_ENDPOINT | S3 服务端点 | - |
-| S3_MODELS_BUCKET | 模型存储 Bucket | - |
 | S3_DATASETS_BUCKET | 数据集 Bucket | - |
+| S3_MODELS_BUCKET | 模型存储 Bucket | - |
+| S3_ANNOTATIONS_BUCKET | 标注 Bucket | - |
+| RABBITMQ_HOST | RabbitMQ 主机 | localhost |
+| RABBITMQ_PORT | RabbitMQ 端口 | 5672 |
+| RABBITMQ_USER | RabbitMQ 用户名 | automl |
+| RABBITMQ_PASSWORD | RabbitMQ 密码 | automl123456 |
+| RABBITMQ_VHOST | RabbitMQ 虚拟主机 | / |
+| RABBITMQ_EXCHANGE | RabbitMQ Exchange | auto_ml_exchange |
+| RABBITMQ_EXCHANGE_TYPE | RabbitMQ Exchange 类型 | topic |
 | TRAINER_MAX_CONCURRENT | 最大并发训练数 | 1 |
 | TRAINER_TASK_QUEUE | 训练任务队列名 | trainer.task.queue |
 | TRAINER_TASK_ROUTING_KEY | 训练任务路由键 | trainer.task.submit |
+| USE_NACOS | 是否启用 Nacos | true |
+| NACOS_SERVER_ADDR | Nacos 地址 | 127.0.0.1:8848 |
+| NACOS_NAMESPACE | Nacos Namespace | public |
+| NACOS_DATA_ID | Nacos Data ID | AUTO_ML_CONFIG |
+| NACOS_GROUP | Nacos Group | AUTO_ML |
 | HOST | 服务监听地址 | 0.0.0.0 |
 | PORT | 服务端口 | 8081 |
