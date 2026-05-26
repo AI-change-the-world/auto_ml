@@ -1,100 +1,48 @@
 # Model Trainer Service
 
-轻量级模型训练服务，专门用于 YOLO 模型的训练。
-训练任务统一通过 RabbitMQ 下发，服务内部按并发限制消费执行。
+模型训练服务，作为可选插件式能力面向训练任务。当前主要支持 YOLO 系列的检测和分类，训练请求通过 RabbitMQ 下发，服务按配置并发执行并回传状态。
 
-## 架构特点
+## 服务特性
 
-- **独立服务**: 可单独部署，通过 HTTP API 或消息队列接收训练任务
-- **串行训练**: 单 GPU/CPU 场景下串行执行训练任务
-- **异步处理**: 训练任务在后台线程中执行，API 立即返回
-- **状态追踪**: 实时记录训练日志和进度到数据库
-- **模型上传**: 训练完成后自动上传模型到 S3
+- 独立部署：可通过 HTTP API 或消息队列接收训练任务
+- 异步执行：训练任务在后台线程中运行，API 立即返回
+- 并发控制：由部署配置控制同时执行的训练数
+- 状态追踪：实时记录训练日志和进度到数据库
+- 模型上传：训练完成后自动上传模型到 S3 / MinIO
 
-## 支持的模型类型
+## 当前支持
 
-1. **目标检测 (Detection)**: YOLOv8/v11 检测模型
-2. **图像分类 (Classification)**: YOLOv8/v11 分类模型
+1. 目标检测 (Detection): YOLOv8 / YOLOv11 检测模型
+2. 图像分类 (Classification): YOLOv8 / YOLOv11 分类模型
 
-## 快速开始
+## 扩展性
 
-### 本地运行
+- 训练入口和任务结构已预留，后续可接入分割、姿态、OBB 等任务类型
+- 模型适配层与数据处理逻辑分离，后续可扩展到其他训练后端
+- 任务参数、导出格式和标签规范可按新模型继续扩展
 
-```bash
-cd model_trainer
-pip install -r requirements.txt
+## 部署方式
 
-# 关闭 Nacos，直接走本地环境变量
-export USE_NACOS=false
-export S3_ACCESS_KEY="minioadmin"
-export S3_SECRET_KEY="minioadmin"
-export S3_ENDPOINT="http://localhost:9000"
-export S3_MODELS_BUCKET="auto-ml-models"
-export S3_DATASETS_BUCKET="auto-ml-datasets"
-export S3_ANNOTATIONS_BUCKET="auto-ml-annotations"
-export RABBITMQ_HOST="localhost"
-export RABBITMQ_PORT=5672
-export RABBITMQ_USER="automl"
-export RABBITMQ_PASSWORD="automl123456"
-export RABBITMQ_VHOST="/"
-export RABBITMQ_EXCHANGE="auto_ml_exchange"
-export RABBITMQ_EXCHANGE_TYPE="topic"
-export TRAINER_TASK_QUEUE="trainer.task.queue"
-export TRAINER_TASK_ROUTING_KEY="trainer.task.submit"
-export TRAINER_MAX_CONCURRENT=1
-
-# 启动服务
-export PORT=8081
-python server.py
-```
-
-### Docker 运行
+按需启用时启动该服务：
 
 ```bash
-# 构建镜像
-docker build -t model-trainer ./model_trainer
-
-# 运行容器
-docker run -d \
-  -p 8081:8081 \
-  -e USE_NACOS=false \
-  -e S3_ACCESS_KEY="minioadmin" \
-  -e S3_SECRET_KEY="minioadmin" \
-  -e S3_ENDPOINT="http://minio:9000" \
-  -e S3_DATASETS_BUCKET="auto-ml-datasets" \
-  -e S3_MODELS_BUCKET="auto-ml-models" \
-  -e S3_ANNOTATIONS_BUCKET="auto-ml-annotations" \
-  -e RABBITMQ_HOST="rabbitmq" \
-  -e RABBITMQ_PORT=5672 \
-  -e RABBITMQ_USER="automl" \
-  -e RABBITMQ_PASSWORD="automl123456" \
-  -e RABBITMQ_VHOST="/" \
-  -e RABBITMQ_EXCHANGE="auto_ml_exchange" \
-  -e RABBITMQ_EXCHANGE_TYPE="topic" \
-  -e TRAINER_TASK_QUEUE="trainer.task.queue" \
-  -e TRAINER_TASK_ROUTING_KEY="trainer.task.submit" \
-  model-trainer
-```
-
-### Docker Compose
-
-```bash
-# 复制环境变量模板
-cp .env.example .env
-# 编辑 .env 文件配置你的环境变量
-
-# 启动所有服务
 docker-compose up -d model-trainer
 ```
+
+配置项见下表，通常由 `docker-compose.yml`、Nacos 或部署平台统一注入。
 
 ## API 接口
 
 ### 健康检查
+
+`/health` 会返回服务状态、并发信息和版本号，当前版本为 `1.0.0`。
+
 ```bash
 GET /health
 ```
 
 ### MQ 训练任务
+
 ```bash
 {
   "task_id": 1,
@@ -188,7 +136,7 @@ model_trainer/
 └── Dockerfile
 ```
 
-## 环境变量
+## 配置项
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|

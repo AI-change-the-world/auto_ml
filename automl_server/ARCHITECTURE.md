@@ -2,7 +2,7 @@
 
 ## Overview
 
-`automl_server` is the main FastAPI service. It owns the platform API surface for datasets, annotations, tasks, deployment, inference, AI pipeline bindings, and home-page statistics.
+`automl_server` is the main FastAPI service. It owns the platform API surface for datasets, annotations, tasks, deployment, inference, AI pipeline bindings, and home-page statistics across image, text, multimodal conversation, and preference labeling workflows.
 
 - Default host: `0.0.0.0`
 - Default port: `45678`
@@ -29,7 +29,7 @@ automl_server/
 ## Feature Modules
 
 - `dataset`: dataset CRUD, upload, preview, export, sample management
-- `annotation`: annotation project CRUD and record handling
+- `annotation`: annotation project CRUD and record handling for detection, classification, segmentation, pose, LLM/MLLM, and DPO workflows
 - `task`: training task submission, progress, logs, and SSE stream
 - `deploy`: model deployment management and status syncing
 - `inference`: inference API for deployed models
@@ -42,18 +42,18 @@ automl_server/
 - MinIO for datasets, models, annotations, and artifacts
 - RabbitMQ for task and model lifecycle events
 - Nacos for runtime configuration
-- `model_trainer` for training execution
-- `model_deploy` for deployment and runtime management
-- `ai_pipeline_runtime` for AI-assisted annotation capabilities
+- `model_trainer` as an optional training plug-in
+- `model_deploy` as an optional deployment plug-in
+- `ai_pipeline_runtime` as an optional AI-assisted annotation plug-in
 
 ## Request Flow
 
 1. Frontend calls `automl_server`
 2. `automl_server` reads config from Nacos or environment variables
 3. The service persists metadata to MySQL and artifacts to MinIO
-4. Training and deployment requests are published to RabbitMQ
+4. Training and deployment requests are published to RabbitMQ when the related plug-ins are enabled
 5. Status updates are consumed back from RabbitMQ
-6. AI-assisted annotation calls are routed to the AI pipeline runtime
+6. AI-assisted annotation calls are routed to the AI pipeline runtime when enabled
 
 ## Configuration
 

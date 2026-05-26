@@ -5,6 +5,7 @@
     "version": "Version",
     "apiAddress": "API Address",
     "backendProxy": "Backend Proxy",
+    "serviceVersions": "Service Versions",
     "aiPipelineTitle": "AI Pipeline Templates",
     "aiPipelineDescription": "Define platform templates, versions, and publish state here. Project pages only manage bindings.",
     "aiPipelineAction": "Open Template Management",
@@ -13,6 +14,7 @@
     "annotationMgmt": "Annotation Management",
     "trainTask": "Training Task",
     "modelDeploy": "Model Deployment",
+    "aiPipelineRuntime": "AI Pipeline Runtime",
     "userMgmt": "User Management",
     "predictService": "Prediction Service",
     "pipelineBuilder": {

@@ -1,18 +1,30 @@
-# AutoML Platform
+# AutoML Studio
 
-一套面向数据集、标注、训练、部署和 AI 辅助处理的计算机视觉平台。
+一套面向多模态数据集管理、标注、训练、部署和 AI 辅助标注的平台，覆盖图像、文本、图文对话和偏好标注等场景。
 
 <div align="center">
-  <img src="./readme/icon_v2.png" width="220" alt="AutoML Platform" />
+  <img src="./readme/icon_v2.png" width="220" alt="AutoML Studio" />
 </div>
+
+## 平台范围
+
+- 数据集管理：图像、文本、图文对话等数据
+- 标注工作台：检测、分类、分割、姿态、LLM/MLLM 对话、DPO 偏好标注
+- 训练服务：当前主要支持 YOLO 检测与分类训练
+- 部署服务：当前主要支持 ONNX 模型部署与推理
+- AI 辅助标注：图像理解、草稿标注、白框图生成与提取
+
+## 可插拔能力
+
+`model_trainer`、`model_deploy` 和 `ai_pipeline_runtime` 是按需启用的扩展服务，不要求随核心平台一起常驻启动。后续新增训练后端、推理后端或 AI 能力时，可以继续按同样方式接入。
 
 ## 组成
 
 - `frontend_v2`: React + TypeScript 前端，Vite 开发，默认端口 `3000`
-- `automl_server`: 主业务 API，默认端口 `45678`
-- `model_trainer`: 训练服务，默认端口 `8081`
-- `model_deploy`: 部署服务，默认端口 `8082`
-- `ai_pipeline_runtime`: AI 能力运行时，默认端口 `8010`
+- `automl_server`: 主业务 API，统一编排数据集、标注、任务、部署与 AI Pipeline，默认端口 `45678`
+- `model_trainer`: 可选训练服务，默认端口 `8081`
+- `model_deploy`: 可选部署服务，默认端口 `8082`
+- `ai_pipeline_runtime`: 可选 AI 能力运行时，默认端口 `8010`
 - 基础设施：MySQL、MinIO、RabbitMQ、Nacos
 
 ## 整体架构
@@ -64,7 +76,7 @@ auto_ml/
 
 ## 快速开始
 
-### 1. 一键启动整套服务
+### 1. 启动核心平台
 
 ```bash
 cp .env.example .env
@@ -82,6 +94,8 @@ docker compose up -d
 - RabbitMQ：`http://localhost:15672`
 - MinIO：`http://localhost:9010`
 - Nacos：`http://localhost:8848`
+
+子服务启用后，对应端口才会对外可用。
 
 ### 2. 本地开发
 
@@ -105,7 +119,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-其他服务：
+按需启用的子服务：
 
 - `model_trainer/server.py`
 - `model_deploy/server.py`
@@ -130,11 +144,12 @@ python run.py
 - 初始化脚本：`mysql/init/01_init_automl.sql`
 - 迁移脚本：`mysql/migrations/*.sql`
 
-## 说明
+## 运行说明
 
-- `docker-compose.yml` 会同时拉起前端和后端服务
+- `docker-compose.yml` 会拉起核心平台，子服务按需启用
 - `/api` 由前端容器反向代理到主服务
-- 新增配置优先写入 Nacos，再按需补充到环境变量示例
+- 平台运行配置主要由 Nacos 提供，`.env.example` 用于本地开发和容器启动
+- 各服务 `/health` 会返回版本信息，子服务当前统一为 `1.0.0`
 
 ## 致谢
 

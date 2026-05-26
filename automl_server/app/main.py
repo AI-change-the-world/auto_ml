@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
+from pydantic import BaseModel, Field
 
 from app.common import Result
 from app.common.exceptions import AppException
@@ -67,6 +68,29 @@ def _module_state(enabled: bool, available: bool = True) -> str:
     if available:
         return "enabled"
     return "unavailable"
+
+
+def _dependency_status(payload: dict[str, Any] | None, *, healthy_values: set[str]) -> tuple[str, str | None]:
+    if not payload:
+        return "unavailable", None
+    version = payload.get("version")
+    status = str(payload.get("status") or "").strip().lower()
+    if status in healthy_values:
+        return "enabled", str(version) if version is not None else None
+    return "unavailable", str(version) if version is not None else None
+
+
+class DependencyHealth(BaseModel):
+    status: str
+    version: str | None = None
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    version: str
+    modules: dict[str, str] = Field(default_factory=dict)
+    dependencies: dict[str, DependencyHealth] = Field(default_factory=dict)
 
 
 def _init_mq_with_retry(loop: asyncio.AbstractEventLoop):
@@ -220,16 +244,32 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # 健康检查
-@app.get("/health", tags=["健康检查"])
+@app.get("/health", tags=["健康检查"], response_model=HealthResponse)
 async def health_check():
-    trainer_health = await _probe_json(settings.model_trainer.base_url)
-    deploy_health = await _probe_json(settings.model_deploy.base_url)
+    trainer_health, deploy_health, runtime_health = await asyncio.gather(
+        _probe_json(settings.model_trainer.base_url),
+        _probe_json(settings.model_deploy.base_url),
+        _probe_json(settings.ai_pipeline_runtime.base_url),
+    )
 
     dataset_enabled = _route_exists("/dataset")
     annotation_enabled = _route_exists("/annotation")
     training_route_enabled = _route_exists("/task")
     deploy_route_enabled = _route_exists("/deploy")
     inference_route_enabled = _route_exists("/inference")
+
+    trainer_status, trainer_version = _dependency_status(
+        trainer_health,
+        healthy_values={"healthy"},
+    )
+    deploy_status, deploy_version = _dependency_status(
+        deploy_health,
+        healthy_values={"healthy"},
+    )
+    runtime_status, runtime_version = _dependency_status(
+        runtime_health,
+        healthy_values={"ok", "healthy"},
+    )
 
     return {
         "status": "ok",
@@ -251,6 +291,20 @@ async def health_check():
                 bool(deploy_health and deploy_health.get("status") == "healthy"),
             ),
             "user_mgmt": _module_state(False, False),
+        },
+        "dependencies": {
+            "model_trainer": {
+                "status": trainer_status,
+                "version": trainer_version,
+            },
+            "model_deploy": {
+                "status": deploy_status,
+                "version": deploy_version,
+            },
+            "ai_pipeline_runtime": {
+                "status": runtime_status,
+                "version": runtime_version,
+            },
         },
     }
 

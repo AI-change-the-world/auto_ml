@@ -1,18 +1,30 @@
-# AutoML Platform
+# AutoML Studio
 
-A computer-vision platform for datasets, annotation, training, deployment, and AI-assisted workflows.
+A platform for multi-modal dataset management, annotation, training, deployment, and AI-assisted labeling. It covers image, text, multimodal conversation, and preference labeling scenarios.
 
 <div align="center">
-  <img src="./readme/icon_v2.png" width="220" alt="AutoML Platform" />
+  <img src="./readme/icon_v2.png" width="220" alt="AutoML Studio" />
 </div>
+
+## Platform Scope
+
+- Dataset management for image, text, and multimodal conversation data
+- Annotation workbenches for detection, classification, segmentation, pose, LLM/MLLM conversation, and DPO preference labeling
+- Training services, currently focused on YOLO detection and classification
+- Deployment services, currently focused on ONNX model serving and inference
+- AI-assisted annotation capabilities for scene understanding, draft labeling, and white-overlay extraction
+
+## Pluggable Services
+
+`model_trainer`, `model_deploy`, and `ai_pipeline_runtime` are optional extension services. They do not have to run alongside the core platform, and can be enabled on demand as new training backends, inference backends, or AI capabilities are added.
 
 ## Components
 
 - `frontend_v2`: React + TypeScript frontend, Vite dev server, default port `3000`
-- `automl_server`: main API service, default port `45678`
-- `model_trainer`: training service, default port `8081`
-- `model_deploy`: deployment service, default port `8082`
-- `ai_pipeline_runtime`: AI runtime service, default port `8010`
+- `automl_server`: main API service that orchestrates datasets, annotations, tasks, deployments, and AI pipelines, default port `45678`
+- `model_trainer`: optional training service, default port `8081`
+- `model_deploy`: optional deployment service, default port `8082`
+- `ai_pipeline_runtime`: optional AI capability runtime, default port `8010`
 - Infrastructure: MySQL, MinIO, RabbitMQ, Nacos
 
 ## Architecture
@@ -64,7 +76,7 @@ auto_ml/
 
 ## Quick Start
 
-### 1. Start the full stack
+### 1. Start the core platform
 
 ```bash
 cp .env.example .env
@@ -82,6 +94,8 @@ Endpoints:
 - RabbitMQ: `http://localhost:15672`
 - MinIO: `http://localhost:9010`
 - Nacos: `http://localhost:8848`
+
+Optional service endpoints are available only when those services are enabled.
 
 ### 2. Local development
 
@@ -130,11 +144,12 @@ Other services:
 - Initial schema: `mysql/init/01_init_automl.sql`
 - Migrations: `mysql/migrations/*.sql`
 
-## Notes
+## Run Notes
 
-- `docker-compose.yml` starts both frontend and backend services
+- `docker-compose.yml` starts the core platform; optional services can be enabled on demand
 - `/api` is proxied from the frontend container to the main service
-- Keep Nacos config and env examples aligned when adding new settings
+- Runtime configuration is primarily provided by Nacos; `.env.example` files are for local development and container startup
+- Each service `/health` now returns version information; optional services currently use `1.0.0`
 
 ## Acknowledgments
 
