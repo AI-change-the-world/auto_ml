@@ -1,7 +1,6 @@
 """标注服务"""
 import asyncio
 import json
-import mimetypes
 from datetime import datetime
 from typing import Any
 import uuid
@@ -446,10 +445,11 @@ class AnnotationService:
         if not asset or not asset.save_path:
             raise NotFoundException(f"Asset for sample {data.sample_item_id} not found")
 
-        image_bytes = await self.s3.get_file(asset.save_path, bucket_type="datasets")
         file_name = asset.file_name or sample_item.item_key
-        mime_type = asset.mime_type or mimetypes.guess_type(file_name)[0] or "image/jpeg"
-        image_base64 = self._to_data_url(image_bytes, mime_type)
+        exists = await self.s3.file_exists(asset.save_path, bucket_type="datasets")
+        if not exists:
+            raise NotFoundException(f"Asset for sample {data.sample_item_id} not found")
+        image_url = await self.s3.get_presigned_url(asset.save_path, bucket_type="datasets")
         request_params = data.params or {}
         merged_params = self._merge_assist_runtime_params(
             ann=ann,
@@ -461,8 +461,8 @@ class AnnotationService:
         request_payload = {
             "input": {
                 "image": {
-                    "base64_data": image_base64,
-                    "mime_type": mime_type,
+                    "url": image_url,
+                    "mime_type": asset.mime_type or "image/jpeg",
                 },
                 "classes": selected_classes,
                 "prompt": self._resolve_assist_prompt(ann, merged_params),
@@ -1013,11 +1013,6 @@ class AnnotationService:
         if isinstance(value, datetime):
             return value.isoformat()
         return str(value) if value is not None else None
-
-    def _to_data_url(self, data: bytes, mime_type: str) -> str:
-        import base64
-        encoded = base64.b64encode(data).decode("utf-8")
-        return f"data:{mime_type};base64,{encoded}"
 
     async def _validate_annotation_dataset_link(
         self,

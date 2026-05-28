@@ -173,6 +173,11 @@ class PredictBase64Request(BaseModel):
     inference_params: Optional[InferenceParams] = None
 
 
+class PredictUrlRequest(BaseModel):
+    image_url: str
+    inference_params: Optional[InferenceParams] = None
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
@@ -379,6 +384,43 @@ async def predict_base64(model_id: int, data: PredictBase64Request):
                 success=False,
                 error=result.get("error")
             )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Prediction failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/predict/{model_id}/url", response_model=PredictResponse)
+async def predict_url(model_id: int, data: PredictUrlRequest):
+    """
+    使用 URL 图像进行推理。
+
+    迁移期同时保留 `/base64` 与 `/url` 两种入口，便于逐步把上游链路切到 presigned URL。
+    """
+    try:
+        image_url = data.image_url.strip() if data.image_url else ""
+        if not image_url:
+            raise HTTPException(status_code=400, detail="image_url field is required")
+
+        result = await asyncio.to_thread(
+            deploy_service.predict_url,
+            model_id,
+            image_url,
+            data.inference_params.model_dump(exclude_none=True) if data.inference_params else None,
+        )
+
+        if result.get("success"):
+            return PredictResponse(
+                success=True,
+                task_kind=result.get("task_kind"),
+                backend=result.get("backend"),
+                device=result.get("device"),
+                image_width=result.get("image_width"),
+                image_height=result.get("image_height"),
+                results=result.get("results", []),
+            )
+        return PredictResponse(success=False, error=result.get("error"))
     except HTTPException:
         raise
     except Exception as e:

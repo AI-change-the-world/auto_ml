@@ -313,6 +313,35 @@ class DeployService:
             logger.error(f"Prediction failed: {e}")
             return {"success": False, "error": str(e)}
 
+    def predict_url(
+        self,
+        model_id: int,
+        image_url: str,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """使用 URL 图像进行推理"""
+        instance = runtime_manager.get_instance(model_id)
+        if not instance:
+            return {"success": False, "error": f"Model {model_id} not deployed"}
+
+        if not instance.is_running():
+            return {"success": False, "error": f"Model {model_id} runtime not running"}
+
+        try:
+            logger.info(
+                f"[predict-request] model_id={model_id}, mode=url, "
+                f"url={image_url}, params={inference_params or {}}"
+            )
+            result = instance.predict_url(image_url, inference_params=inference_params)
+            logger.info(
+                f"[predict-response] model_id={model_id}, success={result.get('success')}, "
+                f"result_count={len(result.get('results') or [])}, error={result.get('error')}"
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Prediction failed: {e}")
+            return {"success": False, "error": str(e)}
+
     def health_check(self, model_id: int) -> Dict[str, Any]:
         """检查部署健康状态"""
         instance = runtime_manager.get_instance(model_id)

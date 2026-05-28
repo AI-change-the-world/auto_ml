@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 import os
+import base64
 from typing import Any
 
 import requests
 
 from models import AnnotationResult, TaskPayload
-from utils import strip_data_url_prefix
+from utils import load_image_bytes, strip_data_url_prefix
 from .base import AnnotationNormalizationMixin, Capability, ProviderResolver, capability_metadata
 
 logger = logging.getLogger(__name__)
@@ -107,12 +108,16 @@ class OnnxDetectCapability(AnnotationNormalizationMixin, Capability):
         provider_name: str | None = None,
     ) -> AnnotationResult:
         image = payload.primary_image
-        if image is None or not image.base64_data:
-            raise ValueError("onnx_detect requires a base64 image payload")
+        if image is None:
+            raise ValueError("onnx_detect requires an image payload")
 
         model_id = self._resolve_model_id(params)
         classes = self._require_classes(payload, params)
-        backend_payload = self._predict(model_id, image.base64_data, params)
+        backend_payload = self._predict(
+            model_id,
+            image,
+            params,
+        )
         if not backend_payload.get("success", False):
             raise ValueError(
                 backend_payload.get("error") or f"onnx model {model_id} prediction failed"
@@ -208,16 +213,14 @@ class OnnxDetectCapability(AnnotationNormalizationMixin, Capability):
     def _predict(
         self,
         model_id: int,
-        image_base64: str,
+        image_payload,
         params: dict[str, Any],
     ) -> dict[str, Any]:
         inference_params = self._build_inference_params(params)
+        request_path, request_body = self._build_predict_request(image_payload, inference_params)
         response = requests.post(
-            f"{self._deploy_base_url}/predict/{model_id}/base64",
-            json={
-                "image": strip_data_url_prefix(image_base64),
-                "inference_params": inference_params or None,
-            },
+            f"{self._deploy_base_url}/predict/{model_id}/{request_path}",
+            json=request_body,
             timeout=(10, self._timeout_seconds),
         )
         try:
@@ -229,6 +232,30 @@ class OnnxDetectCapability(AnnotationNormalizationMixin, Capability):
         if not isinstance(payload, dict):
             raise ValueError("model_deploy returned unexpected payload")
         return payload
+
+    # 迁移期同时兼容 base64 与 presigned URL，两条链路逐步收敛到 URL。
+    def _build_predict_request(
+        self,
+        image_payload,
+        inference_params: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        if image_payload.url:
+            return "url", {
+                "image_url": image_payload.url,
+                "inference_params": inference_params or None,
+            }
+        image_base64 = self._encode_image_payload(image_payload)
+        return "base64", {
+            "image": strip_data_url_prefix(image_base64),
+            "inference_params": inference_params or None,
+        }
+
+    def _encode_image_payload(self, image_payload) -> str:
+        if image_payload.base64_data:
+            return image_payload.base64_data
+        image_bytes = load_image_bytes(image_payload)
+        encoded = base64.b64encode(image_bytes).decode("utf-8")
+        return f"data:{image_payload.mime_type};base64,{encoded}"
 
     def _build_inference_params(self, params: dict[str, Any]) -> dict[str, Any]:
         inference_keys = {
