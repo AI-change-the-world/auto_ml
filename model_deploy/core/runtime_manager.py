@@ -13,6 +13,7 @@ import os
 import math
 import threading
 import time
+from urllib.request import urlopen
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -164,6 +165,21 @@ class RuntimeInstance:
             return self._error_response(f"Invalid base64 image payload: {e}")
         except Exception as e:
             logger.error(f"Predict base64 failed: model_id={self.model_id}, error={e}")
+            return self._error_response(str(e))
+
+    def predict_url(
+        self,
+        image_url: str,
+        inference_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """使用 URL 图像推理"""
+        try:
+            with urlopen(image_url) as response:
+                image_data = response.read()
+            image = Image.open(io.BytesIO(image_data)).convert("RGB")
+            return self.predict_image(image, inference_params=inference_params)
+        except Exception as e:
+            logger.error(f"Predict url failed: model_id={self.model_id}, error={e}")
             return self._error_response(str(e))
 
     def predict_image(

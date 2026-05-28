@@ -146,6 +146,19 @@ Content-Type: application/json
 }
 ```
 
+### URL 推理
+
+```bash
+POST /predict/{model_id}/url
+Content-Type: application/json
+
+{
+  "image_url": "https://example.com/presigned-image-url"
+}
+```
+
+迁移期同时保留 `base64` 和 `url` 两种方式，便于上游逐步切换到 presigned URL。
+
 ### 检查部署健康
 
 ```bash
