@@ -52,6 +52,7 @@ async def init_db():
         # 导入所有模型以确保它们被注册
         from app.db.models import (
             Dataset, Asset, SampleItem, Annotation, AnnotationRecord,
+            AnnotationCollaborator, AnnotationSampleAssignment,
             Task, TaskLog, TaskSource, BaseModels,
             AvailableModel, ModelInferenceLog,
             AiPipelineTemplate, AiPipelineTemplateVersion, AiPipelineBinding, AiPipelineProviderResource,

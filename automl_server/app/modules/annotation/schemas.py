@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 
+from app.modules.dataset.schemas import SampleItemResponse
+
 
 class AnnotationCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -60,6 +62,8 @@ class AnnotationRecordSave(BaseModel):
     sample_item_id: int
     content: dict[str, Any] = Field(default_factory=dict)
     status: str = "saved"
+    collaborator_token: Optional[str] = None
+    collab_state: Optional[str] = None
 
 
 class AnnotationRecordResponse(BaseModel):
@@ -75,6 +79,65 @@ class AnnotationRecordResponse(BaseModel):
 
 class AnnotationRecordBatchQuery(BaseModel):
     sample_item_ids: List[int] = Field(default_factory=list)
+
+
+class AnnotationCollaboratorResponse(BaseModel):
+    id: int
+    annotation_id: int
+    display_name: str
+    token: str
+    status: str
+    last_active_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnnotationCollaborationSessionRequest(BaseModel):
+    token: Optional[str] = None
+
+
+class AnnotationCollaborationSessionResponse(BaseModel):
+    collaborator: AnnotationCollaboratorResponse
+
+
+class AnnotationCollaborationClaimRequest(BaseModel):
+    collaborator_token: str
+    batch_size: int = Field(default=20, ge=1, le=100)
+
+
+class AnnotationCollaborationClaimResponse(BaseModel):
+    assigned_count: int
+
+
+class AnnotationSampleAssignmentResponse(BaseModel):
+    id: int
+    annotation_id: int
+    sample_item_id: int
+    collaborator_id: int
+    status: str
+    lease_expires_at: Optional[datetime] = None
+    submitted_at: Optional[datetime] = None
+    collab_state: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AnnotationCollaborationSamplesResponse(BaseModel):
+    collaborator: AnnotationCollaboratorResponse
+    samples: list[SampleItemResponse] = Field(default_factory=list)
+    records: list[AnnotationRecordResponse] = Field(default_factory=list)
+    assignments: list[AnnotationSampleAssignmentResponse] = Field(default_factory=list)
+    page: int
+    page_size: int
+    total: int
+
+
+class AnnotationCollaborationStatsResponse(BaseModel):
+    total: int
+    completed: int
+    assigned_to_me: int
+    pending_mine: int
+    available: int
 
 
 class AnnotationAssistRequest(BaseModel):

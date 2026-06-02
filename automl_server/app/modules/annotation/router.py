@@ -16,6 +16,12 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationCollaborationClaimRequest,
+    AnnotationCollaborationClaimResponse,
+    AnnotationCollaborationSamplesResponse,
+    AnnotationCollaborationSessionRequest,
+    AnnotationCollaborationSessionResponse,
+    AnnotationCollaborationStatsResponse,
     AnnotationRecordBatchQuery,
     AnnotationRecordResponse,
     AnnotationRecordSave,
@@ -168,6 +174,74 @@ async def save_annotation_record(
 ):
     record = await service.save_annotation_record(db, annotation_id, data)
     return Result.ok(record, "Annotation record saved")
+
+
+@router.post(
+    "/{annotation_id}/collaboration/session",
+    response_model=Result[AnnotationCollaborationSessionResponse],
+    summary="创建或恢复协作标注会话",
+)
+async def create_collaboration_session(
+    annotation_id: int,
+    data: AnnotationCollaborationSessionRequest,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.create_collaboration_session(db, annotation_id, data)
+    return Result.ok(result)
+
+
+@router.post(
+    "/{annotation_id}/collaboration/claim",
+    response_model=Result[AnnotationCollaborationClaimResponse],
+    summary="领取协作标注样本",
+)
+async def claim_collaboration_samples(
+    annotation_id: int,
+    data: AnnotationCollaborationClaimRequest,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.claim_collaboration_samples(db, annotation_id, data)
+    return Result.ok(result)
+
+
+@router.get(
+    "/{annotation_id}/collaboration/samples",
+    response_model=Result[AnnotationCollaborationSamplesResponse],
+    summary="获取当前协作者样本",
+)
+async def list_collaboration_samples(
+    annotation_id: int,
+    collaborator_token: str = Query(...),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.list_collaboration_samples(
+        db,
+        annotation_id,
+        collaborator_token,
+        page,
+        page_size,
+    )
+    return Result.ok(result)
+
+
+@router.get(
+    "/{annotation_id}/collaboration/stats",
+    response_model=Result[AnnotationCollaborationStatsResponse],
+    summary="获取协作标注进度",
+)
+async def get_collaboration_stats(
+    annotation_id: int,
+    collaborator_token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.get_collaboration_stats(db, annotation_id, collaborator_token)
+    return Result.ok(result)
 
 
 @router.post("/{annotation_id}/assist/current", response_model=Result[AnnotationAssistResponse], summary="辅助标注当前图片")

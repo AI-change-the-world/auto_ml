@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import type { SampleItem } from './dataset';
 
 /** 标注模式 */
 export enum LabelMode {
@@ -368,6 +369,58 @@ export interface AnnotationRecordSaveRequest {
   sample_item_id: number;
   content: Record<string, unknown>;
   status?: string;
+  collaborator_token?: string;
+  collab_state?: string;
+}
+
+export interface AnnotationCollaborator {
+  id: number;
+  annotation_id: number;
+  display_name: string;
+  token: string;
+  status: string;
+  last_active_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnotationCollaborationSessionResponse {
+  collaborator: AnnotationCollaborator;
+}
+
+export interface AnnotationCollaborationClaimResponse {
+  assigned_count: number;
+}
+
+export interface AnnotationSampleAssignment {
+  id: number;
+  annotation_id: number;
+  sample_item_id: number;
+  collaborator_id: number;
+  status: string;
+  lease_expires_at: string | null;
+  submitted_at: string | null;
+  collab_state: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnotationCollaborationSamplesResponse {
+  collaborator: AnnotationCollaborator;
+  samples: SampleItem[];
+  records: AnnotationRecord[];
+  assignments: AnnotationSampleAssignment[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface AnnotationCollaborationStats {
+  total: number;
+  completed: number;
+  assigned_to_me: number;
+  pending_mine: number;
+  available: number;
 }
 
 export interface AnnotationAssistRequest {

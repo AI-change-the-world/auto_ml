@@ -1,7 +1,9 @@
 """标注服务"""
 import asyncio
 import json
+import secrets
 from datetime import datetime
+from datetime import timedelta
 from typing import Any
 import uuid
 from typing import List, Optional
@@ -17,9 +19,10 @@ from app.common.constants import (
     is_dpo_annotation_type,
     is_dpo_dataset_scenario,
 )
-from app.common.exceptions import NotFoundException, BadRequestException
+from app.common.exceptions import NotFoundException, BadRequestException, ForbiddenException
 from app.config.settings import get_settings
-from app.db.models import Annotation, SampleItem
+from app.db.models import Annotation, AnnotationRecord, AnnotationSampleAssignment, Asset, SampleItem
+from app.modules.dataset.schemas import AssetResponse, SampleItemResponse
 from app.modules.ai_pipeline.service import AiPipelineService
 from app.modules.dataset import crud as dataset_crud
 from app.mq.rpc_client import get_assist_rpc_client
@@ -38,9 +41,17 @@ from .schemas import (
     AnnotationAssistPipelineResponse,
     AnnotationAssistResponse,
     AnnotationCreate,
+    AnnotationCollaboratorResponse,
+    AnnotationCollaborationClaimRequest,
+    AnnotationCollaborationClaimResponse,
+    AnnotationCollaborationSamplesResponse,
+    AnnotationCollaborationSessionRequest,
+    AnnotationCollaborationSessionResponse,
+    AnnotationCollaborationStatsResponse,
     AnnotationExportItem,
     AnnotationRecordResponse,
     AnnotationRecordSave,
+    AnnotationSampleAssignmentResponse,
     AnnotationSummaryResponse,
     AnnotationTypeDefinitionResponse,
     AnnotationUpdate,
@@ -49,6 +60,8 @@ from .schemas import (
 
 
 class AnnotationService:
+    COLLABORATION_LEASE_MINUTES = 45
+
     def __init__(self):
         self.s3 = get_s3_delegate()
         self._assist_rpc_client = None
@@ -249,6 +262,253 @@ class AnnotationService:
         ) if records else []
         return items
 
+    async def create_collaboration_session(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        data: AnnotationCollaborationSessionRequest,
+    ) -> AnnotationCollaborationSessionResponse:
+        await self._get_detection_annotation_for_collaboration(db, annotation_id)
+        now = datetime.now()
+
+        if data.token:
+            collaborator = await crud.get_annotation_collaborator_by_token(db, annotation_id, data.token)
+            if collaborator and collaborator.status == "active":
+                collaborator = await crud.update_annotation_collaborator(
+                    db,
+                    collaborator.id,
+                    last_active_at=now,
+                )
+                return AnnotationCollaborationSessionResponse(
+                    collaborator=self._to_collaborator_response(collaborator)
+                )
+
+        count = await crud.count_annotation_collaborators(db, annotation_id)
+        collaborator = await crud.create_annotation_collaborator(
+            db,
+            annotation_id=annotation_id,
+            display_name=f"标注员-{count + 1:03d}",
+            token=secrets.token_urlsafe(32),
+            status="active",
+            last_active_at=now,
+        )
+        return AnnotationCollaborationSessionResponse(
+            collaborator=self._to_collaborator_response(collaborator)
+        )
+
+    async def claim_collaboration_samples(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        data: AnnotationCollaborationClaimRequest,
+    ) -> AnnotationCollaborationClaimResponse:
+        ann = await self._get_detection_annotation_for_collaboration(db, annotation_id)
+        collaborator = await self._get_active_collaborator(db, annotation_id, data.collaborator_token)
+        now = datetime.now()
+        lease_expires_at = self._next_lease_expires_at(now)
+
+        await crud.update_annotation_collaborator(
+            db,
+            collaborator.id,
+            last_active_at=now,
+        )
+
+        completed_subq = (
+            select(AnnotationRecord.sample_item_id)
+            .where(
+                AnnotationRecord.annotation_id == annotation_id,
+                AnnotationRecord.is_deleted == False,
+                AnnotationRecord.status.in_(["saved", "reviewed"]),
+            )
+        )
+        active_assignment_subq = (
+            select(AnnotationSampleAssignment.sample_item_id)
+            .where(
+                AnnotationSampleAssignment.annotation_id == annotation_id,
+                AnnotationSampleAssignment.is_deleted == False,
+                AnnotationSampleAssignment.status.in_(["assigned", "in_progress"]),
+                AnnotationSampleAssignment.lease_expires_at > now,
+            )
+        )
+        candidate_stmt = (
+            select(SampleItem.id)
+            .where(
+                SampleItem.dataset_id == ann.dataset_id,
+                SampleItem.is_deleted == False,
+                SampleItem.item_type == "image",
+                ~SampleItem.id.in_(completed_subq),
+                ~SampleItem.id.in_(active_assignment_subq),
+            )
+            .order_by(SampleItem.sort_order.asc(), SampleItem.created_at.asc(), SampleItem.id.asc())
+            .limit(data.batch_size * 3)
+            .with_for_update(skip_locked=True)
+        )
+        candidate_ids = [int(item) for item in (await db.execute(candidate_stmt)).scalars().all()]
+
+        assigned_count = 0
+        for sample_item_id in candidate_ids:
+            assignment = await crud.get_annotation_assignment_for_update(db, annotation_id, sample_item_id)
+            if assignment:
+                if assignment.status == "submitted":
+                    continue
+                if (
+                    assignment.status in {"assigned", "in_progress"}
+                    and assignment.lease_expires_at
+                    and assignment.lease_expires_at > now
+                    and assignment.collaborator_id != collaborator.id
+                ):
+                    continue
+                await crud.update_annotation_assignment(
+                    db,
+                    assignment.id,
+                    collaborator_id=collaborator.id,
+                    status="assigned",
+                    lease_expires_at=lease_expires_at,
+                )
+            else:
+                await crud.create_annotation_assignment(
+                    db,
+                    annotation_id=annotation_id,
+                    sample_item_id=sample_item_id,
+                    collaborator_id=collaborator.id,
+                    status="assigned",
+                    lease_expires_at=lease_expires_at,
+                )
+            assigned_count += 1
+            if assigned_count >= data.batch_size:
+                break
+
+        return AnnotationCollaborationClaimResponse(assigned_count=assigned_count)
+
+    async def list_collaboration_samples(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        collaborator_token: str,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> AnnotationCollaborationSamplesResponse:
+        await self._get_detection_annotation_for_collaboration(db, annotation_id)
+        collaborator = await self._get_active_collaborator(db, annotation_id, collaborator_token)
+        now = datetime.now()
+        lease_expires_at = self._next_lease_expires_at(now)
+        await crud.update_annotation_collaborator(db, collaborator.id, last_active_at=now)
+
+        offset = (page - 1) * page_size
+        assignments, total = await crud.get_annotation_assignments_by_collaborator(
+            db,
+            annotation_id,
+            collaborator.id,
+            offset,
+            page_size,
+        )
+        for assignment in assignments:
+            if assignment.status in {"assigned", "in_progress"}:
+                await crud.update_annotation_assignment(
+                    db,
+                    assignment.id,
+                    status="in_progress",
+                    lease_expires_at=lease_expires_at,
+                )
+
+        sample_ids = [assignment.sample_item_id for assignment in assignments]
+        samples: list[SampleItemResponse] = []
+        records: list[AnnotationRecordResponse] = []
+        if sample_ids:
+            sample_result = await db.execute(
+                select(SampleItem)
+                .where(
+                    SampleItem.id.in_(sample_ids),
+                    SampleItem.is_deleted == False,
+                )
+            )
+            sample_map = {item.id: item for item in sample_result.scalars().all()}
+            samples = [
+                await self._to_sample_response(db, sample_map[assignment.sample_item_id])
+                for assignment in assignments
+                if assignment.sample_item_id in sample_map
+            ]
+            raw_records = await crud.get_annotation_records_by_sample_ids(db, annotation_id, sample_ids)
+            records = await asyncio.gather(
+                *(self._build_annotation_record_response(record) for record in raw_records)
+            ) if raw_records else []
+
+        return AnnotationCollaborationSamplesResponse(
+            collaborator=self._to_collaborator_response(collaborator),
+            samples=samples,
+            records=records,
+            assignments=[self._to_assignment_response(assignment) for assignment in assignments],
+            page=page,
+            page_size=page_size,
+            total=total,
+        )
+
+    async def get_collaboration_stats(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        collaborator_token: str,
+    ) -> AnnotationCollaborationStatsResponse:
+        ann = await self._get_detection_annotation_for_collaboration(db, annotation_id)
+        collaborator = await self._get_active_collaborator(db, annotation_id, collaborator_token)
+        now = datetime.now()
+
+        total = (
+            await db.execute(
+                select(func.count())
+                .select_from(SampleItem)
+                .where(
+                    SampleItem.dataset_id == ann.dataset_id,
+                    SampleItem.is_deleted == False,
+                    SampleItem.item_type == "image",
+                )
+            )
+        ).scalar() or 0
+        completed = (
+            await db.execute(
+                select(func.count(func.distinct(AnnotationRecord.sample_item_id)))
+                .select_from(AnnotationRecord)
+                .where(
+                    AnnotationRecord.annotation_id == annotation_id,
+                    AnnotationRecord.is_deleted == False,
+                    AnnotationRecord.status.in_(["saved", "reviewed"]),
+                )
+            )
+        ).scalar() or 0
+        assigned_to_me = (
+            await db.execute(
+                select(func.count())
+                .select_from(AnnotationSampleAssignment)
+                .where(
+                    AnnotationSampleAssignment.annotation_id == annotation_id,
+                    AnnotationSampleAssignment.collaborator_id == collaborator.id,
+                    AnnotationSampleAssignment.is_deleted == False,
+                    AnnotationSampleAssignment.status != "released",
+                )
+            )
+        ).scalar() or 0
+        pending_mine = (
+            await db.execute(
+                select(func.count())
+                .select_from(AnnotationSampleAssignment)
+                .where(
+                    AnnotationSampleAssignment.annotation_id == annotation_id,
+                    AnnotationSampleAssignment.collaborator_id == collaborator.id,
+                    AnnotationSampleAssignment.is_deleted == False,
+                    AnnotationSampleAssignment.status.in_(["assigned", "in_progress"]),
+                )
+            )
+        ).scalar() or 0
+        active_assignments = await crud.count_active_annotation_assignments(db, annotation_id, now)
+        available = max(int(total) - int(completed) - active_assignments, 0)
+        return AnnotationCollaborationStatsResponse(
+            total=int(total),
+            completed=int(completed),
+            assigned_to_me=int(assigned_to_me),
+            pending_mine=int(pending_mine),
+            available=available,
+        )
+
     async def export_dpo_records(
         self,
         db: AsyncSession,
@@ -355,6 +615,7 @@ class AnnotationService:
             raise BadRequestException("sample item does not belong to annotation dataset")
         if not ann.save_path:
             raise BadRequestException("annotation project save_path is empty")
+        collaboration_assignment = await self._validate_collaboration_save(db, ann, data)
 
         object_key = build_annotation_record_object_key(
             ann.save_path,
@@ -380,6 +641,16 @@ class AnnotationService:
                 content=object_key,
             )
         await self._persist_annotation_record(ann, record, data.content)
+        if collaboration_assignment:
+            now = datetime.now()
+            await crud.update_annotation_assignment(
+                db,
+                collaboration_assignment.id,
+                status="submitted",
+                submitted_at=now,
+                lease_expires_at=self._next_lease_expires_at(now),
+                collab_state=data.collab_state,
+            )
         return self._to_annotation_record_response(
             record,
             parse_annotation_record_payload(
@@ -932,6 +1203,136 @@ class AnnotationService:
     async def _build_annotation_record_response(self, record) -> AnnotationRecordResponse:
         content = await self._load_annotation_record_content(record.annotation_type, record.content)
         return self._to_annotation_record_response(record, content)
+
+    async def _get_detection_annotation_for_collaboration(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+    ):
+        ann = await crud.get_annotation_by_id(db, annotation_id)
+        if not ann:
+            raise NotFoundException(f"Annotation {annotation_id} not found")
+        if ann.annotation_type != AnnotationType.DETECTION:
+            raise BadRequestException("collaboration MVP currently only supports detection projects")
+        if not ann.dataset_id:
+            raise BadRequestException("collaboration requires annotation project dataset_id")
+        return ann
+
+    async def _get_active_collaborator(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        token: str,
+    ):
+        normalized = (token or "").strip()
+        if not normalized:
+            raise ForbiddenException("collaborator token is required")
+        collaborator = await crud.get_annotation_collaborator_by_token(db, annotation_id, normalized)
+        if not collaborator or collaborator.status != "active":
+            raise ForbiddenException("collaborator token is invalid")
+        return collaborator
+
+    async def _validate_collaboration_save(
+        self,
+        db: AsyncSession,
+        ann,
+        data: AnnotationRecordSave,
+    ):
+        if not data.collaborator_token:
+            return None
+        await self._get_detection_annotation_for_collaboration(db, ann.id)
+        collaborator = await self._get_active_collaborator(db, ann.id, data.collaborator_token)
+        assignment = await crud.get_annotation_assignment_for_update(
+            db,
+            ann.id,
+            data.sample_item_id,
+        )
+        if not assignment or assignment.collaborator_id != collaborator.id:
+            raise ForbiddenException("sample item is assigned to another collaborator")
+        if assignment.status == "released":
+            raise ForbiddenException("sample item assignment has been released")
+        await crud.update_annotation_collaborator(
+            db,
+            collaborator.id,
+            last_active_at=datetime.now(),
+        )
+        return assignment
+
+    def _next_lease_expires_at(self, now: datetime | None = None) -> datetime:
+        base_time = now or datetime.now()
+        return base_time + timedelta(minutes=self.COLLABORATION_LEASE_MINUTES)
+
+    def _to_collaborator_response(self, collaborator) -> AnnotationCollaboratorResponse:
+        return AnnotationCollaboratorResponse(
+            id=collaborator.id,
+            annotation_id=collaborator.annotation_id,
+            display_name=collaborator.display_name,
+            token=collaborator.token,
+            status=collaborator.status,
+            last_active_at=collaborator.last_active_at,
+            created_at=collaborator.created_at,
+            updated_at=collaborator.updated_at,
+        )
+
+    def _to_assignment_response(self, assignment) -> AnnotationSampleAssignmentResponse:
+        return AnnotationSampleAssignmentResponse(
+            id=assignment.id,
+            annotation_id=assignment.annotation_id,
+            sample_item_id=assignment.sample_item_id,
+            collaborator_id=assignment.collaborator_id,
+            status=assignment.status,
+            lease_expires_at=assignment.lease_expires_at,
+            submitted_at=assignment.submitted_at,
+            collab_state=assignment.collab_state,
+            created_at=assignment.created_at,
+            updated_at=assignment.updated_at,
+        )
+
+    def _load_json_object(self, raw_value: Any) -> dict[str, Any] | None:
+        if not raw_value:
+            return None
+        if isinstance(raw_value, dict):
+            return raw_value
+        try:
+            parsed = json.loads(raw_value)
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    async def _to_sample_response(self, db: AsyncSession, item) -> SampleItemResponse:
+        asset_response = None
+        if item.asset_id:
+            asset = await db.scalar(
+                select(Asset).where(
+                    Asset.id == item.asset_id,
+                    Asset.is_deleted == False,
+                )
+            )
+            if asset:
+                asset_response = AssetResponse(
+                    id=asset.id,
+                    dataset_id=asset.dataset_id,
+                    asset_type=asset.asset_type,
+                    file_name=asset.file_name,
+                    save_path=asset.save_path,
+                    mime_type=asset.mime_type,
+                    size_bytes=asset.size_bytes,
+                    meta_json=asset.meta_json,
+                    created_at=asset.created_at,
+                )
+        return SampleItemResponse(
+            id=item.id,
+            dataset_id=item.dataset_id,
+            asset_id=item.asset_id,
+            item_type=item.item_type,
+            item_key=item.item_key,
+            locator=self._load_json_object(item.locator),
+            payload=self._load_json_object(item.payload),
+            sort_order=item.sort_order,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+            asset=asset_response,
+        )
 
     async def _load_annotation_record_content(
         self,

@@ -1,7 +1,7 @@
 """
 标注相关模型
 """
-from sqlalchemy import Column, BigInteger, String, Integer, Text
+from sqlalchemy import Column, BigInteger, String, Integer, Text, DateTime, Index, UniqueConstraint
 
 from .base_entity import BaseEntity
 
@@ -37,3 +37,40 @@ class AnnotationRecord(BaseEntity):
     status = Column(String(32), default="draft",
                     comment="状态: draft/saved/reviewed")
     content = Column(Text, nullable=True, comment="标注文件路径")
+
+
+class AnnotationCollaborator(BaseEntity):
+    """匿名协作者。当前没有用户体系，用后端签发 token 标识标注人。"""
+    __tablename__ = "annotation_collaborator"
+
+    annotation_id = Column(BigInteger, nullable=False,
+                           index=True, comment="标注项目ID")
+    display_name = Column(String(64), nullable=False, comment="协作者显示名称")
+    token = Column(String(128), nullable=False, unique=True,
+                   index=True, comment="协作者访问令牌")
+    status = Column(String(32), default="active",
+                    comment="状态: active/disabled")
+    last_active_at = Column(DateTime, nullable=True, comment="最近活跃时间")
+
+
+class AnnotationSampleAssignment(BaseEntity):
+    """样本协作分配记录。MVP 使用样本级独占分配。"""
+    __tablename__ = "annotation_sample_assignment"
+    __table_args__ = (
+        UniqueConstraint("annotation_id", "sample_item_id",
+                         name="uk_annotation_assignment_sample"),
+        Index("idx_annotation_assignment_collaborator",
+              "annotation_id", "collaborator_id"),
+    )
+
+    annotation_id = Column(BigInteger, nullable=False,
+                           index=True, comment="标注项目ID")
+    sample_item_id = Column(BigInteger, nullable=False,
+                            index=True, comment="样本ID")
+    collaborator_id = Column(BigInteger, nullable=False,
+                             index=True, comment="协作者ID")
+    status = Column(String(32), default="assigned",
+                    comment="状态: assigned/in_progress/submitted/released")
+    lease_expires_at = Column(DateTime, nullable=True, comment="分配锁过期时间")
+    submitted_at = Column(DateTime, nullable=True, comment="提交时间")
+    collab_state = Column(Text, nullable=True, comment="Yjs 协作文档快照")

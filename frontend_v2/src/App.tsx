@@ -17,6 +17,7 @@ import AnnotationPage from './pages/annotation/AnnotationPage';
 import AnnotationAiBindingPage from './pages/annotation/AnnotationAiBindingPage';
 import AnnotationAiPipelinePage from './pages/annotation/AnnotationAiPipelinePage';
 import AnnotationWorkbenchRouter from './pages/annotation/AnnotationWorkbenchRouter';
+import CollaborativeDetectionAnnotationPage from './pages/annotation/CollaborativeDetectionAnnotationPage';
 import AerialAnnotationPage from './pages/annotation/aerial/AerialAnnotationPage';
 import ClassificationAnnotationPage from './pages/annotation/classification/ClassificationAnnotationPage';
 import ConversationAnnotationPage from './pages/annotation/conversation/ConversationAnnotationPage';
@@ -77,6 +78,7 @@ const App: React.FC = () => {
           <Route element={<AnnotationLayout />}>
             <Route path="/annotations/:annotationId/label" element={<AnnotationWorkbenchRouter />} />
             <Route path="/annotations/:annotationId/label/image" element={<AnnotationPage />} />
+            <Route path="/annotations/:annotationId/label/collab-detection" element={<CollaborativeDetectionAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/aerial" element={<AerialAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/classification" element={<ClassificationAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/llm" element={<ConversationAnnotationPage />} />
