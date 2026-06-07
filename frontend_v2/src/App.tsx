@@ -77,6 +77,7 @@ const App: React.FC = () => {
           <Route element={<AnnotationLayout />}>
             <Route path="/annotations/:annotationId/label" element={<AnnotationWorkbenchRouter />} />
             <Route path="/annotations/:annotationId/label/image" element={<AnnotationPage />} />
+            <Route path="/annotations/:annotationId/label/collab-detection" element={<AnnotationPage />} />
             <Route path="/annotations/:annotationId/label/aerial" element={<AerialAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/classification" element={<ClassificationAnnotationPage />} />
             <Route path="/annotations/:annotationId/label/llm" element={<ConversationAnnotationPage />} />

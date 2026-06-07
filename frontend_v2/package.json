@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.1",
+    "@hocuspocus/provider": "^4.1.0",
     "@xyflow/react": "^12.10.2",
     "antd": "^6.3.5",
     "axios": "^1.15.2",
@@ -30,6 +31,7 @@
     "react-konva": "^19.2.3",
     "react-router-dom": "^7.14.0",
     "uuid": "^13.0.1",
+    "yjs": "^13.6.31",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

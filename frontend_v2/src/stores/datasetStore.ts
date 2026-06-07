@@ -9,37 +9,10 @@ import { getRecordClassIds, buildYoloRecordContent, buildClassificationRecordCon
 import { parseAnnotationClasses } from '../utils/annotationClasses';
 import { getSampleItemName, isImageSampleItem } from '../utils/sampleItem';
 import { useAnnotationStore } from './annotationStore';
+import { readSampleCursorCache, writeSampleCursorCache, type SampleCursorCache } from './annotationSampleCursorCache';
 import { message } from 'antd';
 
 const DEFAULT_SAMPLE_PAGE_SIZE = 100;
-const SAMPLE_CURSOR_STORAGE_KEY = 'auto_ml.annotation.sample_cursor';
-
-function readSampleCursorCache(): Record<number, { sampleId: number; sampleName: string; updatedAt: number }> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(SAMPLE_CURSOR_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, { sampleId: number; sampleName: string; updatedAt: number }>;
-    const cache: Record<number, { sampleId: number; sampleName: string; updatedAt: number }> = {};
-    Object.entries(parsed).forEach(([key, value]) => {
-      const annotationId = Number(key);
-      if (!Number.isFinite(annotationId) || !value || typeof value.sampleId !== 'number') return;
-      cache[annotationId] = value;
-    });
-    return cache;
-  } catch {
-    return {};
-  }
-}
-
-function writeSampleCursorCache(cache: Record<number, { sampleId: number; sampleName: string; updatedAt: number }>) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(SAMPLE_CURSOR_STORAGE_KEY, JSON.stringify(cache));
-  } catch {
-    // 忽略本地存储写入失败
-  }
-}
 
 interface DatasetStoreState {
   // 当前标注项目
@@ -61,7 +34,11 @@ interface DatasetStoreState {
   // 当前样本是否按页加载
   pagedSamplesEnabled: boolean;
   // 最近访问样本位置缓存
-  sampleCursorCache: Record<number, { sampleId: number; sampleName: string; updatedAt: number }>;
+  sampleCursorCache: SampleCursorCache;
+  // 当前协作标注 token。普通标注页为空。
+  collaboratorToken: string | null;
+  // 当前协作文档快照。普通标注页为空。
+  collaborationState: string | null;
   // 当前图像 URL
   currentImageUrl: string;
   // 加载状态
@@ -96,6 +73,8 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
   totalSamples: 0,
   pagedSamplesEnabled: true,
   sampleCursorCache: readSampleCursorCache(),
+  collaboratorToken: null,
+  collaborationState: null,
   currentImageUrl: '',
   loading: false,
 
@@ -114,6 +93,8 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
         samplePageSize: DEFAULT_SAMPLE_PAGE_SIZE,
         totalSamples: 0,
         pagedSamplesEnabled: true,
+        collaboratorToken: null,
+        collaborationState: null,
         currentImageUrl: '',
       });
 
@@ -439,7 +420,13 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
   },
 
   saveCurrentAnnotation: async () => {
-    const { annotationProject, sampleItems, currentSampleIndex } = get();
+    const {
+      annotationProject,
+      collaborationState,
+      collaboratorToken,
+      sampleItems,
+      currentSampleIndex,
+    } = get();
     if (!annotationProject || currentSampleIndex < 0) return;
 
     const annotationStore = useAnnotationStore.getState();
@@ -465,6 +452,8 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
         sample_item_id: sample.id,
         content: recordContent,
         status: 'saved',
+        collaborator_token: collaboratorToken || undefined,
+        collab_state: collaborationState || undefined,
       });
       set((state) => ({
         annotationRecords: [

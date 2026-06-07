@@ -9,6 +9,10 @@ import type {
   AnnotationAssistResponse,
   AnnotationAssistPipeline,
   AnnotationAiPipelineBinding,
+  AnnotationCollaborationClaimResponse,
+  AnnotationCollaborationSamplesResponse,
+  AnnotationCollaborationSessionResponse,
+  AnnotationCollaborationStats,
   AnnotationCreate,
   AnnotationTypeDefinition,
 } from '../types';
@@ -87,6 +91,58 @@ export async function getAnnotationRecordsBySamples(annotationId: number, sample
 /** 保存样本标注记录 */
 export async function saveAnnotationRecord(annotationId: number, data: AnnotationRecordSaveRequest) {
   const res = await apiClient.post<Result<AnnotationRecord>>(`/annotation/${annotationId}/records`, data);
+  return res.data.data;
+}
+
+export async function createAnnotationCollaborationSession(annotationId: number, token?: string) {
+  const res = await apiClient.post<Result<AnnotationCollaborationSessionResponse>>(
+    `/annotation/${annotationId}/collaboration/session`,
+    { token },
+  );
+  return res.data.data;
+}
+
+export async function claimAnnotationCollaborationSamples(
+  annotationId: number,
+  collaboratorToken: string,
+  batchSize = 20,
+) {
+  const res = await apiClient.post<Result<AnnotationCollaborationClaimResponse>>(
+    `/annotation/${annotationId}/collaboration/claim`,
+    {
+      collaborator_token: collaboratorToken,
+      batch_size: batchSize,
+    },
+  );
+  return res.data.data;
+}
+
+export async function getAnnotationCollaborationSamples(
+  annotationId: number,
+  collaboratorToken: string,
+  page = 1,
+  pageSize = 100,
+) {
+  const res = await apiClient.get<Result<AnnotationCollaborationSamplesResponse>>(
+    `/annotation/${annotationId}/collaboration/samples`,
+    {
+      params: {
+        collaborator_token: collaboratorToken,
+        page,
+        page_size: pageSize,
+      },
+    },
+  );
+  return res.data.data;
+}
+
+export async function getAnnotationCollaborationStats(annotationId: number, collaboratorToken: string) {
+  const res = await apiClient.get<Result<AnnotationCollaborationStats>>(
+    `/annotation/${annotationId}/collaboration/stats`,
+    {
+      params: { collaborator_token: collaboratorToken },
+    },
+  );
   return res.data.data;
 }
 
