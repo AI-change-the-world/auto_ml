@@ -153,11 +153,6 @@ const AnnotationListPage: React.FC = () => {
     navigate(`/annotations/${annotation.id}/ai-binding`);
   };
 
-  const handleOpenCollaboration = (event: React.MouseEvent, annotation: AnnotationProject) => {
-    event.stopPropagation();
-    navigate(`/annotations/${annotation.id}/label/collab-detection`);
-  };
-
   const selectedDataset = datasets.find((item) => item.id === formData.dataset_id);
   const selectedCategory = getAnnotationCategoryDefinition(selectedCategoryKey);
   const categoryAnnotationTypes = (selectedCategory?.annotationTypes ?? [])
@@ -219,7 +214,6 @@ const AnnotationListPage: React.FC = () => {
               t={t}
               onOpen={(annotation) => navigate(`/annotations/${annotation.id}/label`)}
               onOpenAiPipeline={handleOpenAiBinding}
-              onOpenCollaboration={handleOpenCollaboration}
               onEditClasses={openClassesModal}
               onDelete={handleDelete}
             />

@@ -11,7 +11,6 @@ import {
   RobotOutlined,
   SettingOutlined,
   TagsOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
 import type { TFunction } from 'i18next';
 import type { AnnotationProject, AnnotationTypeModel } from '../../../types';
@@ -59,7 +58,6 @@ interface AnnotationProjectCardProps {
   t: TFunction<'annotation'>;
   onOpen: (annotation: AnnotationProject) => void;
   onOpenAiPipeline: (event: React.MouseEvent, annotation: AnnotationProject) => void;
-  onOpenCollaboration?: (event: React.MouseEvent, annotation: AnnotationProject) => void;
   onEditClasses: (event: React.MouseEvent, annotation: AnnotationProject) => void;
   onDelete: (event: React.MouseEvent, annotationId: number) => void;
 }
@@ -71,7 +69,6 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
   t,
   onOpen,
   onOpenAiPipeline,
-  onOpenCollaboration,
   onEditClasses,
   onDelete,
 }) => {
@@ -108,27 +105,6 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
           >
             <RobotOutlined />
           </button>
-          {annotation.annotation_type === 0 && onOpenCollaboration && (
-            <button
-              onClick={(event) => onOpenCollaboration(event, annotation)}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: 6,
-                background: 'rgba(255,255,255,0.8)',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#666',
-                fontSize: 13,
-              }}
-              title="协作标注"
-            >
-              <TeamOutlined />
-            </button>
-          )}
           {typeModel?.supportsClasses && (
             <button
               onClick={(event) => onEditClasses(event, annotation)}

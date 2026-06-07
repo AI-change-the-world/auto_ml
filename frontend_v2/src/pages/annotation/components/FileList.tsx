@@ -1,16 +1,25 @@
 import React from 'react';
 import { List, Typography, Spin, Empty, Button } from 'antd';
-import { FileImageOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { useDatasetStore } from '../../../stores/datasetStore';
 import { useAnnotationStore } from '../../../stores/annotationStore';
 import { getSampleItemName } from '../../../utils/sampleItem';
+import type { AnnotationSampleEditor } from '../../../hooks/useAnnotationCollaborationPresence';
+import AnnotationSampleListItem, { getAnnotationSampleStatus } from './AnnotationSampleListItem';
 
 const { Text } = Typography;
 
-const FileList: React.FC = () => {
+interface FileListProps {
+  editorsBySampleId?: Record<number, AnnotationSampleEditor[]>;
+}
+
+const FileList: React.FC<FileListProps> = ({
+  editorsBySampleId = {},
+}) => {
   const itemRefs = React.useRef<Record<number, HTMLDivElement | null>>({});
   const {
     sampleItems,
+    annotationRecords,
     currentSampleIndex,
     loadSampleAtIndex,
     loadSamplePage,
@@ -26,6 +35,10 @@ const FileList: React.FC = () => {
   const currentGlobalIndex = currentSampleIndex >= 0
     ? (samplePage - 1) * samplePageSize + currentSampleIndex + 1
     : 0;
+  const recordSampleIds = React.useMemo(
+    () => new Set(annotationRecords.map((item) => item.sample_item_id)),
+    [annotationRecords],
+  );
 
   React.useEffect(() => {
     const activeItem = itemRefs.current[currentSampleIndex];
@@ -66,6 +79,8 @@ const FileList: React.FC = () => {
             renderItem={(item, index) => {
               const sampleName = getSampleItemName(item);
               const isActive = index === currentSampleIndex;
+              const editors = editorsBySampleId[item.id] || [];
+              const status = getAnnotationSampleStatus(recordSampleIds.has(item.id), isActive);
               return (
                 <div
                   key={item.id}
@@ -73,30 +88,13 @@ const FileList: React.FC = () => {
                     itemRefs.current[index] = node;
                   }}
                 >
-                  <List.Item
-                    style={{
-                      padding: '6px 12px',
-                      cursor: 'pointer',
-                      background: isActive ? '#e6f7ff' : 'transparent',
-                      borderLeft: isActive ? '3px solid #1890ff' : '3px solid transparent',
-                    }}
-                    onClick={() => handleClick(index)}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minWidth: 0 }}>
-                      <FileImageOutlined style={{ color: isActive ? '#1890ff' : '#999', flexShrink: 0 }} />
-                      <Text
-                        ellipsis={{ tooltip: sampleName }}
-                        style={{
-                          fontSize: 12,
-                          color: isActive ? '#1890ff' : undefined,
-                          flex: 1,
-                          minWidth: 0,
-                        }}
-                      >
-                        {sampleName}
-                      </Text>
-                    </div>
-                  </List.Item>
+                  <AnnotationSampleListItem
+                    sampleName={sampleName}
+                    active={isActive}
+                    status={status}
+                    editors={editors}
+                    onClick={() => void handleClick(index)}
+                  />
                 </div>
               );
             }}

@@ -3,6 +3,11 @@ import { useParams } from 'react-router-dom';
 import { Spin, Typography, message } from 'antd';
 import { useDatasetStore } from '../../stores/datasetStore';
 import { useAnnotationStore } from '../../stores/annotationStore';
+import { useAnnotationCollaborationDocument } from '../../hooks/useAnnotationCollaborationDocument';
+import {
+  useAnnotationCollaborationPresence,
+  type AnnotationSampleEditor,
+} from '../../hooks/useAnnotationCollaborationPresence';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard';
 import ImageCanvas from './components/ImageCanvas';
@@ -14,13 +19,40 @@ const { Title } = Typography;
 
 const AnnotationPage: React.FC = () => {
   const { annotationId } = useParams<{ annotationId: string }>();
-  const { loadAnnotationProject, annotationProject, loading } = useDatasetStore();
+  const {
+    loadAnnotationProject,
+    annotationProject,
+    currentSampleIndex,
+    loading,
+    sampleItems,
+  } = useDatasetStore();
   const reset = useAnnotationStore((s) => s.reset);
   const modified = useAnnotationStore((s) => s.modified);
 
   // 快捷键
   useKeyboardShortcuts();
   useUnsavedChangesGuard(modified);
+
+  const annotationNumericId = annotationId ? Number(annotationId) : NaN;
+  const currentSample = currentSampleIndex >= 0 ? sampleItems[currentSampleIndex] : null;
+
+  useAnnotationCollaborationDocument({
+    enabled: Number.isFinite(annotationNumericId),
+    annotationId: annotationNumericId,
+    sampleItemId: currentSample?.id,
+  });
+  const activeEditors = useAnnotationCollaborationPresence({
+    enabled: Number.isFinite(annotationNumericId),
+    annotationId: annotationNumericId,
+    sampleItemId: currentSample?.id,
+  });
+  const editorsBySampleId = React.useMemo(() => {
+    return activeEditors.reduce<Record<number, AnnotationSampleEditor[]>>((acc, editor) => {
+      if (!acc[editor.sampleItemId]) acc[editor.sampleItemId] = [];
+      acc[editor.sampleItemId].push(editor);
+      return acc;
+    }, {});
+  }, [activeEditors]);
 
   // 加载标注项目
   useEffect(() => {
@@ -58,7 +90,7 @@ const AnnotationPage: React.FC = () => {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* 左侧: 文件列表 */}
         <div style={{ borderRight: '1px solid #f0f0f0' }}>
-          <FileList />
+          <FileList editorsBySampleId={editorsBySampleId} />
         </div>
 
         {/* 中间: 画布 */}
