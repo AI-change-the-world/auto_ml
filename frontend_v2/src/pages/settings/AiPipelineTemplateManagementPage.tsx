@@ -1,8 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ApartmentOutlined,
-  ArrowLeftOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import {
@@ -19,6 +17,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
+import AiPipelineSectionSwitch from './components/AiPipelineSectionSwitch';
 import {
   createAiPipelineTemplate,
   deleteAiPipelineTemplate,
@@ -67,7 +66,6 @@ const outputKindOptions = [
 ];
 
 const AiPipelineTemplateManagementPage: React.FC = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
   const [templates, setTemplates] = React.useState<AiPipelineTemplateListItem[]>([]);
   const [templateDrawerOpen, setTemplateDrawerOpen] = React.useState(false);
@@ -181,17 +179,14 @@ const AiPipelineTemplateManagementPage: React.FC = () => {
             <ApartmentOutlined />
           </div>
           <div>
-            <h1 className="page-title">AI Pipeline 模板管理</h1>
-            <p className="page-subtitle">统一维护平台 Pipeline 定义。项目页面只负责绑定与覆盖配置。</p>
+            <h1 className="page-title">AI Pipeline</h1>
+            <p className="page-subtitle">统一维护模板定义和 Provider 资源，项目页面只负责绑定与覆盖配置。</p>
+            <div style={{ marginTop: 12 }}>
+              <AiPipelineSectionSwitch activeKey="templates" />
+            </div>
           </div>
         </div>
         <Space>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/settings')}>
-            返回设置
-          </Button>
-          <Button onClick={() => navigate('/ai-pipeline/providers')}>
-            Provider 资源
-          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openTemplateDrawer}>
             新建模板
           </Button>
