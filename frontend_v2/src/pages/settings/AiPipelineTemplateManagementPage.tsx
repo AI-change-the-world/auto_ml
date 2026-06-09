@@ -47,6 +47,25 @@ const buildTemplateEditorUrl = (templateKey: string) => (
   `/ai-pipeline/editor/${encodeURIComponent(templateKey)}`
 );
 
+const sceneTypeOptions = [
+  { label: 'assist_annotation', value: 'assist_annotation' },
+  { label: 'video_annotation', value: 'video_annotation' },
+  { label: 'general', value: 'general' },
+];
+
+const inputKindOptions = [
+  { label: 'image', value: 'image' },
+  { label: 'text', value: 'text' },
+  { label: 'mixed', value: 'mixed' },
+];
+
+const outputKindOptions = [
+  { label: 'annotations', value: 'annotations' },
+  { label: 'overlay_image', value: 'overlay_image' },
+  { label: 'preview_image', value: 'preview_image' },
+  { label: 'text', value: 'text' },
+];
+
 const AiPipelineTemplateManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
@@ -84,7 +103,7 @@ const AiPipelineTemplateManagementPage: React.FC = () => {
     templateForm.setFieldsValue({
       scene_type: 'assist_annotation',
       input_kind: 'image',
-      output_kind: 'annotation_bbox',
+      output_kind: 'annotations',
       status: 'active',
       is_builtin: false,
     });
@@ -103,8 +122,8 @@ const AiPipelineTemplateManagementPage: React.FC = () => {
         name: values.name.trim(),
         description: values.description?.trim(),
         scene_type: values.scene_type,
-        input_kind: values.input_kind?.trim() || undefined,
-        output_kind: values.output_kind?.trim() || undefined,
+        input_kind: values.input_kind || undefined,
+        output_kind: values.output_kind || undefined,
         status: values.status || 'active',
         is_builtin: Boolean(values.is_builtin),
       };
@@ -299,19 +318,13 @@ const AiPipelineTemplateManagementPage: React.FC = () => {
             <Input.TextArea rows={3} />
           </Form.Item>
           <Form.Item label="场景" name="scene_type" rules={[{ required: true, message: '请选择场景' }]}>
-            <Select
-              options={[
-                { label: 'assist_annotation', value: 'assist_annotation' },
-                { label: 'video_annotation', value: 'video_annotation' },
-                { label: 'general', value: 'general' },
-              ]}
-            />
+            <Select options={sceneTypeOptions} />
           </Form.Item>
-          <Form.Item label="输入类型" name="input_kind">
-            <Input placeholder="如：image / video / text" />
+          <Form.Item label="输入类型" name="input_kind" rules={[{ required: true, message: '请选择输入类型' }]}>
+            <Select options={inputKindOptions} placeholder="请选择输入类型" />
           </Form.Item>
-          <Form.Item label="输出类型" name="output_kind">
-            <Input placeholder="如：annotation_bbox" />
+          <Form.Item label="输出类型" name="output_kind" rules={[{ required: true, message: '请选择输出类型' }]}>
+            <Select options={outputKindOptions} placeholder="请选择输出类型" />
           </Form.Item>
           <Form.Item label="状态" name="status">
             <Select

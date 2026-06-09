@@ -26,6 +26,7 @@ import {
 } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { getDatasetDeleteConfirmEnabled } from '../../utils/localSettings';
+import { emitDatasetsChanged } from '../../utils/projectEvents';
 
 const createInitialFormData = (): DatasetCreate => ({
   name: '',
@@ -73,6 +74,7 @@ const DatasetListPage: React.FC = () => {
     try {
       const res = await createDataset(formData);
       message.success(tc('msg.createSuccess'));
+      emitDatasetsChanged();
       setCreateOpen(false);
       setFormData(createInitialFormData());
       fetchDatasets();
@@ -86,6 +88,7 @@ const DatasetListPage: React.FC = () => {
     const onDelete = async () => {
       await deleteDataset(id);
       message.success(tc('msg.deleted'));
+      emitDatasetsChanged();
       fetchDatasets();
     };
     if (!getDatasetDeleteConfirmEnabled()) {

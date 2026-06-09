@@ -34,6 +34,7 @@ import {
 } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { getDatasetDeleteConfirmEnabled } from '../../utils/localSettings';
+import { emitDatasetsChanged } from '../../utils/projectEvents';
 import { isImageFileName } from '../../utils/file';
 import { getDatasetUploadRule, splitAcceptedFiles } from '../../utils/datasetUpload';
 
@@ -190,6 +191,7 @@ const DatasetDetailPage: React.FC = () => {
     const onDelete = async () => {
       await deleteDataset(datasetId);
       message.success(tc('msg.deleted'));
+      emitDatasetsChanged();
       navigate('/datasets');
     };
     if (!getDatasetDeleteConfirmEnabled()) {
