@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Image, Progress } from 'antd';
+import { message, Spin, Modal, Image, Pagination, Progress } from 'antd';
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
@@ -119,6 +119,7 @@ function getDpoScenarioGuide(dataset: Dataset) {
 }
 
 const DatasetDetailPage: React.FC = () => {
+  const SAMPLE_PAGE_SIZE = 100;
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t } = useTranslation('dataset');
@@ -128,6 +129,8 @@ const DatasetDetailPage: React.FC = () => {
 
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [samples, setSamples] = useState<SampleItem[]>([]);
+  const [sampleTotal, setSampleTotal] = useState(0);
+  const [samplePage, setSamplePage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -135,30 +138,77 @@ const DatasetDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDragOver, setIsDragOver] = useState(false);
+  const previewObserverRef = useRef<IntersectionObserver | null>(null);
+  const previewRequestedRef = useRef<Set<number>>(new Set());
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const [ds, filesRes] = await Promise.all([getDataset(datasetId), getDatasetSamples(datasetId)]);
+      const itemType = activeTab === 'images' ? 'image' : undefined;
+      const [ds, filesRes] = await Promise.all([
+        getDataset(datasetId),
+        getDatasetSamples(datasetId, samplePage, SAMPLE_PAGE_SIZE, itemType),
+      ]);
       if (ds) setDataset(ds);
-      if (filesRes) setSamples(filesRes.items);
+      if (filesRes) {
+        setSamples(filesRes.items);
+        setSampleTotal(filesRes.total);
+      }
     } catch { message.error(tc('msg.loadFailed')); }
     finally { setLoading(false); }
-  }, [datasetId]);
+  }, [activeTab, datasetId, samplePage, tc]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // 加载图片预览
   useEffect(() => {
-    samples.forEach(async (sample) => {
-      const fileName = sample.asset?.file_name;
-      if (!fileName || previewUrls[fileName]) return;
-      if (!isImageFileName(fileName)) return;
-      try {
-        const res = await previewSample(datasetId, sample.id);
-        if (res?.presigned_url) setPreviewUrls((prev) => ({ ...prev, [fileName]: res.presigned_url }));
-      } catch { /* ignore */ }
-    });
-  }, [samples, datasetId]);
+    setSelectedIds(new Set());
+    previewObserverRef.current?.disconnect();
+  }, [activeTab, samplePage]);
+
+  useEffect(() => () => {
+    previewObserverRef.current?.disconnect();
+  }, []);
+
+  const observePreviewTarget = useCallback((node: HTMLDivElement | null, sampleId: number, fileName: string) => {
+    if (!node || previewUrls[fileName] || previewRequestedRef.current.has(sampleId)) {
+      return;
+    }
+
+    if (!previewObserverRef.current) {
+      previewObserverRef.current = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) {
+            return;
+          }
+
+          const target = entry.target as HTMLDivElement;
+          const observedSampleId = Number(target.dataset.sampleId);
+          const observedFileName = target.dataset.fileName;
+          if (!observedSampleId || !observedFileName || previewRequestedRef.current.has(observedSampleId)) {
+            previewObserverRef.current?.unobserve(target);
+            return;
+          }
+
+          previewRequestedRef.current.add(observedSampleId);
+          previewObserverRef.current?.unobserve(target);
+          previewSample(datasetId, observedSampleId)
+            .then((res) => {
+              if (res?.presigned_url) {
+                setPreviewUrls((prev) => ({ ...prev, [observedFileName]: res.presigned_url }));
+              }
+            })
+            .catch(() => { });
+        });
+      }, {
+        rootMargin: '200px 0px',
+        threshold: 0.1,
+      });
+    }
+
+    node.dataset.sampleId = String(sampleId);
+    node.dataset.fileName = fileName;
+    previewObserverRef.current.observe(node);
+  }, [datasetId, previewUrls]);
 
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0 || !dataset) return;
@@ -179,6 +229,7 @@ const DatasetDetailPage: React.FC = () => {
       clearInterval(timer);
       setUploadProgress(100);
       message.success(t('uploadSuccess', { count: uploadedCount ?? accepted.length }));
+      setSamplePage(1);
       setSelectedIds(new Set());
       fetchData();
     } catch { message.error(tc('msg.uploadFailed')); }
@@ -211,6 +262,10 @@ const DatasetDetailPage: React.FC = () => {
       await deleteDatasetSample(datasetId, sample.id);
       message.success(tc('msg.deleted'));
       setSelectedIds((prev) => { const next = new Set(prev); next.delete(sample.id); return next; });
+      if (samples.length === 1 && samplePage > 1) {
+        setSamplePage((prev) => Math.max(prev - 1, 1));
+        return;
+      }
       fetchData();
     };
     if (!getDatasetDeleteConfirmEnabled()) {
@@ -231,6 +286,10 @@ const DatasetDetailPage: React.FC = () => {
       await Promise.all(Array.from(selectedIds).map((sampleId) => deleteDatasetSample(datasetId, sampleId)));
       message.success(tc('msg.deleted'));
       setSelectedIds(new Set());
+      if (selectedIds.size >= samples.length && samplePage > 1) {
+        setSamplePage((prev) => Math.max(prev - 1, 1));
+        return;
+      }
       fetchData();
     };
     if (!getDatasetDeleteConfirmEnabled()) {
@@ -283,10 +342,12 @@ const DatasetDetailPage: React.FC = () => {
   const overlapRatio = dataset.scenario_config?.stitching?.default_overlap_ratio;
   const uploadRule = getDatasetUploadRule(dataset);
   const dpoGuide = isDpoDataset ? getDpoScenarioGuide(dataset) : null;
+  const totalFileCount = activeTab === 'images' ? sampleTotal : dataset.count;
+  const totalImageCount = isImageDataset ? dataset.count : activeTab === 'images' ? sampleTotal : imageFiles.length;
 
   const tabs = [
-    { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: samples.length },
-    { key: 'images', label: t('images'), icon: <PictureOutlined />, count: imageFiles.length },
+    { key: 'all', label: t('allFiles'), icon: <FileOutlined />, count: dataset.count },
+    { key: 'images', label: t('images'), icon: <PictureOutlined />, count: totalImageCount },
     { key: 'info', label: t('info'), icon: <TagOutlined /> },
   ];
 
@@ -332,9 +393,9 @@ const DatasetDetailPage: React.FC = () => {
             </span>
           </div>
           <div className="body-text-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#888' }}>
-            <span><FileOutlined /> {t('filesCount', { count: samples.length })}</span>
+            <span><FileOutlined /> {t('filesCount', { count: totalFileCount })}</span>
             <span>·</span>
-            <span><PictureOutlined /> {t('imagesCount', { count: imageFiles.length })}</span>
+            <span><PictureOutlined /> {t('imagesCount', { count: totalImageCount })}</span>
             <span>·</span>
             <span><ClockCircleOutlined /> {t('updatedAt', { date: new Date(dataset.updated_at).toLocaleDateString() })}</span>
           </div>
@@ -428,7 +489,7 @@ const DatasetDetailPage: React.FC = () => {
           <button
             className="button-text"
             key={tab.key}
-            onClick={() => { setActiveTab(tab.key); setSelectedIds(new Set()); }}
+            onClick={() => { setActiveTab(tab.key); setSamplePage(1); setSelectedIds(new Set()); }}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '10px 16px', cursor: 'pointer',
@@ -517,7 +578,8 @@ const DatasetDetailPage: React.FC = () => {
           {activeTab === 'images' ? (
             // 图片网格视图
             imageFiles.length > 0 ? (
-              <div className="image-grid">
+              <>
+                <div className="image-grid">
                 {imageFiles.map((sample) => {
                   const fileName = getSampleFileName(sample);
                   return (
@@ -527,7 +589,11 @@ const DatasetDetailPage: React.FC = () => {
                     outline: selectedIds.has(sample.id) ? '2px solid #4f6ef7' : 'none',
                     outlineOffset: -2,
                   }}>
-                    <div style={{ position: 'absolute', inset: 0 }} onClick={() => toggleSelect(sample.id)}>
+                    <div
+                      ref={(node) => observePreviewTarget(node, sample.id, fileName)}
+                      style={{ position: 'absolute', inset: 0 }}
+                      onClick={() => toggleSelect(sample.id)}
+                    >
                       {previewUrls[fileName] ? (
                         <Image
                           src={previewUrls[fileName]}
@@ -582,7 +648,18 @@ const DatasetDetailPage: React.FC = () => {
                   </div>
                 );
                 })}
-              </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+                  <Pagination
+                    current={samplePage}
+                    pageSize={SAMPLE_PAGE_SIZE}
+                    total={sampleTotal}
+                    onChange={setSamplePage}
+                    showSizeChanger={false}
+                    showTotal={(totalValue) => t('totalFiles', { count: totalValue })}
+                  />
+                </div>
+              </>
             ) : (
               <div style={{ textAlign: 'center', padding: 60, color: '#ddd' }}>
                 <InboxOutlined style={{ fontSize: 48, marginBottom: 12 }} />
@@ -592,76 +669,88 @@ const DatasetDetailPage: React.FC = () => {
           ) : (
             // 全部文件列表视图
             displayedFiles.length > 0 ? (
-              <div style={{ border: '1px solid #eee', borderRadius: 10, overflow: 'hidden' }}>
-                {/* Table header */}
-                <div style={{
-                  display: 'grid', gridTemplateColumns: '40px 1fr 160px 60px',
-                  padding: '8px 16px', background: '#fafafa', borderBottom: '1px solid #eee',
-                  fontWeight: 600, color: '#888',
-                }} className="caption-text">
-                  <div />
-                  <div>{t('fileName')}</div>
-                  <div>{t('uploadTime')}</div>
-                  <div style={{ textAlign: 'center' }}>{t('actions')}</div>
-                </div>
-                {/* Table rows */}
-                {displayedFiles.map((sample) => {
-                  const fileName = getSampleFileName(sample);
-                  return (
-                  <div
-                    key={sample.id}
-                    style={{
-                      display: 'grid', gridTemplateColumns: '40px 1fr 160px 60px',
-                      padding: '10px 16px', borderBottom: '1px solid #f5f5f5',
-                      alignItems: 'center',
-                      background: selectedIds.has(sample.id) ? '#f0f4ff' : '#fff',
-                      transition: 'background 0.15s',
-                    }} className="body-text-sm"
-                    onMouseEnter={(e) => { if (!selectedIds.has(sample.id)) e.currentTarget.style.background = '#fafafa'; }}
-                    onMouseLeave={(e) => { if (!selectedIds.has(sample.id)) e.currentTarget.style.background = '#fff'; }}
-                  >
-                    {/* Checkbox */}
-                    <div
-                      onClick={() => toggleSelect(sample.id)}
-                      style={{
-                        width: 18, height: 18, borderRadius: 4, cursor: 'pointer',
-                        border: selectedIds.has(sample.id) ? 'none' : '1px solid #d9d9d9',
-                        background: selectedIds.has(sample.id) ? '#4f6ef7' : '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontSize: 11,
-                      }}
-                    >
-                      {selectedIds.has(sample.id) && '✓'}
-                    </div>
-                    {/* File name */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{getFileIcon(fileName)}</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#111' }}>
-                        {fileName}
-                      </span>
-                    </div>
-                    {/* Upload time */}
-                    <div className="caption-text" style={{ color: '#999' }}>
-                      {new Date(sample.created_at).toLocaleString()}
-                    </div>
-                    {/* Actions */}
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-                      <button
-                        onClick={(e) => handleDeleteSample(e, sample)}
-                        style={{
-                          padding: '2px 6px', border: 'none', background: 'none',
-                          color: '#999', cursor: 'pointer', fontSize: 13, borderRadius: 4,
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = '#dc2626'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = '#999'; }}
-                      >
-                        <DeleteOutlined />
-                      </button>
-                    </div>
+              <>
+                <div style={{ border: '1px solid #eee', borderRadius: 10, overflow: 'hidden' }}>
+                  {/* Table header */}
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: '40px 1fr 160px 60px',
+                    padding: '8px 16px', background: '#fafafa', borderBottom: '1px solid #eee',
+                    fontWeight: 600, color: '#888',
+                  }} className="caption-text">
+                    <div />
+                    <div>{t('fileName')}</div>
+                    <div>{t('uploadTime')}</div>
+                    <div style={{ textAlign: 'center' }}>{t('actions')}</div>
                   </div>
-                );
-                })}
-              </div>
+                  {/* Table rows */}
+                  {displayedFiles.map((sample) => {
+                    const fileName = getSampleFileName(sample);
+                    return (
+                    <div
+                      key={sample.id}
+                      style={{
+                        display: 'grid', gridTemplateColumns: '40px 1fr 160px 60px',
+                        padding: '10px 16px', borderBottom: '1px solid #f5f5f5',
+                        alignItems: 'center',
+                        background: selectedIds.has(sample.id) ? '#f0f4ff' : '#fff',
+                        transition: 'background 0.15s',
+                      }} className="body-text-sm"
+                      onMouseEnter={(e) => { if (!selectedIds.has(sample.id)) e.currentTarget.style.background = '#fafafa'; }}
+                      onMouseLeave={(e) => { if (!selectedIds.has(sample.id)) e.currentTarget.style.background = '#fff'; }}
+                    >
+                      {/* Checkbox */}
+                      <div
+                        onClick={() => toggleSelect(sample.id)}
+                        style={{
+                          width: 18, height: 18, borderRadius: 4, cursor: 'pointer',
+                          border: selectedIds.has(sample.id) ? 'none' : '1px solid #d9d9d9',
+                          background: selectedIds.has(sample.id) ? '#4f6ef7' : '#fff',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontSize: 11,
+                        }}
+                      >
+                        {selectedIds.has(sample.id) && '✓'}
+                      </div>
+                      {/* File name */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                        <span style={{ fontSize: 16, flexShrink: 0 }}>{getFileIcon(fileName)}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#111' }}>
+                          {fileName}
+                        </span>
+                      </div>
+                      {/* Upload time */}
+                      <div className="caption-text" style={{ color: '#999' }}>
+                        {new Date(sample.created_at).toLocaleString()}
+                      </div>
+                      {/* Actions */}
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
+                        <button
+                          onClick={(e) => handleDeleteSample(e, sample)}
+                          style={{
+                            padding: '2px 6px', border: 'none', background: 'none',
+                            color: '#999', cursor: 'pointer', fontSize: 13, borderRadius: 4,
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#dc2626'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = '#999'; }}
+                        >
+                          <DeleteOutlined />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                  })}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+                  <Pagination
+                    current={samplePage}
+                    pageSize={SAMPLE_PAGE_SIZE}
+                    total={sampleTotal}
+                    onChange={setSamplePage}
+                    showSizeChanger={false}
+                    showTotal={(totalValue) => t('totalFiles', { count: totalValue })}
+                  />
+                </div>
+              </>
             ) : (
               <div style={{ textAlign: 'center', padding: 60, color: '#ddd' }}>
                 <InboxOutlined style={{ fontSize: 48, marginBottom: 12 }} />
@@ -679,7 +768,7 @@ const DatasetDetailPage: React.FC = () => {
               { label: tc('label.name'), value: dataset.name },
               { label: tc('label.type'), value: DataTypeLabels[dataset.data_type] ?? tc('status.unknown') },
               { label: t('scenarioType'), value: getDatasetScenarioLabel(dataset.data_type, dataset.scenario_type) },
-              { label: tc('label.files'), value: t('fileCount', { count: samples.length }) },
+              { label: tc('label.files'), value: t('fileCount', { count: dataset.count }) },
               { label: t('storageLocal'), value: dataset.storage_type === 0 ? t('storageLocal') : t('storageS3') },
               { label: tc('label.createdAt'), value: new Date(dataset.created_at).toLocaleString() },
               { label: tc('label.updatedAt'), value: new Date(dataset.updated_at).toLocaleString() },

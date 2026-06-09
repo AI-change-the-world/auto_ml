@@ -53,5 +53,6 @@
     "fileName": "文件名",
     "fileSize": "大小",
     "uploadTime": "上传时间",
-    "actions": "操作"
+    "actions": "操作",
+    "totalFiles": "共 {{count}} 条"
 }

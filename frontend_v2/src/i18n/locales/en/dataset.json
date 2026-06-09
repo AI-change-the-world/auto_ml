@@ -53,5 +53,6 @@
     "fileName": "File Name",
     "fileSize": "Size",
     "uploadTime": "Upload Time",
-    "actions": "Actions"
+    "actions": "Actions",
+    "totalFiles": "{{count}} items in total"
 }

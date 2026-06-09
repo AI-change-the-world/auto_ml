@@ -297,7 +297,12 @@ class DatasetService:
 
         offset = (page - 1) * page_size
         items, total = await crud.get_sample_items(db, dataset_id, offset, page_size, item_type, keyword)
-        return [await self._to_sample_response(db, item) for item in items], total
+        asset_ids = [int(item.asset_id) for item in items if item.asset_id]
+        asset_map = {
+            asset.id: AssetResponse.model_validate(asset)
+            for asset in await crud.get_assets_by_ids(db, asset_ids)
+        }
+        return [self._to_sample_response(item, asset_map.get(item.asset_id)) for item in items], total
 
     async def create_sample_item(
         self,
@@ -324,7 +329,7 @@ class DatasetService:
             sort_order=0,
         )
         await crud.update_dataset_count(db, dataset_id, await crud.get_sample_item_count(db, dataset_id))
-        return await self._to_sample_response(db, item)
+        return self._to_sample_response(item)
 
     async def update_sample_item(
         self,
@@ -352,7 +357,7 @@ class DatasetService:
         updated = await crud.update_sample_item(db, sample_item_id, **update_data)
         if not updated:
             raise NotFoundException(f"Sample item {sample_item_id} not found")
-        return await self._to_sample_response(db, updated)
+        return self._to_sample_response(updated)
 
     async def delete_sample_item(
         self,
@@ -655,12 +660,7 @@ class DatasetService:
             updated_at=dataset.updated_at,
         )
 
-    async def _to_sample_response(self, db: AsyncSession, item) -> SampleItemResponse:
-        asset_response = None
-        if item.asset_id:
-            asset = await crud.get_asset_by_id(db, item.asset_id)
-            if asset:
-                asset_response = AssetResponse.model_validate(asset)
+    def _to_sample_response(self, item, asset_response: Optional[AssetResponse] = None) -> SampleItemResponse:
         return SampleItemResponse(
             id=item.id,
             dataset_id=item.dataset_id,
