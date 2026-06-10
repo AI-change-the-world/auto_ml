@@ -114,6 +114,18 @@ async def get_asset_by_id(db: AsyncSession, asset_id: int) -> Optional[Asset]:
     return result.scalar_one_or_none()
 
 
+async def get_assets_by_ids(db: AsyncSession, asset_ids: list[int]) -> list[Asset]:
+    if not asset_ids:
+        return []
+
+    stmt = select(Asset).where(
+        Asset.id.in_(asset_ids),
+        Asset.is_deleted == False,
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def create_sample_item(db: AsyncSession, **kwargs) -> SampleItem:
     item = SampleItem(**kwargs)
     db.add(item)

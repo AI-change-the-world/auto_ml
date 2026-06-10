@@ -1,7 +1,7 @@
 {
     "nav": {
         "home": "Home",
-        "browse": "Browse",
+        "browse": "Datasets",
         "annotation": "Annotation",
         "training": "Training",
         "deploy": "Deploy",

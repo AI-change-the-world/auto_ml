@@ -1,8 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ApartmentOutlined,
-  ArrowLeftOutlined,
   DeleteOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
@@ -22,6 +20,7 @@ import {
   Tag,
   message,
 } from 'antd';
+import AiPipelineSectionSwitch from './components/AiPipelineSectionSwitch';
 import {
   createAiPipelineProviderResource,
   deleteAiPipelineProviderResource,
@@ -81,7 +80,6 @@ const providerRoleOptions = [
 ];
 
 const AiPipelineProviderManagementPage: React.FC = () => {
-  const navigate = useNavigate();
   const [form] = Form.useForm<ProviderFormValues>();
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -223,14 +221,14 @@ const AiPipelineProviderManagementPage: React.FC = () => {
             <ApartmentOutlined />
           </div>
           <div>
-            <h1 className="page-title">AI Provider 资源</h1>
-            <p className="page-subtitle">统一维护平台可复用的模型服务 Provider，Binding 只选择资源，不直接填写配置。</p>
+            <h1 className="page-title">AI Pipeline</h1>
+            <p className="page-subtitle">统一维护模板定义和 Provider 资源，Binding 只选择资源，不直接填写配置。</p>
+            <div style={{ marginTop: 12 }}>
+              <AiPipelineSectionSwitch activeKey="providers" />
+            </div>
           </div>
         </div>
         <Space>
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/ai-pipeline')}>
-            返回模板管理
-          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreateDrawer}>
             新建 Provider
           </Button>

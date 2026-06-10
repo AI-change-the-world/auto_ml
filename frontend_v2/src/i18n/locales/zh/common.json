@@ -1,7 +1,7 @@
 {
     "nav": {
         "home": "首页",
-        "browse": "浏览",
+        "browse": "数据集",
         "annotation": "标注",
         "training": "训练",
         "deploy": "部署",

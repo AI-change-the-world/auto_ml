@@ -20,15 +20,16 @@ import {
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { getAnnotationSummary, listAnnotations, listPlatformAssistPipelines } from '../api/annotation';
-import { getDatasetSummary } from '../api/dataset';
+import { getDatasetSummary, listDatasets } from '../api/dataset';
 import { getDeploymentOverview, getDeploymentSummary } from '../api/deploy';
 import { getTaskSummary, listTasks } from '../api/task';
 import WorkbenchAssistantModal from '../components/WorkbenchAssistantModal';
 import {
+  DATASETS_CHANGED_EVENT,
   ANNOTATIONS_CHANGED_EVENT,
   TASKS_CHANGED_EVENT,
 } from '../utils/projectEvents';
-import type { AnnotationProject, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
+import type { AnnotationProject, Dataset, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
 
 interface NavItem {
   key: string;
@@ -73,6 +74,7 @@ const MainLayout: React.FC = () => {
   const assistantShortcutLabel = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
 
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
+  const [datasetProjects, setDatasetProjects] = useState<Dataset[]>([]);
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
   const [deploymentProjects, setDeploymentProjects] = useState<DeploymentOverviewItem[]>([]);
   const [homeStats, setHomeStats] = useState<HomeStats | null>(null);
@@ -80,10 +82,17 @@ const MainLayout: React.FC = () => {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    '/datasets': true,
     '/annotations': true,
     '/tasks': true,
     '/deploy': true,
   });
+
+  const refreshDatasets = useCallback(() => {
+    listDatasets(1, 50).then((res) => {
+      setDatasetProjects(res.items || []);
+    }).catch(() => { });
+  }, []);
 
   const refreshAnnotations = useCallback(() => {
     listAnnotations(1, 50).then((res) => {
@@ -138,11 +147,12 @@ const MainLayout: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    refreshDatasets();
     refreshAnnotations();
     refreshTasks();
     refreshDeployments();
     refreshHomeStats();
-  }, [location.pathname, refreshAnnotations, refreshDeployments, refreshHomeStats, refreshTasks]);
+  }, [location.pathname, refreshAnnotations, refreshDatasets, refreshDeployments, refreshHomeStats, refreshTasks]);
 
   useEffect(() => {
     const handleAssistantShortcut = (event: KeyboardEvent) => {
@@ -168,15 +178,17 @@ const MainLayout: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    window.addEventListener(DATASETS_CHANGED_EVENT, refreshDatasets);
     window.addEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
     window.addEventListener(TASKS_CHANGED_EVENT, refreshTasks);
     window.addEventListener('automl:deployments-changed', refreshDeployments);
     return () => {
+      window.removeEventListener(DATASETS_CHANGED_EVENT, refreshDatasets);
       window.removeEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
       window.removeEventListener(TASKS_CHANGED_EVENT, refreshTasks);
       window.removeEventListener('automl:deployments-changed', refreshDeployments);
     };
-  }, [refreshAnnotations, refreshDeployments, refreshTasks]);
+  }, [refreshAnnotations, refreshDatasets, refreshDeployments, refreshTasks]);
 
   const startTour = useCallback(() => {
     const driverObj = driver({
@@ -200,7 +212,7 @@ const MainLayout: React.FC = () => {
           },
         },
         {
-          element: '[data-tour="nav-browse"]',
+          element: '[data-tour="nav-datasets"]',
           popover: {
             title: '数据集管理',
             description: '上传图片、视频或文本数据集，支持批量导入。',
@@ -251,6 +263,16 @@ const MainLayout: React.FC = () => {
   }, [i18n]);
 
   const myProjectsNav: NavItem[] = [
+    {
+      key: '/datasets',
+      icon: <AppstoreOutlined />,
+      label: t('nav.datasets'),
+      children: datasetProjects.map((dataset) => ({
+        key: `/datasets/${dataset.id}`,
+        label: dataset.name,
+        icon: <AppstoreOutlined className="text-sky-500" />,
+      })),
+    },
     {
       key: '/annotations',
       icon: <TagsOutlined />,
@@ -305,6 +327,7 @@ const MainLayout: React.FC = () => {
     if (location.pathname.startsWith('/deploy')) return t('nav.deploy');
     if (location.pathname.startsWith('/ai-pipeline')) return t('nav.aiPipeline');
     if (location.pathname.startsWith('/settings')) return t('nav.settings');
+    if (location.pathname.startsWith('/example-dataset')) return t('nav.help');
     return t('nav.home');
   })();
 
@@ -356,7 +379,6 @@ const MainLayout: React.FC = () => {
         <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
           {[
             { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
-            { key: '/datasets', icon: <AppstoreOutlined className="text-[18px]" />, label: t('nav.browse'), tour: 'nav-browse' },
             { key: '/ai-pipeline', icon: <ApartmentOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
           ].map((item) => {
             const active = isActive(item.key);
@@ -393,6 +415,7 @@ const MainLayout: React.FC = () => {
           {myProjectsNav.map((group) => {
             const active = isActive(group.key);
             const tourMap: Record<string, string> = {
+              '/datasets': 'nav-datasets',
               '/annotations': 'nav-annotation',
               '/tasks': 'nav-training',
               '/deploy': 'nav-deploy',
@@ -453,19 +476,25 @@ const MainLayout: React.FC = () => {
           {[
             { key: '/settings', icon: <SettingOutlined className="text-[16px]" />, label: t('nav.settings') },
             { key: '/example-dataset', icon: <QuestionCircleOutlined className="text-[16px]" />, label: t('nav.help'), tour: 'example-link' },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              data-tour={item.tour}
-              onClick={() => navigate(item.key)}
-              title={sidebarCollapsed ? item.label : undefined}
-              className={`sidebar-nav-text flex w-full items-center rounded-xl text-left text-slate-600 transition-colors hover:bg-slate-50 ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
-            >
-              <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{item.icon}</span>
-              {!sidebarCollapsed ? item.label : null}
-            </button>
-          ))}
+          ].map((item) => {
+            const active = isActive(item.key);
+            return (
+              <button
+                key={item.key}
+                type="button"
+                data-tour={item.tour}
+                onClick={() => navigate(item.key)}
+                title={sidebarCollapsed ? item.label : undefined}
+                className={`sidebar-nav-text flex w-full items-center rounded-xl text-left transition-colors ${active
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
+              >
+                <span className={`${sidebarCollapsed ? '' : 'mr-3'} ${active ? 'text-indigo-600' : 'text-slate-400'}`}>{item.icon}</span>
+                {!sidebarCollapsed ? item.label : null}
+              </button>
+            );
+          })}
 
           <div className={`mt-4 border-t border-slate-100 pt-3 ${sidebarCollapsed ? '' : 'px-1'}`}>
             <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between gap-3'}`}>
