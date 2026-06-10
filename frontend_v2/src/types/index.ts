@@ -12,6 +12,8 @@ export type {
   AnnotationRecord,
   AnnotationRecordSaveRequest,
   AnnotationCollaborator,
+  AnnotationCollaboratorSummary,
+  AnnotationPresenceHeartbeatRequest,
   AnnotationCollaborationClaimResponse,
   AnnotationCollaborationSamplesResponse,
   AnnotationCollaborationSessionResponse,

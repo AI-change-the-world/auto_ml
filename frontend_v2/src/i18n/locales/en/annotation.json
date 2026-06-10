@@ -13,6 +13,7 @@
     "classesPlaceholder": "Use comma, semicolon, or newline, e.g.: person;car;dog",
     "inputName": "Enter annotation name",
     "classCount": "{{count}} classes",
+    "collaboratorCount": "{{count}} online",
     "bbox": "Bounding Box",
     "classificationLabel": "Classification Label",
     "polygon": "Polygon",

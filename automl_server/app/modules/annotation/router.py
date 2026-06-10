@@ -22,6 +22,9 @@ from .schemas import (
     AnnotationCollaborationSessionRequest,
     AnnotationCollaborationSessionResponse,
     AnnotationCollaborationStatsResponse,
+    AnnotationCollaboratorSummaryResponse,
+    AnnotationPresenceHeartbeatRequest,
+    AnnotationPresenceLeaveRequest,
     AnnotationRecordBatchQuery,
     AnnotationRecordResponse,
     AnnotationRecordSave,
@@ -174,6 +177,35 @@ async def save_annotation_record(
 ):
     record = await service.save_annotation_record(db, annotation_id, data)
     return Result.ok(record, "Annotation record saved")
+
+
+@router.post(
+    "/{annotation_id}/presence/heartbeat",
+    response_model=Result[list[AnnotationCollaboratorSummaryResponse]],
+    summary="更新标注项目在线状态",
+)
+async def heartbeat_annotation_presence(
+    annotation_id: int,
+    data: AnnotationPresenceHeartbeatRequest,
+    db: AsyncSession = Depends(get_db),
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.heartbeat_annotation_presence(db, annotation_id, data)
+    return Result.ok(result)
+
+
+@router.post(
+    "/{annotation_id}/presence/leave",
+    response_model=Result[list[AnnotationCollaboratorSummaryResponse]],
+    summary="退出标注项目在线状态",
+)
+async def leave_annotation_presence(
+    annotation_id: int,
+    data: AnnotationPresenceLeaveRequest,
+    service: AnnotationService = Depends(get_annotation_service),
+):
+    result = await service.leave_annotation_presence(annotation_id, data.participant_id)
+    return Result.ok(result)
 
 
 @router.post(

@@ -338,6 +338,20 @@ export const getAnnotationTypeModel = (annotationType: number): AnnotationTypeMo
   return DefaultAnnotationTypeRegistry[annotationType];
 };
 
+export interface AnnotationCollaboratorSummary {
+  annotation_id: number;
+  participant_id: string;
+  display_name: string;
+  sample_item_id: number | null;
+  last_active_at: string | null;
+}
+
+export interface AnnotationPresenceHeartbeatRequest {
+  participant_id: string;
+  display_name: string;
+  sample_item_id?: number | null;
+}
+
 /** 标注项目响应 */
 export interface AnnotationProject {
   id: number;
@@ -350,6 +364,7 @@ export interface AnnotationProject {
   assist_pipeline: string | null;
   default_ai_pipeline_binding_id: number | null;
   dataset_id: number | null;
+  collaborators?: AnnotationCollaboratorSummary[];
   created_at: string;
   updated_at: string;
 }
@@ -371,6 +386,7 @@ export interface AnnotationRecordSaveRequest {
   status?: string;
   collaborator_token?: string;
   collab_state?: string;
+  collab_state_sample_item_id?: number;
 }
 
 export interface AnnotationCollaborator {

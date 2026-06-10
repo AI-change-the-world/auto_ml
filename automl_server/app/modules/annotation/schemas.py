@@ -26,6 +26,24 @@ class AnnotationUpdate(BaseModel):
     default_ai_pipeline_binding_id: Optional[int] = None
 
 
+class AnnotationCollaboratorSummaryResponse(BaseModel):
+    annotation_id: int
+    participant_id: str
+    display_name: str
+    sample_item_id: Optional[int] = None
+    last_active_at: Optional[datetime] = None
+
+
+class AnnotationPresenceHeartbeatRequest(BaseModel):
+    participant_id: str = Field(..., min_length=1, max_length=128)
+    display_name: str = Field(..., min_length=1, max_length=64)
+    sample_item_id: Optional[int] = None
+
+
+class AnnotationPresenceLeaveRequest(BaseModel):
+    participant_id: str = Field(..., min_length=1, max_length=128)
+
+
 class AnnotationResponse(BaseModel):
     id: int
     name: str
@@ -37,6 +55,7 @@ class AnnotationResponse(BaseModel):
     assist_pipeline: Optional[str]
     default_ai_pipeline_binding_id: Optional[int]
     dataset_id: Optional[int]
+    collaborators: list[AnnotationCollaboratorSummaryResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -64,6 +83,7 @@ class AnnotationRecordSave(BaseModel):
     status: str = "saved"
     collaborator_token: Optional[str] = None
     collab_state: Optional[str] = None
+    collab_state_sample_item_id: Optional[int] = None
 
 
 class AnnotationRecordResponse(BaseModel):

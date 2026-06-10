@@ -13,6 +13,7 @@
     "classesPlaceholder": "用逗号、分号或换行分隔，例如: person;car;dog",
     "inputName": "输入标注项目名称",
     "classCount": "{{count}} 个类别",
+    "collaboratorCount": "{{count}} 人在线",
     "bbox": "矩形框",
     "classificationLabel": "分类标签",
     "polygon": "多边形",

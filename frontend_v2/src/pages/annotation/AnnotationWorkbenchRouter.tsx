@@ -45,6 +45,8 @@ const AnnotationWorkbenchRouter: React.FC = () => {
           const dataset = await getDataset(annotation.dataset_id);
           if (dataset.scenario_type === DatasetScenarioType.AerialStitch) {
             workbench = 'aerial';
+          } else if (annotation.annotation_type === AnnotationType.Detection) {
+            workbench = 'collab-detection';
           }
         }
 
