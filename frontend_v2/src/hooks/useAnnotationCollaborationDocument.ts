@@ -34,10 +34,15 @@ function encodeUpdate(update: Uint8Array) {
   return window.btoa(binary);
 }
 
-function writeCollaborationSnapshot(doc: Y.Doc) {
+function writeCollaborationSnapshot(doc: Y.Doc, sampleItemId: number) {
   if (typeof window === 'undefined') return;
   const update = Y.encodeStateAsUpdate(doc);
-  useDatasetStore.setState({ collaborationState: encodeUpdate(update) });
+  useDatasetStore.setState({
+    collaborationState: {
+      sampleItemId,
+      state: encodeUpdate(update),
+    },
+  });
 }
 
 export function useAnnotationCollaborationDocument({
@@ -58,7 +63,7 @@ export function useAnnotationCollaborationDocument({
   }, [annotationId, enabled, sampleItemId]);
 
   useEffect(() => {
-    if (!roomId) return undefined;
+    if (!roomId || typeof sampleItemId !== 'number') return undefined;
 
     const doc = new Y.Doc();
     const map = doc.getMap<Record<string, unknown>>('annotations');
@@ -71,7 +76,7 @@ export function useAnnotationCollaborationDocument({
         .map(parseAnnotation)
         .filter((item): item is Annotation => Boolean(item));
       setAnnotations(nextAnnotations);
-      writeCollaborationSnapshot(doc);
+      writeCollaborationSnapshot(doc, sampleItemId);
     };
     map.observe(observer);
 
@@ -100,7 +105,7 @@ export function useAnnotationCollaborationDocument({
 
   useEffect(() => {
     const doc = docRef.current;
-    if (!doc) return;
+    if (!doc || typeof sampleItemId !== 'number') return;
     const map = doc.getMap<Record<string, unknown>>('annotations');
       doc.transact(() => {
       const nextIds = new Set(annotations.map((item) => item.uuid));
@@ -111,6 +116,6 @@ export function useAnnotationCollaborationDocument({
         map.set(annotation.uuid, serializeAnnotation(annotation));
       });
     }, LOCAL_ORIGIN);
-    writeCollaborationSnapshot(doc);
-  }, [annotations]);
+    writeCollaborationSnapshot(doc, sampleItemId);
+  }, [annotations, sampleItemId]);
 }

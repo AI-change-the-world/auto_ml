@@ -14,6 +14,11 @@ import { message } from 'antd';
 
 const DEFAULT_SAMPLE_PAGE_SIZE = 100;
 
+interface CollaborationStateSnapshot {
+  sampleItemId: number;
+  state: string;
+}
+
 interface DatasetStoreState {
   // 当前标注项目
   annotationProject: AnnotationProject | null;
@@ -37,8 +42,8 @@ interface DatasetStoreState {
   sampleCursorCache: SampleCursorCache;
   // 当前协作标注 token。普通标注页为空。
   collaboratorToken: string | null;
-  // 当前协作文档快照。普通标注页为空。
-  collaborationState: string | null;
+  // 当前协作文档快照。必须和样本 ID 绑定，避免切换样本时串状态。
+  collaborationState: CollaborationStateSnapshot | null;
   // 当前图像 URL
   currentImageUrl: string;
   // 加载状态
@@ -431,6 +436,9 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
 
     const annotationStore = useAnnotationStore.getState();
     const sample = sampleItems[currentSampleIndex];
+    const currentCollaborationState = collaborationState?.sampleItemId === sample.id
+      ? collaborationState
+      : null;
     const recordContent = annotationProject.annotation_type === AnnotationType.Classification
       ? buildClassificationRecordContent(
         annotationStore.annotations[0]?.classId !== undefined && annotationStore.annotations[0]?.classId >= 0
@@ -453,7 +461,8 @@ export const useDatasetStore = create<DatasetStoreState>((set, get) => ({
         content: recordContent,
         status: 'saved',
         collaborator_token: collaboratorToken || undefined,
-        collab_state: collaborationState || undefined,
+        collab_state: collaboratorToken && currentCollaborationState ? currentCollaborationState.state : undefined,
+        collab_state_sample_item_id: collaboratorToken && currentCollaborationState ? currentCollaborationState.sampleItemId : undefined,
       });
       set((state) => ({
         annotationRecords: [

@@ -11,6 +11,7 @@ import {
   RobotOutlined,
   SettingOutlined,
   TagsOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import type { TFunction } from 'i18next';
 import type { AnnotationProject, AnnotationTypeModel } from '../../../types';
@@ -74,6 +75,10 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
 }) => {
   const color = colorMap[typeModel?.color ?? 'blue'] || colorMap.blue;
   const classes = parseAnnotationClasses(annotation.classes);
+  const collaborators = annotation.collaborators ?? [];
+  const collaboratorNames = collaborators.map((item) => item.display_name).filter(Boolean);
+  const visibleCollaboratorNames = collaboratorNames.slice(0, 3);
+  const hiddenCollaboratorCount = Math.max(collaboratorNames.length - visibleCollaboratorNames.length, 0);
 
   return (
     <div
@@ -159,6 +164,20 @@ const AnnotationProjectCard: React.FC<AnnotationProjectCardProps> = ({
               <span key={`${annotation.id}-${className}-${index}`} className="tag-text" style={{ padding: '1px 6px', background: '#f5f5f5', color: '#666', borderRadius: 4 }}>{className}</span>
             ))}
             {classes.length > 5 && <span className="tag-text" style={{ color: '#bbb' }}>+{classes.length - 5}</span>}
+          </div>
+        )}
+        {collaborators.length > 0 && (
+          <div
+            className="caption-text"
+            title={collaboratorNames.join('、')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, color: '#64748b', minWidth: 0 }}
+          >
+            <TeamOutlined style={{ color: '#94a3b8', flexShrink: 0 }} />
+            <span style={{ flexShrink: 0 }}>{t('collaboratorCount', { count: collaborators.length })}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {visibleCollaboratorNames.join('、')}
+              {hiddenCollaboratorCount > 0 ? ` +${hiddenCollaboratorCount}` : ''}
+            </span>
           </div>
         )}
         <div className="caption-text" style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#999' }}>

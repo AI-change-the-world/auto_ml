@@ -2,6 +2,7 @@
 import asyncio
 import json
 import secrets
+from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
 from typing import Any
@@ -42,6 +43,7 @@ from .schemas import (
     AnnotationAssistResponse,
     AnnotationCreate,
     AnnotationCollaboratorResponse,
+    AnnotationCollaboratorSummaryResponse,
     AnnotationCollaborationClaimRequest,
     AnnotationCollaborationClaimResponse,
     AnnotationCollaborationSamplesResponse,
@@ -49,6 +51,7 @@ from .schemas import (
     AnnotationCollaborationSessionResponse,
     AnnotationCollaborationStatsResponse,
     AnnotationExportItem,
+    AnnotationPresenceHeartbeatRequest,
     AnnotationRecordResponse,
     AnnotationRecordSave,
     AnnotationSampleAssignmentResponse,
@@ -57,6 +60,21 @@ from .schemas import (
     AnnotationUpdate,
     AnnotationResponse,
 )
+
+
+ANNOTATION_PRESENCE_TTL_SECONDS = 30
+
+
+@dataclass
+class AnnotationPresenceEntry:
+    annotation_id: int
+    participant_id: str
+    display_name: str
+    sample_item_id: int | None
+    last_active_at: datetime
+
+
+_annotation_presence: dict[int, dict[str, AnnotationPresenceEntry]] = {}
 
 
 class AnnotationService:
@@ -108,18 +126,46 @@ class AnnotationService:
         )
         await self._persist_annotation_project(ann)
         logger.info(f"Annotation created: {ann.name}")
-        return AnnotationResponse.model_validate(ann)
+        return self._to_annotation_response(ann)
 
     async def get_annotation(self, db: AsyncSession, annotation_id: int) -> AnnotationResponse:
         ann = await crud.get_annotation_by_id(db, annotation_id)
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
-        return AnnotationResponse.model_validate(ann)
+        collaborators = self._get_presence_summaries(annotation_id)
+        return self._to_annotation_response(ann, collaborators)
 
     async def list_annotations(self, db: AsyncSession, page: int = 1, page_size: int = 10, keyword: str = None) -> tuple[List[AnnotationResponse], int]:
         offset = (page - 1) * page_size
         items, total = await crud.get_annotations(db, offset, page_size, keyword)
-        return [AnnotationResponse.model_validate(item) for item in items], total
+        collaborator_map = self._get_presence_summary_map([item.id for item in items])
+        logger.info(
+            "[annotation:presence:list] page={} page_size={} keyword={} total={} collaborators={}",
+            page,
+            page_size,
+            keyword,
+            total,
+            [
+                {
+                    "annotation_id": item.id,
+                    "name": item.name,
+                    "collaborators": [
+                        {
+                            "participant_id": collaborator.participant_id,
+                            "display_name": collaborator.display_name,
+                            "sample_item_id": collaborator.sample_item_id,
+                            "last_active_at": collaborator.last_active_at.isoformat() if collaborator.last_active_at else None,
+                        }
+                        for collaborator in collaborator_map.get(item.id, [])
+                    ],
+                }
+                for item in items
+            ],
+        )
+        return [
+            self._to_annotation_response(item, collaborator_map.get(item.id, []))
+            for item in items
+        ], total
 
     async def get_home_summary(self, db: AsyncSession) -> AnnotationSummaryResponse:
         total = (
@@ -128,9 +174,13 @@ class AnnotationService:
             )
         ).scalar() or 0
         items, _ = await crud.get_annotations(db, 0, 5)
+        collaborator_map = self._get_presence_summary_map([item.id for item in items])
         return AnnotationSummaryResponse(
             total=int(total),
-            recent_annotations=[AnnotationResponse.model_validate(item) for item in items],
+            recent_annotations=[
+                self._to_annotation_response(item, collaborator_map.get(item.id, []))
+                for item in items
+            ],
         )
 
     async def update_annotation(self, db: AsyncSession, annotation_id: int, data: AnnotationUpdate) -> AnnotationResponse:
@@ -149,7 +199,8 @@ class AnnotationService:
         if not ann:
             raise NotFoundException(f"Annotation {annotation_id} not found")
         await self._persist_annotation_project(ann)
-        return AnnotationResponse.model_validate(ann)
+        collaborators = self._get_presence_summaries(annotation_id)
+        return self._to_annotation_response(ann, collaborators)
 
     async def delete_annotation(self, db: AsyncSession, annotation_id: int) -> bool:
         ann = await crud.get_annotation_by_id(db, annotation_id)
@@ -295,6 +346,58 @@ class AnnotationService:
         return AnnotationCollaborationSessionResponse(
             collaborator=self._to_collaborator_response(collaborator)
         )
+
+    async def heartbeat_annotation_presence(
+        self,
+        db: AsyncSession,
+        annotation_id: int,
+        data: AnnotationPresenceHeartbeatRequest,
+    ) -> list[AnnotationCollaboratorSummaryResponse]:
+        ann = await crud.get_annotation_by_id(db, annotation_id)
+        if not ann:
+            raise NotFoundException(f"Annotation {annotation_id} not found")
+
+        participant_id = data.participant_id.strip()
+        display_name = data.display_name.strip() or participant_id
+        now = datetime.now()
+        entries = _annotation_presence.setdefault(annotation_id, {})
+        entries[participant_id] = AnnotationPresenceEntry(
+            annotation_id=annotation_id,
+            participant_id=participant_id,
+            display_name=display_name,
+            sample_item_id=data.sample_item_id,
+            last_active_at=now,
+        )
+        collaborators = self._get_presence_summaries(annotation_id, now)
+        logger.info(
+            "[annotation:presence:heartbeat] annotation_id={} participant_id={} display_name={} sample_item_id={} online_count={}",
+            annotation_id,
+            participant_id,
+            display_name,
+            data.sample_item_id,
+            len(collaborators),
+        )
+        return collaborators
+
+    async def leave_annotation_presence(
+        self,
+        annotation_id: int,
+        participant_id: str,
+    ) -> list[AnnotationCollaboratorSummaryResponse]:
+        normalized_participant_id = participant_id.strip()
+        entries = _annotation_presence.get(annotation_id)
+        if entries and normalized_participant_id:
+            entries.pop(normalized_participant_id, None)
+            if not entries:
+                _annotation_presence.pop(annotation_id, None)
+        collaborators = self._get_presence_summaries(annotation_id)
+        logger.info(
+            "[annotation:presence:leave] annotation_id={} participant_id={} online_count={}",
+            annotation_id,
+            normalized_participant_id,
+            len(collaborators),
+        )
+        return collaborators
 
     async def claim_collaboration_samples(
         self,
@@ -615,6 +718,8 @@ class AnnotationService:
             raise BadRequestException("sample item does not belong to annotation dataset")
         if not ann.save_path:
             raise BadRequestException("annotation project save_path is empty")
+        if data.collab_state and data.collab_state_sample_item_id != data.sample_item_id:
+            raise BadRequestException("collab_state sample_item_id does not match current sample")
         collaboration_assignment = await self._validate_collaboration_save(db, ann, data)
 
         object_key = build_annotation_record_object_key(
@@ -1261,6 +1366,69 @@ class AnnotationService:
     def _next_lease_expires_at(self, now: datetime | None = None) -> datetime:
         base_time = now or datetime.now()
         return base_time + timedelta(minutes=self.COLLABORATION_LEASE_MINUTES)
+
+    def _get_presence_summary_map(
+        self,
+        annotation_ids: list[int],
+    ) -> dict[int, list[AnnotationCollaboratorSummaryResponse]]:
+        now = datetime.now()
+        result: dict[int, list[AnnotationCollaboratorSummaryResponse]] = {}
+        for annotation_id in annotation_ids:
+            summaries = self._get_presence_summaries(annotation_id, now)
+            if summaries:
+                result[annotation_id] = summaries
+        return result
+
+    def _get_presence_summaries(
+        self,
+        annotation_id: int,
+        now: datetime | None = None,
+    ) -> list[AnnotationCollaboratorSummaryResponse]:
+        entries = self._prune_presence(annotation_id, now or datetime.now())
+        return [
+            self._to_presence_summary_response(entry)
+            for entry in sorted(entries.values(), key=lambda item: item.last_active_at, reverse=True)
+        ]
+
+    def _prune_presence(
+        self,
+        annotation_id: int,
+        now: datetime,
+    ) -> dict[str, AnnotationPresenceEntry]:
+        entries = _annotation_presence.get(annotation_id)
+        if not entries:
+            return {}
+
+        expires_before = now - timedelta(seconds=ANNOTATION_PRESENCE_TTL_SECONDS)
+        expired_participant_ids = [
+            participant_id
+            for participant_id, entry in entries.items()
+            if entry.last_active_at < expires_before
+        ]
+        for participant_id in expired_participant_ids:
+            entries.pop(participant_id, None)
+        if not entries:
+            _annotation_presence.pop(annotation_id, None)
+            return {}
+        return entries
+
+    def _to_annotation_response(
+        self,
+        annotation,
+        collaborators: list[AnnotationCollaboratorSummaryResponse] | None = None,
+    ) -> AnnotationResponse:
+        response = AnnotationResponse.model_validate(annotation)
+        response.collaborators = collaborators or []
+        return response
+
+    def _to_presence_summary_response(self, entry: AnnotationPresenceEntry) -> AnnotationCollaboratorSummaryResponse:
+        return AnnotationCollaboratorSummaryResponse(
+            annotation_id=entry.annotation_id,
+            participant_id=entry.participant_id,
+            display_name=entry.display_name,
+            sample_item_id=entry.sample_item_id,
+            last_active_at=entry.last_active_at,
+        )
 
     def _to_collaborator_response(self, collaborator) -> AnnotationCollaboratorResponse:
         return AnnotationCollaboratorResponse(

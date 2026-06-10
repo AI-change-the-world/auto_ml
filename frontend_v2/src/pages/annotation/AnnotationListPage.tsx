@@ -83,19 +83,42 @@ const AnnotationListPage: React.FC = () => {
     }
   };
 
-  const fetch = useCallback(async () => {
-    setLoading(true);
+  const fetch = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await listAnnotations(1, 50, keyword || undefined);
-      if (res) { setAnnotations(res.items); setTotal(res.total); }
+      if (res) {
+        console.info('[annotation:list] response', {
+          total: res.total,
+          items: res.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            collaborators: item.collaborators ?? [],
+          })),
+        });
+        setAnnotations(res.items);
+        setTotal(res.total);
+      }
 
-      const typeDefinitions = await listAnnotationTypes().catch(() => []);
-      if (typeDefinitions.length > 0) setAnnotationTypeRegistry(createAnnotationTypeRegistry(typeDefinitions));
-    } catch { message.error(tc('msg.loadFailed')); }
-    finally { setLoading(false); }
+      if (!silent) {
+        const typeDefinitions = await listAnnotationTypes().catch(() => []);
+        if (typeDefinitions.length > 0) setAnnotationTypeRegistry(createAnnotationTypeRegistry(typeDefinitions));
+      }
+    } catch {
+      if (!silent) message.error(tc('msg.loadFailed'));
+    }
+    finally {
+      if (!silent) setLoading(false);
+    }
   }, [keyword]);
 
   useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void fetch(true);
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [fetch]);
 
   const openCreate = async () => {
     setCreateOpen(true);

@@ -5,6 +5,8 @@ import type {
   AnnotationProject,
   AnnotationRecord,
   AnnotationRecordSaveRequest,
+  AnnotationCollaboratorSummary,
+  AnnotationPresenceHeartbeatRequest,
   AnnotationAssistRequest,
   AnnotationAssistResponse,
   AnnotationAssistPipeline,
@@ -92,6 +94,25 @@ export async function getAnnotationRecordsBySamples(annotationId: number, sample
 export async function saveAnnotationRecord(annotationId: number, data: AnnotationRecordSaveRequest) {
   const res = await apiClient.post<Result<AnnotationRecord>>(`/annotation/${annotationId}/records`, data);
   return res.data.data;
+}
+
+export async function heartbeatAnnotationPresence(
+  annotationId: number,
+  data: AnnotationPresenceHeartbeatRequest,
+) {
+  const res = await apiClient.post<Result<AnnotationCollaboratorSummary[]>>(
+    `/annotation/${annotationId}/presence/heartbeat`,
+    data,
+  );
+  return res.data.data ?? [];
+}
+
+export async function leaveAnnotationPresence(annotationId: number, participantId: string) {
+  const res = await apiClient.post<Result<AnnotationCollaboratorSummary[]>>(
+    `/annotation/${annotationId}/presence/leave`,
+    { participant_id: participantId },
+  );
+  return res.data.data ?? [];
 }
 
 export async function createAnnotationCollaborationSession(annotationId: number, token?: string) {
