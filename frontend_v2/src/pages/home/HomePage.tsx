@@ -516,14 +516,14 @@ const HomePage: React.FC = () => {
         </div>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-10 p-8 lg:flex-row lg:items-center">
+          <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center">
             <div className="w-full flex-1 self-start">
-              <div className="flex flex-col items-start gap-4">
-                <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
+              <div className="flex flex-col items-start gap-3">
+                <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   {t('heroTag')}
                 </div>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   <h2 className="section-title tracking-tight">{t('heroTitle')}</h2>
                   <p className="body-text max-w-xl text-slate-500">{t('heroSubtitle')}</p>
                   {/* {overviewError ? renderSectionBadge('error', t('partialUnavailable')) : null} */}
@@ -531,21 +531,21 @@ const HomePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid w-full grid-cols-2 gap-4 lg:w-[500px]">
+            <div className="grid w-full grid-cols-2 gap-3 lg:w-[460px]">
               {overviewMetrics.map((item, index) => (
                 <div
                   key={item.key}
-                  className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-5 transition-all hover:bg-slate-50/80"
+                  className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5 transition-all hover:bg-slate-50/80"
                 >
                   <div>
-                    <p className="body-text-sm mb-1 font-medium text-slate-500">{item.label}</p>
+                    <p className="body-text-sm mb-0.5 font-medium text-slate-500">{item.label}</p>
                     {overviewLoading ? (
                       <Skeleton.Button active size="small" className="!h-8 !w-20" />
                     ) : (
                       <p className="metric-value-lg text-slate-900">{item.value}</p>
                     )}
                   </div>
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${overviewToneMap[index]}`}>
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${overviewToneMap[index]}`}>
                     {item.icon}
                   </div>
                 </div>
@@ -553,21 +553,21 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 bg-slate-50/50 px-8 py-6">
-            <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <div className="card-title flex items-center gap-2 text-slate-800">
                 <CloudServerOutlined className="h-5 w-5 text-slate-500" />
                 {t('taskOverview')}
               </div>
               {taskOverviewError ? renderSectionBadge('error', t('partialUnavailable')) : null}
             </div>
-            <div className="grid grid-cols-2 gap-4 divide-slate-200/60 md:grid-cols-4 md:divide-x">
+            <div className="grid grid-cols-2 gap-3 divide-slate-200/60 md:grid-cols-4 md:divide-x">
               {taskMetrics.map((item, index) => (
                 <div
                   key={item.key}
-                  className={`pt-4 md:px-6 md:pt-0 ${index === 0 ? 'md:pl-0 pt-0' : ''}`}
+                  className={`pt-3 md:px-5 md:pt-0 ${index === 0 ? 'md:pl-0 pt-0' : ''}`}
                 >
-                  <div className="body-text mb-2 flex items-center gap-2 text-slate-500">
+                  <div className="body-text mb-1.5 flex items-center gap-2 text-slate-500">
                     <span className={`h-2.5 w-2.5 rounded-full ${item.accent}`} />
                     {item.label}
                   </div>
