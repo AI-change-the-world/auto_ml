@@ -63,6 +63,7 @@ class Settings(BaseModel):
     port: int = 45678
     debug: bool = False
     task_stale_timeout_seconds: int = 7200
+    pipeline_batch_secret_key: str = ""
 
     # 子配置
     database: DatabaseConfig = DatabaseConfig()
@@ -197,12 +198,17 @@ def _load_settings() -> Settings:
             nacos_data.get("task_stale_timeout_seconds", 7200),
         )
     )
+    pipeline_batch_nacos = nacos_data.get("ai-pipeline-batch", {})
+    if not isinstance(pipeline_batch_nacos, dict):
+        pipeline_batch_nacos = {}
+    pipeline_batch_secret_key = str(pipeline_batch_nacos.get("secret_key", "") or "")
 
     return Settings(
         host=os.getenv("APP_HOST", "0.0.0.0"),
         port=int(os.getenv("APP_PORT", "45678")),
         debug=os.getenv("DEBUG", "false").lower() == "true",
         task_stale_timeout_seconds=task_stale_timeout_seconds,
+        pipeline_batch_secret_key=pipeline_batch_secret_key,
         database=database,
         nacos=nacos_config,
         model_trainer=model_trainer,

@@ -23,9 +23,10 @@ requests==2.33.0
 
 # 数据验证
 pydantic==2.10.4
+cryptography==46.0.5
 
 # 文件上传
-python-multipart==0.0.27
+python-multipart==0.0.31
 onnx==1.21.0
 
 # 日志

@@ -57,6 +57,8 @@ async def init_db():
             AvailableModel, ModelInferenceLog,
             AiPipelineTemplate, AiPipelineTemplateVersion, AiPipelineBinding, AiPipelineProviderResource,
             AiPipelineRun, AiPipelineRunStep, AiPipelineArtifact, AiPipelineEventLog,
+            AiPipelineBatchRun, AiPipelineBatchRunItem, AiPipelineBatchRunEvent,
+            AiPipelineBatchBuiltinScriptSetting,
         )
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)

@@ -34,6 +34,8 @@ from app.mq.handlers import (
     handle_model_registered,
     handle_model_deployed,
     handle_model_undeployed,
+    handle_pipeline_batch_progress,
+    handle_pipeline_batch_result,
 )
 
 settings = get_settings()
@@ -127,6 +129,16 @@ def _init_mq_with_retry(loop: asyncio.AbstractEventLoop):
                 MessageType.MODEL_UNDEPLOYED.value,
                 handle_model_undeployed,
                 is_async=True
+            )
+            consumer.register_handler(
+                MessageType.PIPELINE_BATCH_PROGRESS.value,
+                handle_pipeline_batch_progress,
+                is_async=True,
+            )
+            consumer.register_handler(
+                MessageType.PIPELINE_BATCH_RESULT.value,
+                handle_pipeline_batch_result,
+                is_async=True,
             )
 
             consumer.start(event_loop=loop)

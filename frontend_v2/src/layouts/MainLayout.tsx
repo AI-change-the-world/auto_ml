@@ -13,6 +13,7 @@ import {
   LeftOutlined,
   QuestionCircleOutlined,
   RightOutlined,
+  RobotOutlined,
   SearchOutlined,
   SettingOutlined,
   TagsOutlined,
@@ -23,13 +24,15 @@ import { getAnnotationSummary, listAnnotations, listPlatformAssistPipelines } fr
 import { getDatasetSummary, listDatasets } from '../api/dataset';
 import { getDeploymentOverview, getDeploymentSummary } from '../api/deploy';
 import { getTaskSummary, listTasks } from '../api/task';
+import { listBatchAnnotationRuns } from '../api/batchAnnotation';
 import WorkbenchAssistantModal from '../components/WorkbenchAssistantModal';
 import {
   DATASETS_CHANGED_EVENT,
   ANNOTATIONS_CHANGED_EVENT,
   TASKS_CHANGED_EVENT,
+  BATCH_ANNOTATION_RUNS_CHANGED_EVENT,
 } from '../utils/projectEvents';
-import type { AnnotationProject, Dataset, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
+import type { AiPipelineBatchRun, AnnotationProject, Dataset, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
 
 interface NavItem {
   key: string;
@@ -76,6 +79,7 @@ const MainLayout: React.FC = () => {
   const [annotationProjects, setAnnotationProjects] = useState<AnnotationProject[]>([]);
   const [datasetProjects, setDatasetProjects] = useState<Dataset[]>([]);
   const [taskProjects, setTaskProjects] = useState<TaskResponse[]>([]);
+  const [batchAnnotationRuns, setBatchAnnotationRuns] = useState<AiPipelineBatchRun[]>([]);
   const [deploymentProjects, setDeploymentProjects] = useState<DeploymentOverviewItem[]>([]);
   const [homeStats, setHomeStats] = useState<HomeStats | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
@@ -103,6 +107,12 @@ const MainLayout: React.FC = () => {
   const refreshTasks = useCallback(() => {
     listTasks(1, 50).then((res) => {
       setTaskProjects(res.items || []);
+    }).catch(() => { });
+  }, []);
+
+  const refreshBatchAnnotationRuns = useCallback(() => {
+    listBatchAnnotationRuns(undefined, 50).then((runs) => {
+      setBatchAnnotationRuns(runs);
     }).catch(() => { });
   }, []);
 
@@ -150,9 +160,10 @@ const MainLayout: React.FC = () => {
     refreshDatasets();
     refreshAnnotations();
     refreshTasks();
+    refreshBatchAnnotationRuns();
     refreshDeployments();
     refreshHomeStats();
-  }, [location.pathname, refreshAnnotations, refreshDatasets, refreshDeployments, refreshHomeStats, refreshTasks]);
+  }, [location.pathname, refreshAnnotations, refreshBatchAnnotationRuns, refreshDatasets, refreshDeployments, refreshHomeStats, refreshTasks]);
 
   useEffect(() => {
     const handleAssistantShortcut = (event: KeyboardEvent) => {
@@ -181,14 +192,16 @@ const MainLayout: React.FC = () => {
     window.addEventListener(DATASETS_CHANGED_EVENT, refreshDatasets);
     window.addEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
     window.addEventListener(TASKS_CHANGED_EVENT, refreshTasks);
+    window.addEventListener(BATCH_ANNOTATION_RUNS_CHANGED_EVENT, refreshBatchAnnotationRuns);
     window.addEventListener('automl:deployments-changed', refreshDeployments);
     return () => {
       window.removeEventListener(DATASETS_CHANGED_EVENT, refreshDatasets);
       window.removeEventListener(ANNOTATIONS_CHANGED_EVENT, refreshAnnotations);
       window.removeEventListener(TASKS_CHANGED_EVENT, refreshTasks);
+      window.removeEventListener(BATCH_ANNOTATION_RUNS_CHANGED_EVENT, refreshBatchAnnotationRuns);
       window.removeEventListener('automl:deployments-changed', refreshDeployments);
     };
-  }, [refreshAnnotations, refreshDatasets, refreshDeployments, refreshTasks]);
+  }, [refreshAnnotations, refreshBatchAnnotationRuns, refreshDatasets, refreshDeployments, refreshTasks]);
 
   const startTour = useCallback(() => {
     const driverObj = driver({
@@ -294,6 +307,17 @@ const MainLayout: React.FC = () => {
       })),
     },
     {
+      key: '/batch-annotation/runs',
+      icon: <RobotOutlined />,
+      label: '批量标注任务',
+      children: batchAnnotationRuns.map((run) => ({
+        key: `/batch-annotation/runs/${run.run_id}`,
+        label: `${run.script_key} · ${run.run_id.slice(-8)}`,
+        icon: <RobotOutlined className={run.status === 'failed' ? 'text-rose-500' : run.status === 'succeeded' ? 'text-emerald-500' : 'text-amber-500'} />,
+        badge: `${run.progress}%`,
+      })),
+    },
+    {
       key: '/deploy',
       icon: <CloudServerOutlined />,
       label: t('nav.deploy'),
@@ -322,6 +346,8 @@ const MainLayout: React.FC = () => {
   const pageTitle = (() => {
     if (location.pathname === '/') return t('nav.home');
     if (location.pathname.startsWith('/datasets')) return t('nav.datasets');
+    if (location.pathname.startsWith('/batch-annotation/tools')) return '批量标注工具';
+    if (location.pathname.startsWith('/batch-annotation/runs')) return '批量标注任务';
     if (location.pathname.startsWith('/annotations')) return t('nav.annotation');
     if (location.pathname.startsWith('/tasks')) return t('nav.training');
     if (location.pathname.startsWith('/deploy')) return t('nav.deploy');
@@ -380,6 +406,7 @@ const MainLayout: React.FC = () => {
           {[
             { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
             { key: '/ai-pipeline', icon: <ApartmentOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
+            { key: '/batch-annotation/tools', icon: <RobotOutlined className="text-[18px]" />, label: '批量标注工具' },
           ].map((item) => {
             const active = isActive(item.key);
             return (
@@ -390,8 +417,8 @@ const MainLayout: React.FC = () => {
                 onClick={() => navigate(item.key)}
                 title={sidebarCollapsed ? item.label : undefined}
                 className={`group sidebar-nav-text mb-1 flex w-full items-center rounded-xl text-left transition-colors ${active
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'}`}
               >
                 <span className={`${sidebarCollapsed ? '' : 'mr-3'} ${active ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
@@ -418,6 +445,7 @@ const MainLayout: React.FC = () => {
               '/datasets': 'nav-datasets',
               '/annotations': 'nav-annotation',
               '/tasks': 'nav-training',
+              '/batch-annotation/runs': 'nav-batch-annotation',
               '/deploy': 'nav-deploy',
             };
             return (
@@ -488,7 +516,7 @@ const MainLayout: React.FC = () => {
                 className={`sidebar-nav-text flex w-full items-center rounded-xl text-left transition-colors ${active
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
+                  } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
               >
                 <span className={`${sidebarCollapsed ? '' : 'mr-3'} ${active ? 'text-indigo-600' : 'text-slate-400'}`}>{item.icon}</span>
                 {!sidebarCollapsed ? item.label : null}

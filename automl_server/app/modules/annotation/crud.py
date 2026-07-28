@@ -21,10 +21,18 @@ async def get_annotation_by_id(db: AsyncSession, annotation_id: int) -> Optional
     return result.scalar_one_or_none()
 
 
-async def get_annotations(db: AsyncSession, offset: int = 0, limit: int = 10, keyword: str = None) -> tuple[List[Annotation], int]:
+async def get_annotations(
+    db: AsyncSession,
+    offset: int = 0,
+    limit: int = 10,
+    keyword: str = None,
+    dataset_id: int | None = None,
+) -> tuple[List[Annotation], int]:
     conditions = [Annotation.is_deleted == False]
     if keyword:
         conditions.append(Annotation.name.ilike(f"%{keyword}%"))
+    if dataset_id is not None:
+        conditions.append(Annotation.dataset_id == dataset_id)
 
     count_stmt = select(func.count()).select_from(
         Annotation).where(*conditions)

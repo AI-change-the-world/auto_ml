@@ -33,6 +33,9 @@ rabbitmq:
     model_undeployed: auto_ml.model.undeployed
     trainer_task: trainer.task.queue
     assist_rpc: auto_ml.assist.rpc
+    pipeline_batch_execute: auto_ml.pipeline.batch.execute
+    pipeline_batch_progress: auto_ml.pipeline.batch.progress
+    pipeline_batch_result: auto_ml.pipeline.batch.result
   routing_keys:
     task_status: task.status.update
     task_log: task.log
@@ -41,6 +44,9 @@ rabbitmq:
     model_undeployed: model.undeployed
     trainer_task: trainer.task.submit
     assist_rpc: assist.rpc.request
+    pipeline_batch_execute: pipeline.batch.execute
+    pipeline_batch_progress: pipeline.batch.progress
+    pipeline_batch_result: pipeline.batch.result
 
 model-trainer:
   base_url: ${MODEL_TRAINER_URL}
@@ -66,3 +72,6 @@ task_stale_timeout_seconds: ${TASK_STALE_TIMEOUT_SECONDS}
 logging:
   level: INFO
   path: /app/logs
+
+ai-pipeline-batch:
+  secret_key: erwQngaQgmx96Ym8r2QBwMtQOWCHR3EjtQit04jD-Y8=

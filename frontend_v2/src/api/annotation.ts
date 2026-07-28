@@ -26,9 +26,10 @@ export async function createAnnotation(data: AnnotationCreate) {
 }
 
 /** 获取标注项目列表 */
-export async function listAnnotations(page = 1, pageSize = 10, keyword?: string) {
+export async function listAnnotations(page = 1, pageSize = 10, keyword?: string, datasetId?: number) {
   const params: Record<string, unknown> = { page, page_size: pageSize };
   if (keyword) params.keyword = keyword;
+  if (datasetId !== undefined) params.dataset_id = datasetId;
   const res = await apiClient.get<Result<PageResult<AnnotationProject>>>('/annotation/list', { params });
   return res.data.data;
 }

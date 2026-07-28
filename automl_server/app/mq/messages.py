@@ -17,6 +17,8 @@ class MessageType(str, Enum):
     MODEL_DEPLOYED = "model.deployed"
     MODEL_UNDEPLOYED = "model.undeployed"
     SERVICE_HEARTBEAT = "service.heartbeat"
+    PIPELINE_BATCH_PROGRESS = "pipeline.batch.progress"
+    PIPELINE_BATCH_RESULT = "pipeline.batch.result"
 
 
 class BaseMessage(BaseModel):
@@ -73,3 +75,17 @@ class ModelUndeployedMessage(BaseMessage):
     """模型卸载消息"""
     model_id: int
     deployment_id: int
+
+
+class PipelineBatchProgressMessage(BaseMessage):
+    run_id: str
+    chunk_key: str
+    processed: int = 0
+    total: int = 0
+    message: Optional[str] = None
+
+
+class PipelineBatchResultMessage(BaseMessage):
+    run_id: str
+    chunk_key: str
+    results: list[Dict[str, Any]] = []

@@ -1,7 +1,7 @@
 """AI Pipeline 管理 API"""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import PageResult, Result
@@ -23,8 +23,187 @@ from .schemas import (
     AiPipelineTemplateListItem,
 )
 from .service import AiPipelineService, get_ai_pipeline_service
+from .batch_schemas import (
+    AiPipelineBatchRunCreate,
+    AiPipelineBatchRunEventResponse,
+    AiPipelineBatchRunItemResponse,
+    AiPipelineBatchRunResponse,
+    AiPipelineBatchScriptResponse,
+    AiPipelineBatchScriptUpdate,
+)
+from .batch_service import BatchAnnotationService, get_batch_annotation_service
 
 router = APIRouter(prefix="/ai-pipeline", tags=["AI Pipeline"])
+
+
+@router.get(
+    "/batch-scripts",
+    response_model=Result[list[AiPipelineBatchScriptResponse]],
+    summary="获取批量自动标注脚本",
+)
+async def list_batch_scripts(
+    include_disabled: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.list_scripts(db, include_disabled=include_disabled))
+
+
+@router.get(
+    "/batch-scripts/{script_key}",
+    response_model=Result[AiPipelineBatchScriptResponse],
+    summary="获取批量自动标注脚本详情",
+)
+async def get_batch_script(
+    script_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.get_script(db, script_key))
+
+
+@router.post(
+    "/batch-scripts/upload",
+    response_model=Result[AiPipelineBatchScriptResponse],
+    summary="上传批量自动标注脚本包",
+)
+async def upload_batch_script(
+    file: UploadFile = File(..., description="ZIP 脚本包"),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    file_bytes = await file.read()
+    script = await service.upload_script(db, file.filename or "script.zip", file_bytes)
+    return Result.ok(script, "Batch script uploaded")
+
+
+@router.patch(
+    "/batch-scripts/{script_key}",
+    response_model=Result[AiPipelineBatchScriptResponse],
+    summary="更新批量自动标注脚本配置",
+)
+async def update_batch_script(
+    script_key: str,
+    data: AiPipelineBatchScriptUpdate,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.update_script(db, script_key, data), "Batch script updated")
+
+
+@router.delete(
+    "/batch-scripts/{script_key}",
+    response_model=Result,
+    summary="删除批量自动标注脚本",
+)
+async def delete_batch_script(
+    script_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    await service.delete_script(db, script_key)
+    return Result.ok(message="Batch script deleted")
+
+
+@router.post(
+    "/batch-runs",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="创建批量自动标注任务",
+)
+async def create_batch_run(
+    data: AiPipelineBatchRunCreate,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    run = await service.create_run(db, data)
+    return Result.ok(run, "Batch annotation run created")
+
+
+@router.get(
+    "/batch-runs",
+    response_model=Result[list[AiPipelineBatchRunResponse]],
+    summary="获取批量自动标注任务列表",
+)
+async def list_batch_runs(
+    dataset_id: Optional[int] = Query(default=None, gt=0),
+    annotation_id: Optional[int] = Query(default=None, gt=0),
+    script_key: Optional[str] = Query(default=None, min_length=1, max_length=128),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    runs = await service.list_runs(
+        db,
+        dataset_id=dataset_id,
+        annotation_id=annotation_id,
+        script_key=script_key,
+        limit=limit,
+    )
+    return Result.ok(runs)
+
+
+@router.get(
+    "/batch-runs/{run_id}",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="获取批量自动标注任务状态",
+)
+async def get_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.get_run(db, run_id))
+
+
+@router.get(
+    "/batch-runs/{run_id}/items",
+    response_model=Result[PageResult[AiPipelineBatchRunItemResponse]],
+    summary="获取批量自动标注样本结果",
+)
+async def list_batch_run_items(
+    run_id: str,
+    status: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    items, total = await service.list_items(
+        db,
+        run_id,
+        status=status,
+        page=page,
+        page_size=page_size,
+    )
+    return Result.ok(PageResult.create(items, total, page, page_size))
+
+
+@router.get(
+    "/batch-runs/{run_id}/events",
+    response_model=Result[list[AiPipelineBatchRunEventResponse]],
+    summary="获取批量自动标注任务事件",
+)
+async def list_batch_run_events(
+    run_id: str,
+    after_id: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.list_events(db, run_id, after_id=after_id, limit=limit))
+
+
+@router.post(
+    "/batch-runs/{run_id}/cancel",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="取消批量自动标注任务",
+)
+async def cancel_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.cancel_run(db, run_id), "Batch annotation run canceled")
 
 
 @router.post(

@@ -19,9 +19,10 @@ export async function createDataset(data: DatasetCreate) {
 }
 
 /** 获取数据集列表 */
-export async function listDatasets(page = 1, pageSize = 10, keyword?: string) {
+export async function listDatasets(page = 1, pageSize = 10, keyword?: string, dataType?: number) {
   const params: Record<string, unknown> = { page, page_size: pageSize };
   if (keyword) params.keyword = keyword;
+  if (dataType !== undefined) params.data_type = dataType;
   const res = await apiClient.get<Result<PageResult<Dataset>>>('/dataset/list', { params });
   return res.data.data;
 }

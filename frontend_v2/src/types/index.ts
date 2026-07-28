@@ -128,6 +128,16 @@ export type {
 } from './deploy';
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
+export type {
+  AiPipelineBatchScriptField,
+  AiPipelineBatchScriptParameterValue,
+  AiPipelineBatchScript,
+  AiPipelineBatchScriptUpdateRequest,
+  AiPipelineBatchRun,
+  AiPipelineBatchRunItem,
+  AiPipelineBatchRunEvent,
+  AiPipelineBatchRunCreateRequest,
+} from './batchAnnotation';
 export type { ToolModelCreate, ToolModelResponse } from './tool';
 export type {
   AiPipelineTemplateListItem,

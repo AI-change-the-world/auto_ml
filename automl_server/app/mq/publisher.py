@@ -196,6 +196,26 @@ class MessagePublisher:
             f"Published training task: task_id={payload.get('task_id')}, routing_key={self.config.trainer_task_routing_key}"
         )
 
+    def publish_pipeline_batch_execute(self, payload: Dict[str, Any]):
+        body = json.dumps(payload, ensure_ascii=False)
+        request = PublishRequest(
+            routing_key=self.config.pipeline_batch_execute_routing_key,
+            body=body,
+            done=threading.Event(),
+        )
+        self._publish_queue.put(request)
+        if not request.done.wait(timeout=max(5, int(os.getenv("MQ_PUBLISH_TIMEOUT", "30")))):
+            raise TimeoutError(
+                f"Timed out publishing pipeline batch chunk: run_id={payload.get('run_id')}"
+            )
+        if request.error is not None:
+            raise request.error
+        logger.info(
+            "Published pipeline batch chunk: run_id=%s chunk_key=%s",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+        )
+
     def wait_until_ready(self, timeout: float = 5) -> bool:
         self._reconnect_requested.set()
         deadline = time.time() + max(0, timeout)

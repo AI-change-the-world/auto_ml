@@ -1,6 +1,11 @@
 export const DATASETS_CHANGED_EVENT = 'automl:datasets-changed';
 export const ANNOTATIONS_CHANGED_EVENT = 'automl:annotations-changed';
 export const TASKS_CHANGED_EVENT = 'automl:tasks-changed';
+export const BATCH_ANNOTATION_RUNS_CHANGED_EVENT = 'automl:batch-annotation-runs-changed';
+
+export function emitDatasetsChanged() {
+  window.dispatchEvent(new CustomEvent(DATASETS_CHANGED_EVENT));
+}
 
 export function emitDatasetsChanged() {
   window.dispatchEvent(new CustomEvent(DATASETS_CHANGED_EVENT));
@@ -12,4 +17,8 @@ export function emitAnnotationsChanged() {
 
 export function emitTasksChanged() {
   window.dispatchEvent(new CustomEvent(TASKS_CHANGED_EVENT));
+}
+
+export function emitBatchAnnotationRunsChanged() {
+  window.dispatchEvent(new CustomEvent(BATCH_ANNOTATION_RUNS_CHANGED_EVENT));
 }

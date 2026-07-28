@@ -12,6 +12,9 @@ import AnnotationLayout from './layouts/AnnotationLayout';
 import HomePage from './pages/home/HomePage';
 import DatasetListPage from './pages/dataset/DatasetListPage';
 import DatasetDetailPage from './pages/dataset/DatasetDetailPage';
+import BatchAnnotationToolListPage from './pages/dataset/BatchAnnotationToolListPage';
+import BatchAnnotationRunDetailPage from './pages/dataset/BatchAnnotationRunDetailPage';
+import BatchAnnotationRunListPage from './pages/dataset/BatchAnnotationRunListPage';
 import AnnotationListPage from './pages/annotation/AnnotationListPage';
 import AnnotationPage from './pages/annotation/AnnotationPage';
 import AnnotationAiBindingPage from './pages/annotation/AnnotationAiBindingPage';
@@ -59,6 +62,13 @@ const App: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/datasets" element={<DatasetListPage />} />
             <Route path="/datasets/:id" element={<DatasetDetailPage />} />
+            <Route path="/batch-annotation" element={<Navigate to="/batch-annotation/tools" replace />} />
+            <Route path="/batch-annotation/tools" element={<BatchAnnotationToolListPage />} />
+            <Route path="/batch-annotation/tools/:scriptKey" element={<Navigate to="/batch-annotation/tools" replace />} />
+            <Route path="/batch-annotation/runs" element={<BatchAnnotationRunListPage />} />
+            <Route path="/batch-annotation/runs/:runId" element={<BatchAnnotationRunDetailPage />} />
+            <Route path="/batch-annotation/scripts" element={<Navigate to="/batch-annotation/tools" replace />} />
+            <Route path="/datasets/:id/batch-annotation" element={<Navigate to="/batch-annotation/tools" replace />} />
             <Route path="/annotations" element={<AnnotationListPage />} />
             <Route path="/annotations/:annotationId/ai-binding" element={<AnnotationAiBindingPage />} />
             <Route path="/annotations/:annotationId/ai-pipeline" element={<AnnotationAiPipelinePage />} />

@@ -20,7 +20,7 @@
     "@hocuspocus/provider": "^4.1.0",
     "@xyflow/react": "^12.10.2",
     "antd": "^6.3.5",
-    "axios": "^1.15.2",
+    "axios": "^1.18.1",
     "dayjs": "^1.11.20",
     "driver.js": "^1.4.0",
     "i18next": "^26.2.0",
@@ -29,7 +29,7 @@
     "react-dom": "^19.2.4",
     "react-i18next": "^17.0.8",
     "react-konva": "^19.2.3",
-    "react-router-dom": "^7.14.0",
+    "react-router-dom": "^7.18.1",
     "uuid": "^13.0.1",
     "yjs": "^13.6.31",
     "zustand": "^5.0.12"
@@ -50,6 +50,6 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.0",
-    "vite": "^8.0.4"
+    "vite": ">=8.0.16"
   }
 }
