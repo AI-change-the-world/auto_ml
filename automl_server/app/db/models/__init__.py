@@ -14,6 +14,11 @@ from .ai_pipeline import (
     AiPipelineArtifact,
     AiPipelineEventLog,
 )
+from .batch_annotation import (
+    AiPipelineBatchRun,
+    AiPipelineBatchRunItem,
+    AiPipelineBatchRunEvent,
+)
 
 __all__ = [
     "BaseEntity",
@@ -29,4 +34,7 @@ __all__ = [
     "AiPipelineRunStep",
     "AiPipelineArtifact",
     "AiPipelineEventLog",
+    "AiPipelineBatchRun",
+    "AiPipelineBatchRunItem",
+    "AiPipelineBatchRunEvent",
 ]

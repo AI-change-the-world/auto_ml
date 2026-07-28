@@ -15,7 +15,8 @@ from app.config.nacos_config_center import get_config_center
 from app.config.rabbitmq_config import get_mq_config, RabbitMQConfig
 from .messages import (
     MessageType, TaskStatusMessage, TaskLogMessage,
-    ModelRegisteredMessage, ModelDeployedMessage, ModelUndeployedMessage
+    ModelRegisteredMessage, ModelDeployedMessage, ModelUndeployedMessage,
+    PipelineBatchProgressMessage, PipelineBatchResultMessage,
 )
 
 
@@ -117,6 +118,10 @@ class MessageConsumer:
              self.config.model_deployed_routing_key),
             (self.config.model_undeployed_queue,
              self.config.model_undeployed_routing_key),
+            (self.config.pipeline_batch_progress_queue,
+             self.config.pipeline_batch_progress_routing_key),
+            (self.config.pipeline_batch_result_queue,
+             self.config.pipeline_batch_result_routing_key),
         ]
 
         for queue_name, routing_key in queue_bindings:
@@ -185,6 +190,8 @@ class MessageConsumer:
             MessageType.MODEL_REGISTERED.value: ModelRegisteredMessage,
             MessageType.MODEL_DEPLOYED.value: ModelDeployedMessage,
             MessageType.MODEL_UNDEPLOYED.value: ModelUndeployedMessage,
+            MessageType.PIPELINE_BATCH_PROGRESS.value: PipelineBatchProgressMessage,
+            MessageType.PIPELINE_BATCH_RESULT.value: PipelineBatchResultMessage,
         }
         parser = parsers.get(message_type)
         if parser:
@@ -206,6 +213,8 @@ class MessageConsumer:
                 self.config.model_registered_queue,
                 self.config.model_deployed_queue,
                 self.config.model_undeployed_queue,
+                self.config.pipeline_batch_progress_queue,
+                self.config.pipeline_batch_result_queue,
             ]
 
             for queue in queues:

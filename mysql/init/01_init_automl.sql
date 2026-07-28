@@ -444,5 +444,77 @@ CREATE TABLE IF NOT EXISTS `ai_pipeline_provider_resource` (
   KEY `idx_ai_pipeline_provider_resource_is_deleted` (`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI Pipeline Provider 资源表';
 
+CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_run` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
+  `run_id` VARCHAR(64) NOT NULL,
+  `dataset_id` BIGINT NOT NULL,
+  `annotation_id` BIGINT NOT NULL,
+  `script_key` VARCHAR(128) NOT NULL,
+  `script_version` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'queued',
+  `selection_mode` VARCHAR(32) NOT NULL DEFAULT 'all',
+  `overwrite_policy` VARCHAR(32) NOT NULL DEFAULT 'skip_existing',
+  `batch_size` INT NOT NULL DEFAULT 20,
+  `parallelism` INT NOT NULL DEFAULT 1,
+  `total_count` INT NOT NULL DEFAULT 0,
+  `succeeded_count` INT NOT NULL DEFAULT 0,
+  `failed_count` INT NOT NULL DEFAULT 0,
+  `skipped_count` INT NOT NULL DEFAULT 0,
+  `canceled_count` INT NOT NULL DEFAULT 0,
+  `progress` INT NOT NULL DEFAULT 0,
+  `cancel_requested` TINYINT(1) NOT NULL DEFAULT 0,
+  `script_params_json` LONGTEXT DEFAULT NULL,
+  `annotation_snapshot_json` LONGTEXT DEFAULT NULL,
+  `error_message` TEXT DEFAULT NULL,
+  `started_at` DATETIME DEFAULT NULL,
+  `finished_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_pipeline_batch_run_run_id` (`run_id`),
+  KEY `idx_ai_pipeline_batch_run_dataset` (`dataset_id`, `created_at`),
+  KEY `idx_ai_pipeline_batch_run_annotation` (`annotation_id`, `created_at`),
+  KEY `idx_ai_pipeline_batch_run_status` (`status`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI Pipeline 批量标注任务';
+
+CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_run_item` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
+  `batch_run_id` BIGINT NOT NULL,
+  `sample_item_id` BIGINT NOT NULL,
+  `item_key` VARCHAR(255) NOT NULL,
+  `asset_path` VARCHAR(512) DEFAULT NULL,
+  `asset_mime_type` VARCHAR(128) DEFAULT NULL,
+  `input_snapshot_json` LONGTEXT DEFAULT NULL,
+  `chunk_key` VARCHAR(96) DEFAULT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending',
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `annotation_record_id` BIGINT DEFAULT NULL,
+  `result_json` LONGTEXT DEFAULT NULL,
+  `error_message` TEXT DEFAULT NULL,
+  `started_at` DATETIME DEFAULT NULL,
+  `finished_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_pipeline_batch_run_item_sample` (`batch_run_id`, `sample_item_id`),
+  KEY `idx_ai_pipeline_batch_run_item_status` (`batch_run_id`, `status`),
+  KEY `idx_ai_pipeline_batch_run_item_chunk` (`chunk_key`),
+  KEY `idx_ai_pipeline_batch_run_item_annotation_record` (`annotation_record_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI Pipeline 批量标注任务样本';
+
+CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_run_event` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
+  `batch_run_id` BIGINT NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `event_payload` LONGTEXT DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_pipeline_batch_run_event_run` (`batch_run_id`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI Pipeline 批量标注任务事件';
+
 
 SELECT 'Auto ML database initialized successfully!' AS message;

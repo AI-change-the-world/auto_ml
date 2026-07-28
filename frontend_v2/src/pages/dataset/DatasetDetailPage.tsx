@@ -17,6 +17,7 @@ import {
   FileTextOutlined,
   CheckSquareOutlined,
   BorderOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { getDataset, getDatasetSamples, uploadDatasetFiles, previewSample, deleteDataset, deleteDatasetSample } from '../../api/dataset';
 import type { Dataset, SampleItem } from '../../types';
@@ -401,6 +402,11 @@ const DatasetDetailPage: React.FC = () => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="button-text"
+            onClick={() => navigate(`/datasets/${datasetId}/batch-annotation`)}
+            style={{ padding: '8px 14px', background: '#fff', color: '#4f6ef7', border: '1px solid #c7d2fe', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+          ><RobotOutlined /> 批量标注</button>
           <button
             className="button-text"
             onClick={() => fileInputRef.current?.click()}

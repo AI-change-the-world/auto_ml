@@ -23,8 +23,126 @@ from .schemas import (
     AiPipelineTemplateListItem,
 )
 from .service import AiPipelineService, get_ai_pipeline_service
+from .batch_schemas import (
+    AiPipelineBatchRunCreate,
+    AiPipelineBatchRunEventResponse,
+    AiPipelineBatchRunItemResponse,
+    AiPipelineBatchRunResponse,
+    AiPipelineBatchScriptResponse,
+)
+from .batch_service import BatchAnnotationService, get_batch_annotation_service
 
 router = APIRouter(prefix="/ai-pipeline", tags=["AI Pipeline"])
+
+
+@router.get(
+    "/batch-scripts",
+    response_model=Result[list[AiPipelineBatchScriptResponse]],
+    summary="获取批量自动标注脚本",
+)
+async def list_batch_scripts(
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(service.list_scripts())
+
+
+@router.post(
+    "/batch-runs",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="创建批量自动标注任务",
+)
+async def create_batch_run(
+    data: AiPipelineBatchRunCreate,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    run = await service.create_run(db, data)
+    return Result.ok(run, "Batch annotation run created")
+
+
+@router.get(
+    "/batch-runs",
+    response_model=Result[list[AiPipelineBatchRunResponse]],
+    summary="获取批量自动标注任务列表",
+)
+async def list_batch_runs(
+    dataset_id: Optional[int] = Query(default=None, gt=0),
+    annotation_id: Optional[int] = Query(default=None, gt=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    runs = await service.list_runs(
+        db,
+        dataset_id=dataset_id,
+        annotation_id=annotation_id,
+        limit=limit,
+    )
+    return Result.ok(runs)
+
+
+@router.get(
+    "/batch-runs/{run_id}",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="获取批量自动标注任务状态",
+)
+async def get_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.get_run(db, run_id))
+
+
+@router.get(
+    "/batch-runs/{run_id}/items",
+    response_model=Result[PageResult[AiPipelineBatchRunItemResponse]],
+    summary="获取批量自动标注样本结果",
+)
+async def list_batch_run_items(
+    run_id: str,
+    status: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    items, total = await service.list_items(
+        db,
+        run_id,
+        status=status,
+        page=page,
+        page_size=page_size,
+    )
+    return Result.ok(PageResult.create(items, total, page, page_size))
+
+
+@router.get(
+    "/batch-runs/{run_id}/events",
+    response_model=Result[list[AiPipelineBatchRunEventResponse]],
+    summary="获取批量自动标注任务事件",
+)
+async def list_batch_run_events(
+    run_id: str,
+    after_id: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.list_events(db, run_id, after_id=after_id, limit=limit))
+
+
+@router.post(
+    "/batch-runs/{run_id}/cancel",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="取消批量自动标注任务",
+)
+async def cancel_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.cancel_run(db, run_id), "Batch annotation run canceled")
 
 
 @router.post(

@@ -12,6 +12,7 @@ import AnnotationLayout from './layouts/AnnotationLayout';
 import HomePage from './pages/home/HomePage';
 import DatasetListPage from './pages/dataset/DatasetListPage';
 import DatasetDetailPage from './pages/dataset/DatasetDetailPage';
+import BatchAnnotationPage from './pages/dataset/BatchAnnotationPage';
 import AnnotationListPage from './pages/annotation/AnnotationListPage';
 import AnnotationPage from './pages/annotation/AnnotationPage';
 import AnnotationAiBindingPage from './pages/annotation/AnnotationAiBindingPage';
@@ -59,6 +60,7 @@ const App: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/datasets" element={<DatasetListPage />} />
             <Route path="/datasets/:id" element={<DatasetDetailPage />} />
+            <Route path="/datasets/:id/batch-annotation" element={<BatchAnnotationPage />} />
             <Route path="/annotations" element={<AnnotationListPage />} />
             <Route path="/annotations/:annotationId/ai-binding" element={<AnnotationAiBindingPage />} />
             <Route path="/annotations/:annotationId/ai-pipeline" element={<AnnotationAiPipelinePage />} />
