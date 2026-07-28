@@ -1,0 +1,4 @@
+interface:
+  display_name: "Admin Platform Design"
+  short_description: "Design polished GitHub-like admin platforms"
+  default_prompt: "Use $admin-platform-design to redesign this backend platform UI into a polished SaaS admin experience."

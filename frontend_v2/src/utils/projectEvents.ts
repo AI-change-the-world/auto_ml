@@ -7,10 +7,6 @@ export function emitDatasetsChanged() {
   window.dispatchEvent(new CustomEvent(DATASETS_CHANGED_EVENT));
 }
 
-export function emitDatasetsChanged() {
-  window.dispatchEvent(new CustomEvent(DATASETS_CHANGED_EVENT));
-}
-
 export function emitAnnotationsChanged() {
   window.dispatchEvent(new CustomEvent(ANNOTATIONS_CHANGED_EVENT));
 }
