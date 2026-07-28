@@ -136,6 +136,7 @@ export type {
   AiPipelineBatchRun,
   AiPipelineBatchRunItem,
   AiPipelineBatchRunEvent,
+  AiPipelineBatchRunStreamEnvelope,
   AiPipelineBatchRunCreateRequest,
 } from './batchAnnotation';
 export type { ToolModelCreate, ToolModelResponse } from './tool';

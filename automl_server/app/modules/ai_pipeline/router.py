@@ -1,10 +1,12 @@
 """AI Pipeline 管理 API"""
+import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import PageResult, Result
+from app.common.sse import create_sse_response
 from app.config.database import get_db
 
 from .schemas import (
@@ -32,6 +34,7 @@ from .batch_schemas import (
     AiPipelineBatchScriptUpdate,
 )
 from .batch_service import BatchAnnotationService, get_batch_annotation_service
+from .batch_stream import get_batch_run_stream_hub
 
 router = APIRouter(prefix="/ai-pipeline", tags=["AI Pipeline"])
 
@@ -153,6 +156,33 @@ async def get_batch_run(
     service: BatchAnnotationService = Depends(get_batch_annotation_service),
 ):
     return Result.ok(await service.get_run(db, run_id))
+
+
+@router.get(
+    "/batch-runs/{run_id}/stream",
+    summary="批量自动标注任务 SSE 事件流",
+)
+async def batch_run_stream(
+    request: Request,
+    run_id: str,
+):
+    hub = get_batch_run_stream_hub()
+    subscriber_id, queue = await hub.subscribe(run_id)
+
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=5)
+                except asyncio.TimeoutError:
+                    continue
+                yield event.to_sse_payload()
+        finally:
+            await hub.unsubscribe(subscriber_id, run_id)
+
+    return create_sse_response(event_generator())
 
 
 @router.get(

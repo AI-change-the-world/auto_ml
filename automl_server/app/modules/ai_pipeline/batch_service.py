@@ -590,7 +590,7 @@ class BatchAnnotationService:
 
         run.skipped_count = skipped_count
         run.progress = self._calculate_progress(run.total_count, skipped_count)
-        await self._append_event(
+        event = await self._append_event(
             db,
             run.id,
             "queued",
@@ -598,6 +598,7 @@ class BatchAnnotationService:
         )
         await db.commit()
         await db.refresh(run)
+        await self._publish_run_update(run, event)
         await self._dispatch_available_chunks(db, run)
         return self._to_run_response(run)
 
@@ -678,15 +679,7 @@ class BatchAnnotationService:
             .limit(limit)
         )
         events = list((await db.execute(stmt)).scalars().all())
-        return [
-            AiPipelineBatchRunEventResponse(
-                id=event.id,
-                event_type=event.event_type,
-                event_payload=_load_json(event.event_payload, event.event_payload),
-                created_at=event.created_at,
-            )
-            for event in events
-        ]
+        return [self._to_event_response(event) for event in events]
 
     async def cancel_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
         run = await self._get_run(db, run_id)
@@ -713,9 +706,10 @@ class BatchAnnotationService:
         run.status = "canceled"
         run.finished_at = now
         await self._refresh_run_counts(db, run)
-        await self._append_event(db, run.id, "canceled", {"message": "canceled by user"})
+        event = await self._append_event(db, run.id, "canceled", {"message": "canceled by user"})
         await db.commit()
         await db.refresh(run)
+        await self._publish_run_update(run, event)
         return self._to_run_response(run)
 
     async def handle_worker_progress(self, db: AsyncSession, payload: dict[str, Any]) -> None:
@@ -739,7 +733,7 @@ class BatchAnnotationService:
             run.progress,
             self._calculate_progress(run.total_count, completed_count + current_chunk_progress),
         )
-        await self._append_event(
+        event = await self._append_event(
             db,
             run.id,
             "progress",
@@ -751,6 +745,8 @@ class BatchAnnotationService:
             },
         )
         await db.commit()
+        await db.refresh(run)
+        await self._publish_run_update(run, event)
 
     async def handle_worker_result(self, db: AsyncSession, payload: dict[str, Any]) -> None:
         run = await self._find_run(db, str(payload.get("run_id") or ""))
@@ -803,7 +799,7 @@ class BatchAnnotationService:
             await self._apply_item_result(db, run, item, result, now)
 
         await self._refresh_run_counts(db, run)
-        await self._append_event(
+        event = await self._append_event(
             db,
             run.id,
             "result",
@@ -817,6 +813,7 @@ class BatchAnnotationService:
         )
         await db.commit()
         await db.refresh(run)
+        await self._publish_run_update(run, event)
         if run.status not in {"succeeded", "failed", "canceled"}:
             await self._dispatch_available_chunks(db, run)
 
@@ -1043,15 +1040,33 @@ class BatchAnnotationService:
         run_id: int,
         event_type: str,
         payload: dict[str, Any],
+    ) -> AiPipelineBatchRunEvent:
+        event = AiPipelineBatchRunEvent(
+            batch_run_id=run_id,
+            event_type=event_type,
+            event_payload=_dump_json(payload),
+        )
+        db.add(event)
+        await db.flush()
+        return event
+
+    async def _publish_run_update(
+        self,
+        run: AiPipelineBatchRun,
+        event: AiPipelineBatchRunEvent,
     ) -> None:
-        db.add(
-            AiPipelineBatchRunEvent(
-                batch_run_id=run_id,
-                event_type=event_type,
-                event_payload=_dump_json(payload),
+        from .batch_stream import BatchRunStreamEvent, get_batch_run_stream_hub
+
+        await get_batch_run_stream_hub().publish(
+            BatchRunStreamEvent(
+                event="batch_run_updated",
+                run_id=run.run_id,
+                data={
+                    "run": self._to_run_response(run).model_dump(mode="json"),
+                    "event": self._to_event_response(event).model_dump(mode="json"),
+                },
             )
         )
-        await db.flush()
 
     @staticmethod
     def _calculate_progress(total_count: int, completed_count: int) -> int:
@@ -1086,6 +1101,15 @@ class BatchAnnotationService:
             finished_at=run.finished_at,
             created_at=run.created_at,
             updated_at=run.updated_at,
+        )
+
+    @staticmethod
+    def _to_event_response(event: AiPipelineBatchRunEvent) -> AiPipelineBatchRunEventResponse:
+        return AiPipelineBatchRunEventResponse(
+            id=event.id,
+            event_type=event.event_type,
+            event_payload=_load_json(event.event_payload, event.event_payload),
+            created_at=event.created_at,
         )
 
     @staticmethod

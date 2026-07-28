@@ -77,6 +77,14 @@ export interface AiPipelineBatchRunEvent {
   created_at?: string | null;
 }
 
+export interface AiPipelineBatchRunStreamEnvelope {
+  event: 'batch_run_updated';
+  data: {
+    run: AiPipelineBatchRun;
+    event: AiPipelineBatchRunEvent;
+  };
+}
+
 export interface AiPipelineBatchRunCreateRequest {
   dataset_id: number;
   annotation_id: number;

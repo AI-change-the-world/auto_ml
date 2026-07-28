@@ -1,4 +1,4 @@
-"""SSE 响应封装"""
+"""SSE 响应封装。"""
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.common import Result, PageResult
+from app.common.sse import create_sse_response
 from app.config.database import get_db
 from .schemas import (
     TaskCreate,
@@ -19,7 +20,6 @@ from .schemas import (
 )
 from .service import get_task_service, TaskService
 from .stream import StreamEvent, get_task_stream_hub
-from .sse import create_sse_response
 
 router = APIRouter(prefix="/task", tags=["任务管理"])
 
