@@ -1,4 +1,0 @@
-interface:
-  display_name: "Admin Platform Design"
-  short_description: "Design compact, tool-first admin platforms"
-  default_prompt: "Use $admin-platform-design to redesign this backend UI into a compact, task-first admin platform."
