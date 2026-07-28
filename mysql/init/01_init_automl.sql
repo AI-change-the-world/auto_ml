@@ -454,6 +454,8 @@ CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_run` (
   `annotation_id` BIGINT NOT NULL,
   `script_key` VARCHAR(128) NOT NULL,
   `script_version` VARCHAR(64) NOT NULL,
+  `script_package_path` VARCHAR(512) DEFAULT NULL,
+  `script_entrypoint` VARCHAR(255) DEFAULT NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'queued',
   `selection_mode` VARCHAR(32) NOT NULL DEFAULT 'all',
   `overwrite_policy` VARCHAR(32) NOT NULL DEFAULT 'skip_existing',
@@ -515,6 +517,27 @@ CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_run_event` (
   PRIMARY KEY (`id`),
   KEY `idx_ai_pipeline_batch_run_event_run` (`batch_run_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI Pipeline 批量标注任务事件';
+
+CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_script` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` TINYINT(1) NOT NULL DEFAULT 0,
+  `script_key` VARCHAR(128) NOT NULL,
+  `version` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `description` TEXT DEFAULT NULL,
+  `package_object_key` VARCHAR(512) NOT NULL,
+  `package_file_name` VARCHAR(255) NOT NULL,
+  `entrypoint` VARCHAR(255) NOT NULL,
+  `supported_data_types_json` TEXT NOT NULL,
+  `supported_annotation_types_json` TEXT NOT NULL,
+  `parameter_fields_json` LONGTEXT NOT NULL,
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_pipeline_batch_script_key` (`script_key`),
+  KEY `idx_ai_pipeline_batch_script_enabled` (`enabled`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI Pipeline 批量标注脚本包';
 
 
 SELECT 'Auto ML database initialized successfully!' AS message;

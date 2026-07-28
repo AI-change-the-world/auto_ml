@@ -6,28 +6,36 @@ receives immutable chunk payloads and publishes structured results back via MQ.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import math
+import re
 import uuid
+import zipfile
 from datetime import datetime
+from pathlib import PurePosixPath
 from typing import Any
 
+from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import BadRequestException, NotFoundException
+from app.config.settings import get_settings
 from app.db.models import (
     Annotation,
     AnnotationRecord,
     AiPipelineBatchRun,
     AiPipelineBatchRunEvent,
     AiPipelineBatchRunItem,
+    AiPipelineBatchScript,
     Asset,
     Dataset,
     SampleItem,
 )
 from app.mq.publisher import get_publisher
 from app.utils.annotation_classes import parse_annotation_classes
+from app.utils.s3_delegate import get_s3_delegate
 
 from .batch_schemas import (
     AiPipelineBatchRunCreate,
@@ -35,11 +43,18 @@ from .batch_schemas import (
     AiPipelineBatchRunItemResponse,
     AiPipelineBatchRunResponse,
     AiPipelineBatchScriptResponse,
+    AiPipelineBatchScriptUpdate,
+    AiPipelineBatchScriptManifest,
 )
 from .batch_scripts import get_batch_script, list_batch_scripts
 
 
 TERMINAL_ITEM_STATUSES = {"succeeded", "failed", "skipped", "canceled"}
+SCRIPT_ARCHIVE_MAX_BYTES = 100 * 1024 * 1024
+SCRIPT_ARCHIVE_MAX_FILES = 512
+SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
+SCRIPT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
+SECRET_VALUE_MARKER = "__pipeline_batch_secret__"
 
 
 def _dump_json(value: Any) -> str:
@@ -58,15 +73,341 @@ def _load_json(value: Any, fallback: Any) -> Any:
 
 
 class BatchAnnotationService:
-    def list_scripts(self) -> list[AiPipelineBatchScriptResponse]:
-        return [AiPipelineBatchScriptResponse.model_validate(item) for item in list_batch_scripts()]
+    async def list_scripts(
+        self,
+        db: AsyncSession,
+        *,
+        include_disabled: bool = False,
+    ) -> list[AiPipelineBatchScriptResponse]:
+        conditions = [AiPipelineBatchScript.is_deleted == False]
+        if not include_disabled:
+            conditions.append(AiPipelineBatchScript.enabled == True)
+        custom_scripts = list(
+            (
+                await db.execute(
+                    select(AiPipelineBatchScript)
+                    .where(*conditions)
+                    .order_by(AiPipelineBatchScript.created_at.desc(), AiPipelineBatchScript.id.desc())
+                )
+            ).scalars().all()
+        )
+        builtins = [self._to_script_response(self._builtin_script(item)) for item in list_batch_scripts()]
+        return [*builtins, *(self._to_script_response(self._custom_script_dict(item)) for item in custom_scripts)]
+
+    async def upload_script(
+        self,
+        db: AsyncSession,
+        archive_name: str,
+        archive_bytes: bytes,
+    ) -> AiPipelineBatchScriptResponse:
+        manifest = self._read_bundle_manifest(archive_bytes)
+        if get_batch_script(manifest.key):
+            raise BadRequestException("script key is reserved by a platform script")
+        entrypoint = self._normalize_entrypoint(manifest.entrypoint)
+        normalized_fields = self._normalize_parameter_fields(manifest.parameters)
+        self._validate_script_archive(archive_bytes, entrypoint)
+
+        archive_file_name = PurePosixPath(archive_name or "script.zip").name
+        if not archive_file_name.lower().endswith(".zip"):
+            raise BadRequestException("script package must be a .zip file")
+        object_key = f"uploads/batch-scripts/{manifest.key}/{uuid.uuid4().hex}.zip"
+        await get_s3_delegate().put_file(
+            object_key,
+            archive_bytes,
+            bucket_type="default",
+            content_type="application/zip",
+        )
+
+        script = await db.scalar(
+            select(AiPipelineBatchScript).where(AiPipelineBatchScript.script_key == manifest.key)
+        )
+        if script is None:
+            script = AiPipelineBatchScript(script_key=manifest.key)
+            db.add(script)
+        script.version = manifest.version.strip()
+        script.name = manifest.name.strip()
+        script.description = manifest.description.strip() if manifest.description else None
+        script.package_object_key = object_key
+        script.package_file_name = archive_file_name
+        script.entrypoint = entrypoint
+        script.supported_data_types_json = _dump_json(sorted(set(manifest.supported_data_types)))
+        script.supported_annotation_types_json = _dump_json(sorted(set(manifest.supported_annotation_types)))
+        script.parameter_fields_json = _dump_json(normalized_fields)
+        script.enabled = True
+        script.is_deleted = False
+        await db.commit()
+        await db.refresh(script)
+        return self._to_script_response(self._custom_script_dict(script))
+
+    async def update_script(
+        self,
+        db: AsyncSession,
+        script_key: str,
+        data: AiPipelineBatchScriptUpdate,
+    ) -> AiPipelineBatchScriptResponse:
+        script = await self._get_custom_script(db, script_key)
+        update_data = data.model_dump(exclude_unset=True)
+        if "enabled" in update_data:
+            script.enabled = bool(update_data["enabled"])
+        await db.commit()
+        await db.refresh(script)
+        return self._to_script_response(self._custom_script_dict(script))
+
+    async def delete_script(self, db: AsyncSession, script_key: str) -> None:
+        script = await self._get_custom_script(db, script_key)
+        script.enabled = False
+        script.is_deleted = True
+        await db.commit()
+
+    async def _get_script(self, db: AsyncSession, script_key: str) -> dict[str, Any] | None:
+        builtin = get_batch_script(script_key)
+        if builtin:
+            return self._builtin_script(builtin)
+        script = await db.scalar(
+            select(AiPipelineBatchScript).where(
+                AiPipelineBatchScript.script_key == script_key,
+                AiPipelineBatchScript.is_deleted == False,
+                AiPipelineBatchScript.enabled == True,
+            )
+        )
+        return self._custom_script_dict(script) if script else None
+
+    async def _get_custom_script(self, db: AsyncSession, script_key: str) -> AiPipelineBatchScript:
+        script = await db.scalar(
+            select(AiPipelineBatchScript).where(
+                AiPipelineBatchScript.script_key == script_key,
+                AiPipelineBatchScript.is_deleted == False,
+            )
+        )
+        if not script:
+            raise NotFoundException(f"Batch script {script_key} not found")
+        return script
+
+    @staticmethod
+    def _builtin_script(script: dict[str, Any]) -> dict[str, Any]:
+        return {
+            **script,
+            "entrypoint": f"{script['key']}.py",
+            "package_object_key": None,
+            "is_builtin": True,
+            "enabled": True,
+        }
+
+    @staticmethod
+    def _custom_script_dict(script: AiPipelineBatchScript) -> dict[str, Any]:
+        return {
+            "key": script.script_key,
+            "version": script.version,
+            "name": script.name,
+            "description": script.description,
+            "supported_data_types": _load_json(script.supported_data_types_json, []),
+            "supported_annotation_types": _load_json(script.supported_annotation_types_json, []),
+            "parameter_fields": _load_json(script.parameter_fields_json, []),
+            "entrypoint": script.entrypoint,
+            "package_object_key": script.package_object_key,
+            "is_builtin": False,
+            "enabled": script.enabled,
+        }
+
+    @staticmethod
+    def _to_script_response(script: dict[str, Any]) -> AiPipelineBatchScriptResponse:
+        return AiPipelineBatchScriptResponse(
+            key=str(script["key"]),
+            version=str(script["version"]),
+            name=str(script["name"]),
+            description=script.get("description"),
+            supported_data_types=list(script.get("supported_data_types") or []),
+            supported_annotation_types=list(script.get("supported_annotation_types") or []),
+            parameter_fields=list(script.get("parameter_fields") or []),
+            entrypoint=script.get("entrypoint"),
+            is_builtin=bool(script.get("is_builtin")),
+            enabled=bool(script.get("enabled", True)),
+        )
+
+    @staticmethod
+    def _normalize_entrypoint(value: str) -> str:
+        entrypoint = str(value or "").strip().replace("\\", "/")
+        path = PurePosixPath(entrypoint)
+        if not entrypoint.endswith(".py") or path.is_absolute() or ".." in path.parts or entrypoint.startswith("./"):
+            raise BadRequestException("entrypoint must be a relative .py path inside the ZIP package")
+        return path.as_posix()
+
+    @staticmethod
+    def _validate_script_archive(archive_bytes: bytes, entrypoint: str) -> None:
+        if not archive_bytes:
+            raise BadRequestException("script package is empty")
+        if len(archive_bytes) > SCRIPT_ARCHIVE_MAX_BYTES:
+            raise BadRequestException("script package exceeds the 100 MB upload limit")
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(archive_bytes))
+        except zipfile.BadZipFile as exc:
+            raise BadRequestException("script package must be a valid ZIP archive") from exc
+        with archive:
+            infos = archive.infolist()
+            if len(infos) > SCRIPT_ARCHIVE_MAX_FILES:
+                raise BadRequestException("script package contains too many files")
+            total_size = 0
+            found_entrypoint = False
+            for info in infos:
+                path = PurePosixPath(info.filename)
+                mode = info.external_attr >> 16
+                if path.is_absolute() or ".." in path.parts or info.filename.startswith("/") or (mode & 0o170000) == 0o120000:
+                    raise BadRequestException("script package contains an unsafe file path")
+                if info.is_dir():
+                    continue
+                total_size += info.file_size
+                if total_size > SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES:
+                    raise BadRequestException("script package is too large after extraction")
+                if path.as_posix() == entrypoint:
+                    found_entrypoint = True
+            if not found_entrypoint:
+                raise BadRequestException("entrypoint file does not exist in the ZIP package")
+
+    @staticmethod
+    def _read_bundle_manifest(archive_bytes: bytes) -> AiPipelineBatchScriptManifest:
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(archive_bytes))
+        except zipfile.BadZipFile as exc:
+            raise BadRequestException("script package must be a valid ZIP archive") from exc
+        with archive:
+            manifest_entries = [
+                info for info in archive.infolist()
+                if not info.is_dir() and PurePosixPath(info.filename).as_posix() == "batch_script.json"
+            ]
+            if len(manifest_entries) != 1:
+                raise BadRequestException("script ZIP must contain exactly one root batch_script.json manifest")
+            manifest_entry = manifest_entries[0]
+            if manifest_entry.file_size > 256 * 1024:
+                raise BadRequestException("batch_script.json exceeds the 256 KB limit")
+            try:
+                manifest_payload = json.loads(archive.read(manifest_entry).decode("utf-8"))
+                return AiPipelineBatchScriptManifest.model_validate(manifest_payload)
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+                raise BadRequestException(f"invalid batch_script.json manifest: {exc}") from exc
+
+    @staticmethod
+    def _normalize_parameter_fields(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        keys: set[str] = set()
+        for raw_field in fields:
+            if not isinstance(raw_field, dict):
+                raise BadRequestException("parameter fields must be objects")
+            key = str(raw_field.get("key") or "").strip()
+            if not SCRIPT_KEY_PATTERN.fullmatch(key) or key in keys:
+                raise BadRequestException("parameter field keys must be unique lowercase identifiers")
+            value_type = str(raw_field.get("value_type") or "string").strip().lower()
+            if value_type not in {"string", "number", "boolean", "select", "secret"}:
+                raise BadRequestException("parameter value_type must be string, number, boolean, select, or secret")
+            options = raw_field.get("options")
+            if value_type == "select":
+                if not isinstance(options, list) or not options:
+                    raise BadRequestException("select parameters require at least one option")
+                if any(not isinstance(option, (str, int, float)) or isinstance(option, bool) for option in options):
+                    raise BadRequestException("select parameter options must be strings or numbers")
+            normalized_field = {
+                "key": key,
+                "label": str(raw_field.get("label") or key).strip()[:128],
+                "value_type": value_type,
+                "required": bool(raw_field.get("required", False)),
+                "default_value": raw_field.get("default_value"),
+                "description": str(raw_field.get("description") or "").strip()[:500] or None,
+            }
+            if options is not None:
+                normalized_field["options"] = options
+            if value_type == "secret" and normalized_field["default_value"] is not None:
+                raise BadRequestException("secret parameters cannot define a default value")
+            if normalized_field["default_value"] is not None:
+                BatchAnnotationService._validate_parameter_value(normalized_field, normalized_field["default_value"])
+            normalized.append(normalized_field)
+            keys.add(key)
+        return normalized
+
+    @staticmethod
+    def _validate_parameter_value(field: dict[str, Any], value: Any) -> None:
+        value_type = field.get("value_type")
+        if value_type == "string" and not isinstance(value, str):
+            raise BadRequestException(f"parameter `{field['key']}` must be a string")
+        if value_type == "number" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+            raise BadRequestException(f"parameter `{field['key']}` must be a number")
+        if value_type == "boolean" and not isinstance(value, bool):
+            raise BadRequestException(f"parameter `{field['key']}` must be a boolean")
+        if value_type == "select" and value not in (field.get("options") or []):
+            raise BadRequestException(f"parameter `{field['key']}` has an unsupported value")
+        if value_type == "secret" and not isinstance(value, str):
+            raise BadRequestException(f"parameter `{field['key']}` must be a string")
+
+    def _resolve_script_params(self, script: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+        fields = self._normalize_parameter_fields(list(script.get("parameter_fields") or []))
+        field_by_key = {field["key"]: field for field in fields}
+        unexpected = sorted(set(params) - set(field_by_key))
+        if unexpected:
+            raise BadRequestException(f"unsupported script parameters: {', '.join(unexpected)}")
+        resolved: dict[str, Any] = {}
+        for field in fields:
+            key = field["key"]
+            value = params.get(key, field.get("default_value"))
+            if value is None:
+                if field["required"]:
+                    raise BadRequestException(f"script parameter `{key}` is required")
+                continue
+            self._validate_parameter_value(field, value)
+            resolved[key] = value
+        return resolved
+
+    @staticmethod
+    def _get_secret_cipher() -> Fernet:
+        key = get_settings().pipeline_batch_secret_key.strip()
+        if not key:
+            raise BadRequestException("PIPELINE_BATCH_SECRET_KEY must be configured before using secret script parameters")
+        try:
+            return Fernet(key.encode("utf-8"))
+        except (TypeError, ValueError) as exc:
+            raise BadRequestException("PIPELINE_BATCH_SECRET_KEY is not a valid Fernet key") from exc
+
+    def _protect_script_params(self, script: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+        field_by_key = {
+            field["key"]: field
+            for field in self._normalize_parameter_fields(list(script.get("parameter_fields") or []))
+        }
+        protected: dict[str, Any] = {}
+        cipher: Fernet | None = None
+        for key, value in params.items():
+            if field_by_key[key].get("value_type") != "secret":
+                protected[key] = value
+                continue
+            cipher = cipher or self._get_secret_cipher()
+            protected[key] = {
+                SECRET_VALUE_MARKER: cipher.encrypt(value.encode("utf-8")).decode("utf-8"),
+            }
+        return protected
+
+    def _reveal_script_params(self, stored_params: dict[str, Any]) -> dict[str, Any]:
+        revealed: dict[str, Any] = {}
+        cipher: Fernet | None = None
+        for key, value in stored_params.items():
+            if not isinstance(value, dict) or not isinstance(value.get(SECRET_VALUE_MARKER), str):
+                revealed[key] = value
+                continue
+            cipher = cipher or self._get_secret_cipher()
+            try:
+                revealed[key] = cipher.decrypt(value[SECRET_VALUE_MARKER].encode("utf-8")).decode("utf-8")
+            except InvalidToken as exc:
+                raise BadRequestException("stored batch secret cannot be decrypted with PIPELINE_BATCH_SECRET_KEY") from exc
+        return revealed
+
+    @staticmethod
+    def _mask_script_params(stored_params: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: "******" if isinstance(value, dict) and SECRET_VALUE_MARKER in value else value
+            for key, value in stored_params.items()
+        }
 
     async def create_run(
         self,
         db: AsyncSession,
         data: AiPipelineBatchRunCreate,
     ) -> AiPipelineBatchRunResponse:
-        script = get_batch_script(data.script_key)
+        script = await self._get_script(db, data.script_key)
         if not script:
             raise BadRequestException("batch annotation script is not available")
 
@@ -87,6 +428,8 @@ class BatchAnnotationService:
             raise BadRequestException("annotation project must belong to the selected dataset")
         if annotation.annotation_type not in script["supported_annotation_types"]:
             raise BadRequestException("selected script does not support this annotation type")
+        script_params = self._resolve_script_params(script, data.script_params)
+        protected_script_params = self._protect_script_params(script, script_params)
 
         samples = await self._load_samples(db, data)
         if not samples:
@@ -111,13 +454,15 @@ class BatchAnnotationService:
             annotation_id=annotation.id,
             script_key=script["key"],
             script_version=script["version"],
+            script_package_path=script.get("package_object_key"),
+            script_entrypoint=script.get("entrypoint"),
             status="queued",
             selection_mode=data.selection_mode,
             overwrite_policy=data.overwrite_policy,
             batch_size=data.batch_size,
             parallelism=data.parallelism,
             total_count=len(samples),
-            script_params_json=_dump_json(data.script_params),
+            script_params_json=_dump_json(protected_script_params),
             annotation_snapshot_json=_dump_json(annotation_snapshot),
         )
         db.add(run)
@@ -172,6 +517,7 @@ class BatchAnnotationService:
         *,
         dataset_id: int | None = None,
         annotation_id: int | None = None,
+        script_key: str | None = None,
         limit: int = 50,
     ) -> list[AiPipelineBatchRunResponse]:
         conditions = [AiPipelineBatchRun.is_deleted == False]
@@ -179,6 +525,8 @@ class BatchAnnotationService:
             conditions.append(AiPipelineBatchRun.dataset_id == dataset_id)
         if annotation_id:
             conditions.append(AiPipelineBatchRun.annotation_id == annotation_id)
+        if script_key:
+            conditions.append(AiPipelineBatchRun.script_key == script_key)
         stmt = (
             select(AiPipelineBatchRun)
             .where(*conditions)
@@ -470,7 +818,7 @@ class BatchAnnotationService:
         await db.commit()
 
         annotation_snapshot = _load_json(run.annotation_snapshot_json, {})
-        script_params = _load_json(run.script_params_json, {})
+        script_params = self._reveal_script_params(_load_json(run.script_params_json, {}))
         for chunk_key, chunk_items in chunks:
             message = {
                 "message_type": "pipeline.batch.execute",
@@ -479,6 +827,8 @@ class BatchAnnotationService:
                 "chunk_key": chunk_key,
                 "script_key": run.script_key,
                 "script_version": run.script_version,
+                "script_package_path": run.script_package_path,
+                "script_entrypoint": run.script_entrypoint,
                 "annotation": annotation_snapshot,
                 "script_params": script_params,
                 "items": [
@@ -640,7 +990,7 @@ class BatchAnnotationService:
             canceled_count=run.canceled_count,
             progress=run.progress,
             cancel_requested=run.cancel_requested,
-            script_params=_load_json(run.script_params_json, {}),
+            script_params=BatchAnnotationService._mask_script_params(_load_json(run.script_params_json, {})),
             error_message=run.error_message,
             started_at=run.started_at,
             finished_at=run.finished_at,

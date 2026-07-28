@@ -15,6 +15,24 @@ class AiPipelineBatchScriptResponse(BaseModel):
     supported_data_types: list[int] = Field(default_factory=list)
     supported_annotation_types: list[int] = Field(default_factory=list)
     parameter_fields: list[dict[str, Any]] = Field(default_factory=list)
+    entrypoint: str | None = None
+    is_builtin: bool = False
+    enabled: bool = True
+
+
+class AiPipelineBatchScriptManifest(BaseModel):
+    key: str = Field(..., min_length=1, max_length=128, pattern=r"^[a-z][a-z0-9_-]*$")
+    version: str = Field(..., min_length=1, max_length=64)
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    entrypoint: str = Field(..., min_length=3, max_length=255)
+    supported_data_types: list[int] = Field(..., min_length=1, max_length=8)
+    supported_annotation_types: list[int] = Field(..., min_length=1, max_length=32)
+    parameters: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
+
+
+class AiPipelineBatchScriptUpdate(BaseModel):
+    enabled: bool | None = None
 
 
 class AiPipelineBatchRunCreate(BaseModel):

@@ -53,10 +53,11 @@ async def list_annotations(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     keyword: str = Query(default=None),
+    dataset_id: int | None = Query(default=None, gt=0),
     db: AsyncSession = Depends(get_db),
     service: AnnotationService = Depends(get_annotation_service),
 ):
-    items, total = await service.list_annotations(db, page, page_size, keyword)
+    items, total = await service.list_annotations(db, page, page_size, keyword, dataset_id)
     return Result.ok(PageResult.create(items, total, page, page_size))
 
 

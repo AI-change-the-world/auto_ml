@@ -35,11 +35,12 @@ async def list_datasets(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=10, ge=1, le=100),
     keyword: str = Query(default=None),
+    data_type: int | None = Query(default=None, ge=0, le=3),
     db: AsyncSession = Depends(get_db),
     service: DatasetService = Depends(get_dataset_service),
 ):
     """分页查询数据集"""
-    items, total = await service.list_datasets(db, page, page_size, keyword)
+    items, total = await service.list_datasets(db, page, page_size, keyword, data_type)
     page_result = PageResult.create(items, total, page, page_size)
     return Result.ok(page_result)
 

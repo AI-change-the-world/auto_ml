@@ -32,7 +32,8 @@ async def get_datasets(
     db: AsyncSession,
     offset: int = 0,
     limit: int = 10,
-    keyword: str = None
+    keyword: str = None,
+    data_type: int | None = None,
 ) -> tuple[List[Dataset], int]:
     """分页查询数据集"""
     # 基础查询条件
@@ -40,6 +41,8 @@ async def get_datasets(
 
     if keyword:
         conditions.append(Dataset.name.ilike(f"%{keyword}%"))
+    if data_type is not None:
+        conditions.append(Dataset.data_type == data_type)
 
     # 查询总数
     count_stmt = select(func.count()).select_from(Dataset).where(*conditions)

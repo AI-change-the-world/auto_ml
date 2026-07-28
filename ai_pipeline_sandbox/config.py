@@ -30,6 +30,7 @@ class StorageSettings:
     access_key: str
     secret_key: str
     region: str
+    default_bucket: str
     datasets_bucket: str
 
 
@@ -115,6 +116,7 @@ def load_settings() -> SandboxSettings:
             access_key=os.getenv("S3_ACCESS_KEY", str(storage.get("access_key", ""))),
             secret_key=os.getenv("S3_SECRET_KEY", str(storage.get("secret_key", ""))),
             region=os.getenv("S3_REGION", str(storage.get("region", "us-east-1"))),
+            default_bucket=os.getenv("S3_DEFAULT_BUCKET", str(storage.get("bucket_name", "auto-ml-datasets"))),
             datasets_bucket=os.getenv("S3_DATASETS_BUCKET", str(storage.get("datasets_bucket_name", "auto-ml-datasets"))),
         ),
     )

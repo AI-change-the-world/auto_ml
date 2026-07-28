@@ -5,13 +5,36 @@ import type {
   AiPipelineBatchRunEvent,
   AiPipelineBatchRunItem,
   AiPipelineBatchScript,
+  AiPipelineBatchScriptUpdateRequest,
   PageResult,
   Result,
 } from '../types';
 
-export async function listBatchAnnotationScripts() {
-  const res = await apiClient.get<Result<AiPipelineBatchScript[]>>('/ai-pipeline/batch-scripts');
+export async function listBatchAnnotationScripts(includeDisabled = false) {
+  const res = await apiClient.get<Result<AiPipelineBatchScript[]>>('/ai-pipeline/batch-scripts', {
+    params: { include_disabled: includeDisabled },
+  });
   return res.data.data ?? [];
+}
+
+export async function uploadBatchAnnotationScript(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await apiClient.post<Result<AiPipelineBatchScript>>('/ai-pipeline/batch-scripts/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000,
+  });
+  return res.data.data;
+}
+
+export async function updateBatchAnnotationScript(scriptKey: string, data: AiPipelineBatchScriptUpdateRequest) {
+  const res = await apiClient.patch<Result<AiPipelineBatchScript>>(`/ai-pipeline/batch-scripts/${scriptKey}`, data);
+  return res.data.data;
+}
+
+export async function deleteBatchAnnotationScript(scriptKey: string) {
+  const res = await apiClient.delete<Result<unknown>>(`/ai-pipeline/batch-scripts/${scriptKey}`);
+  return res.data;
 }
 
 export async function createBatchAnnotationRun(data: AiPipelineBatchRunCreateRequest) {
@@ -19,9 +42,12 @@ export async function createBatchAnnotationRun(data: AiPipelineBatchRunCreateReq
   return res.data.data;
 }
 
-export async function listBatchAnnotationRuns(datasetId: number, limit = 50) {
+export async function listBatchAnnotationRuns(datasetId?: number, limit = 50, scriptKey?: string) {
+  const params: Record<string, number | string> = { limit };
+  if (datasetId !== undefined) params.dataset_id = datasetId;
+  if (scriptKey) params.script_key = scriptKey;
   const res = await apiClient.get<Result<AiPipelineBatchRun[]>>('/ai-pipeline/batch-runs', {
-    params: { dataset_id: datasetId, limit },
+    params,
   });
   return res.data.data ?? [];
 }
@@ -38,9 +64,9 @@ export async function getBatchAnnotationRunEvents(runId: string, afterId = 0) {
   return res.data.data ?? [];
 }
 
-export async function getBatchAnnotationRunItems(runId: string, status?: string) {
+export async function getBatchAnnotationRunItems(runId: string, page = 1, pageSize = 50, status?: string) {
   const res = await apiClient.get<Result<PageResult<AiPipelineBatchRunItem>>>(`/ai-pipeline/batch-runs/${runId}/items`, {
-    params: { page: 1, page_size: 100, status },
+    params: { page, page_size: pageSize, status },
   });
   return res.data.data;
 }

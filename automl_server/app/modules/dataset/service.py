@@ -209,11 +209,12 @@ class DatasetService:
         db: AsyncSession,
         page: int = 1,
         page_size: int = 10,
-        keyword: str = None
+        keyword: str = None,
+        data_type: int | None = None,
     ) -> tuple[List[DatasetResponse], int]:
         """分页查询数据集"""
         offset = (page - 1) * page_size
-        items, total = await crud.get_datasets(db, offset, page_size, keyword)
+        items, total = await crud.get_datasets(db, offset, page_size, keyword, data_type)
         return [self._to_response(item) for item in items], total
 
     async def get_home_summary(self, db: AsyncSession) -> DatasetSummaryResponse:

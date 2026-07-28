@@ -12,8 +12,10 @@ class AiPipelineBatchRun(BaseEntity):
     run_id = Column(String(64), nullable=False, unique=True, index=True, comment="外部运行ID")
     dataset_id = Column(BigInteger, nullable=False, index=True, comment="数据集ID")
     annotation_id = Column(BigInteger, nullable=False, index=True, comment="标注项目ID")
-    script_key = Column(String(128), nullable=False, comment="内置脚本标识")
+    script_key = Column(String(128), nullable=False, comment="脚本标识")
     script_version = Column(String(64), nullable=False, comment="脚本版本")
+    script_package_path = Column(String(512), nullable=True, comment="脚本包对象路径快照")
+    script_entrypoint = Column(String(255), nullable=True, comment="脚本入口文件快照")
     status = Column(String(32), nullable=False, default="queued", comment="queued/running/succeeded/failed/canceled")
     selection_mode = Column(String(32), nullable=False, default="all", comment="all/unannotated/selected")
     overwrite_policy = Column(String(32), nullable=False, default="skip_existing", comment="skip_existing/overwrite_draft/overwrite_all")
@@ -65,3 +67,21 @@ class AiPipelineBatchRunEvent(BaseEntity):
     batch_run_id = Column(BigInteger, nullable=False, index=True, comment="批量任务主表ID")
     event_type = Column(String(64), nullable=False, comment="queued/progress/result/failed/canceled")
     event_payload = Column(Text, nullable=True, comment="事件内容 JSON")
+
+
+class AiPipelineBatchScript(BaseEntity):
+    """A user-managed archive that can be executed by the batch sandbox."""
+
+    __tablename__ = "ai_pipeline_batch_script"
+
+    script_key = Column(String(128), nullable=False, unique=True, index=True, comment="脚本标识")
+    version = Column(String(64), nullable=False, comment="脚本版本")
+    name = Column(String(255), nullable=False, comment="脚本名称")
+    description = Column(Text, nullable=True, comment="脚本描述")
+    package_object_key = Column(String(512), nullable=False, comment="ZIP 脚本包对象路径")
+    package_file_name = Column(String(255), nullable=False, comment="上传文件名")
+    entrypoint = Column(String(255), nullable=False, comment="ZIP 内 Python 入口文件")
+    supported_data_types_json = Column(Text, nullable=False, comment="兼容数据类型 JSON")
+    supported_annotation_types_json = Column(Text, nullable=False, comment="兼容标注类型 JSON")
+    parameter_fields_json = Column(Text, nullable=False, comment="运行参数 Schema JSON")
+    enabled = Column(Boolean, nullable=False, default=True, comment="是否允许创建新任务")

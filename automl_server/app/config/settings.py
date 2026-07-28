@@ -63,6 +63,7 @@ class Settings(BaseModel):
     port: int = 45678
     debug: bool = False
     task_stale_timeout_seconds: int = 7200
+    pipeline_batch_secret_key: str = ""
 
     # 子配置
     database: DatabaseConfig = DatabaseConfig()
@@ -203,6 +204,7 @@ def _load_settings() -> Settings:
         port=int(os.getenv("APP_PORT", "45678")),
         debug=os.getenv("DEBUG", "false").lower() == "true",
         task_stale_timeout_seconds=task_stale_timeout_seconds,
+        pipeline_batch_secret_key=os.getenv("PIPELINE_BATCH_SECRET_KEY", ""),
         database=database,
         nacos=nacos_config,
         model_trainer=model_trainer,

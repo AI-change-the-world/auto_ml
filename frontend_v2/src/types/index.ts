@@ -130,7 +130,9 @@ export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
 export type {
   AiPipelineBatchScriptField,
+  AiPipelineBatchScriptParameterValue,
   AiPipelineBatchScript,
+  AiPipelineBatchScriptUpdateRequest,
   AiPipelineBatchRun,
   AiPipelineBatchRunItem,
   AiPipelineBatchRunEvent,

@@ -1,7 +1,7 @@
 """AI Pipeline 管理 API"""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import PageResult, Result
@@ -29,6 +29,7 @@ from .batch_schemas import (
     AiPipelineBatchRunItemResponse,
     AiPipelineBatchRunResponse,
     AiPipelineBatchScriptResponse,
+    AiPipelineBatchScriptUpdate,
 )
 from .batch_service import BatchAnnotationService, get_batch_annotation_service
 
@@ -41,9 +42,54 @@ router = APIRouter(prefix="/ai-pipeline", tags=["AI Pipeline"])
     summary="获取批量自动标注脚本",
 )
 async def list_batch_scripts(
+    include_disabled: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
     service: BatchAnnotationService = Depends(get_batch_annotation_service),
 ):
-    return Result.ok(service.list_scripts())
+    return Result.ok(await service.list_scripts(db, include_disabled=include_disabled))
+
+
+@router.post(
+    "/batch-scripts/upload",
+    response_model=Result[AiPipelineBatchScriptResponse],
+    summary="上传批量自动标注脚本包",
+)
+async def upload_batch_script(
+    file: UploadFile = File(..., description="ZIP 脚本包"),
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    file_bytes = await file.read()
+    script = await service.upload_script(db, file.filename or "script.zip", file_bytes)
+    return Result.ok(script, "Batch script uploaded")
+
+
+@router.patch(
+    "/batch-scripts/{script_key}",
+    response_model=Result[AiPipelineBatchScriptResponse],
+    summary="更新批量自动标注脚本配置",
+)
+async def update_batch_script(
+    script_key: str,
+    data: AiPipelineBatchScriptUpdate,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.update_script(db, script_key, data), "Batch script updated")
+
+
+@router.delete(
+    "/batch-scripts/{script_key}",
+    response_model=Result,
+    summary="删除批量自动标注脚本",
+)
+async def delete_batch_script(
+    script_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    await service.delete_script(db, script_key)
+    return Result.ok(message="Batch script deleted")
 
 
 @router.post(
@@ -68,6 +114,7 @@ async def create_batch_run(
 async def list_batch_runs(
     dataset_id: Optional[int] = Query(default=None, gt=0),
     annotation_id: Optional[int] = Query(default=None, gt=0),
+    script_key: Optional[str] = Query(default=None, min_length=1, max_length=128),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     service: BatchAnnotationService = Depends(get_batch_annotation_service),
@@ -76,6 +123,7 @@ async def list_batch_runs(
         db,
         dataset_id=dataset_id,
         annotation_id=annotation_id,
+        script_key=script_key,
         limit=limit,
     )
     return Result.ok(runs)

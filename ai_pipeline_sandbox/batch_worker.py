@@ -7,11 +7,13 @@ import os
 import queue
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import threading
 import time
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +30,8 @@ except ImportError:  # pragma: no cover - Windows does not expose resource
 
 EVENT_PREFIX = "__AUTO_ML_BATCH_EVENT__="
 RESULT_PREFIX = "__AUTO_ML_BATCH_RESULT__="
+SCRIPT_ARCHIVE_MAX_FILES = 512
+SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
 
 
 class BatchSandboxWorker:
@@ -178,14 +182,7 @@ class BatchSandboxWorker:
         return runnable_items, failed_results
 
     def _run_script(self, payload: dict[str, Any], items: list[dict[str, Any]], task_root: Path) -> Any:
-        script_key = str(payload["script_key"])
-        script_path = (self.settings.scripts_root / f"{script_key}.py").resolve()
-        try:
-            script_path.relative_to(self.settings.scripts_root.resolve())
-        except ValueError as exc:
-            raise RuntimeError("script path escapes sandbox scripts directory") from exc
-        if not script_path.is_file():
-            raise RuntimeError(f"registered script `{script_key}` is not installed")
+        script_path = self._resolve_script_path(payload, task_root)
 
         runner_payload = {
             "run_id": payload["run_id"],
@@ -252,6 +249,74 @@ class BatchSandboxWorker:
         if not result_payload or not result_payload.get("success"):
             raise RuntimeError(str((result_payload or {}).get("error") or "sandbox runner returned no result"))
         return result_payload.get("data")
+
+    def _resolve_script_path(self, payload: dict[str, Any], task_root: Path) -> Path:
+        package_path = payload.get("script_package_path")
+        if isinstance(package_path, str) and package_path:
+            archive_path = task_root / "script-package.zip"
+            asyncio.run(self.storage.download_script_package(package_path, archive_path))
+            script_root = task_root / "script"
+            self._extract_script_package(archive_path, script_root)
+            entrypoint = self._safe_entrypoint(str(payload.get("script_entrypoint") or ""))
+            script_path = (script_root / entrypoint).resolve()
+            try:
+                script_path.relative_to(script_root.resolve())
+            except ValueError as exc:
+                raise RuntimeError("script entrypoint escapes extracted package") from exc
+            if not script_path.is_file():
+                raise RuntimeError("script entrypoint is unavailable after package extraction")
+            return script_path
+
+        script_key = str(payload["script_key"])
+        script_path = (self.settings.scripts_root / f"{script_key}.py").resolve()
+        try:
+            script_path.relative_to(self.settings.scripts_root.resolve())
+        except ValueError as exc:
+            raise RuntimeError("script path escapes sandbox scripts directory") from exc
+        if not script_path.is_file():
+            raise RuntimeError(f"registered script `{script_key}` is not installed")
+        return script_path
+
+    @staticmethod
+    def _safe_entrypoint(value: str) -> Path:
+        normalized = value.strip().replace("\\", "/")
+        path = Path(normalized)
+        if not normalized.endswith(".py") or path.is_absolute() or ".." in path.parts:
+            raise RuntimeError("script entrypoint must be a relative Python file")
+        return path
+
+    @staticmethod
+    def _extract_script_package(archive_path: Path, destination: Path) -> None:
+        try:
+            archive = zipfile.ZipFile(archive_path)
+        except zipfile.BadZipFile as exc:
+            raise RuntimeError("downloaded script package is not a ZIP archive") from exc
+        with archive:
+            infos = archive.infolist()
+            if len(infos) > SCRIPT_ARCHIVE_MAX_FILES:
+                raise RuntimeError("script package contains too many files")
+            total_size = 0
+            destination.mkdir(parents=True, exist_ok=True)
+            destination_root = destination.resolve()
+            for info in infos:
+                member_path = Path(info.filename)
+                mode = info.external_attr >> 16
+                if member_path.is_absolute() or ".." in member_path.parts or stat.S_ISLNK(mode):
+                    raise RuntimeError("script package contains an unsafe file path")
+                target = (destination / member_path).resolve()
+                try:
+                    target.relative_to(destination_root)
+                except ValueError as exc:
+                    raise RuntimeError("script package path escapes task directory") from exc
+                if info.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                total_size += info.file_size
+                if total_size > SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES:
+                    raise RuntimeError("script package exceeds extraction limit")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(info, "r") as source, target.open("wb") as output:
+                    shutil.copyfileobj(source, output)
 
     def _normalize_results(self, items: list[dict[str, Any]], result: Any) -> list[dict[str, Any]]:
         returned_items = result.get("items") if isinstance(result, dict) and isinstance(result.get("items"), list) else []

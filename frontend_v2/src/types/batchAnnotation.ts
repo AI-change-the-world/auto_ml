@@ -1,11 +1,14 @@
+export type AiPipelineBatchScriptParameterValue = string | number | boolean;
+
 export interface AiPipelineBatchScriptField {
   key: string;
   label: string;
   value_type?: string;
   required?: boolean;
-  default_value?: unknown;
+  default_value?: AiPipelineBatchScriptParameterValue;
   description?: string;
   widget?: string;
+  options?: Array<string | number>;
 }
 
 export interface AiPipelineBatchScript {
@@ -16,6 +19,13 @@ export interface AiPipelineBatchScript {
   supported_data_types: number[];
   supported_annotation_types: number[];
   parameter_fields: AiPipelineBatchScriptField[];
+  entrypoint?: string | null;
+  is_builtin: boolean;
+  enabled: boolean;
+}
+
+export interface AiPipelineBatchScriptUpdateRequest {
+  enabled?: boolean;
 }
 
 export interface AiPipelineBatchRun {

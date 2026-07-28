@@ -135,9 +135,16 @@ class AnnotationService:
         collaborators = self._get_presence_summaries(annotation_id)
         return self._to_annotation_response(ann, collaborators)
 
-    async def list_annotations(self, db: AsyncSession, page: int = 1, page_size: int = 10, keyword: str = None) -> tuple[List[AnnotationResponse], int]:
+    async def list_annotations(
+        self,
+        db: AsyncSession,
+        page: int = 1,
+        page_size: int = 10,
+        keyword: str = None,
+        dataset_id: int | None = None,
+    ) -> tuple[List[AnnotationResponse], int]:
         offset = (page - 1) * page_size
-        items, total = await crud.get_annotations(db, offset, page_size, keyword)
+        items, total = await crud.get_annotations(db, offset, page_size, keyword, dataset_id)
         collaborator_map = self._get_presence_summary_map([item.id for item in items])
         logger.info(
             "[annotation:presence:list] page={} page_size={} keyword={} total={} collaborators={}",

@@ -20,12 +20,14 @@ x-minio-env: &minio-env
   S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
   S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
   S3_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+  S3_DEFAULT_BUCKET: ${S3_DEFAULT_BUCKET:-auto-ml-datasets}
 
 x-service-env: &service-env
   MODEL_TRAINER_URL: ${MODEL_TRAINER_URL:-http://model-trainer:8081}
   MODEL_DEPLOY_URL: ${MODEL_DEPLOY_URL:-http://model-deploy:8082}
   AI_PIPELINE_RUNTIME_URL: ${AI_PIPELINE_RUNTIME_URL:-http://ai-pipeline-runtime:8010}
   AUTO_AUGMENT_PIPELINE_URL: ${AUTO_AUGMENT_PIPELINE_URL:-${AI_PIPELINE_RUNTIME_URL:-http://ai-pipeline-runtime:8010}}
+  PIPELINE_BATCH_SECRET_KEY: ${PIPELINE_BATCH_SECRET_KEY:-}
 
 services:
 
