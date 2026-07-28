@@ -7,7 +7,7 @@ Use this reference for home dashboards, review queues, operations workbenches, a
 Design the dashboard around decisions and next actions, matching the supplied reference style without copying its business domain:
 
 - Greeting/context block only if the role benefits from it; otherwise use the space for real work.
-- Primary KPI row with 3-5 compact metric tiles.
+- Primary KPI row with 3-6 compact metric tiles when counts help users choose their next action.
 - Main work queue or recent table in the largest central area.
 - Right rail for risk overview, pending tasks, alerts, or activity.
 - Secondary row for trends, shortcuts, and process statistics.
@@ -16,13 +16,14 @@ The reference pattern is: light sidebar, restrained topbar, soft welcome block, 
 
 ## Metric Tiles
 
-- Show label, value, comparison, and icon/status.
+- Show label, value, comparison, and icon/status only when each field is backed by product data.
 - Keep values large enough to scan but not hero-sized.
 - Keep metric labels around body/meta size and values below or proportional to the page title unless the dashboard is explicitly KPI-led.
 - Use semantic trend colors: green for good increase, red for bad increase, amber for watch states.
 - Make every metric explain its unit and period.
 - Avoid filling an entire tile with saturated color unless it is an alert.
-- Use colored circular icon wells sparingly, like the reference, and keep them secondary to the number.
+- Use small colored icon wells sparingly, like the reference, and keep them secondary to the number.
+- Use static tiles for static summaries. When a metric links to a filtered work list, show a subtle hover/focus state and preserve the tile's geometry.
 - If a page already has enough task content, skip decorative metric tiles instead of inventing metrics.
 
 ## Work Queues
@@ -32,6 +33,7 @@ The reference pattern is: light sidebar, restrained topbar, soft welcome block, 
 - Show the fields users need to decide the next action: owner, status, priority/risk, due time, or other domain-relevant metadata.
 - Keep row actions predictable and derived from the product's real permissions and workflow.
 - Prefer a real table or compact list over repeated title/subtitle cards when users compare records.
+- Use stable media grids for visual datasets or image-centric objects; keep switcher controls compact and use the same selection/status language as the table view.
 
 ## Risk And Status Panels
 

@@ -15,7 +15,7 @@ This usually means:
 Example pattern:
 
 ```tsx
-<section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+<section className="rounded-md border border-slate-200 bg-white shadow-sm">
   <header className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
     <h2 className="text-sm font-semibold text-slate-950">Records</h2>
   </header>

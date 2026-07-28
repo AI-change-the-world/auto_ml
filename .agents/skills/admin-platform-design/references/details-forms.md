@@ -12,7 +12,7 @@ Recommended structure:
 - Summary strip with 3-6 key fields.
 - Main content organized into sections based on the entity model, such as overview, attributes, attachments, history, audit trail, and related records.
 - Right rail for status timeline, owner, task state, or risk explanation when useful.
-- Tabs only when each tab has enough content to justify navigation.
+- Tabs only when each tab has enough content to justify navigation. Use compact raised section tabs for entity settings/details; use workflow underline tabs for state slices. Do not mix them in one bar.
 - Do not create overview tiles that repeat labels already present in the header or section title.
 
 ## Forms
@@ -53,6 +53,7 @@ Use modals for confirmations, short forms, and focused decisions:
 
 ## Settings Pages
 
-- Prefer grouped settings panels with clear save behavior.
+- Prefer a compact horizontal settings tab bar plus grouped settings panels with clear save behavior when multiple settings domains exist. Do not duplicate the active tab title as a large page hero.
+- Keep the working form in the main column and move genuinely secondary account/storage/history information into a narrow right rail only on wide screens. Stack it below the form on smaller screens.
 - Make dangerous settings visually separate.
 - For integrations, show connection status, last sync, error, credentials state, and test action.
