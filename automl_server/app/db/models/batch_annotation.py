@@ -85,3 +85,12 @@ class AiPipelineBatchScript(BaseEntity):
     supported_annotation_types_json = Column(Text, nullable=False, comment="兼容标注类型 JSON")
     parameter_fields_json = Column(Text, nullable=False, comment="运行参数 Schema JSON")
     enabled = Column(Boolean, nullable=False, default=True, comment="是否允许创建新任务")
+
+
+class AiPipelineBatchBuiltinScriptSetting(BaseEntity):
+    """Persistent enabled state for platform-provided batch scripts."""
+
+    __tablename__ = "ai_pipeline_batch_builtin_script_setting"
+
+    script_key = Column(String(128), nullable=False, unique=True, index=True, comment="内置脚本标识")
+    enabled = Column(Boolean, nullable=False, default=True, comment="是否允许创建新任务")

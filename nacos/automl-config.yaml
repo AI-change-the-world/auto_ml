@@ -72,3 +72,6 @@ task_stale_timeout_seconds: ${TASK_STALE_TIMEOUT_SECONDS}
 logging:
   level: INFO
   path: /app/logs
+
+ai-pipeline-batch:
+  secret_key: erwQngaQgmx96Ym8r2QBwMtQOWCHR3EjtQit04jD-Y8=

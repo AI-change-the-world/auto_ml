@@ -8,6 +8,7 @@ export interface AiPipelineBatchScriptField {
   default_value?: AiPipelineBatchScriptParameterValue;
   description?: string;
   widget?: string;
+  value_source?: string;
   options?: Array<string | number>;
 }
 

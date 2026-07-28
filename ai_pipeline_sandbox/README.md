@@ -52,23 +52,27 @@ ZIP 可以携带源码、配置和模型文件，但不会在运行时自动安�
       "description": "仅在本次 sandbox 执行时解密"
     },
     {
-      "key": "model",
+      "key": "model_name",
       "label": "模型",
       "value_type": "select",
       "options": ["gpt-4.1-mini", "gpt-4.1"],
       "default_value": "gpt-4.1-mini"
     },
     {
-      "key": "confidence_threshold",
-      "label": "置信度阈值",
-      "value_type": "number",
-      "default_value": 0.6
+      "key": "classes",
+      "label": "类别",
+      "value_type": "string",
+      "widget": "textarea",
+      "value_source": "annotation_classes",
+      "required": true,
+      "description": "优先使用所选标注项目的类别；没有类别时手动输入。"
     },
     {
-      "key": "save_raw_response",
-      "label": "保存模型原始响应",
-      "value_type": "boolean",
-      "default_value": false
+      "key": "prompt",
+      "label": "补充提示词",
+      "value_type": "string",
+      "widget": "textarea",
+      "description": "留空时使用内置 bbox 输出提示词。"
     }
   ]
 }
@@ -104,8 +108,10 @@ ZIP 可以携带源码、配置和模型文件，但不会在运行时自动安�
 | `default_value` | 否 | 默认值，必须与 `value_type` 一致；`secret` 不允许默认值。 |
 | `description` | 否 | 表单字段下方的说明，最长 500 个字符。 |
 | `options` | 条件必填 | 仅 `select` 使用，必须是非空字符串或数字数组。 |
+| `widget` | 否 | 目前支持 `textarea`（多行文本）和 `number`。默认根据 `value_type` 选择控件。 |
+| `value_source` | 否 | 目前支持 `annotation_classes`。标注项目已有类别时，平台自动使用其类别并隐藏该输入；没有类别时保留字段让用户填写。仅支持 `string`。 |
 
-`secret` 会使用密码输入框。值在主服务数据库中加密保存，任务查询仅返回 `******`，只有下发本次 MQ 执行消息时才会解密。使用 `secret` 前必须为 `automl-server` 配置有效的 `PIPELINE_BATCH_SECRET_KEY`（Fernet key）。
+`secret` 会使用密码输入框。值在主服务数据库中加密保存，任务查询仅返回 `******`，只有下发本次 MQ 执行消息时才会解密。加密密钥读取 Nacos 的 `ai-pipeline-batch.secret_key`，其值必须是稳定的 Fernet key。
 
 ## 脚本入口契约
 
@@ -119,7 +125,7 @@ def execute_batch(params: dict[str, Any], report: Callable[..., None]) -> dict[s
     script_params = params["script_params"]
     base_url = script_params["base_url"]
     api_key = script_params["api_key"]
-    model = script_params["model"]
+    model_name = script_params["model_name"]
 
     results = []
     items = params["items"]

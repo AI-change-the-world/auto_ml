@@ -1,7 +1,7 @@
 import React from 'react';
-import { PlayCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
-import { Button, Card, Empty, Input, Select, Spin, Tag, Typography, message } from 'antd';
-import { listBatchAnnotationScripts } from '../../api/batchAnnotation';
+import { PauseCircleOutlined, PlayCircleOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Input, Select, Spin, Tag, Tooltip, Typography, message } from 'antd';
+import { getBatchAnnotationScript, listBatchAnnotationScripts, updateBatchAnnotationScript } from '../../api/batchAnnotation';
 import { DataTypeLabels, DataTypeOptions, type AiPipelineBatchScript } from '../../types';
 import BatchAnnotationRunModal from './components/BatchAnnotationRunModal';
 import BatchScriptEditorModal from './components/BatchScriptEditorModal';
@@ -19,12 +19,14 @@ const BatchAnnotationToolListPage: React.FC = () => {
   const [dataType, setDataType] = React.useState<number | undefined>();
   const [keyword, setKeyword] = React.useState('');
   const [selectedScript, setSelectedScript] = React.useState<AiPipelineBatchScript | null>(null);
+  const [loadingScriptKey, setLoadingScriptKey] = React.useState<string | null>(null);
+  const [updatingScriptKey, setUpdatingScriptKey] = React.useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = React.useState(false);
 
   const loadScripts = React.useCallback(async () => {
     setLoading(true);
     try {
-      setScripts(await listBatchAnnotationScripts());
+      setScripts(await listBatchAnnotationScripts(true));
     } catch {
       message.error('加载批量标注工具失败');
     } finally {
@@ -33,6 +35,35 @@ const BatchAnnotationToolListPage: React.FC = () => {
   }, []);
 
   React.useEffect(() => { void loadScripts(); }, [loadScripts]);
+
+  const handleConfigure = async (scriptKey: string) => {
+    setLoadingScriptKey(scriptKey);
+    try {
+      const script = await getBatchAnnotationScript(scriptKey);
+      if (!script) throw new Error('工具详情不存在');
+      setSelectedScript(script);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '加载工具参数失败');
+    } finally {
+      setLoadingScriptKey(null);
+    }
+  };
+
+  const handleEnabledChange = async (script: AiPipelineBatchScript) => {
+    setUpdatingScriptKey(script.key);
+    try {
+      const updatedScript = await updateBatchAnnotationScript(script.key, { enabled: !script.enabled });
+      if (!updatedScript) throw new Error('工具状态更新失败');
+      setScripts((currentScripts) => currentScripts.map((item) => (
+        item.key === updatedScript.key ? updatedScript : item
+      )));
+      message.success(script.enabled ? '工具已禁用' : '工具已启用');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '更新工具状态失败');
+    } finally {
+      setUpdatingScriptKey(null);
+    }
+  };
 
   const visibleScripts = React.useMemo(() => scripts.filter((script) => (
     (dataType === undefined || script.supported_data_types.includes(dataType))
@@ -73,7 +104,7 @@ const BatchAnnotationToolListPage: React.FC = () => {
             <Card
               key={script.key}
               size="small"
-              styles={{ body: { minHeight: 184, display: 'flex', flexDirection: 'column', padding: 16 } }}
+              styles={{ body: { minHeight: 220, display: 'flex', flexDirection: 'column', padding: 16 } }}
               style={{ borderRadius: 6, boxShadow: 'none', borderColor: '#e5e7eb' }}
             >
               <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 12 }}>
@@ -81,14 +112,37 @@ const BatchAnnotationToolListPage: React.FC = () => {
                   <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{script.name}</div>
                   <Text type="secondary" style={{ fontSize: 12 }}>v{script.version} · {script.is_builtin ? '内置' : '脚本包'}</Text>
                 </div>
-                <Tag color={script.is_builtin ? 'default' : 'blue'}>{script.parameter_fields.length} 参数</Tag>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 4 }}>
+                  <Tag color={script.enabled ? 'green' : 'default'}>{script.enabled ? '已启用' : '已禁用'}</Tag>
+                  <Tag color={script.is_builtin ? 'default' : 'blue'}>{script.parameter_fields.length} 参数</Tag>
+                  <Tooltip title={script.enabled ? '禁用工具' : '启用工具'}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={script.enabled ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                      loading={updatingScriptKey === script.key}
+                      onClick={() => { void handleEnabledChange(script); }}
+                    />
+                  </Tooltip>
+                </div>
               </div>
               <Text type="secondary" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginTop: 10, minHeight: 40 }}>{script.description || '暂无说明'}</Text>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 12 }}>
                 {script.supported_data_types.map((type) => <Tag key={`data-${type}`}>{DataTypeLabels[type] ?? type}</Tag>)}
                 {script.supported_annotation_types.map((type) => <Tag key={`annotation-${type}`} color="cyan">{annotationTypeLabels[type] ?? `类型 ${type}`}</Tag>)}
               </div>
-              <Button type="primary" icon={<PlayCircleOutlined />} style={{ marginTop: 'auto' }} onClick={() => setSelectedScript(script)}>配置并执行</Button>
+              <div style={{ marginTop: 'auto', paddingTop: 14, borderTop: '1px solid #f0f0f0' }}>
+                <Button
+                  type="primary"
+                  block
+                  icon={<PlayCircleOutlined />}
+                  disabled={!script.enabled}
+                  loading={loadingScriptKey === script.key}
+                  onClick={() => { void handleConfigure(script.key); }}
+                >
+                  配置并执行
+                </Button>
+              </div>
             </Card>
           ))}
         </div>

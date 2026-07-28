@@ -17,6 +17,11 @@ export async function listBatchAnnotationScripts(includeDisabled = false) {
   return res.data.data ?? [];
 }
 
+export async function getBatchAnnotationScript(scriptKey: string) {
+  const res = await apiClient.get<Result<AiPipelineBatchScript>>(`/ai-pipeline/batch-scripts/${scriptKey}`);
+  return res.data.data;
+}
+
 export async function uploadBatchAnnotationScript(file: File) {
   const formData = new FormData();
   formData.append('file', file);

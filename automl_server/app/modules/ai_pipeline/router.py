@@ -49,6 +49,19 @@ async def list_batch_scripts(
     return Result.ok(await service.list_scripts(db, include_disabled=include_disabled))
 
 
+@router.get(
+    "/batch-scripts/{script_key}",
+    response_model=Result[AiPipelineBatchScriptResponse],
+    summary="获取批量自动标注脚本详情",
+)
+async def get_batch_script(
+    script_key: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.get_script(db, script_key))
+
+
 @router.post(
     "/batch-scripts/upload",
     response_model=Result[AiPipelineBatchScriptResponse],

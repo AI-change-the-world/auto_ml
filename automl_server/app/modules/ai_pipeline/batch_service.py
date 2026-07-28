@@ -28,6 +28,7 @@ from app.db.models import (
     AiPipelineBatchRun,
     AiPipelineBatchRunEvent,
     AiPipelineBatchRunItem,
+    AiPipelineBatchBuiltinScriptSetting,
     AiPipelineBatchScript,
     Asset,
     Dataset,
@@ -91,8 +92,26 @@ class BatchAnnotationService:
                 )
             ).scalars().all()
         )
-        builtins = [self._to_script_response(self._builtin_script(item)) for item in list_batch_scripts()]
+        builtin_scripts = list_batch_scripts()
+        builtin_enabled_by_key = await self._get_builtin_enabled_by_key(db, builtin_scripts)
+        builtins = [
+            self._to_script_response(
+                self._builtin_script(item, enabled=builtin_enabled_by_key.get(item["key"], True))
+            )
+            for item in builtin_scripts
+            if include_disabled or builtin_enabled_by_key.get(item["key"], True)
+        ]
         return [*builtins, *(self._to_script_response(self._custom_script_dict(item)) for item in custom_scripts)]
+
+    async def get_script(
+        self,
+        db: AsyncSession,
+        script_key: str,
+    ) -> AiPipelineBatchScriptResponse:
+        script = await self._get_script(db, script_key)
+        if not script:
+            raise NotFoundException(f"Batch script {script_key} not found")
+        return self._to_script_response(script)
 
     async def upload_script(
         self,
@@ -145,8 +164,24 @@ class BatchAnnotationService:
         script_key: str,
         data: AiPipelineBatchScriptUpdate,
     ) -> AiPipelineBatchScriptResponse:
-        script = await self._get_custom_script(db, script_key)
         update_data = data.model_dump(exclude_unset=True)
+        builtin = get_batch_script(script_key)
+        if builtin:
+            setting = await db.scalar(
+                select(AiPipelineBatchBuiltinScriptSetting).where(
+                    AiPipelineBatchBuiltinScriptSetting.script_key == builtin["key"]
+                )
+            )
+            if setting is None:
+                setting = AiPipelineBatchBuiltinScriptSetting(script_key=builtin["key"])
+                db.add(setting)
+            if "enabled" in update_data:
+                setting.enabled = bool(update_data["enabled"])
+            await db.commit()
+            await db.refresh(setting)
+            return self._to_script_response(self._builtin_script(builtin, enabled=setting.enabled))
+
+        script = await self._get_custom_script(db, script_key)
         if "enabled" in update_data:
             script.enabled = bool(update_data["enabled"])
         await db.commit()
@@ -162,7 +197,14 @@ class BatchAnnotationService:
     async def _get_script(self, db: AsyncSession, script_key: str) -> dict[str, Any] | None:
         builtin = get_batch_script(script_key)
         if builtin:
-            return self._builtin_script(builtin)
+            setting = await db.scalar(
+                select(AiPipelineBatchBuiltinScriptSetting).where(
+                    AiPipelineBatchBuiltinScriptSetting.script_key == builtin["key"]
+                )
+            )
+            if setting and not setting.enabled:
+                return None
+            return self._builtin_script(builtin, enabled=setting.enabled if setting else True)
         script = await db.scalar(
             select(AiPipelineBatchScript).where(
                 AiPipelineBatchScript.script_key == script_key,
@@ -184,14 +226,33 @@ class BatchAnnotationService:
         return script
 
     @staticmethod
-    def _builtin_script(script: dict[str, Any]) -> dict[str, Any]:
+    def _builtin_script(script: dict[str, Any], *, enabled: bool = True) -> dict[str, Any]:
         return {
             **script,
             "entrypoint": f"{script['key']}.py",
             "package_object_key": None,
             "is_builtin": True,
-            "enabled": True,
+            "enabled": enabled,
         }
+
+    @staticmethod
+    async def _get_builtin_enabled_by_key(
+        db: AsyncSession,
+        builtin_scripts: list[dict[str, Any]],
+    ) -> dict[str, bool]:
+        keys = [str(script["key"]) for script in builtin_scripts]
+        if not keys:
+            return {}
+        settings = list(
+            (
+                await db.execute(
+                    select(AiPipelineBatchBuiltinScriptSetting).where(
+                        AiPipelineBatchBuiltinScriptSetting.script_key.in_(keys)
+                    )
+                )
+            ).scalars().all()
+        )
+        return {setting.script_key: setting.enabled for setting in settings}
 
     @staticmethod
     def _custom_script_dict(script: AiPipelineBatchScript) -> dict[str, Any]:
@@ -304,6 +365,14 @@ class BatchAnnotationService:
                     raise BadRequestException("select parameters require at least one option")
                 if any(not isinstance(option, (str, int, float)) or isinstance(option, bool) for option in options):
                     raise BadRequestException("select parameter options must be strings or numbers")
+            widget = str(raw_field.get("widget") or "").strip().lower()
+            if widget and widget not in {"number", "textarea"}:
+                raise BadRequestException("parameter widget must be number or textarea")
+            value_source = str(raw_field.get("value_source") or "").strip().lower()
+            if value_source and value_source != "annotation_classes":
+                raise BadRequestException("parameter value_source must be annotation_classes")
+            if value_source and value_type != "string":
+                raise BadRequestException("annotation_classes value_source requires a string parameter")
             normalized_field = {
                 "key": key,
                 "label": str(raw_field.get("label") or key).strip()[:128],
@@ -314,6 +383,10 @@ class BatchAnnotationService:
             }
             if options is not None:
                 normalized_field["options"] = options
+            if widget:
+                normalized_field["widget"] = widget
+            if value_source:
+                normalized_field["value_source"] = value_source
             if value_type == "secret" and normalized_field["default_value"] is not None:
                 raise BadRequestException("secret parameters cannot define a default value")
             if normalized_field["default_value"] is not None:
@@ -336,7 +409,13 @@ class BatchAnnotationService:
         if value_type == "secret" and not isinstance(value, str):
             raise BadRequestException(f"parameter `{field['key']}` must be a string")
 
-    def _resolve_script_params(self, script: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    def _resolve_script_params(
+        self,
+        script: dict[str, Any],
+        params: dict[str, Any],
+        *,
+        annotation_classes: list[str] | None = None,
+    ) -> dict[str, Any]:
         fields = self._normalize_parameter_fields(list(script.get("parameter_fields") or []))
         field_by_key = {field["key"]: field for field in fields}
         unexpected = sorted(set(params) - set(field_by_key))
@@ -345,11 +424,16 @@ class BatchAnnotationService:
         resolved: dict[str, Any] = {}
         for field in fields:
             key = field["key"]
-            value = params.get(key, field.get("default_value"))
+            if field.get("value_source") == "annotation_classes" and annotation_classes:
+                value = ", ".join(annotation_classes)
+            else:
+                value = params.get(key, field.get("default_value"))
             if value is None:
                 if field["required"]:
                     raise BadRequestException(f"script parameter `{key}` is required")
                 continue
+            if field["required"] and isinstance(value, str) and not value.strip():
+                raise BadRequestException(f"script parameter `{key}` cannot be blank")
             self._validate_parameter_value(field, value)
             resolved[key] = value
         return resolved
@@ -358,11 +442,13 @@ class BatchAnnotationService:
     def _get_secret_cipher() -> Fernet:
         key = get_settings().pipeline_batch_secret_key.strip()
         if not key:
-            raise BadRequestException("PIPELINE_BATCH_SECRET_KEY must be configured before using secret script parameters")
+            raise BadRequestException(
+                "批量标注密钥未配置，请设置 Nacos ai-pipeline-batch.secret_key"
+            )
         try:
             return Fernet(key.encode("utf-8"))
         except (TypeError, ValueError) as exc:
-            raise BadRequestException("PIPELINE_BATCH_SECRET_KEY is not a valid Fernet key") from exc
+            raise BadRequestException("批量标注密钥必须是有效的 Fernet key") from exc
 
     def _protect_script_params(self, script: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
         field_by_key = {
@@ -428,7 +514,11 @@ class BatchAnnotationService:
             raise BadRequestException("annotation project must belong to the selected dataset")
         if annotation.annotation_type not in script["supported_annotation_types"]:
             raise BadRequestException("selected script does not support this annotation type")
-        script_params = self._resolve_script_params(script, data.script_params)
+        script_params = self._resolve_script_params(
+            script,
+            data.script_params,
+            annotation_classes=parse_annotation_classes(annotation.classes),
+        )
         protected_script_params = self._protect_script_params(script, script_params)
 
         samples = await self._load_samples(db, data)

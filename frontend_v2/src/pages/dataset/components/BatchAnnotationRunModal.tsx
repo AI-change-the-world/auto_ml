@@ -6,6 +6,7 @@ import { listAnnotations } from '../../../api/annotation';
 import { createBatchAnnotationRun } from '../../../api/batchAnnotation';
 import { listDatasets } from '../../../api/dataset';
 import { emitBatchAnnotationRunsChanged } from '../../../utils/projectEvents';
+import { parseAnnotationClasses } from '../../../utils/annotationClasses';
 import {
   DataTypeLabels,
   DataTypeOptions,
@@ -49,6 +50,10 @@ const BatchAnnotationRunModal: React.FC<BatchAnnotationRunModalProps> = ({ open,
   const selectedAnnotationId = Form.useWatch('annotation_id', form);
   const selectedDataset = datasets.find((dataset) => dataset.id === selectedDatasetId);
   const selectedAnnotation = annotations.find((annotation) => annotation.id === selectedAnnotationId);
+  const annotationClasses = React.useMemo(
+    () => parseAnnotationClasses(selectedAnnotation?.classes),
+    [selectedAnnotation?.classes],
+  );
   const compatibleAnnotations = annotations.filter((annotation) => (
     script?.supported_annotation_types.includes(annotation.annotation_type)
   ));
@@ -202,22 +207,34 @@ const BatchAnnotationRunModal: React.FC<BatchAnnotationRunModalProps> = ({ open,
 
           {script.parameter_fields.length > 0 ? <Divider style={{ margin: '6px 0 18px' }}>脚本参数</Divider> : null}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0 16px' }}>
-            {script.parameter_fields.map((field) => (
-              <Form.Item
-                key={field.key}
-                name={['script_params', field.key]}
-                label={field.label}
-                extra={field.description}
-                valuePropName={field.value_type === 'boolean' ? 'checked' : 'value'}
-                rules={field.required ? [{ required: true, message: `请填写${field.label}` }] : undefined}
-              >
-                {field.value_type === 'number' ? <InputNumber style={{ width: '100%' }} />
-                  : field.value_type === 'boolean' ? <Switch />
-                    : field.value_type === 'select' ? <Select options={(field.options ?? []).map((option) => ({ label: String(option), value: option }))} />
-                      : field.value_type === 'secret' ? <Input.Password autoComplete="new-password" />
-                        : <Input />}
-              </Form.Item>
-            ))}
+            {script.parameter_fields.map((field) => {
+              const usesAnnotationClasses = field.value_source === 'annotation_classes';
+              if (usesAnnotationClasses && annotationClasses.length > 0) {
+                return (
+                  <div key={field.key} style={{ marginBottom: 16 }}>
+                    <Text strong style={{ display: 'block', marginBottom: 6 }}>{field.label}</Text>
+                    <Text type="secondary">{annotationClasses.join('、')}</Text>
+                  </div>
+                );
+              }
+              return (
+                <Form.Item
+                  key={field.key}
+                  name={['script_params', field.key]}
+                  label={field.label}
+                  extra={field.description}
+                  valuePropName={field.value_type === 'boolean' ? 'checked' : 'value'}
+                  rules={field.required ? [{ required: true, message: `请填写${field.label}` }] : undefined}
+                >
+                  {field.value_type === 'number' ? <InputNumber style={{ width: '100%' }} />
+                    : field.value_type === 'boolean' ? <Switch />
+                      : field.value_type === 'select' ? <Select options={(field.options ?? []).map((option) => ({ label: String(option), value: option }))} />
+                        : field.value_type === 'secret' ? <Input.Password autoComplete="new-password" />
+                          : field.widget === 'textarea' ? <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder={usesAnnotationClasses ? '例如：person, car, bicycle' : undefined} />
+                            : <Input />}
+                </Form.Item>
+              );
+            })}
           </div>
 
           <Divider style={{ margin: '8px 0 16px' }} />

@@ -11,6 +11,54 @@ from typing import Any
 
 BUILTIN_BATCH_SCRIPTS: list[dict[str, Any]] = [
     {
+        "key": "vision_llm_bbox_assistant",
+        "version": "1.0.0",
+        "name": "视觉大模型辅助标注",
+        "description": "调用 OpenAI 兼容视觉模型，为图像检测项目生成 YOLO 边界框草稿。",
+        "supported_data_types": [0],
+        "supported_annotation_types": [0],
+        "parameter_fields": [
+            {
+                "key": "base_url",
+                "label": "Base URL",
+                "value_type": "string",
+                "required": True,
+                "description": "OpenAI 兼容服务地址，例如 https://api.openai.com/v1。",
+            },
+            {
+                "key": "model_name",
+                "label": "模型名称",
+                "value_type": "string",
+                "required": True,
+                "description": "视觉模型名称。",
+            },
+            {
+                "key": "api_key",
+                "label": "API Key",
+                "value_type": "secret",
+                "required": True,
+                "description": "仅在本次 sandbox 执行时解密。",
+            },
+            {
+                "key": "classes",
+                "label": "类别",
+                "value_type": "string",
+                "widget": "textarea",
+                "value_source": "annotation_classes",
+                "required": True,
+                "description": "优先使用所选标注项目的类别；没有类别时请输入逗号或换行分隔的类别名。",
+            },
+            {
+                "key": "prompt",
+                "label": "补充提示词",
+                "value_type": "string",
+                "widget": "textarea",
+                "required": False,
+                "description": "可选。留空时使用内置 bbox 输出提示词。",
+            },
+        ],
+    },
+    {
         "key": "fixed_center_box_demo",
         "version": "1.0.0",
         "name": "验证脚本：固定中心框",

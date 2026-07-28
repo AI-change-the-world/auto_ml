@@ -19,6 +19,7 @@ from .batch_annotation import (
     AiPipelineBatchRunItem,
     AiPipelineBatchRunEvent,
     AiPipelineBatchScript,
+    AiPipelineBatchBuiltinScriptSetting,
 )
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     "AiPipelineBatchRunItem",
     "AiPipelineBatchRunEvent",
     "AiPipelineBatchScript",
+    "AiPipelineBatchBuiltinScriptSetting",
 ]
