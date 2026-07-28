@@ -189,6 +189,92 @@ function renderSectionBadge(status: HomeSectionStatus, label: string) {
   );
 }
 
+function joinMetaParts(parts: Array<string | null | undefined | false>) {
+  return parts.filter((part): part is string => Boolean(part)).join(' · ');
+}
+
+interface HomeListItemProps {
+  icon: React.ReactNode;
+  tone: string;
+  title: string;
+  meta: string;
+  onClick: () => void;
+}
+
+function HomeListItem({ icon, tone, title, meta, onClick }: HomeListItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex h-16 w-full items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3 text-left transition-all hover:border-slate-200 hover:bg-slate-50"
+    >
+      <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${tone}`}>
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h4 className="body-text truncate font-semibold text-slate-800">{title}</h4>
+        <p className="caption-text truncate text-slate-500">{meta}</p>
+      </div>
+      <ArrowRightOutlined className="h-4 w-4 flex-shrink-0 text-slate-300 transition-colors group-hover:text-slate-500" />
+    </button>
+  );
+}
+
+function HomeListSkeleton() {
+  return (
+    <div className="space-y-2.5">
+      {[0, 1, 2].map((item) => (
+        <div
+          key={item}
+          className="flex h-16 items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/40 px-3"
+        >
+          <Skeleton.Avatar active size={36} shape="square" className="!rounded-lg" />
+          <div className="flex-1">
+            <Skeleton active paragraph={{ rows: 1, width: ['72%'] }} title={{ width: '48%' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface HomeEmptyStateProps {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  onClick?: () => void;
+}
+
+function HomeEmptyState({ icon, title, description, onClick }: HomeEmptyStateProps) {
+  const content = (
+    <>
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 shadow-sm">
+        {icon}
+      </div>
+      <p className="font-medium text-slate-700">{title}</p>
+      {description ? <p className="body-text-sm mt-1 text-slate-400">{description}</p> : null}
+    </>
+  );
+
+  if (!onClick) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-5 text-center">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-5 text-center"
+    >
+      {content}
+    </button>
+  );
+}
+
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('home');
@@ -418,7 +504,7 @@ const HomePage: React.FC = () => {
   return (
     <div className="page-container">
       <div className="mx-auto max-w-[1400px] space-y-6">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8">
           <div className="page-title-block">
             <div className="page-title-icon">
               <HomeOutlined className="h-5 w-5" />
@@ -427,35 +513,17 @@ const HomePage: React.FC = () => {
               <h1 className="page-title">{t('title')}</h1>
             </div>
           </div>
-          <div className="flex space-x-3">
-            <button
-              type="button"
-              onClick={() => navigate('/datasets')}
-              className="button-text flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2.5 text-white transition-colors hover:bg-slate-800"
-            >
-              <span>{t('openDatasets')}</span>
-              <ArrowRightOutlined className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/annotations')}
-              className="button-text flex items-center space-x-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50"
-            >
-              <span>{t('openAnnotations')}</span>
-              <ArrowRightOutlined className="h-4 w-4" />
-            </button>
-          </div>
         </div>
 
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-10 p-8 lg:flex-row lg:items-center">
+          <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center">
             <div className="w-full flex-1 self-start">
-              <div className="flex flex-col items-start gap-4">
-                <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
+              <div className="flex flex-col items-start gap-3">
+                <div className="caption-text inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   {t('heroTag')}
                 </div>
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
                   <h2 className="section-title tracking-tight">{t('heroTitle')}</h2>
                   <p className="body-text max-w-xl text-slate-500">{t('heroSubtitle')}</p>
                   {/* {overviewError ? renderSectionBadge('error', t('partialUnavailable')) : null} */}
@@ -463,21 +531,21 @@ const HomePage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid w-full grid-cols-2 gap-4 lg:w-[500px]">
+            <div className="grid w-full grid-cols-2 gap-3 lg:w-[460px]">
               {overviewMetrics.map((item, index) => (
                 <div
                   key={item.key}
-                  className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-5 transition-all hover:bg-slate-50/80"
+                  className="group flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5 transition-all hover:bg-slate-50/80"
                 >
                   <div>
-                    <p className="body-text-sm mb-1 font-medium text-slate-500">{item.label}</p>
+                    <p className="body-text-sm mb-0.5 font-medium text-slate-500">{item.label}</p>
                     {overviewLoading ? (
                       <Skeleton.Button active size="small" className="!h-8 !w-20" />
                     ) : (
                       <p className="metric-value-lg text-slate-900">{item.value}</p>
                     )}
                   </div>
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${overviewToneMap[index]}`}>
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${overviewToneMap[index]}`}>
                     {item.icon}
                   </div>
                 </div>
@@ -485,21 +553,21 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 bg-slate-50/50 px-8 py-6">
-            <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
               <div className="card-title flex items-center gap-2 text-slate-800">
                 <CloudServerOutlined className="h-5 w-5 text-slate-500" />
                 {t('taskOverview')}
               </div>
               {taskOverviewError ? renderSectionBadge('error', t('partialUnavailable')) : null}
             </div>
-            <div className="grid grid-cols-2 gap-4 divide-slate-200/60 md:grid-cols-4 md:divide-x">
+            <div className="grid grid-cols-2 gap-3 divide-slate-200/60 md:grid-cols-4 md:divide-x">
               {taskMetrics.map((item, index) => (
                 <div
                   key={item.key}
-                  className={`pt-4 md:px-6 md:pt-0 ${index === 0 ? 'md:pl-0 pt-0' : ''}`}
+                  className={`pt-3 md:px-5 md:pt-0 ${index === 0 ? 'md:pl-0 pt-0' : ''}`}
                 >
-                  <div className="body-text mb-2 flex items-center gap-2 text-slate-500">
+                  <div className="body-text mb-1.5 flex items-center gap-2 text-slate-500">
                     <span className={`h-2.5 w-2.5 rounded-full ${item.accent}`} />
                     {item.label}
                   </div>
@@ -517,82 +585,58 @@ const HomePage: React.FC = () => {
         </section>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <section className="flex h-[280px] flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
               <h3 className="card-title">{t('recentDatasets')}</h3>
               {datasetsError ? renderSectionBadge('error', t('partialUnavailable')) : null}
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 space-y-2.5 overflow-y-auto pr-1">
               {datasetsLoading ? (
-                <div className="space-y-3">
-                  {[0, 1, 2].map((item) => (
-                    <div key={item} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                      <Skeleton active paragraph={{ rows: 2 }} title={false} />
-                    </div>
-                  ))}
-                </div>
+                <HomeListSkeleton />
               ) : datasetsError && displayedDatasets.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-5 text-center">
                   <p className="font-medium text-amber-800">{t('sectionUnavailable')}</p>
                   <p className="body-text-sm mt-1 text-amber-700">{t('retryLater')}</p>
                 </div>
               ) : displayedDatasets.length === 0 ? (
-                <button
-                  type="button"
+                <HomeEmptyState
+                  icon={<DatabaseOutlined className="h-6 w-6" />}
+                  title={t('emptyDatasets')}
+                  description={t('createFirstDataset')}
                   onClick={() => navigate('/datasets')}
-                  className="flex h-full w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 shadow-sm">
-                    <DatabaseOutlined className="h-6 w-6" />
-                  </div>
-                  <p className="font-medium text-slate-700">{t('emptyDatasets')}</p>
-                  <p className="body-text-sm mt-1 text-slate-400">{t('createFirstDataset')}</p>
-                </button>
+                />
               ) : (
                 displayedDatasets.map((dataset) => {
                   const typeMeta = datasetTypeMeta[dataset.data_type] ?? datasetTypeMeta[0];
+                  const meta = joinMetaParts([
+                    DataTypeLabels[dataset.data_type] ?? t('unknownType'),
+                    t('sampleCount', { count: formatNumber(dataset.count) }),
+                    t('createdAt', { date: formatDate(dataset.created_at, fallbackTimeText) }),
+                  ]);
 
                   return (
-                    <button
+                    <HomeListItem
                       key={dataset.id}
-                      type="button"
                       onClick={() => navigate(`/datasets/${dataset.id}`)}
-                      className="group flex w-full items-center rounded-xl border border-transparent p-3 transition-all hover:border-slate-100 hover:bg-slate-50"
-                    >
-                      <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${typeMeta.tone}`}>
-                        {typeMeta.icon}
-                      </div>
-                      <div className="ml-4 flex-1 text-left">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="truncate font-medium text-slate-800">{dataset.name}</h4>
-                          <span className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
-                            {DataTypeLabels[dataset.data_type] ?? t('unknownType')}
-                          </span>
-                        </div>
-                        <p className="caption-text mt-1 text-slate-400">
-                          {t('sampleCount', { count: formatNumber(dataset.count) })} · {t('createdAt', { date: formatDate(dataset.created_at, fallbackTimeText) })}
-                        </p>
-                      </div>
-                      <ArrowRightOutlined className="h-4 w-4 text-slate-300 transition-colors group-hover:text-indigo-500" />
-                    </button>
+                      icon={typeMeta.icon}
+                      tone={typeMeta.tone}
+                      title={dataset.name}
+                      meta={meta}
+                    />
                   );
                 })
               )}
             </div>
           </section>
 
-          <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <section className="flex h-[280px] flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
               <h3 className="card-title">{t('recentAnnotations')}</h3>
               {annotationsError ? renderSectionBadge('error', t('partialUnavailable')) : null}
             </div>
             {annotationsLoading ? (
-              <div className="flex-1 space-y-3 overflow-y-auto">
-                {[0, 1, 2].map((item) => (
-                  <div key={item} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                    <Skeleton active paragraph={{ rows: 2 }} title={false} />
-                  </div>
-                ))}
+              <div className="flex-1 overflow-y-auto pr-1">
+                <HomeListSkeleton />
               </div>
             ) : annotationsError && displayedAnnotations.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-5 text-center">
@@ -600,54 +644,39 @@ const HomePage: React.FC = () => {
                 <p className="body-text-sm mt-1 text-amber-700">{t('retryLater')}</p>
               </div>
             ) : displayedAnnotations.length === 0 ? (
-              <button
-                type="button"
+              <HomeEmptyState
+                icon={<FolderOpenOutlined className="h-6 w-6" />}
+                title={t('emptyAnnotations')}
+                description={t('createFirstAnnotation')}
                 onClick={() => navigate('/annotations')}
-                className="flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50"
-              >
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 shadow-sm">
-                  <FolderOpenOutlined className="h-6 w-6" />
-                </div>
-                <p className="font-medium text-slate-700">{t('emptyAnnotations')}</p>
-                <p className="body-text-sm mt-1 text-slate-400">{t('createFirstAnnotation')}</p>
-              </button>
+              />
             ) : (
-              <div className="flex-1 overflow-y-auto space-y-3">
+              <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
                 {displayedAnnotations.map((annotation) => {
                   const tone = annotationToneMap[annotation.annotation_type] ?? 'bg-slate-100 text-slate-500';
                   const initial = annotation.name?.trim().charAt(0)?.toUpperCase() || 'A';
+                  const meta = joinMetaParts([
+                    AnnotationTypeLabels[annotation.annotation_type] ?? t('unknownType'),
+                    t('createdAt', { date: formatDate(annotation.created_at, fallbackTimeText) }),
+                  ]);
 
                   return (
-                    <button
+                    <HomeListItem
                       key={annotation.id}
-                      type="button"
                       onClick={() => navigate(`/annotations/${annotation.id}/label`)}
-                      className="group flex w-full items-center rounded-xl border border-transparent p-3 transition-all hover:border-slate-100 hover:bg-slate-50"
-                    >
-                      <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg text-sm font-semibold ${tone}`}>
-                        {initial}
-                      </div>
-                      <div className="ml-4 flex-1 text-left">
-                        <div className="flex items-center space-x-2">
-                          <h4 className="truncate font-medium text-slate-800">{annotation.name}</h4>
-                          <span className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600">
-                            {AnnotationTypeLabels[annotation.annotation_type] ?? t('unknownType')}
-                          </span>
-                        </div>
-                        <p className="caption-text mt-1 text-slate-400">
-                          {t('createdAt', { date: formatDate(annotation.created_at, fallbackTimeText) })}
-                        </p>
-                      </div>
-                      <ArrowRightOutlined className="h-4 w-4 text-slate-300 transition-colors group-hover:text-indigo-500" />
-                    </button>
+                      icon={<span className="text-sm font-semibold">{initial}</span>}
+                      tone={tone}
+                      title={annotation.name}
+                      meta={meta}
+                    />
                   );
                 })}
               </div>
             )}
           </section>
 
-          <section className="flex h-[320px] flex-col rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
+          <section className="flex h-[280px] flex-col rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="mb-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="card-title">{t('pipelineOverview')}</h3>
                 {pipelinesError ? renderSectionBadge('error', t('partialUnavailable')) : null}
@@ -656,59 +685,36 @@ const HomePage: React.FC = () => {
                 {pipelinesLoading ? '...' : t('pipelineCount', { count: assistPipelines.length })}
               </span>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-3">
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
               {pipelinesLoading ? (
-                <div className="space-y-3">
-                  {[0, 1, 2].map((item) => (
-                    <div key={item} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                      <Skeleton active paragraph={{ rows: 2 }} title={false} />
-                    </div>
-                  ))}
-                </div>
+                <HomeListSkeleton />
               ) : pipelinesError && displayedPipelines.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-5 text-center">
                   <p className="font-medium text-amber-800">{t('sectionUnavailable')}</p>
                   <p className="body-text-sm mt-1 text-amber-700">{t('retryLater')}</p>
                 </div>
               ) : displayedPipelines.length === 0 ? (
-                <div className="body-text flex h-full items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-5 text-center text-slate-500">
-                  {t('emptyPipelines')}
-                </div>
+                <HomeEmptyState
+                  icon={<CloudServerOutlined className="h-6 w-6" />}
+                  title={t('emptyPipelines')}
+                />
               ) : (
                 displayedPipelines.map((pipeline) => (
-                  <button
+                  <HomeListItem
                     key={pipeline.id}
-                    type="button"
                     onClick={() => setSelectedPipeline(pipeline)}
-                    className="group w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <h4 className="body-text truncate font-semibold text-slate-800">{pipeline.name}</h4>
-                      <ArrowRightOutlined className="h-4 w-4 text-slate-300 transition-colors group-hover:text-indigo-500" />
-                    </div>
-                    <div className="flex space-x-2">
-                      {(pipeline.supported_annotation_types.length ? pipeline.supported_annotation_types : [0])
-                        .slice(0, 1)
-                        .map((type) => (
-                          <span
-                            key={`${pipeline.id}-type-${type}`}
-                            className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600"
-                          >
-                            {type === 0 ? t('pipelineTypeDetection') : (AnnotationTypeLabels[type] ?? t('unknownType'))}
-                          </span>
-                        ))}
-                      {(pipeline.supported_shapes.length ? pipeline.supported_shapes : ['bbox'])
-                        .slice(0, 1)
-                        .map((shape) => (
-                          <span
-                            key={`${pipeline.id}-shape-${shape}`}
-                            className="tag-text rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600"
-                          >
-                            {shape.toUpperCase()}
-                          </span>
-                        ))}
-                    </div>
-                  </button>
+                    icon={<CloudServerOutlined className="h-5 w-5" />}
+                    tone="bg-indigo-50 text-indigo-500"
+                    title={pipeline.name}
+                    meta={joinMetaParts([
+                      (() => {
+                        const type = pipeline.supported_annotation_types[0] ?? 0;
+                        return type === 0 ? t('pipelineTypeDetection') : (AnnotationTypeLabels[type] ?? t('unknownType'));
+                      })(),
+                      (pipeline.supported_shapes[0] ?? 'bbox').toUpperCase(),
+                      t('pipelineStepCount', { count: pipeline.steps.length }),
+                    ])}
+                  />
                 ))
               )}
             </div>
