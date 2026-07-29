@@ -23,6 +23,12 @@ vision_llm_labeler.zip
 
 ZIP 可以携带源码、配置和模型文件，但不会在运行时自动安装依赖。第三方 Python 依赖必须预先安装在 `ai_pipeline_sandbox` 镜像中；包内的 `requirements.txt` 仅可作为说明文件，不会被执行。
 
+## 运行配置
+
+Sandbox 的 RabbitMQ、MinIO 和执行资源限制统一从 Nacos 的 `AUTO_ML_CONFIG` 读取。`ai-pipeline-sandbox` 配置段包含 `timeout_seconds`、`max_output_bytes`、`memory_bytes`、`cpu_seconds` 和 `max_processes`。
+
+容器只保留 Nacos 连接所需的引导环境变量。未启用或无法连接 Nacos 时，代码才使用同名本地环境变量和内置默认值，便于独立调试。资源限制通过 Nacos listener 实时更新，listener 不可用时会回退为轮询，并应用到后续批次；RabbitMQ 和 MinIO 配置在容器启动时生效。
+
 ## 清单格式
 
 `batch_script.json` 的完整示例：

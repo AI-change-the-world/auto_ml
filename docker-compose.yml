@@ -360,11 +360,7 @@ services:
       nacos-init:
         condition: service_completed_successfully
     environment:
-      <<: [*nacos-env, *rabbitmq-env, *minio-env]
-      S3_DATASETS_BUCKET: auto-ml-datasets
-      PIPELINE_SANDBOX_WORKSPACE: /app/runtime-data
-      PIPELINE_SANDBOX_TIMEOUT_SECONDS: ${PIPELINE_SANDBOX_TIMEOUT_SECONDS:-300}
-      PIPELINE_SANDBOX_MEMORY_BYTES: ${PIPELINE_SANDBOX_MEMORY_BYTES:-1073741824}
+      <<: *nacos-env
     networks:
       - auto-ml-network
     security_opt:

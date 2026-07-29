@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import queue
 import shutil
@@ -14,6 +15,7 @@ import threading
 import time
 import uuid
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,9 @@ import pika
 
 from config import SandboxSettings
 from storage import DatasetStorage
+
+
+logger = logging.getLogger(__name__)
 
 try:
     import resource
@@ -50,6 +55,15 @@ class BatchSandboxWorker:
         with self._active_lock:
             return self._active_chunks
 
+    @property
+    def is_connected(self) -> bool:
+        return bool(
+            self._connection
+            and not self._connection.is_closed
+            and self._channel
+            and not self._channel.is_closed
+        )
+
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
@@ -64,6 +78,16 @@ class BatchSandboxWorker:
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
         self._thread = None
+
+    def update_execution_limits(self, settings: SandboxSettings) -> None:
+        self.settings = replace(
+            self.settings,
+            timeout_seconds=settings.timeout_seconds,
+            max_output_bytes=settings.max_output_bytes,
+            memory_bytes=settings.memory_bytes,
+            cpu_seconds=settings.cpu_seconds,
+            max_processes=settings.max_processes,
+        )
 
     def _connect(self):
         mq = self.settings.rabbitmq
@@ -96,6 +120,7 @@ class BatchSandboxWorker:
                     connection.process_data_events(time_limit=1)
             except Exception:
                 if not self._stop_event.is_set():
+                    logger.warning("Sandbox worker RabbitMQ connection failed; retrying", exc_info=True)
                     time.sleep(2)
             finally:
                 self._close()

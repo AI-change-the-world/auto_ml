@@ -19,6 +19,13 @@ x-dev-config: &dev-config
   AI_PIPELINE_RUNTIME_URL: ${DEV_AI_PIPELINE_RUNTIME_URL:-http://127.0.0.1:8010}
   AUTO_AUGMENT_PIPELINE_URL: ${DEV_AUTO_AUGMENT_PIPELINE_URL:-${DEV_AI_PIPELINE_RUNTIME_URL:-http://127.0.0.1:8010}}
 
+x-nacos-env: &nacos-env
+  USE_NACOS: ${USE_NACOS:-true}
+  NACOS_SERVER_ADDR: nacos:8848
+  NACOS_NAMESPACE: ${NACOS_NAMESPACE:-public}
+  NACOS_DATA_ID: ${NACOS_DATA_ID:-AUTO_ML_CONFIG}
+  NACOS_GROUP: ${NACOS_GROUP:-AUTO_ML}
+
 services:
   mysql:
     image: mysql:8.0
@@ -152,13 +159,9 @@ services:
       nacos-init:
         condition: service_completed_successfully
     environment:
-      <<: [*nacos-env, *rabbitmq-env, *minio-env]
-      S3_DATASETS_BUCKET: auto-ml-datasets
-      PIPELINE_SANDBOX_WORKSPACE: /app/runtime-data
-      PIPELINE_SANDBOX_TIMEOUT_SECONDS: ${PIPELINE_SANDBOX_TIMEOUT_SECONDS:-300}
-      PIPELINE_SANDBOX_MEMORY_BYTES: ${PIPELINE_SANDBOX_MEMORY_BYTES:-1073741824}
+      <<: *nacos-env
     networks:
-      - auto-ml-network
+      - auto-ml-dev-network
     security_opt:
       - no-new-privileges:true
     healthcheck:

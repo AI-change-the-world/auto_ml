@@ -12,6 +12,7 @@ local-s3-config:
   access_key: ${ACCESS_KEY}
   secret_key: ${SECRET_KEY}
   endpoint: ${MINIO_ENDPOINT}
+  region: us-east-1
   bucket_name: auto-ml-datasets
   datasets_bucket_name: auto-ml-datasets
   models_bucket_name: auto-ml-models
@@ -75,3 +76,14 @@ logging:
 
 ai-pipeline-batch:
   secret_key: erwQngaQgmx96Ym8r2QBwMtQOWCHR3EjtQit04jD-Y8=
+
+ai-pipeline-sandbox:
+  rabbitmq:
+    host: rabbitmq
+  storage:
+    endpoint: http://minio:9000
+  timeout_seconds: 300
+  max_output_bytes: 2097152
+  memory_bytes: 1073741824
+  cpu_seconds: 300
+  max_processes: 32
