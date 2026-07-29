@@ -356,6 +356,7 @@ const MainLayout: React.FC = () => {
     if (location.pathname.startsWith('/example-dataset')) return t('nav.help');
     return t('nav.home');
   })();
+  const isBatchRunDetail = /^\/batch-annotation\/runs\/[^/]+$/.test(location.pathname);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f8fafc] text-slate-800 antialiased">
@@ -450,28 +451,29 @@ const MainLayout: React.FC = () => {
             };
             return (
               <div key={group.key} className="mt-2 space-y-1" data-tour={tourMap[group.key]}>
-                <button
-                  type="button"
-                  onClick={() => navigate(group.key)}
-                  title={sidebarCollapsed ? group.label : undefined}
-                  className={`group sidebar-nav-text flex w-full items-center rounded-xl text-left transition-colors ${active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}
-                >
-                  <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{group.icon}</span>
-                  {!sidebarCollapsed ? <span className="flex-1 font-medium">{group.label}</span> : null}
+                <div className={`group sidebar-nav-text flex w-full items-center rounded-xl transition-colors ${active ? 'text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(group.key)}
+                    title={sidebarCollapsed ? group.label : undefined}
+                    className="flex min-w-0 flex-1 items-center text-left"
+                  >
+                    <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{group.icon}</span>
+                    {!sidebarCollapsed ? <span className="flex-1 font-medium">{group.label}</span> : null}
+                  </button>
                   {!sidebarCollapsed && group.children && group.children.length > 0 ? (
                     <button
                       type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setExpanded((prev) => ({ ...prev, [group.key]: !prev[group.key] }));
-                      }}
-                      className="flex h-5 w-5 items-center justify-center text-[10px] text-slate-400"
+                      aria-label={expanded[group.key] ? `收起${group.label}` : `展开${group.label}`}
+                      aria-expanded={expanded[group.key]}
+                      onClick={() => setExpanded((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center text-[10px] text-slate-400"
                     >
                       <DownOutlined className={expanded[group.key] ? '' : '-rotate-90'} />
                     </button>
                   ) : null}
-                </button>
+                </div>
 
                 {!sidebarCollapsed && group.children && group.children.length > 0 && expanded[group.key] ? (
                   <div className="space-y-1">
@@ -544,11 +546,25 @@ const MainLayout: React.FC = () => {
         </div>
       </aside>
 
-      <main className="relative flex h-full flex-1 flex-col">
+      <main className="relative flex h-full min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 px-8 backdrop-blur-md">
           <div className="flex items-center text-sm">
-            <span className="mr-2 text-slate-400">›</span>
-            <span className="font-medium text-slate-600">{pageTitle}</span>
+            {isBatchRunDetail ? (
+              <button
+                type="button"
+                title="返回批量标注任务"
+                onClick={() => navigate('/batch-annotation/runs')}
+                className="flex items-center text-slate-600 transition-colors hover:text-slate-900"
+              >
+                <LeftOutlined className="mr-2 text-xs text-slate-400" />
+                <span className="font-medium">批量标注任务</span>
+              </button>
+            ) : (
+              <>
+                <span className="mr-2 text-slate-400">›</span>
+                <span className="font-medium text-slate-600">{pageTitle}</span>
+              </>
+            )}
           </div>
           <div className="flex items-center space-x-4">
             <button
@@ -570,7 +586,7 @@ const MainLayout: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-w-0 flex-1 overflow-y-auto">
           <Outlet />
         </div>
       </main>

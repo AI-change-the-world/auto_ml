@@ -40,8 +40,10 @@ from app.utils.s3_delegate import get_s3_delegate
 
 from .batch_schemas import (
     AiPipelineBatchRunCreate,
+    AiPipelineBatchRunDetailResponse,
     AiPipelineBatchRunEventResponse,
     AiPipelineBatchRunItemResponse,
+    AiPipelineBatchRunProgressPoint,
     AiPipelineBatchRunResponse,
     AiPipelineBatchScriptResponse,
     AiPipelineBatchScriptUpdate,
@@ -627,9 +629,28 @@ class BatchAnnotationService:
         runs = list((await db.execute(stmt)).scalars().all())
         return [self._to_run_response(item) for item in runs]
 
-    async def get_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
+    async def get_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunDetailResponse:
         run = await self._get_run(db, run_id)
-        return self._to_run_response(run)
+        dataset = await db.scalar(
+            select(Dataset).where(Dataset.id == run.dataset_id, Dataset.is_deleted == False)
+        )
+        annotation = await db.scalar(
+            select(Annotation).where(Annotation.id == run.annotation_id, Annotation.is_deleted == False)
+        )
+        builtin_script = get_batch_script(run.script_key)
+        custom_script = None
+        if not builtin_script:
+            custom_script = await db.scalar(
+                select(AiPipelineBatchScript).where(AiPipelineBatchScript.script_key == run.script_key)
+            )
+        return AiPipelineBatchRunDetailResponse(
+            **self._to_run_response(run).model_dump(),
+            dataset_name=dataset.name if dataset else f"数据集 #{run.dataset_id}",
+            annotation_name=annotation.name if annotation else f"标注项目 #{run.annotation_id}",
+            script_name=str((builtin_script or {}).get("name") or getattr(custom_script, "name", None) or run.script_key),
+            script_description=(builtin_script or {}).get("description") or getattr(custom_script, "description", None),
+            progress_points=await self._get_run_progress_points(db, run),
+        )
 
     async def list_items(
         self,
@@ -637,6 +658,7 @@ class BatchAnnotationService:
         run_id: str,
         *,
         status: str | None = None,
+        keyword: str | None = None,
         page: int = 1,
         page_size: int = 100,
     ) -> tuple[list[AiPipelineBatchRunItemResponse], int]:
@@ -645,8 +667,13 @@ class BatchAnnotationService:
             AiPipelineBatchRunItem.batch_run_id == run.id,
             AiPipelineBatchRunItem.is_deleted == False,
         ]
-        if status:
+        if status == "pending":
+            conditions.append(AiPipelineBatchRunItem.status.in_(["pending", "queued", "running"]))
+        elif status:
             conditions.append(AiPipelineBatchRunItem.status == status)
+        normalized_keyword = (keyword or "").strip()
+        if normalized_keyword:
+            conditions.append(AiPipelineBatchRunItem.item_key.like(f"%{normalized_keyword}%"))
         count_stmt = select(func.count()).select_from(AiPipelineBatchRunItem).where(*conditions)
         total = int((await db.execute(count_stmt)).scalar() or 0)
         stmt = (
@@ -666,8 +693,10 @@ class BatchAnnotationService:
         *,
         after_id: int = 0,
         limit: int = 100,
+        latest: bool = False,
     ) -> list[AiPipelineBatchRunEventResponse]:
         run = await self._get_run(db, run_id)
+        latest_page = latest
         stmt = (
             select(AiPipelineBatchRunEvent)
             .where(
@@ -675,11 +704,52 @@ class BatchAnnotationService:
                 AiPipelineBatchRunEvent.id > after_id,
                 AiPipelineBatchRunEvent.is_deleted == False,
             )
-            .order_by(AiPipelineBatchRunEvent.id.asc())
+            .order_by(AiPipelineBatchRunEvent.id.desc() if latest_page else AiPipelineBatchRunEvent.id.asc())
             .limit(limit)
         )
         events = list((await db.execute(stmt)).scalars().all())
+        if latest_page:
+            events.reverse()
         return [self._to_event_response(event) for event in events]
+
+    async def _get_run_progress_points(
+        self,
+        db: AsyncSession,
+        run: AiPipelineBatchRun,
+    ) -> list[AiPipelineBatchRunProgressPoint]:
+        events = list(
+            (
+                await db.execute(
+                    select(AiPipelineBatchRunEvent)
+                    .where(
+                        AiPipelineBatchRunEvent.batch_run_id == run.id,
+                        AiPipelineBatchRunEvent.event_type.in_(["progress", "result"]),
+                        AiPipelineBatchRunEvent.is_deleted == False,
+                    )
+                    .order_by(AiPipelineBatchRunEvent.id.desc())
+                    .limit(240)
+                )
+            ).scalars().all()
+        )
+        events.reverse()
+        points: list[AiPipelineBatchRunProgressPoint] = []
+        for event in events:
+            payload = _load_json(event.event_payload, {})
+            if not isinstance(payload, dict) or event.created_at is None:
+                continue
+            raw_progress = payload.get("run_progress", payload.get("progress"))
+            if not isinstance(raw_progress, (int, float)) or isinstance(raw_progress, bool):
+                continue
+            progress = min(max(int(raw_progress), 0), 100)
+            if points and points[-1].progress == progress:
+                continue
+            points.append(AiPipelineBatchRunProgressPoint(progress=progress, created_at=event.created_at))
+        baseline_at = run.started_at or run.created_at
+        if baseline_at is not None and len(events) < 240 and (not points or points[0].progress > 0):
+            points.insert(0, AiPipelineBatchRunProgressPoint(progress=0, created_at=baseline_at))
+        if run.updated_at is not None and (not points or points[-1].progress != run.progress):
+            points.append(AiPipelineBatchRunProgressPoint(progress=run.progress, created_at=run.updated_at))
+        return points
 
     async def cancel_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
         run = await self._get_run(db, run_id)
@@ -741,6 +811,7 @@ class BatchAnnotationService:
                 "chunk_key": payload.get("chunk_key"),
                 "processed": payload.get("processed"),
                 "total": payload.get("total"),
+                "run_progress": run.progress,
                 "message": payload.get("message"),
             },
         )
@@ -1114,6 +1185,7 @@ class BatchAnnotationService:
 
     @staticmethod
     def _to_item_response(item: AiPipelineBatchRunItem) -> AiPipelineBatchRunItemResponse:
+        result = _load_json(item.result_json, None)
         return AiPipelineBatchRunItemResponse(
             id=item.id,
             sample_item_id=item.sample_item_id,
@@ -1122,6 +1194,7 @@ class BatchAnnotationService:
             attempt_count=item.attempt_count,
             annotation_record_id=item.annotation_record_id,
             error_message=item.error_message,
+            result=result if isinstance(result, dict) else None,
             started_at=item.started_at,
             finished_at=item.finished_at,
             created_at=item.created_at,

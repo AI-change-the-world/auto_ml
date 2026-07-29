@@ -2,6 +2,7 @@ import apiClient from './client';
 import type {
   AiPipelineBatchRun,
   AiPipelineBatchRunCreateRequest,
+  AiPipelineBatchRunDetail,
   AiPipelineBatchRunEvent,
   AiPipelineBatchRunItem,
   AiPipelineBatchScript,
@@ -58,20 +59,20 @@ export async function listBatchAnnotationRuns(datasetId?: number, limit = 50, sc
 }
 
 export async function getBatchAnnotationRun(runId: string) {
-  const res = await apiClient.get<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}`);
+  const res = await apiClient.get<Result<AiPipelineBatchRunDetail>>(`/ai-pipeline/batch-runs/${runId}`);
   return res.data.data;
 }
 
-export async function getBatchAnnotationRunEvents(runId: string, afterId = 0) {
+export async function getBatchAnnotationRunEvents(runId: string, afterId = 0, latest = false) {
   const res = await apiClient.get<Result<AiPipelineBatchRunEvent[]>>(`/ai-pipeline/batch-runs/${runId}/events`, {
-    params: { after_id: afterId, limit: 100 },
+    params: { after_id: afterId, limit: 100, latest },
   });
   return res.data.data ?? [];
 }
 
-export async function getBatchAnnotationRunItems(runId: string, page = 1, pageSize = 50, status?: string) {
+export async function getBatchAnnotationRunItems(runId: string, page = 1, pageSize = 50, status?: string, keyword?: string) {
   const res = await apiClient.get<Result<PageResult<AiPipelineBatchRunItem>>>(`/ai-pipeline/batch-runs/${runId}/items`, {
-    params: { page, page_size: pageSize, status },
+    params: { page, page_size: pageSize, status, keyword },
   });
   return res.data.data;
 }

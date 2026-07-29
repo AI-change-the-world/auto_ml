@@ -27,6 +27,7 @@ from .schemas import (
 from .service import AiPipelineService, get_ai_pipeline_service
 from .batch_schemas import (
     AiPipelineBatchRunCreate,
+    AiPipelineBatchRunDetailResponse,
     AiPipelineBatchRunEventResponse,
     AiPipelineBatchRunItemResponse,
     AiPipelineBatchRunResponse,
@@ -147,8 +148,8 @@ async def list_batch_runs(
 
 @router.get(
     "/batch-runs/{run_id}",
-    response_model=Result[AiPipelineBatchRunResponse],
-    summary="获取批量自动标注任务状态",
+    response_model=Result[AiPipelineBatchRunDetailResponse],
+    summary="获取批量自动标注任务详情",
 )
 async def get_batch_run(
     run_id: str,
@@ -193,6 +194,7 @@ async def batch_run_stream(
 async def list_batch_run_items(
     run_id: str,
     status: Optional[str] = Query(default=None),
+    keyword: Optional[str] = Query(default=None, max_length=255),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
@@ -202,6 +204,7 @@ async def list_batch_run_items(
         db,
         run_id,
         status=status,
+        keyword=keyword,
         page=page,
         page_size=page_size,
     )
@@ -217,10 +220,13 @@ async def list_batch_run_events(
     run_id: str,
     after_id: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
+    latest: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     service: BatchAnnotationService = Depends(get_batch_annotation_service),
 ):
-    return Result.ok(await service.list_events(db, run_id, after_id=after_id, limit=limit))
+    return Result.ok(
+        await service.list_events(db, run_id, after_id=after_id, limit=limit, latest=latest)
+    )
 
 
 @router.post(

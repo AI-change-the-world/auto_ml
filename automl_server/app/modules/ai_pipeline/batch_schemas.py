@@ -77,6 +77,19 @@ class AiPipelineBatchRunResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class AiPipelineBatchRunProgressPoint(BaseModel):
+    progress: int
+    created_at: datetime
+
+
+class AiPipelineBatchRunDetailResponse(AiPipelineBatchRunResponse):
+    dataset_name: str
+    annotation_name: str
+    script_name: str
+    script_description: str | None = None
+    progress_points: list[AiPipelineBatchRunProgressPoint] = Field(default_factory=list)
+
+
 class AiPipelineBatchRunItemResponse(BaseModel):
     id: int
     sample_item_id: int
@@ -85,6 +98,7 @@ class AiPipelineBatchRunItemResponse(BaseModel):
     attempt_count: int
     annotation_record_id: int | None = None
     error_message: str | None = None
+    result: dict[str, Any] | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     created_at: datetime | None = None

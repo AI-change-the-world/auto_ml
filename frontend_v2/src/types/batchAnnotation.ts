@@ -56,6 +56,19 @@ export interface AiPipelineBatchRun {
   updated_at?: string | null;
 }
 
+export interface AiPipelineBatchRunProgressPoint {
+  progress: number;
+  created_at: string;
+}
+
+export interface AiPipelineBatchRunDetail extends AiPipelineBatchRun {
+  dataset_name: string;
+  annotation_name: string;
+  script_name: string;
+  script_description?: string | null;
+  progress_points?: AiPipelineBatchRunProgressPoint[];
+}
+
 export interface AiPipelineBatchRunItem {
   id: number;
   sample_item_id: number;
@@ -64,6 +77,7 @@ export interface AiPipelineBatchRunItem {
   attempt_count: number;
   annotation_record_id?: number | null;
   error_message?: string | null;
+  result?: Record<string, unknown> | null;
   started_at?: string | null;
   finished_at?: string | null;
   created_at?: string | null;
