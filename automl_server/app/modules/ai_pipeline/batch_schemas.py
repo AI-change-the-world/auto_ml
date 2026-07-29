@@ -98,6 +98,7 @@ class AiPipelineBatchRunItemResponse(BaseModel):
     attempt_count: int
     annotation_record_id: int | None = None
     error_message: str | None = None
+    error_detail: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None

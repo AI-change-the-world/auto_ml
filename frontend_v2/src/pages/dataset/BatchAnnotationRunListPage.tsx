@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ReloadOutlined } from '@ant-design/icons';
-import { Button, Empty, Progress, Select, Spin, Table, Tag, Typography, message } from 'antd';
-import { listBatchAnnotationRuns } from '../../api/batchAnnotation';
+import { DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Empty, Popconfirm, Progress, Select, Spin, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { deleteBatchAnnotationRun, listBatchAnnotationRuns } from '../../api/batchAnnotation';
 import type { AiPipelineBatchRun } from '../../types';
+import { BATCH_ANNOTATION_RUNS_CHANGED_EVENT, emitBatchAnnotationRunsChanged } from '../../utils/projectEvents';
 
 const { Text } = Typography;
 const activeStatuses = new Set(['queued', 'running']);
@@ -22,6 +23,7 @@ const BatchAnnotationRunListPage: React.FC = () => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [runs, setRuns] = React.useState<AiPipelineBatchRun[]>([]);
   const [statusFilter, setStatusFilter] = React.useState<string | undefined>();
+  const [deletingRunId, setDeletingRunId] = React.useState<string>();
 
   const loadRuns = React.useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -39,6 +41,12 @@ const BatchAnnotationRunListPage: React.FC = () => {
   React.useEffect(() => { void loadRuns(true); }, [loadRuns]);
 
   React.useEffect(() => {
+    const refresh = () => { void loadRuns(); };
+    window.addEventListener(BATCH_ANNOTATION_RUNS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(BATCH_ANNOTATION_RUNS_CHANGED_EVENT, refresh);
+  }, [loadRuns]);
+
+  React.useEffect(() => {
     if (!runs.some((run) => activeStatuses.has(run.status))) return;
     const timer = window.setInterval(() => { void loadRuns(); }, 2000);
     return () => window.clearInterval(timer);
@@ -47,6 +55,22 @@ const BatchAnnotationRunListPage: React.FC = () => {
   const visibleRuns = React.useMemo(() => runs.filter((run) => (
     statusFilter === undefined || run.status === statusFilter
   )), [runs, statusFilter]);
+
+  const handleDelete = async (run: AiPipelineBatchRun) => {
+    if (deletingRunId) return;
+    setDeletingRunId(run.run_id);
+    try {
+      await deleteBatchAnnotationRun(run.run_id);
+      setRuns((current) => current.filter((item) => item.run_id !== run.run_id));
+      emitBatchAnnotationRunsChanged();
+      navigate('/batch-annotation/runs', { replace: true });
+      message.success('批量标注任务已删除');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '删除批量标注任务失败');
+    } finally {
+      setDeletingRunId(undefined);
+    }
+  };
 
   return (
     <div className="page-container">
@@ -79,7 +103,13 @@ const BatchAnnotationRunListPage: React.FC = () => {
           size="small"
           dataSource={visibleRuns}
           pagination={{ pageSize: 20, showSizeChanger: false }}
-          onRow={(run) => ({ onClick: () => navigate(`/batch-annotation/runs/${run.run_id}`), style: { cursor: 'pointer' } })}
+          onRow={(run) => ({
+            onClick: (event) => {
+              if ((event.target as HTMLElement).closest('[data-batch-run-action]')) return;
+              navigate(`/batch-annotation/runs/${run.run_id}`);
+            },
+            style: { cursor: 'pointer' },
+          })}
           columns={[
             { title: '工具', dataIndex: 'script_key', ellipsis: true },
             { title: '数据集', width: 105, render: (_, run) => `#${run.dataset_id}` },
@@ -88,6 +118,40 @@ const BatchAnnotationRunListPage: React.FC = () => {
             { title: '进度', width: 180, render: (_, run) => <Progress percent={run.progress} size="small" status={run.status === 'failed' ? 'exception' : 'normal'} /> },
             { title: '结果', width: 180, render: (_, run) => `${run.succeeded_count} 成功 / ${run.failed_count} 失败 / ${run.skipped_count} 跳过` },
             { title: '创建时间', dataIndex: 'created_at', width: 180, render: formatTime },
+            {
+              title: '',
+              width: 56,
+              onCell: () => ({ onClick: (event) => event.stopPropagation() }),
+              render: (_, run) => (
+                <span data-batch-run-action>
+                  {activeStatuses.has(run.status) ? (
+                    <Tooltip title="请先取消任务">
+                      <Button aria-label="删除任务" type="text" danger icon={<DeleteOutlined />} disabled />
+                    </Tooltip>
+                  ) : (
+                    <Popconfirm
+                      title="删除批量标注任务？"
+                      description="删除后将不再显示该任务及其运行记录。"
+                      okText="删除"
+                      okButtonProps={{ danger: true, loading: deletingRunId === run.run_id }}
+                      cancelText="取消"
+                      onConfirm={() => void handleDelete(run)}
+                    >
+                      <Tooltip title="删除任务">
+                        <Button
+                          aria-label="删除任务"
+                          type="text"
+                          danger
+                          icon={<DeleteOutlined />}
+                          loading={deletingRunId === run.run_id}
+                          onClick={(event) => event.stopPropagation()}
+                        />
+                      </Tooltip>
+                    </Popconfirm>
+                  )}
+                </span>
+              ),
+            },
           ]}
         />
       )}

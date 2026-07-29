@@ -35,6 +35,19 @@ class StorageSettings:
 
 
 @dataclass(frozen=True)
+class ScriptRuntimeSettings:
+    venv_root: Path
+    pip_cache_dir: Path
+    pip_index_url: str | None
+    pip_extra_index_url: str | None
+    pip_trusted_host: str | None
+    idle_timeout_seconds: int
+    bootstrap_max_processes: int
+    process_fsize_bytes: int
+    process_nofile: int
+
+
+@dataclass(frozen=True)
 class SandboxSettings:
     host: str
     port: int
@@ -47,6 +60,7 @@ class SandboxSettings:
     max_processes: int
     rabbitmq: RabbitSettings
     storage: StorageSettings
+    script_runtime: ScriptRuntimeSettings
 
 
 def _section(mapping: dict[str, Any], key: str) -> dict[str, Any]:
@@ -87,8 +101,10 @@ def _build_settings(payload: dict[str, Any]) -> SandboxSettings:
     sandbox = _section(payload, "ai-pipeline-sandbox")
     sandbox_mq = _section(sandbox, "rabbitmq")
     sandbox_storage = _section(sandbox, "storage")
+    sandbox_runtime = _section(sandbox, "script_runtime")
 
     workspace_root = Path(os.getenv("PIPELINE_SANDBOX_WORKSPACE", "/app/runtime-data"))
+    max_processes = int(_config_value(sandbox, "max_processes", "PIPELINE_SANDBOX_MAX_PROCESSES", "32"))
     return SandboxSettings(
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", "8011")),
@@ -98,7 +114,7 @@ def _build_settings(payload: dict[str, Any]) -> SandboxSettings:
         max_output_bytes=int(_config_value(sandbox, "max_output_bytes", "PIPELINE_SANDBOX_MAX_OUTPUT_BYTES", str(2 * 1024 * 1024))),
         memory_bytes=int(_config_value(sandbox, "memory_bytes", "PIPELINE_SANDBOX_MEMORY_BYTES", str(1024 * 1024 * 1024))),
         cpu_seconds=int(_config_value(sandbox, "cpu_seconds", "PIPELINE_SANDBOX_CPU_SECONDS", "300")),
-        max_processes=int(_config_value(sandbox, "max_processes", "PIPELINE_SANDBOX_MAX_PROCESSES", "32")),
+        max_processes=max_processes,
         rabbitmq=RabbitSettings(
             host=_config_value_from_sections((sandbox_mq, mq), "host", "RABBITMQ_HOST", "localhost"),
             port=int(_config_value_from_sections((sandbox_mq, mq), "port", "RABBITMQ_PORT", "5672")),
@@ -119,6 +135,17 @@ def _build_settings(payload: dict[str, Any]) -> SandboxSettings:
             region=_config_value_from_sections((sandbox_storage, storage), "region", "S3_REGION", "us-east-1"),
             default_bucket=_config_value_from_sections((sandbox_storage, storage), "bucket_name", "S3_DEFAULT_BUCKET", "auto-ml-datasets"),
             datasets_bucket=_config_value_from_sections((sandbox_storage, storage), "datasets_bucket_name", "S3_DATASETS_BUCKET", "auto-ml-datasets"),
+        ),
+        script_runtime=ScriptRuntimeSettings(
+            venv_root=Path(_config_value(sandbox_runtime, "venv_root", "PIPELINE_SANDBOX_VENV_ROOT", str(workspace_root / "venvs"))),
+            pip_cache_dir=Path(_config_value(sandbox_runtime, "pip_cache_dir", "PIPELINE_SANDBOX_PIP_CACHE_DIR", str(workspace_root / "pip-cache"))),
+            pip_index_url=_config_value(sandbox_runtime, "pip_index_url", "PIPELINE_SANDBOX_PIP_INDEX_URL", "https://mirrors.aliyun.com/pypi/simple") or None,
+            pip_extra_index_url=_config_value(sandbox_runtime, "pip_extra_index_url", "PIPELINE_SANDBOX_PIP_EXTRA_INDEX_URL", "") or None,
+            pip_trusted_host=_config_value(sandbox_runtime, "pip_trusted_host", "PIPELINE_SANDBOX_PIP_TRUSTED_HOST", "mirrors.aliyun.com") or None,
+            idle_timeout_seconds=int(_config_value(sandbox_runtime, "idle_timeout_seconds", "PIPELINE_SANDBOX_IDLE_TIMEOUT_SECONDS", "180")),
+            bootstrap_max_processes=int(_config_value(sandbox_runtime, "bootstrap_max_processes", "PIPELINE_SANDBOX_BOOTSTRAP_MAX_PROCESSES", str(max(128, max_processes)))),
+            process_fsize_bytes=int(_config_value(sandbox_runtime, "process_fsize_bytes", "PIPELINE_SANDBOX_PROCESS_FSIZE_BYTES", str(50 * 1024 * 1024))),
+            process_nofile=int(_config_value(sandbox_runtime, "process_nofile", "PIPELINE_SANDBOX_PROCESS_NOFILE", "512")),
         ),
     )
 

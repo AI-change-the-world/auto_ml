@@ -6,12 +6,14 @@ import importlib.util
 import inspect
 import json
 import sys
+import traceback
 from pathlib import Path
 from typing import Any, Callable
 
 
 RESULT_PREFIX = "__AUTO_ML_BATCH_RESULT__="
 EVENT_PREFIX = "__AUTO_ML_BATCH_EVENT__="
+LOG_PREFIX = "__AUTO_ML_BATCH_LOG__="
 
 
 def load_module(script_path: Path):
@@ -53,9 +55,31 @@ async def run() -> int:
         print(RESULT_PREFIX + json.dumps({"success": True, "data": result}, ensure_ascii=False), flush=True)
         return 0
     except Exception as exc:
+        error_detail = {
+            "source": "batch_script",
+            "stage": "execute_batch",
+            "exception_type": exc.__class__.__name__,
+            "message": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        print(
+            LOG_PREFIX + json.dumps(
+                {
+                    "level": "error",
+                    "message": "batch script crashed",
+                    "error_detail": error_detail,
+                },
+                ensure_ascii=False,
+            ),
+            flush=True,
+        )
         print(
             RESULT_PREFIX + json.dumps(
-                {"success": False, "error": f"{exc.__class__.__name__}: {exc}"},
+                {
+                    "success": False,
+                    "error": f"{exc.__class__.__name__}: {exc}",
+                    "error_detail": error_detail,
+                },
                 ensure_ascii=False,
             ),
             flush=True,

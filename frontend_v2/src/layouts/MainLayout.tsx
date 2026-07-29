@@ -365,9 +365,7 @@ const MainLayout: React.FC = () => {
           className={`flex h-16 cursor-pointer items-center border-b border-slate-100 ${sidebarCollapsed ? 'justify-center px-3' : 'px-6'}`}
           onClick={() => navigate('/')}
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-lg font-bold text-white shadow-sm">
-            A
-          </div>
+          <img className="h-8 w-8" src="/favicon.png" alt="AutoML" />
           {!sidebarCollapsed ? (
             <span className="sidebar-brand-text ml-3 tracking-tight text-slate-900">AutoML</span>
           ) : null}

@@ -12,6 +12,8 @@
 vision_llm_labeler.zip
 ├── batch_script.json       # 必需：工具与参数清单
 ├── main.py                 # 必需：与 entrypoint 对应
+├── requirements.txt        # 可选：运行时自动安装的 Python 依赖
+├── .env                    # 可选：仅传给本 ZIP 脚本的环境变量
 ├── prompt.py               # 可选：入口同目录 Python 模块
 ├── config/
 │   └── labels.json          # 可选：静态配置
@@ -21,11 +23,13 @@ vision_llm_labeler.zip
     └── helpers.py           # 可选：其他源码
 ```
 
-ZIP 可以携带源码、配置和模型文件，但不会在运行时自动安装依赖。第三方 Python 依赖必须预先安装在 `ai_pipeline_sandbox` 镜像中；包内的 `requirements.txt` 仅可作为说明文件，不会被执行。
+每个批次在执行脚本前会准备独立的 Python venv，并用 `ensurepip` 准备 pip。内置脚本的依赖由平台声明；上传 ZIP 的根目录存在 `requirements.txt` 时，Sandbox 会在该 venv 中自动安装其依赖，支持 pip 的 `-r` 嵌套依赖文件和 ZIP 内本地包路径。相同脚本版本、依赖内容和 pip 配置会复用已完成的 venv，依赖变化后会自动创建新的环境。
+
+ZIP 根目录的可选 `.env` 会在运行入口脚本时注入子进程，不会覆盖虚拟环境、`PATH`、工作目录与临时目录。它不用于配置 Sandbox 本身；Sandbox 的基础设施、pip 源和资源限制始终由 Nacos 管理。创建、复用和安装依赖的每一行输出都会写入 Sandbox 容器日志；失败结果会带最后一段 pip 输出。
 
 ## 运行配置
 
-Sandbox 的 RabbitMQ、MinIO 和执行资源限制统一从 Nacos 的 `AUTO_ML_CONFIG` 读取。`ai-pipeline-sandbox` 配置段包含 `timeout_seconds`、`max_output_bytes`、`memory_bytes`、`cpu_seconds` 和 `max_processes`。
+Sandbox 的 RabbitMQ、MinIO 和执行资源限制统一从 Nacos 的 `AUTO_ML_CONFIG` 读取。`ai-pipeline-sandbox` 配置段包含 `timeout_seconds`、`max_output_bytes`、`memory_bytes`、`cpu_seconds`、`max_processes`，以及 `script_runtime.venv_root`、`script_runtime.pip_cache_dir`、`script_runtime.pip_index_url`、`script_runtime.pip_extra_index_url`、`script_runtime.pip_trusted_host`、`script_runtime.idle_timeout_seconds`、`script_runtime.bootstrap_max_processes`、`script_runtime.process_fsize_bytes` 和 `script_runtime.process_nofile`。
 
 容器只保留 Nacos 连接所需的引导环境变量。未启用或无法连接 Nacos 时，代码才使用同名本地环境变量和内置默认值，便于独立调试。资源限制通过 Nacos listener 实时更新，listener 不可用时会回退为轮询，并应用到后续批次；RabbitMQ 和 MinIO 配置在容器启动时生效。
 
@@ -189,7 +193,7 @@ def execute_batch(params: dict[str, Any], report: Callable[..., None]) -> dict[s
 
 ```bash
 cd vision_llm_labeler
-zip -r ../vision_llm_labeler.zip batch_script.json main.py prompt.py config weights src
+zip -r ../vision_llm_labeler.zip batch_script.json main.py requirements.txt .env prompt.py config weights src
 cd ..
 unzip -l vision_llm_labeler.zip
 ```
@@ -202,4 +206,4 @@ unzip -l vision_llm_labeler.zip
 
 平台内置脚本可随镜像发布：在 `scripts/` 新增 `<script_key>.py`，并在 `automl_server/app/modules/ai_pipeline/batch_scripts.py` 注册同名元数据和参数定义。上传 ZIP 的用户工具不需要修改平台源码。
 
-脚本进程只会收到任务输入、参数和本次工作目录；运行时受到 CPU、内存、进程数、时间和输出大小限制。
+脚本进程只会收到任务输入、参数、ZIP 内 `.env` 和本次工作目录；运行时会在 `runtime/` 中统一处理安全解包、虚拟环境、依赖缓存、CPU/内存/文件/进程/文件描述符限制、总超时、空闲超时、输出限制和整组子进程清理。

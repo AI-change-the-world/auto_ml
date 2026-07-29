@@ -77,6 +77,18 @@ export interface AiPipelineBatchRunItem {
   attempt_count: number;
   annotation_record_id?: number | null;
   error_message?: string | null;
+  error_detail?: {
+    source: string;
+    stage: string;
+    message: string;
+    exception_type?: string;
+    http_status?: number;
+    request_id?: string;
+    response_body?: string;
+    traceback?: string;
+    exit_code?: number;
+    output_tail?: string;
+  } | null;
   result?: Record<string, unknown> | null;
   started_at?: string | null;
   finished_at?: string | null;

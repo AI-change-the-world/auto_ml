@@ -132,6 +132,7 @@ interface RunTimelineProps {
 
 export const BatchAnnotationRunTimeline: React.FC<RunTimelineProps> = ({ run, events, onShowAll }) => {
   const visibleEvents = events.slice(-5);
+  const latestResultEventId = events.filter((event) => event.event_type === 'result').at(-1)?.id;
   return (
     <section className={`${panelClassName} p-5`}>
       <h2 className="mb-5 text-base font-bold text-gray-900">运行状态</h2>
@@ -153,7 +154,7 @@ export const BatchAnnotationRunTimeline: React.FC<RunTimelineProps> = ({ run, ev
                   <span className="shrink-0 text-xs font-normal text-gray-400">{formatClock(event.created_at)}</span>
                 </div>
               ),
-              description: <span className="text-xs text-gray-500">{getBatchRunEventText(event)}</span>,
+              description: <span className="text-xs text-gray-500">{getBatchRunEventText(event, event.id === latestResultEventId ? run : undefined)}</span>,
             };
           })}
         />

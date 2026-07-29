@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   CloseOutlined,
   PlayCircleOutlined,
@@ -24,6 +24,7 @@ import {
   getBatchAnnotationRunItems,
   resumeBatchAnnotationRun,
 } from '../../api/batchAnnotation';
+import { getAnnotation } from '../../api/annotation';
 import { subscribeBatchAnnotationRunStream } from '../../api/batchAnnotationStream';
 import type {
   AiPipelineBatchRunDetail,
@@ -31,6 +32,7 @@ import type {
   AiPipelineBatchRunItem,
 } from '../../types';
 import { emitBatchAnnotationRunsChanged } from '../../utils/projectEvents';
+import { parseAnnotationClasses } from '../../utils/annotationClasses';
 import {
   BatchAnnotationRunInfo,
   BatchAnnotationRunOverview,
@@ -38,9 +40,11 @@ import {
   BatchAnnotationRunTimeline,
 } from './components/BatchAnnotationRunOverview';
 import { BatchAnnotationRunItemsPanel } from './components/BatchAnnotationRunItemsPanel';
+import { BatchAnnotationResultPreview } from './components/BatchAnnotationResultPreview';
 import {
   activeBatchRunStatuses,
   appendProgressPointFromEvent,
+  batchRunErrorSourceLabels,
   batchRunEventTitles,
   batchRunItemPageSize,
   batchRunStatusLabels,
@@ -52,6 +56,7 @@ import {
 
 const BatchAnnotationRunDetailPage: React.FC = () => {
   const { runId = '' } = useParams<{ runId: string }>();
+  const navigate = useNavigate();
   const [run, setRun] = React.useState<AiPipelineBatchRunDetail | null>(null);
   const [items, setItems] = React.useState<AiPipelineBatchRunItem[]>([]);
   const [itemsPage, setItemsPage] = React.useState(1);
@@ -67,34 +72,64 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
   const [resuming, setResuming] = React.useState(false);
   const [logDrawerOpen, setLogDrawerOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<AiPipelineBatchRunItem | null>(null);
+  const [annotationClassNames, setAnnotationClassNames] = React.useState<string[]>([]);
   const lastEventIdRef = React.useRef(0);
   const itemsPageRef = React.useRef(1);
+  const streamRefreshTimerRef = React.useRef<number | null>(null);
+  const runRequestVersionRef = React.useRef(0);
+  const missingRunHandledRef = React.useRef(false);
+  const hasLoadedRun = run !== null;
+  const latestResultEventId = React.useMemo(
+    () => events.filter((event) => event.event_type === 'result').at(-1)?.id,
+    [events],
+  );
+
+  const handleMissingRun = React.useCallback((error: unknown) => {
+    if (!(error instanceof Error) || !error.message.startsWith('Batch run ')) return false;
+    if (!missingRunHandledRef.current) {
+      missingRunHandledRef.current = true;
+      navigate('/batch-annotation/runs', { replace: true });
+    }
+    return true;
+  }, [navigate]);
+
+  const syncRun = React.useCallback(async () => {
+    if (!runId) return;
+    const requestVersion = ++runRequestVersionRef.current;
+    try {
+      const nextRun = await getBatchAnnotationRun(runId);
+      if (nextRun && requestVersion === runRequestVersionRef.current) setRun(nextRun);
+    } catch (error) {
+      handleMissingRun(error);
+    }
+  }, [handleMissingRun, runId]);
 
   const loadRun = React.useCallback(async (initial = false) => {
     if (!runId) return;
     if (initial) setLoading(true);
     else setRefreshing(true);
+    const requestVersion = ++runRequestVersionRef.current;
     try {
-      const [nextRun, nextEvents] = await Promise.all([
-        getBatchAnnotationRun(runId),
-        getBatchAnnotationRunEvents(runId, initial ? 0 : lastEventIdRef.current, true),
-      ]);
+      const nextRun = await getBatchAnnotationRun(runId);
       if (!nextRun) throw new Error('任务不存在');
+      const nextEvents = await getBatchAnnotationRunEvents(runId, initial ? 0 : lastEventIdRef.current, true);
+      if (requestVersion !== runRequestVersionRef.current) return;
       setRun(nextRun);
       setEvents((current) => mergeBatchRunEvents(current, nextEvents));
       if (nextEvents.length > 0) {
         lastEventIdRef.current = Math.max(lastEventIdRef.current, nextEvents[nextEvents.length - 1].id);
       }
     } catch (error) {
+      if (handleMissingRun(error)) return;
       if (initial) message.error(error instanceof Error ? error.message : '加载批量标注任务失败');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [runId]);
+  }, [handleMissingRun, runId]);
 
   const loadItems = React.useCallback(async (page = itemsPageRef.current) => {
-    if (!runId) return;
+    if (!runId || !hasLoadedRun) return;
     setItemsLoading(true);
     try {
       const result = await getBatchAnnotationRunItems(
@@ -106,12 +141,12 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
       );
       setItems(result?.items ?? []);
       setItemsTotal(result?.total ?? 0);
-    } catch {
-      message.error('加载样本结果失败');
+    } catch (error) {
+      if (!handleMissingRun(error)) message.error('加载样本结果失败');
     } finally {
       setItemsLoading(false);
     }
-  }, [itemKeyword, itemStatus, runId]);
+  }, [handleMissingRun, hasLoadedRun, itemKeyword, itemStatus, runId]);
 
   const loadItemsRef = React.useRef(loadItems);
   React.useEffect(() => {
@@ -120,11 +155,35 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
 
   React.useEffect(() => {
     lastEventIdRef.current = 0;
+    missingRunHandledRef.current = false;
     itemsPageRef.current = 1;
     setItemsPage(1);
     setEvents([]);
     void loadRun(true);
   }, [loadRun]);
+
+  React.useEffect(() => {
+    let disposed = false;
+    const annotationId = run?.annotation_id;
+    if (!annotationId) {
+      setAnnotationClassNames([]);
+      return () => {
+        disposed = true;
+      };
+    }
+
+    void getAnnotation(annotationId)
+      .then((annotation) => {
+        if (!disposed) setAnnotationClassNames(parseAnnotationClasses(annotation?.classes));
+      })
+      .catch(() => {
+        if (!disposed) setAnnotationClassNames([]);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [run?.annotation_id]);
 
   React.useEffect(() => {
     itemsPageRef.current = 1;
@@ -133,9 +192,10 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
   }, [loadItems]);
 
   React.useEffect(() => {
-    if (!runId) return;
+    if (!runId || !hasLoadedRun) return;
     return subscribeBatchAnnotationRunStream(runId, {
       onEvent: ({ data }) => {
+        runRequestVersionRef.current += 1;
         setRun((current) => current ? {
           ...current,
           ...data.run,
@@ -144,15 +204,32 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
         lastEventIdRef.current = Math.max(lastEventIdRef.current, data.event.id);
         setEvents((current) => mergeBatchRunEvents(current, [data.event]));
         void loadItemsRef.current();
+        emitBatchAnnotationRunsChanged();
+        if (streamRefreshTimerRef.current !== null) window.clearTimeout(streamRefreshTimerRef.current);
+        streamRefreshTimerRef.current = window.setTimeout(() => {
+          void syncRun();
+          streamRefreshTimerRef.current = null;
+        }, 100);
       },
     });
-  }, [runId]);
+  }, [hasLoadedRun, runId, syncRun]);
+
+  React.useEffect(() => () => {
+    if (streamRefreshTimerRef.current !== null) window.clearTimeout(streamRefreshTimerRef.current);
+  }, []);
 
   React.useEffect(() => {
     if (!run || !activeBatchRunStatuses.has(run.status)) return;
-    const timer = window.setInterval(() => setRun((current) => current ? { ...current } : current), 1000);
-    return () => window.clearInterval(timer);
-  }, [run?.status]);
+    const clockTimer = window.setInterval(() => setRun((current) => current ? { ...current } : current), 1000);
+    const syncTimer = window.setInterval(() => {
+      void syncRun();
+      void loadItemsRef.current();
+    }, 2000);
+    return () => {
+      window.clearInterval(clockTimer);
+      window.clearInterval(syncTimer);
+    };
+  }, [run?.status, syncRun]);
 
   const handleRefresh = async () => {
     await Promise.all([loadRun(), loadItems()]);
@@ -181,7 +258,11 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
       const nextRun = await resumeBatchAnnotationRun(run.run_id);
       if (nextRun) setRun((current) => current ? { ...current, ...nextRun } : current);
       emitBatchAnnotationRunsChanged();
-      message.success('任务已重新派发，等待执行端处理');
+      if (nextRun?.status === 'failed') {
+        message.error(nextRun.error_message ?? '重新派发失败，请查看任务事件和服务端日志');
+      } else {
+        message.success(run.status === 'queued' ? '任务已重新派发，等待执行端处理' : '失败样本已重新派发，等待执行端处理');
+      }
       await Promise.all([loadRun(), loadItems()]);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '重新派发任务失败');
@@ -220,8 +301,12 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
           </div>
           <div className="flex shrink-0 gap-3">
             <Button icon={<SyncOutlined />} loading={refreshing} onClick={() => void handleRefresh()}>刷新</Button>
-            {run.status === 'queued' ? (
-              <Button type="primary" icon={<PlayCircleOutlined />} loading={resuming} onClick={() => void handleResume()}>继续执行</Button>
+            {run.status === 'queued' || (
+              ['failed', 'succeeded'].includes(run.status) && run.failed_count > 0
+            ) ? (
+              <Button type="primary" icon={<PlayCircleOutlined />} loading={resuming} onClick={() => void handleResume()}>
+                {run.status === 'queued' ? '继续执行' : '重试失败项'}
+              </Button>
             ) : null}
             {activeBatchRunStatuses.has(run.status) ? (
               <Popconfirm
@@ -278,7 +363,13 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
             columns={[
               { title: '时间', dataIndex: 'created_at', width: 170, render: formatDateTime },
               { title: '类型', dataIndex: 'event_type', width: 110, render: (value) => batchRunEventTitles[value] ?? value },
-              { title: '内容', render: (_, event) => getBatchRunEventText(event) },
+              {
+                title: '内容',
+                render: (_, event) => getBatchRunEventText(
+                  event,
+                  event.id === latestResultEventId ? run : undefined,
+                ),
+              },
             ]}
           />
         )}
@@ -292,7 +383,15 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
       >
         {selectedItem ? (
           <>
-            {selectedItem.error_message ? <Alert className="mb-5" type="error" showIcon message={selectedItem.error_message} /> : null}
+            {selectedItem.error_message ? (
+              <Alert
+                className="mb-5"
+                type="error"
+                showIcon
+                message={selectedItem.error_detail ? (batchRunErrorSourceLabels[selectedItem.error_detail.source] ?? selectedItem.error_detail.source) : '样本处理失败'}
+                description={selectedItem.error_message}
+              />
+            ) : null}
             <Descriptions
               size="small"
               column={1}
@@ -301,9 +400,26 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
                 { key: 'status', label: '状态', children: batchRunStatusLabels[selectedItem.status] ?? selectedItem.status },
                 { key: 'record', label: '标注记录', children: selectedItem.annotation_record_id ? `#${selectedItem.annotation_record_id}` : '-' },
                 { key: 'time', label: '完成时间', children: formatClock(selectedItem.finished_at) },
+                ...(selectedItem.status === 'failed' ? [
+                  { key: 'source', label: '错误来源', children: selectedItem.error_detail ? (batchRunErrorSourceLabels[selectedItem.error_detail.source] ?? selectedItem.error_detail.source) : '-' },
+                  { key: 'stage', label: '失败阶段', children: selectedItem.error_detail?.stage ?? '-' },
+                  { key: 'http', label: 'HTTP 状态', children: selectedItem.error_detail?.http_status ?? '-' },
+                  { key: 'type', label: '异常类型', children: selectedItem.error_detail?.exception_type ?? '-' },
+                  { key: 'request', label: '请求标识', children: selectedItem.error_detail?.request_id ?? '-' },
+                ] : []),
               ]}
             />
-            {selectedItem.result ? (
+            {selectedItem.status === 'succeeded' ? (
+              <BatchAnnotationResultPreview
+                datasetId={run.dataset_id}
+                item={selectedItem}
+                classNames={annotationClassNames}
+              />
+            ) : null}
+            {selectedItem.error_detail?.traceback ? (
+              <pre className="mt-5 max-h-[40vh] overflow-auto rounded-[6px] bg-gray-950 p-4 text-xs leading-5 text-gray-100">{selectedItem.error_detail.traceback}</pre>
+            ) : null}
+            {selectedItem.status !== 'succeeded' && selectedItem.result ? (
               <pre className="mt-5 max-h-[60vh] overflow-auto rounded-[6px] bg-gray-950 p-4 text-xs leading-5 text-gray-100">{JSON.stringify(selectedItem.result, null, 2)}</pre>
             ) : null}
           </>

@@ -86,3 +86,8 @@ export async function resumeBatchAnnotationRun(runId: string) {
   const res = await apiClient.post<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}/resume`);
   return res.data.data;
 }
+
+export async function deleteBatchAnnotationRun(runId: string) {
+  const res = await apiClient.delete<Result<unknown>>(`/ai-pipeline/batch-runs/${runId}`);
+  return res.data;
+}

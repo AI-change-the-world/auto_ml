@@ -83,6 +83,7 @@ class PipelineBatchProgressMessage(BaseMessage):
     processed: int = 0
     total: int = 0
     message: Optional[str] = None
+    phase: str = "execution"
 
 
 class PipelineBatchResultMessage(BaseMessage):

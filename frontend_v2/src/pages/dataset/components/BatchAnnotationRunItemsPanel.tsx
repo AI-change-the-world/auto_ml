@@ -11,6 +11,7 @@ import { Button, Empty, Input, Pagination, Table, Tooltip } from 'antd';
 import type { AiPipelineBatchRunDetail, AiPipelineBatchRunItem } from '../../../types';
 import {
   batchRunItemPageSize,
+  batchRunErrorSourceLabels,
   batchRunStatusLabels,
   formatClock,
   formatNumber,
@@ -131,6 +132,7 @@ export const BatchAnnotationRunItemsPanel: React.FC<BatchAnnotationRunItemsPanel
         columns={[
           { title: '文件名', dataIndex: 'item_key', ellipsis: true, render: (value) => <span className="text-gray-800">{value}</span> },
           { title: '状态', dataIndex: 'status', width: 110, render: itemStatus },
+          { title: '错误来源', width: 140, render: (_, item) => item.error_detail ? (batchRunErrorSourceLabels[item.error_detail.source] ?? item.error_detail.source) : '-' },
           { title: '处理耗时', width: 110, render: (_, item) => getItemDuration(item) },
           { title: '错误信息', dataIndex: 'error_message', ellipsis: true, render: (value) => value || '-' },
           { title: '完成时间', dataIndex: 'finished_at', width: 110, render: formatClock },

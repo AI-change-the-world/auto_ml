@@ -17,7 +17,8 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import and_, func, select
+from loguru import logger
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import BadRequestException, NotFoundException
@@ -58,6 +59,21 @@ SCRIPT_ARCHIVE_MAX_FILES = 512
 SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
 SCRIPT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 SECRET_VALUE_MARKER = "__pipeline_batch_secret__"
+
+
+class BatchDispatchFailure(Exception):
+    """A batch chunk could not be prepared or sent to the sandbox queue."""
+
+    def __init__(
+        self,
+        stage: str,
+        message: str,
+        *,
+        unpublished_chunk_keys: list[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.unpublished_chunk_keys = unpublished_chunk_keys or []
 
 
 def _dump_json(value: Any) -> str:
@@ -480,7 +496,9 @@ class BatchAnnotationService:
             try:
                 revealed[key] = cipher.decrypt(value[SECRET_VALUE_MARKER].encode("utf-8")).decode("utf-8")
             except InvalidToken as exc:
-                raise BadRequestException("stored batch secret cannot be decrypted with PIPELINE_BATCH_SECRET_KEY") from exc
+                raise BadRequestException(
+                    "stored batch secret cannot be decrypted with Nacos ai-pipeline-batch.secret_key"
+                ) from exc
         return revealed
 
     @staticmethod
@@ -601,7 +619,7 @@ class BatchAnnotationService:
         await db.commit()
         await db.refresh(run)
         await self._publish_run_update(run, event)
-        await self._dispatch_available_chunks(db, run)
+        await self._dispatch_or_record_failure(db, run)
         return self._to_run_response(run)
 
     async def list_runs(
@@ -627,10 +645,13 @@ class BatchAnnotationService:
             .limit(limit)
         )
         runs = list((await db.execute(stmt)).scalars().all())
+        for run in runs:
+            await self._reconcile_terminal_run_counts(db, run)
         return [self._to_run_response(item) for item in runs]
 
     async def get_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunDetailResponse:
         run = await self._get_run(db, run_id)
+        await self._reconcile_terminal_run_counts(db, run)
         dataset = await db.scalar(
             select(Dataset).where(Dataset.id == run.dataset_id, Dataset.is_deleted == False)
         )
@@ -723,7 +744,7 @@ class BatchAnnotationService:
                     select(AiPipelineBatchRunEvent)
                     .where(
                         AiPipelineBatchRunEvent.batch_run_id == run.id,
-                        AiPipelineBatchRunEvent.event_type.in_(["progress", "result"]),
+                        AiPipelineBatchRunEvent.event_type.in_(["progress", "result", "resumed"]),
                         AiPipelineBatchRunEvent.is_deleted == False,
                     )
                     .order_by(AiPipelineBatchRunEvent.id.desc())
@@ -737,19 +758,40 @@ class BatchAnnotationService:
             payload = _load_json(event.event_payload, {})
             if not isinstance(payload, dict) or event.created_at is None:
                 continue
+            if event.event_type == "resumed":
+                if not points or points[-1].progress != 0:
+                    points.append(AiPipelineBatchRunProgressPoint(progress=0, created_at=event.created_at))
+                continue
+            if event.event_type == "progress" and not self._is_execution_progress_event(payload):
+                continue
             raw_progress = payload.get("run_progress", payload.get("progress"))
             if not isinstance(raw_progress, (int, float)) or isinstance(raw_progress, bool):
                 continue
             progress = min(max(int(raw_progress), 0), 100)
+            if event.event_type == "result" and points and progress < points[-1].progress:
+                continue
             if points and points[-1].progress == progress:
                 continue
             points.append(AiPipelineBatchRunProgressPoint(progress=progress, created_at=event.created_at))
         baseline_at = run.started_at or run.created_at
         if baseline_at is not None and len(events) < 240 and (not points or points[0].progress > 0):
             points.insert(0, AiPipelineBatchRunProgressPoint(progress=0, created_at=baseline_at))
-        if run.updated_at is not None and (not points or points[-1].progress != run.progress):
-            points.append(AiPipelineBatchRunProgressPoint(progress=run.progress, created_at=run.updated_at))
+        latest_at = run.finished_at or run.updated_at
+        if latest_at is not None and (not points or points[-1].progress != run.progress):
+            points.append(AiPipelineBatchRunProgressPoint(progress=run.progress, created_at=latest_at))
         return points
+
+    @staticmethod
+    def _is_execution_progress_event(payload: dict[str, Any]) -> bool:
+        phase = payload.get("phase")
+        if isinstance(phase, str):
+            return phase == "execution"
+        message = str(payload.get("message") or "")
+        return message not in {
+            "sandbox started",
+            "sample input prepared",
+            "preparing script virtual environment",
+        } and not message.startswith("reuse_venv:")
 
     async def cancel_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
         run = await self._get_run(db, run_id)
@@ -782,37 +824,74 @@ class BatchAnnotationService:
         await self._publish_run_update(run, event)
         return self._to_run_response(run)
 
+    async def delete_run(self, db: AsyncSession, run_id: str) -> None:
+        run = await self._get_run(db, run_id)
+        if run.status in {"queued", "running"}:
+            raise BadRequestException("cancel an active batch run before deleting it")
+        run.is_deleted = True
+        await db.execute(
+            update(AiPipelineBatchRunItem)
+            .where(AiPipelineBatchRunItem.batch_run_id == run.id)
+            .values(is_deleted=True)
+        )
+        await db.execute(
+            update(AiPipelineBatchRunEvent)
+            .where(AiPipelineBatchRunEvent.batch_run_id == run.id)
+            .values(is_deleted=True)
+        )
+        await db.commit()
+
     async def resume_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
         run = await self._get_run(db, run_id)
-        if run.status != "queued" or run.cancel_requested:
-            raise BadRequestException("only queued batch runs can be resumed")
+        if run.cancel_requested:
+            raise BadRequestException("canceled batch runs cannot be resumed")
 
-        queued_items = list(
+        if run.status == "queued":
+            retryable_statuses = ["queued"]
+        elif run.status in {"failed", "succeeded"}:
+            retryable_statuses = ["failed", "pending"]
+        else:
+            raise BadRequestException("only queued or completed batch runs can be resumed")
+        retryable_items = list(
             (
                 await db.execute(
                     select(AiPipelineBatchRunItem).where(
                         AiPipelineBatchRunItem.batch_run_id == run.id,
-                        AiPipelineBatchRunItem.status == "queued",
+                        AiPipelineBatchRunItem.status.in_(retryable_statuses),
                         AiPipelineBatchRunItem.is_deleted == False,
                     )
                 )
             ).scalars().all()
         )
-        for item in queued_items:
+        if not retryable_items:
+            raise BadRequestException("no retryable batch items found")
+
+        for item in retryable_items:
             item.status = "pending"
             item.chunk_key = None
             item.started_at = None
+            item.finished_at = None
+            item.error_message = None
+            item.result_json = None
+
+        run.status = "queued"
+        run.finished_at = None
+        run.error_message = None
+        await self._refresh_run_counts(db, run)
 
         event = await self._append_event(
             db,
             run.id,
             "resumed",
-            {"requeued_count": len(queued_items), "message": "batch run re-dispatched"},
+            {
+                "requeued_count": len(retryable_items),
+                "message": "failed items re-dispatched" if retryable_statuses == ["failed"] else "batch run re-dispatched",
+            },
         )
         await db.commit()
         await db.refresh(run)
         await self._publish_run_update(run, event)
-        await self._dispatch_available_chunks(db, run)
+        await self._dispatch_or_record_failure(db, run)
         return self._to_run_response(run)
 
     async def handle_worker_progress(self, db: AsyncSession, payload: dict[str, Any]) -> None:
@@ -839,16 +918,19 @@ class BatchAnnotationService:
         if run.status == "queued":
             run.status = "running"
             run.started_at = run.started_at or datetime.now()
+        phase = str(payload.get("phase") or "execution")
         terminal_stmt = select(func.count()).select_from(AiPipelineBatchRunItem).where(
             AiPipelineBatchRunItem.batch_run_id == run.id,
             AiPipelineBatchRunItem.status.in_(TERMINAL_ITEM_STATUSES),
             AiPipelineBatchRunItem.is_deleted == False,
         )
         completed_count = int((await db.execute(terminal_stmt)).scalar() or 0)
-        current_chunk_progress = min(
-            max(int(payload.get("processed") or 0), 0),
-            max(int(payload.get("total") or 0), 0),
-        )
+        current_chunk_progress = 0
+        if phase == "execution":
+            current_chunk_progress = min(
+                max(int(payload.get("processed") or 0), 0),
+                max(int(payload.get("total") or 0), 0),
+            )
         run.progress = max(
             run.progress,
             self._calculate_progress(run.total_count, completed_count + current_chunk_progress),
@@ -863,6 +945,7 @@ class BatchAnnotationService:
                 "total": payload.get("total"),
                 "run_progress": run.progress,
                 "message": payload.get("message"),
+                "phase": phase,
             },
         )
         await db.commit()
@@ -937,7 +1020,7 @@ class BatchAnnotationService:
         await db.refresh(run)
         await self._publish_run_update(run, event)
         if run.status not in {"succeeded", "failed", "canceled"}:
-            await self._dispatch_available_chunks(db, run)
+            await self._dispatch_or_record_failure(db, run)
 
     async def _apply_item_result(
         self,
@@ -963,19 +1046,36 @@ class BatchAnnotationService:
         if not isinstance(content, dict):
             item.status = "failed"
             item.error_message = "sandbox result content must be a JSON object"
+            result["error_detail"] = {
+                "source": "automl_server",
+                "stage": "validate_annotation_result",
+                "message": item.error_message,
+            }
+            item.result_json = _dump_json(result)
             return
         try:
             from app.modules.annotation.schemas import AnnotationRecordSave
-            from app.modules.annotation.service import get_annotation_service
+            from app.modules.annotation.service import AnnotationService
 
-            record = await get_annotation_service().save_annotation_record(
-                db,
-                run.annotation_id,
-                AnnotationRecordSave(sample_item_id=item.sample_item_id, content=content, status="saved"),
-            )
+            annotation_service = AnnotationService()
+            try:
+                record = await annotation_service.save_annotation_record(
+                    db,
+                    run.annotation_id,
+                    AnnotationRecordSave(sample_item_id=item.sample_item_id, content=content, status="saved"),
+                )
+            finally:
+                await annotation_service.close()
         except Exception as exc:
             item.status = "failed"
             item.error_message = f"failed to save annotation result: {exc}"
+            result["error_detail"] = {
+                "source": "automl_server",
+                "stage": "save_annotation_record",
+                "exception_type": exc.__class__.__name__,
+                "message": str(exc),
+            }
+            item.result_json = _dump_json(result)
             return
         item.status = "succeeded"
         item.annotation_record_id = record.id
@@ -1014,21 +1114,16 @@ class BatchAnnotationService:
             await db.commit()
             return
 
-        chunks: list[tuple[str, list[AiPipelineBatchRunItem]]] = []
+        try:
+            annotation_snapshot = _load_json(run.annotation_snapshot_json, {})
+            script_params = self._reveal_script_params(_load_json(run.script_params_json, {}))
+        except Exception as exc:
+            raise BatchDispatchFailure("prepare_execute_payload", str(exc)) from exc
+
+        chunks: list[tuple[str, list[AiPipelineBatchRunItem], dict[str, Any]]] = []
         for index in range(0, len(pending_items), run.batch_size):
             chunk_items = pending_items[index:index + run.batch_size]
             chunk_key = f"{run.run_id}_{uuid.uuid4().hex[:12]}"
-            for item in chunk_items:
-                item.status = "queued"
-                item.chunk_key = chunk_key
-                item.attempt_count += 1
-                item.started_at = item.started_at or datetime.now()
-            chunks.append((chunk_key, chunk_items))
-        await db.commit()
-
-        annotation_snapshot = _load_json(run.annotation_snapshot_json, {})
-        script_params = self._reveal_script_params(_load_json(run.script_params_json, {}))
-        for chunk_key, chunk_items in chunks:
             message = {
                 "message_type": "pipeline.batch.execute",
                 "service_name": "automl_server",
@@ -1048,7 +1143,93 @@ class BatchAnnotationService:
                     for item in chunk_items
                 ],
             }
-            await asyncio.to_thread(get_publisher().publish_pipeline_batch_execute, message)
+            for item in chunk_items:
+                item.status = "queued"
+                item.chunk_key = chunk_key
+                item.attempt_count += 1
+                item.started_at = item.started_at or datetime.now()
+            chunks.append((chunk_key, chunk_items, message))
+        await db.commit()
+
+        for index, (chunk_key, _chunk_items, message) in enumerate(chunks):
+            try:
+                await asyncio.to_thread(get_publisher().publish_pipeline_batch_execute, message)
+            except Exception as exc:
+                unpublished_chunk_keys = [chunk[0] for chunk in chunks[index:]]
+                raise BatchDispatchFailure(
+                    "publish_execute_chunk",
+                    "failed to publish batch chunk to RabbitMQ",
+                    unpublished_chunk_keys=unpublished_chunk_keys,
+                ) from exc
+
+    async def _dispatch_or_record_failure(self, db: AsyncSession, run: AiPipelineBatchRun) -> None:
+        try:
+            await self._dispatch_available_chunks(db, run)
+        except BatchDispatchFailure as exc:
+            logger.exception(f"Batch dispatch failed: run_id={run.run_id} stage={exc.stage}")
+            await self._record_dispatch_failure(db, run, exc)
+        except Exception:
+            logger.exception(f"Unexpected batch dispatch failure: run_id={run.run_id}")
+            await db.rollback()
+            run = await self._get_run(db, run.run_id)
+            await self._record_dispatch_failure(
+                db,
+                run,
+                BatchDispatchFailure(
+                    "dispatch_available_chunks",
+                    "unexpected server error while dispatching batch items",
+                ),
+            )
+
+    async def _record_dispatch_failure(
+        self,
+        db: AsyncSession,
+        run: AiPipelineBatchRun,
+        failure: BatchDispatchFailure,
+    ) -> None:
+        now = datetime.now()
+        conditions = [
+            AiPipelineBatchRunItem.batch_run_id == run.id,
+            AiPipelineBatchRunItem.is_deleted == False,
+        ]
+        if failure.unpublished_chunk_keys:
+            conditions.append(
+                (AiPipelineBatchRunItem.status == "pending")
+                | (
+                    (AiPipelineBatchRunItem.status == "queued")
+                    & AiPipelineBatchRunItem.chunk_key.in_(failure.unpublished_chunk_keys)
+                )
+            )
+        else:
+            conditions.append(AiPipelineBatchRunItem.status == "pending")
+        failed_items = list((await db.execute(select(AiPipelineBatchRunItem).where(*conditions))).scalars().all())
+        error_detail = {
+            "source": "automl_server",
+            "stage": failure.stage,
+            "exception_type": failure.__cause__.__class__.__name__ if failure.__cause__ else None,
+            "message": str(failure),
+        }
+        for item in failed_items:
+            item.status = "failed"
+            item.chunk_key = None
+            item.finished_at = now
+            item.error_message = str(failure)
+            item.result_json = _dump_json({"error_detail": error_detail})
+
+        run.error_message = str(failure)
+        await self._refresh_run_counts(db, run)
+        event = await self._append_event(
+            db,
+            run.id,
+            "dispatch_failed",
+            {
+                **error_detail,
+                "failed_item_count": len(failed_items),
+            },
+        )
+        await db.commit()
+        await db.refresh(run)
+        await self._publish_run_update(run, event)
 
     async def _load_samples(
         self,
@@ -1114,6 +1295,7 @@ class BatchAnnotationService:
         return "skipped", "existing annotation record was kept"
 
     async def _refresh_run_counts(self, db: AsyncSession, run: AiPipelineBatchRun) -> None:
+        await db.flush()
         stmt = (
             select(AiPipelineBatchRunItem.status, func.count())
             .where(
@@ -1134,11 +1316,24 @@ class BatchAnnotationService:
             run.status = "canceled"
             run.finished_at = run.finished_at or datetime.now()
         elif active_count == 0:
-            run.finished_at = datetime.now()
+            run.finished_at = run.finished_at or datetime.now()
             run.status = "failed" if run.succeeded_count == 0 and run.failed_count > 0 else "succeeded"
         elif run.status == "queued" and counts.get("queued", 0) > 0:
             run.status = "running"
             run.started_at = run.started_at or datetime.now()
+
+    async def _reconcile_terminal_run_counts(self, db: AsyncSession, run: AiPipelineBatchRun) -> None:
+        if run.status not in {"succeeded", "failed", "canceled"}:
+            return
+        completed_count = (
+            run.succeeded_count
+            + run.failed_count
+            + run.skipped_count
+            + run.canceled_count
+        )
+        if completed_count == run.total_count:
+            return
+        await self._refresh_run_counts(db, run)
 
     async def _get_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRun:
         run = await self._find_run(db, run_id)
@@ -1237,6 +1432,9 @@ class BatchAnnotationService:
     @staticmethod
     def _to_item_response(item: AiPipelineBatchRunItem) -> AiPipelineBatchRunItemResponse:
         result = _load_json(item.result_json, None)
+        error_detail = result.get("error_detail") if isinstance(result, dict) else None
+        if not isinstance(error_detail, dict):
+            error_detail = BatchAnnotationService._infer_error_detail(item.error_message)
         return AiPipelineBatchRunItemResponse(
             id=item.id,
             sample_item_id=item.sample_item_id,
@@ -1245,12 +1443,33 @@ class BatchAnnotationService:
             attempt_count=item.attempt_count,
             annotation_record_id=item.annotation_record_id,
             error_message=item.error_message,
+            error_detail=error_detail,
             result=result if isinstance(result, dict) else None,
             started_at=item.started_at,
             finished_at=item.finished_at,
             created_at=item.created_at,
             updated_at=item.updated_at,
         )
+
+    @staticmethod
+    def _infer_error_detail(error_message: str | None) -> dict[str, Any] | None:
+        if not error_message:
+            return None
+        if error_message.startswith("vision model annotation failed:"):
+            detail: dict[str, Any] = {
+                "source": "vision_model_api",
+                "stage": "chat_completions",
+                "message": error_message.removeprefix("vision model annotation failed:").strip(),
+            }
+            match = re.search(r"HTTP Error (\d{3})", error_message)
+            if match:
+                detail["http_status"] = int(match.group(1))
+            return detail
+        if error_message.startswith("sandbox error:"):
+            return {"source": "sandbox", "stage": "execute_chunk", "message": error_message}
+        if error_message.startswith("failed to save annotation result:"):
+            return {"source": "automl_server", "stage": "save_annotation_record", "message": error_message}
+        return None
 
 
 _batch_annotation_service: BatchAnnotationService | None = None

@@ -87,3 +87,12 @@ ai-pipeline-sandbox:
   memory_bytes: 1073741824
   cpu_seconds: 300
   max_processes: 32
+  script_runtime:
+    venv_root: /app/runtime-data/venvs
+    pip_cache_dir: /app/runtime-data/pip-cache
+    pip_index_url: https://mirrors.aliyun.com/pypi/simple
+    pip_trusted_host: mirrors.aliyun.com
+    idle_timeout_seconds: 180
+    bootstrap_max_processes: 128
+    process_fsize_bytes: 52428800
+    process_nofile: 512

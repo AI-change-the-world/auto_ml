@@ -15,7 +15,7 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple
 
 COPY . .
-RUN mkdir -p /app/runtime-data /app/scripts \
+RUN mkdir -p /app/runtime-data/venvs /app/runtime-data/pip-cache /app/scripts \
     && chown -R "${SANDBOX_UID}:${SANDBOX_GID}" /app/runtime-data
 
 USER sandbox

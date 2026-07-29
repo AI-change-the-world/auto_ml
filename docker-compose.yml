@@ -361,6 +361,8 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *nacos-env
+    volumes:
+      - pipeline_sandbox_runtime_data:/app/runtime-data
     networks:
       - auto-ml-network
     security_opt:
@@ -457,6 +459,7 @@ volumes:
   mysql_data:
   rabbitmq_data:
   minio_shared:
+  pipeline_sandbox_runtime_data:
 
 networks:
   auto-ml-network:

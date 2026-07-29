@@ -2,19 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 import json
 import logging
 import os
 import queue
 import shutil
-import signal
-import stat
-import subprocess
-import sys
 import threading
 import time
 import uuid
-import zipfile
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -22,21 +18,37 @@ from typing import Any
 import pika
 
 from config import SandboxSettings
+from runtime import (
+    RuntimeProcessError,
+    ScriptEnvironmentError,
+    ScriptEnvironmentManager,
+    extract_script_package,
+    load_package_environment,
+    run_isolated_process,
+)
 from storage import DatasetStorage
 
 
 logger = logging.getLogger(__name__)
 
-try:
-    import resource
-except ImportError:  # pragma: no cover - Windows does not expose resource
-    resource = None
-
-
 EVENT_PREFIX = "__AUTO_ML_BATCH_EVENT__="
 RESULT_PREFIX = "__AUTO_ML_BATCH_RESULT__="
-SCRIPT_ARCHIVE_MAX_FILES = 512
-SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
+LOG_PREFIX = "__AUTO_ML_BATCH_LOG__="
+SCRIPT_DIAGNOSTIC_MAX_CHARS = 4096
+SCRIPT_DIAGNOSTIC_MAX_LINES = 40
+
+
+class SandboxScriptExecutionError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        error_detail: dict[str, Any] | None = None,
+        output_tail: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.error_detail = error_detail or {}
+        self.output_tail = output_tail
 
 
 class BatchSandboxWorker:
@@ -68,6 +80,8 @@ class BatchSandboxWorker:
         if self._thread and self._thread.is_alive():
             return
         self.settings.workspace_root.mkdir(parents=True, exist_ok=True)
+        self.settings.script_runtime.venv_root.mkdir(parents=True, exist_ok=True)
+        self.settings.script_runtime.pip_cache_dir.mkdir(parents=True, exist_ok=True)
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._consume_loop, name="pipeline-sandbox-worker", daemon=True)
         self._thread.start()
@@ -87,8 +101,8 @@ class BatchSandboxWorker:
             memory_bytes=settings.memory_bytes,
             cpu_seconds=settings.cpu_seconds,
             max_processes=settings.max_processes,
+            script_runtime=settings.script_runtime,
         )
-
     def _connect(self):
         mq = self.settings.rabbitmq
         credentials = pika.PlainCredentials(mq.username, mq.password)
@@ -126,6 +140,7 @@ class BatchSandboxWorker:
                 self._close()
 
     def _on_message(self, channel, method, _properties, body: bytes) -> None:
+        payload: dict[str, Any] = {}
         try:
             payload = json.loads(body)
             if payload.get("message_type") != "pipeline.batch.execute":
@@ -143,8 +158,17 @@ class BatchSandboxWorker:
                 chunk_key = str(payload.get("chunk_key") or "")
             except Exception:
                 pass
+            logger.exception(
+                "Sandbox message handling failed: run_id=%s chunk_key=%s",
+                run_id,
+                chunk_key,
+            )
             if run_id and chunk_key:
-                self._publish_result(run_id, chunk_key, self._failed_results(payload, f"sandbox error: {exc}"))
+                self._publish_result(
+                    run_id,
+                    chunk_key,
+                    self._failed_results(payload, f"sandbox error: {exc}", "message_handling"),
+                )
             channel.basic_ack(delivery_tag=method.delivery_tag)
         finally:
             with self._active_lock:
@@ -157,7 +181,14 @@ class BatchSandboxWorker:
         task_root = self.settings.workspace_root / f"task_{run_id}_{uuid.uuid4().hex}"
         task_root.mkdir(parents=True, exist_ok=False)
         try:
-            self._publish_progress(run_id, chunk_key, 0, len(payload.get("items") or []), "sandbox started")
+            self._publish_progress(
+                run_id,
+                chunk_key,
+                0,
+                len(payload.get("items") or []),
+                "sandbox started",
+                phase="prepare",
+            )
             runnable_items, failed_results = self._prepare_inputs(payload, task_root)
             if runnable_items:
                 script_result = self._run_script(payload, runnable_items, task_root)
@@ -167,7 +198,32 @@ class BatchSandboxWorker:
             results.extend(failed_results)
             self._publish_result(run_id, chunk_key, results)
         except Exception as exc:
-            self._publish_result(run_id, chunk_key, self._failed_results(payload, f"sandbox error: {exc}"))
+            error_detail = self._execution_error_detail(payload, exc)
+            if isinstance(exc, SandboxScriptExecutionError):
+                logger.error(
+                    "Sandbox chunk execution failed: run_id=%s chunk_key=%s script_key=%s detail=%s",
+                    run_id,
+                    chunk_key,
+                    script_key,
+                    error_detail,
+                )
+            else:
+                logger.exception(
+                    "Sandbox chunk execution failed: run_id=%s chunk_key=%s script_key=%s",
+                    run_id,
+                    chunk_key,
+                    script_key,
+                )
+            self._publish_result(
+                run_id,
+                chunk_key,
+                self._failed_results(
+                    payload,
+                    f"sandbox error: {exc}",
+                    "execute_chunk",
+                    error_detail=error_detail,
+                ),
+            )
         finally:
             shutil.rmtree(task_root, ignore_errors=True)
 
@@ -179,20 +235,45 @@ class BatchSandboxWorker:
         runnable_items: list[dict[str, Any]] = []
         failed_results: list[dict[str, Any]] = []
         items = payload.get("items") if isinstance(payload.get("items"), list) else []
-        for index, raw_item in enumerate(items, start=1):
+        for raw_item in items:
             if not isinstance(raw_item, dict):
                 continue
             batch_item_id = raw_item.get("batch_item_id")
             asset_path = raw_item.get("asset_path")
             if not isinstance(batch_item_id, int) or not isinstance(asset_path, str) or not asset_path:
-                failed_results.append({"batch_item_id": batch_item_id, "status": "failed", "error": "sample asset path is unavailable"})
+                failed_results.append({
+                    "batch_item_id": batch_item_id,
+                    "status": "failed",
+                    "error": "sample asset path is unavailable",
+                    "error_detail": {
+                        "source": "sandbox",
+                        "stage": "validate_input",
+                        "message": "sample asset path is unavailable",
+                    },
+                })
                 continue
             file_name = str(raw_item.get("asset_file_name") or f"sample_{batch_item_id}")
             destination = task_root / "inputs" / f"{batch_item_id}_{Path(file_name).name}"
             try:
                 asyncio.run(self.storage.download(asset_path, destination))
             except Exception as exc:
-                failed_results.append({"batch_item_id": batch_item_id, "status": "failed", "error": f"failed to download sample: {exc}"})
+                logger.exception(
+                    "Sandbox input download failed: run_id=%s chunk_key=%s batch_item_id=%s",
+                    payload.get("run_id"),
+                    payload.get("chunk_key"),
+                    batch_item_id,
+                )
+                failed_results.append({
+                    "batch_item_id": batch_item_id,
+                    "status": "failed",
+                    "error": f"failed to download sample: {exc}",
+                    "error_detail": {
+                        "source": "sandbox",
+                        "stage": "download_dataset_asset",
+                        "exception_type": exc.__class__.__name__,
+                        "message": str(exc),
+                    },
+                })
                 continue
             item = dict(raw_item)
             item["local_path"] = str(destination)
@@ -200,14 +281,43 @@ class BatchSandboxWorker:
             self._publish_progress(
                 str(payload["run_id"]),
                 str(payload["chunk_key"]),
-                index,
+                0,
                 len(items),
                 "sample input prepared",
+                phase="prepare",
             )
         return runnable_items, failed_results
 
     def _run_script(self, payload: dict[str, Any], items: list[dict[str, Any]], task_root: Path) -> Any:
-        script_path = self._resolve_script_path(payload, task_root)
+        script_path, requirements_file, bundle_environment = self._resolve_script_path(payload, task_root)
+        self._publish_progress(
+            str(payload["run_id"]),
+            str(payload["chunk_key"]),
+            0,
+            len(items),
+            "preparing script virtual environment",
+            phase="environment",
+        )
+        environment_manager = ScriptEnvironmentManager(
+            self.settings.script_runtime,
+            self.settings.timeout_seconds,
+            self.settings.max_output_bytes,
+            resource_limit_command=self._environment_resource_limit_command(),
+            output_callback=lambda stage, message: self._publish_progress(
+                str(payload["run_id"]),
+                str(payload["chunk_key"]),
+                0,
+                len(items),
+                f"{stage}: {message}"[:512],
+                phase="environment",
+            ),
+        )
+        environment = environment_manager.prepare(
+            task_root=task_root,
+            script_key=str(payload["script_key"]),
+            script_version=str(payload.get("script_version") or "unknown"),
+            requirements_file=requirements_file,
+        )
 
         runner_payload = {
             "run_id": payload["run_id"],
@@ -218,70 +328,174 @@ class BatchSandboxWorker:
         }
         payload_path = task_root / "payload.json"
         payload_path.write_text(json.dumps(runner_payload, ensure_ascii=False), encoding="utf-8")
-        command = [sys.executable, "/app/runner.py", str(script_path), str(payload_path)]
-        env = self._build_subprocess_env(task_root)
-        process = subprocess.Popen(
-            command,
-            cwd=str(task_root),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            env=env,
-            start_new_session=True,
-            preexec_fn=self._limit_resources if resource is not None else None,
-        )
-        timed_out = threading.Event()
-
-        def kill_on_timeout() -> None:
-            timed_out.set()
-            self._terminate_process_group(process)
-
-        timer = threading.Timer(self.settings.timeout_seconds, kill_on_timeout)
-        timer.start()
-        output_size = 0
+        command = [str(environment.python_executable), "/app/runner.py", str(script_path), str(payload_path)]
+        env = self._build_subprocess_env(task_root, environment.venv_dir, bundle_environment)
         result_payload: dict[str, Any] | None = None
-        try:
-            assert process.stdout is not None
-            for raw_line in process.stdout:
-                output_size += len(raw_line.encode("utf-8", errors="replace"))
-                if output_size > self.settings.max_output_bytes:
-                    self._terminate_process_group(process)
-                    raise RuntimeError("sandbox script exceeded stdout limit")
-                line = raw_line.rstrip("\n")
-                if line.startswith(EVENT_PREFIX):
-                    event = self._parse_json_line(line[len(EVENT_PREFIX):])
-                    if isinstance(event, dict):
-                        self._publish_progress(
-                            str(payload["run_id"]),
-                            str(payload["chunk_key"]),
-                            int(event.get("processed") or 0),
-                            int(event.get("total") or len(items)),
-                            str(event.get("message") or "script progress"),
+        script_error_detail: dict[str, Any] | None = None
+        output_tail: deque[str] = deque(maxlen=SCRIPT_DIAGNOSTIC_MAX_LINES)
+
+        def consume_script_output(stream: str, line: str) -> None:
+            nonlocal result_payload, script_error_detail
+            if stream == "stderr":
+                if line:
+                    output_tail.append(line)
+                return
+            if line.startswith(EVENT_PREFIX):
+                event = self._parse_json_line(line[len(EVENT_PREFIX):])
+                if isinstance(event, dict):
+                    if event.get("level") == "error":
+                        self._log_script_error(
+                            payload,
+                            event.get("batch_item_id"),
+                            event.get("error_detail") or {"message": event.get("message")},
                         )
-                    continue
-                if line.startswith(RESULT_PREFIX):
-                    parsed = self._parse_json_line(line[len(RESULT_PREFIX):])
-                    if isinstance(parsed, dict):
-                        result_payload = parsed
-            return_code = process.wait(timeout=10)
-        finally:
-            timer.cancel()
-        if timed_out.is_set():
-            raise RuntimeError("sandbox script timed out")
-        if return_code != 0:
-            raise RuntimeError("sandbox script exited with an error")
+                    self._publish_progress(
+                        str(payload["run_id"]),
+                        str(payload["chunk_key"]),
+                        int(event.get("processed") or 0),
+                        int(event.get("total") or len(items)),
+                        str(event.get("message") or "script progress"),
+                    )
+                return
+            if line.startswith(LOG_PREFIX):
+                log_event = self._parse_json_line(line[len(LOG_PREFIX):])
+                if isinstance(log_event, dict):
+                    raw_detail = log_event.get("error_detail")
+                    if isinstance(raw_detail, dict):
+                        script_error_detail = raw_detail
+                    self._log_script_error(payload, None, raw_detail or log_event)
+                return
+            if line.startswith(RESULT_PREFIX):
+                parsed = self._parse_json_line(line[len(RESULT_PREFIX):])
+                if isinstance(parsed, dict):
+                    result_payload = parsed
+                    raw_detail = parsed.get("error_detail")
+                    if isinstance(raw_detail, dict):
+                        script_error_detail = raw_detail
+                return
+            if line:
+                output_tail.append(line)
+
+        remaining_timeout = self.settings.timeout_seconds - environment.elapsed_seconds
+        try:
+            process_result = run_isolated_process(
+                command,
+                cwd=task_root,
+                env=env,
+                stage="run_batch_script",
+                timeout_seconds=remaining_timeout,
+                idle_timeout_seconds=self.settings.script_runtime.idle_timeout_seconds,
+                max_output_bytes=self.settings.max_output_bytes,
+                resource_limit_command=self._script_resource_limit_command(),
+                line_callback=consume_script_output,
+            )
+        except RuntimeProcessError as exc:
+            raise SandboxScriptExecutionError(
+                str(exc),
+                error_detail=self._redact_script_diagnostic(payload, exc.error_detail),
+            ) from exc
+
+        diagnostic_output = "\n".join(output_tail)
+        diagnostic_detail = self._redact_script_diagnostic(payload, script_error_detail) or {
+            "source": "sandbox",
+            "stage": "run_batch_script",
+            "exception_type": "ProcessExit",
+        }
+        if isinstance(diagnostic_detail, dict):
+            diagnostic_detail["exit_code"] = process_result.return_code
+        if result_payload and not result_payload.get("success"):
+            raise SandboxScriptExecutionError(
+                str(result_payload.get("error") or "sandbox runner returned an error"),
+                error_detail=diagnostic_detail,
+                output_tail=self._redact_script_output(payload, diagnostic_output),
+            )
+        if process_result.return_code != 0:
+            raise SandboxScriptExecutionError(
+                f"sandbox script exited with code {process_result.return_code}",
+                error_detail=diagnostic_detail,
+                output_tail=self._redact_script_output(payload, diagnostic_output),
+            )
         if not result_payload or not result_payload.get("success"):
             raise RuntimeError(str((result_payload or {}).get("error") or "sandbox runner returned no result"))
         return result_payload.get("data")
 
-    def _resolve_script_path(self, payload: dict[str, Any], task_root: Path) -> Path:
+    def _execution_error_detail(self, payload: dict[str, Any], exc: Exception) -> dict[str, Any]:
+        if isinstance(exc, SandboxScriptExecutionError):
+            detail = dict(exc.error_detail)
+            detail.setdefault("source", "batch_script")
+            detail.setdefault("stage", "execute_batch")
+            detail.setdefault("exception_type", exc.__class__.__name__)
+            detail.setdefault("message", str(exc))
+            if exc.output_tail:
+                detail["output_tail"] = exc.output_tail
+            return detail
+        if isinstance(exc, ScriptEnvironmentError):
+            return self._redact_script_diagnostic(payload, exc.error_detail)
+        return {
+            "source": "sandbox",
+            "stage": "execute_chunk",
+            "exception_type": exc.__class__.__name__,
+            "message": str(exc),
+        }
+
+    @staticmethod
+    def _redact_script_diagnostic(payload: dict[str, Any], value: Any) -> Any:
+        script_params = payload.get("script_params")
+        secret_values = [
+            item
+            for key, item in (script_params.items() if isinstance(script_params, dict) else [])
+            if isinstance(item, str)
+            and item
+            and any(marker in str(key).lower() for marker in ("secret", "token", "api_key", "password"))
+        ]
+
+        def redact(item: Any) -> Any:
+            if isinstance(item, str):
+                for secret in secret_values:
+                    item = item.replace(secret, "******")
+                return item[:SCRIPT_DIAGNOSTIC_MAX_CHARS]
+            if isinstance(item, list):
+                return [redact(entry) for entry in item]
+            if isinstance(item, dict):
+                return {str(key): redact(entry) for key, entry in item.items()}
+            return item
+
+        return redact(value)
+
+    def _redact_script_output(self, payload: dict[str, Any], value: str) -> str:
+        return str(self._redact_script_diagnostic(payload, value))[:SCRIPT_DIAGNOSTIC_MAX_CHARS]
+
+    def _log_script_error(self, payload: dict[str, Any], batch_item_id: Any, error_detail: Any) -> None:
+        detail = self._redact_script_diagnostic(payload, error_detail)
+        detail_mapping = detail if isinstance(detail, dict) else {}
+        logger.error(
+            "Batch script reported an error: run_id=%s chunk_key=%s batch_item_id=%s "
+            "source=%s stage=%s type=%s http_status=%s request_id=%s message=%s\n"
+            "traceback:\n%s\nprovider_response:\n%s",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            batch_item_id,
+            detail_mapping.get("source"),
+            detail_mapping.get("stage"),
+            detail_mapping.get("exception_type"),
+            detail_mapping.get("http_status"),
+            detail_mapping.get("request_id"),
+            detail_mapping.get("message"),
+            detail_mapping.get("traceback"),
+            detail_mapping.get("response_body"),
+        )
+
+    def _resolve_script_path(
+        self,
+        payload: dict[str, Any],
+        task_root: Path,
+    ) -> tuple[Path, Path | None, dict[str, str]]:
         package_path = payload.get("script_package_path")
         if isinstance(package_path, str) and package_path:
             archive_path = task_root / "script-package.zip"
             asyncio.run(self.storage.download_script_package(package_path, archive_path))
             script_root = task_root / "script"
-            self._extract_script_package(archive_path, script_root)
+            extract_script_package(archive_path, script_root)
             entrypoint = self._safe_entrypoint(str(payload.get("script_entrypoint") or ""))
             script_path = (script_root / entrypoint).resolve()
             try:
@@ -290,7 +504,8 @@ class BatchSandboxWorker:
                 raise RuntimeError("script entrypoint escapes extracted package") from exc
             if not script_path.is_file():
                 raise RuntimeError("script entrypoint is unavailable after package extraction")
-            return script_path
+            requirements_file = script_root / "requirements.txt"
+            return script_path, requirements_file if requirements_file.is_file() else None, load_package_environment(script_root)
 
         script_key = str(payload["script_key"])
         script_path = (self.settings.scripts_root / f"{script_key}.py").resolve()
@@ -300,7 +515,7 @@ class BatchSandboxWorker:
             raise RuntimeError("script path escapes sandbox scripts directory") from exc
         if not script_path.is_file():
             raise RuntimeError(f"registered script `{script_key}` is not installed")
-        return script_path
+        return script_path, None, {}
 
     @staticmethod
     def _safe_entrypoint(value: str) -> Path:
@@ -309,39 +524,6 @@ class BatchSandboxWorker:
         if not normalized.endswith(".py") or path.is_absolute() or ".." in path.parts:
             raise RuntimeError("script entrypoint must be a relative Python file")
         return path
-
-    @staticmethod
-    def _extract_script_package(archive_path: Path, destination: Path) -> None:
-        try:
-            archive = zipfile.ZipFile(archive_path)
-        except zipfile.BadZipFile as exc:
-            raise RuntimeError("downloaded script package is not a ZIP archive") from exc
-        with archive:
-            infos = archive.infolist()
-            if len(infos) > SCRIPT_ARCHIVE_MAX_FILES:
-                raise RuntimeError("script package contains too many files")
-            total_size = 0
-            destination.mkdir(parents=True, exist_ok=True)
-            destination_root = destination.resolve()
-            for info in infos:
-                member_path = Path(info.filename)
-                mode = info.external_attr >> 16
-                if member_path.is_absolute() or ".." in member_path.parts or stat.S_ISLNK(mode):
-                    raise RuntimeError("script package contains an unsafe file path")
-                target = (destination / member_path).resolve()
-                try:
-                    target.relative_to(destination_root)
-                except ValueError as exc:
-                    raise RuntimeError("script package path escapes task directory") from exc
-                if info.is_dir():
-                    target.mkdir(parents=True, exist_ok=True)
-                    continue
-                total_size += info.file_size
-                if total_size > SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES:
-                    raise RuntimeError("script package exceeds extraction limit")
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with archive.open(info, "r") as source, target.open("wb") as output:
-                    shutil.copyfileobj(source, output)
 
     def _normalize_results(self, items: list[dict[str, Any]], result: Any) -> list[dict[str, Any]]:
         returned_items = result.get("items") if isinstance(result, dict) and isinstance(result.get("items"), list) else []
@@ -355,20 +537,54 @@ class BatchSandboxWorker:
             batch_item_id = item["batch_item_id"]
             script_item = by_item_id.get(batch_item_id)
             if script_item is None:
-                normalized.append({"batch_item_id": batch_item_id, "status": "failed", "error": "script omitted this sample"})
+                normalized.append({
+                    "batch_item_id": batch_item_id,
+                    "status": "failed",
+                    "error": "script omitted this sample",
+                    "error_detail": {
+                        "source": "batch_script",
+                        "stage": "result_contract",
+                        "message": "script omitted this sample",
+                    },
+                })
                 continue
             normalized.append(script_item)
         return normalized
 
-    def _failed_results(self, payload: dict[str, Any], error: str) -> list[dict[str, Any]]:
+    def _failed_results(
+        self,
+        payload: dict[str, Any],
+        error: str,
+        stage: str,
+        *,
+        error_detail: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         items = payload.get("items") if isinstance(payload.get("items"), list) else []
         return [
-            {"batch_item_id": item.get("batch_item_id"), "status": "failed", "error": error}
+            {
+                "batch_item_id": item.get("batch_item_id"),
+                "status": "failed",
+                "error": error,
+                "error_detail": error_detail or {
+                    "source": "sandbox",
+                    "stage": stage,
+                    "message": error,
+                },
+            }
             for item in items
             if isinstance(item, dict)
         ]
 
-    def _publish_progress(self, run_id: str, chunk_key: str, processed: int, total: int, message: str) -> None:
+    def _publish_progress(
+        self,
+        run_id: str,
+        chunk_key: str,
+        processed: int,
+        total: int,
+        message: str,
+        *,
+        phase: str = "execution",
+    ) -> None:
         self._publish(
             self.settings.rabbitmq.progress_routing_key,
             {
@@ -379,6 +595,7 @@ class BatchSandboxWorker:
                 "processed": processed,
                 "total": total,
                 "message": message,
+                "phase": phase,
             },
         )
 
@@ -404,31 +621,67 @@ class BatchSandboxWorker:
             properties=pika.BasicProperties(delivery_mode=2, content_type="application/json"),
         )
 
-    def _build_subprocess_env(self, task_root: Path) -> dict[str, str]:
+    def _build_subprocess_env(
+        self,
+        task_root: Path,
+        venv_dir: Path,
+        bundle_environment: dict[str, str],
+    ) -> dict[str, str]:
         task_home = task_root / "home"
         task_tmp = task_root / "tmp"
         task_home.mkdir(parents=True, exist_ok=True)
         task_tmp.mkdir(parents=True, exist_ok=True)
-        return {
-            "PATH": os.getenv("PATH", "/usr/local/bin:/usr/bin:/bin"),
+        environment = {**os.environ, **bundle_environment}
+        environment.update({
+            "PATH": f"{venv_dir / 'bin'}:{os.getenv('PATH', '/usr/local/bin:/usr/bin:/bin')}",
             "PYTHONIOENCODING": "utf-8",
             "PYTHONUNBUFFERED": "1",
             "LANG": os.getenv("LANG", "C.UTF-8"),
             "LC_ALL": os.getenv("LC_ALL", "C.UTF-8"),
             "HOME": str(task_home),
+            "XDG_CACHE_HOME": str(task_home / ".cache"),
+            "XDG_CONFIG_HOME": str(task_home / ".config"),
             "TMPDIR": str(task_tmp),
             "TMP": str(task_tmp),
             "TEMP": str(task_tmp),
-        }
+            "VIRTUAL_ENV": str(venv_dir),
+            "PIP_CACHE_DIR": str(self.settings.script_runtime.pip_cache_dir),
+            "PIP_DISABLE_PIP_VERSION_CHECK": "1",
+            "PIP_NO_INPUT": "1",
+        })
+        return environment
 
-    def _limit_resources(self) -> None:
-        if resource is None:
-            return
-        resource.setrlimit(resource.RLIMIT_CPU, (self.settings.cpu_seconds, self.settings.cpu_seconds))
-        resource.setrlimit(resource.RLIMIT_AS, (self.settings.memory_bytes, self.settings.memory_bytes))
-        resource.setrlimit(resource.RLIMIT_FSIZE, (self.settings.max_output_bytes, self.settings.max_output_bytes))
-        resource.setrlimit(resource.RLIMIT_NPROC, (self.settings.max_processes, self.settings.max_processes))
-        resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+    def _script_resource_limit_command(self) -> list[str]:
+        return self._resource_limit_command(self.settings.max_processes)
+
+    def _environment_resource_limit_command(self) -> list[str]:
+        return self._resource_limit_command(
+            max(
+                self.settings.max_processes,
+                self.settings.script_runtime.bootstrap_max_processes,
+            )
+        )
+
+    def _resource_limit_command(self, max_processes: int) -> list[str]:
+        if os.name == "nt":
+            return []
+        prlimit = shutil.which("prlimit")
+        if not prlimit:
+            logger.warning("prlimit is unavailable; sandbox subprocess resource limits are disabled")
+            return []
+        limits = (
+            ("--cpu", self.settings.cpu_seconds),
+            ("--as", self.settings.memory_bytes),
+            ("--fsize", self.settings.script_runtime.process_fsize_bytes),
+            ("--nproc", max_processes),
+            ("--nofile", self.settings.script_runtime.process_nofile),
+            ("--core", 0),
+        )
+        return [
+            prlimit,
+            *(f"{option}={value}" for option, value in limits if value > 0 or option == "--core"),
+            "--",
+        ]
 
     @staticmethod
     def _parse_json_line(raw: str) -> Any:
@@ -436,18 +689,6 @@ class BatchSandboxWorker:
             return json.loads(raw)
         except json.JSONDecodeError:
             return None
-
-    @staticmethod
-    def _terminate_process_group(process: subprocess.Popen) -> None:
-        if process.poll() is not None:
-            return
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-            time.sleep(0.2)
-            if process.poll() is None:
-                os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
 
     def _close(self) -> None:
         channel = self._channel

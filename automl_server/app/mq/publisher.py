@@ -17,6 +17,10 @@ from app.config.nacos_config_center import get_config_center
 from app.config.rabbitmq_config import RabbitMQConfig, get_mq_config
 
 
+PUBLISH_MAX_ATTEMPTS = 5
+PUBLISH_RETRY_INTERVAL_SECONDS = 1
+
+
 @dataclass
 class PublishRequest:
     routing_key: str
@@ -73,6 +77,19 @@ class MessagePublisher:
                     exchange_type=self.config.exchange_type,
                     durable=True,
                 )
+                channel.queue_declare(
+                    queue=self.config.pipeline_batch_execute_queue,
+                    durable=True,
+                )
+                channel.queue_bind(
+                    queue=self.config.pipeline_batch_execute_queue,
+                    exchange=self.config.exchange_name,
+                    routing_key=self.config.pipeline_batch_execute_routing_key,
+                )
+                # Confirm mode makes a publish wait for the broker acknowledgement.
+                # Combined with mandatory=True below, an unbound routing key raises
+                # instead of being silently discarded by RabbitMQ.
+                channel.confirm_delivery()
             with self._state_lock:
                 self.connection = connection
                 self.channel = channel
@@ -144,7 +161,7 @@ class MessagePublisher:
                 break
 
             try:
-                for attempt in range(1, 3):
+                for attempt in range(1, PUBLISH_MAX_ATTEMPTS + 1):
                     try:
                         self._ensure_connection()
                         with self._state_lock:
@@ -159,16 +176,23 @@ class MessagePublisher:
                                 delivery_mode=2,
                                 content_type="application/json",
                             ),
+                            mandatory=True,
                         )
                         request.error = None
                         break
                     except Exception as exc:
-                        logger.error(f"Failed to publish training task: {exc}")
+                        logger.warning(
+                            "Failed to publish RabbitMQ message: routing_key=%s attempt=%s/%s error=%s",
+                            request.routing_key,
+                            attempt,
+                            PUBLISH_MAX_ATTEMPTS,
+                            exc,
+                        )
                         self._close_connection()
                         request.error = exc
-                        if attempt >= 2:
+                        if attempt >= PUBLISH_MAX_ATTEMPTS:
                             raise
-                        time.sleep(0.5)
+                        time.sleep(PUBLISH_RETRY_INTERVAL_SECONDS)
             except Exception:
                 pass
             finally:
@@ -217,6 +241,8 @@ class MessagePublisher:
         )
 
     def wait_until_ready(self, timeout: float = 5) -> bool:
+        if self.is_ready():
+            return True
         self._reconnect_requested.set()
         deadline = time.time() + max(0, timeout)
         while time.time() < deadline:

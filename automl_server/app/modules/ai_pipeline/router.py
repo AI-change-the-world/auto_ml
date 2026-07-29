@@ -245,7 +245,7 @@ async def cancel_batch_run(
 @router.post(
     "/batch-runs/{run_id}/resume",
     response_model=Result[AiPipelineBatchRunResponse],
-    summary="继续执行等待中的批量自动标注任务",
+    summary="继续执行或重试批量自动标注任务",
 )
 async def resume_batch_run(
     run_id: str,
@@ -253,6 +253,20 @@ async def resume_batch_run(
     service: BatchAnnotationService = Depends(get_batch_annotation_service),
 ):
     return Result.ok(await service.resume_run(db, run_id), "Batch annotation run re-dispatched")
+
+
+@router.delete(
+    "/batch-runs/{run_id}",
+    response_model=Result,
+    summary="删除已结束的批量自动标注任务",
+)
+async def delete_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    await service.delete_run(db, run_id)
+    return Result.ok(message="Batch annotation run deleted")
 
 
 @router.post(

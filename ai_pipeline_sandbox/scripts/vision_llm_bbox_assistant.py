@@ -5,14 +5,16 @@ import base64
 import json
 import mimetypes
 import re
+import traceback
 from pathlib import Path
 from typing import Any, Callable
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 REQUEST_TIMEOUT_SECONDS = 120
+HTTP_ERROR_BODY_MAX_BYTES = 8 * 1024
 
 
 def _parse_classes(value: Any) -> list[str]:
@@ -35,15 +37,6 @@ def _parse_classes(value: Any) -> list[str]:
     return classes
 
 
-def _chat_completions_url(base_url: str) -> str:
-    normalized = base_url.strip().rstrip("/")
-    if normalized.endswith("/chat/completions"):
-        return normalized
-    if normalized.endswith("/v1"):
-        return f"{normalized}/chat/completions"
-    return f"{normalized}/v1/chat/completions"
-
-
 def _build_prompt(classes: list[str], extra_prompt: str) -> str:
     prompt = (
         "You are an image object detection annotator. Detect only objects belonging to these allowed "
@@ -64,12 +57,12 @@ def _image_data_url(local_path: str) -> str:
     return f"data:{mime_type};base64,{base64.b64encode(data).decode('ascii')}"
 
 
-def _extract_response_content(response: dict[str, Any]) -> str:
-    choices = response.get("choices")
+def _extract_response_content(response: Any) -> str:
+    choices = getattr(response, "choices", None)
     if not isinstance(choices, list) or not choices:
         raise ValueError("vision API returned no choices")
-    message = choices[0].get("message") if isinstance(choices[0], dict) else None
-    content = message.get("content") if isinstance(message, dict) else None
+    message = getattr(choices[0], "message", None)
+    content = getattr(message, "content", None)
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -119,10 +112,16 @@ def _to_yolo_labels(payload: dict[str, Any], classes: list[str]) -> str:
     return "\n".join(labels)
 
 
-def _annotate_one(item: dict[str, Any], params: dict[str, Any], classes: list[str], prompt: str) -> dict[str, Any]:
-    payload = {
-        "model": params["model_name"],
-        "messages": [
+def _annotate_one(
+    client: OpenAI,
+    item: dict[str, Any],
+    params: dict[str, Any],
+    classes: list[str],
+    prompt: str,
+) -> dict[str, Any]:
+    response = client.chat.completions.create(
+        model=str(params["model_name"]),
+        messages=[
             {"role": "system", "content": "You return strictly valid JSON for image detection tasks."},
             {
                 "role": "user",
@@ -132,20 +131,9 @@ def _annotate_one(item: dict[str, Any], params: dict[str, Any], classes: list[st
                 ],
             },
         ],
-        "temperature": 0,
-    }
-    request = Request(
-        _chat_completions_url(str(params["base_url"])),
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {params['api_key']}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
+        temperature=0,
     )
-    with urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-        response_payload = json.loads(response.read().decode("utf-8"))
-    content = _extract_response_content(response_payload)
+    content = _extract_response_content(response)
     return {
         "batch_item_id": item["batch_item_id"],
         "status": "succeeded",
@@ -156,6 +144,45 @@ def _annotate_one(item: dict[str, Any], params: dict[str, Any], classes: list[st
     }
 
 
+def _error_detail(exc: Exception) -> dict[str, Any]:
+    detail: dict[str, Any] = {
+        "source": "vision_model_api",
+        "stage": "chat_completions",
+        "exception_type": exc.__class__.__name__,
+        "message": str(exc),
+        "traceback": traceback.format_exc(),
+    }
+    if isinstance(exc, APIStatusError):
+        detail["http_status"] = exc.status_code
+        response_body = str(getattr(exc.response, "text", ""))[:HTTP_ERROR_BODY_MAX_BYTES].strip()
+        if response_body:
+            detail["response_body"] = response_body
+        request_id = getattr(exc, "request_id", None)
+        if request_id:
+            detail["request_id"] = request_id
+        headers = getattr(exc.response, "headers", {})
+        for header_name in (
+            "x-request-id",
+            "x-dashscope-request-id",
+            "request-id",
+            "trace-id",
+            "x-trace-id",
+        ):
+            request_id = headers.get(header_name)
+            if request_id:
+                detail["request_id"] = request_id
+                break
+    elif isinstance(exc, (APIConnectionError, APITimeoutError, TimeoutError)):
+        detail["stage"] = "connect_or_request"
+    elif isinstance(exc, (ValueError, json.JSONDecodeError)):
+        detail["source"] = "batch_script"
+        detail["stage"] = "request_or_response_validation"
+    elif isinstance(exc, OSError):
+        detail["source"] = "sandbox"
+        detail["stage"] = "read_input_asset"
+    return detail
+
+
 def execute_batch(params: dict[str, Any], report: Callable[..., None]) -> dict[str, Any]:
     script_params = params.get("script_params") or {}
     classes = _parse_classes(script_params.get("classes"))
@@ -164,16 +191,35 @@ def execute_batch(params: dict[str, Any], report: Callable[..., None]) -> dict[s
     prompt = _build_prompt(classes, str(script_params.get("prompt") or ""))
     results: list[dict[str, Any]] = []
     items = params.get("items") or []
-    for index, item in enumerate(items, start=1):
-        try:
-            results.append(_annotate_one(item, script_params, classes, prompt))
-            message = "vision model annotation completed"
-        except (HTTPError, URLError, TimeoutError, ValueError, OSError, json.JSONDecodeError) as exc:
-            results.append({
-                "batch_item_id": item.get("batch_item_id"),
-                "status": "failed",
-                "error": f"vision model annotation failed: {exc}",
-            })
-            message = "vision model annotation failed"
-        report(processed=index, total=len(items), message=message)
+    client = OpenAI(
+        api_key=str(script_params["api_key"]),
+        base_url=str(script_params["base_url"]).strip().rstrip("/"),
+        timeout=REQUEST_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
+    try:
+        for index, item in enumerate(items, start=1):
+            error_detail: dict[str, Any] | None = None
+            try:
+                results.append(_annotate_one(client, item, script_params, classes, prompt))
+                message = "vision model annotation completed"
+            except (APIStatusError, APIConnectionError, APITimeoutError, ValueError, OSError, json.JSONDecodeError) as exc:
+                error_detail = _error_detail(exc)
+                results.append({
+                    "batch_item_id": item.get("batch_item_id"),
+                    "status": "failed",
+                    "error": f"vision model annotation failed: {exc}",
+                    "error_detail": error_detail,
+                })
+                message = "vision model annotation failed"
+            report(
+                processed=index,
+                total=len(items),
+                message=message,
+                level="error" if error_detail else "info",
+                batch_item_id=item.get("batch_item_id"),
+                error_detail=error_detail,
+            )
+    finally:
+        client.close()
     return {"items": results}

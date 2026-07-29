@@ -1,4 +1,5 @@
 import type {
+  AiPipelineBatchRun,
   AiPipelineBatchRunEvent,
   AiPipelineBatchRunItem,
   AiPipelineBatchRunProgressPoint,
@@ -17,11 +18,19 @@ export const batchRunStatusLabels: Record<string, string> = {
   skipped: '已跳过',
 };
 
+export const batchRunErrorSourceLabels: Record<string, string> = {
+  vision_model_api: '外部视觉模型服务',
+  sandbox: 'Sandbox 执行环境',
+  automl_server: '平台服务',
+  batch_script: '标注脚本',
+};
+
 export const batchRunEventTitles: Record<string, string> = {
   queued: '任务开始执行',
   progress: '样本处理中',
   result: '批次处理完成',
   resumed: '任务已重新派发',
+  dispatch_failed: '任务派发失败',
   canceled: '任务已取消',
 };
 
@@ -88,21 +97,47 @@ export const getItemDuration = (item: AiPipelineBatchRunItem) => {
   return `${seconds.toFixed(seconds < 10 ? 2 : 1)}s`;
 };
 
-export const getBatchRunEventText = (event: AiPipelineBatchRunEvent) => {
+export const getBatchRunEventText = (
+  event: AiPipelineBatchRunEvent,
+  fallbackResultSummary?: Pick<AiPipelineBatchRun, 'succeeded_count' | 'failed_count' | 'skipped_count'>,
+) => {
   const payload = event.event_payload;
   if (event.event_type === 'queued') return '批量标注任务已创建，等待调度执行';
   if (event.event_type === 'progress' && payload && typeof payload === 'object' && !Array.isArray(payload)) {
     const data = payload as Record<string, unknown>;
+    if (data.phase === 'prepare') return '准备样本输入';
+    if (data.phase === 'environment') return '准备脚本执行环境';
     return data.processed !== undefined && data.total !== undefined
       ? `已处理 ${data.processed} / ${data.total}`
       : '正在处理当前批次';
   }
   if (event.event_type === 'result' && payload && typeof payload === 'object' && !Array.isArray(payload)) {
     const data = payload as Record<string, unknown>;
-    return `成功 ${data.succeeded_count ?? 0}，失败 ${data.failed_count ?? 0}，已跳过 ${data.skipped_count ?? 0}`;
+    const succeededCount = typeof data.succeeded_count === 'number' ? data.succeeded_count : 0;
+    const failedCount = typeof data.failed_count === 'number' ? data.failed_count : 0;
+    const skippedCount = typeof data.skipped_count === 'number' ? data.skipped_count : 0;
+    const useFallback = succeededCount + failedCount + skippedCount === 0
+      && fallbackResultSummary
+      && fallbackResultSummary.succeeded_count + fallbackResultSummary.failed_count + fallbackResultSummary.skipped_count > 0;
+    const summary = useFallback ? fallbackResultSummary : {
+      succeeded_count: succeededCount,
+      failed_count: failedCount,
+      skipped_count: skippedCount,
+    };
+    return `成功 ${summary.succeeded_count}，失败 ${summary.failed_count}，已跳过 ${summary.skipped_count}`;
   }
   if (event.event_type === 'canceled') return '任务已取消，已完成的标注结果会保留';
-  if (event.event_type === 'resumed') return '等待中的样本已重新派发到执行队列';
+  if (event.event_type === 'dispatch_failed' && payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const data = payload as Record<string, unknown>;
+    return String(data.message ?? '任务未能派发到执行队列');
+  }
+  if (event.event_type === 'resumed') {
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      const data = payload as Record<string, unknown>;
+      return String(data.message ?? '样本已重新派发到执行队列');
+    }
+    return '样本已重新派发到执行队列';
+  }
   if (typeof payload === 'string') return payload;
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     const data = payload as Record<string, unknown>;
