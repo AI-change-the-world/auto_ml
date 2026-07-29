@@ -135,6 +135,7 @@ export type {
   AiPipelineBatchScriptUpdateRequest,
   AiPipelineBatchRun,
   AiPipelineBatchRunDetail,
+  AiPipelineBatchRunIncrementalStatus,
   AiPipelineBatchRunProgressPoint,
   AiPipelineBatchRunItem,
   AiPipelineBatchRunEvent,

@@ -4,6 +4,7 @@ import type {
   AiPipelineBatchRunCreateRequest,
   AiPipelineBatchRunDetail,
   AiPipelineBatchRunEvent,
+  AiPipelineBatchRunIncrementalStatus,
   AiPipelineBatchRunItem,
   AiPipelineBatchScript,
   AiPipelineBatchScriptUpdateRequest,
@@ -77,6 +78,13 @@ export async function getBatchAnnotationRunItems(runId: string, page = 1, pageSi
   return res.data.data;
 }
 
+export async function getBatchAnnotationRunIncrementalStatus(runId: string) {
+  const res = await apiClient.get<Result<AiPipelineBatchRunIncrementalStatus>>(
+    `/ai-pipeline/batch-runs/${runId}/incremental-status`,
+  );
+  return res.data.data;
+}
+
 export async function cancelBatchAnnotationRun(runId: string) {
   const res = await apiClient.post<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}/cancel`);
   return res.data.data;
@@ -84,6 +92,11 @@ export async function cancelBatchAnnotationRun(runId: string) {
 
 export async function resumeBatchAnnotationRun(runId: string) {
   const res = await apiClient.post<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}/resume`);
+  return res.data.data;
+}
+
+export async function createIncrementalBatchAnnotationRun(runId: string) {
+  const res = await apiClient.post<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}/incremental`);
   return res.data.data;
 }
 

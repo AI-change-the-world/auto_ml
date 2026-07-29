@@ -355,6 +355,7 @@ class BatchSandboxWorker:
                         int(event.get("processed") or 0),
                         int(event.get("total") or len(items)),
                         str(event.get("message") or "script progress"),
+                        batch_item_id=event.get("batch_item_id"),
                     )
                 return
             if line.startswith(LOG_PREFIX):
@@ -584,19 +585,23 @@ class BatchSandboxWorker:
         message: str,
         *,
         phase: str = "execution",
+        batch_item_id: int | None = None,
     ) -> None:
+        payload = {
+            "message_type": "pipeline.batch.progress",
+            "service_name": "ai_pipeline_sandbox",
+            "run_id": run_id,
+            "chunk_key": chunk_key,
+            "processed": processed,
+            "total": total,
+            "message": message,
+            "phase": phase,
+        }
+        if isinstance(batch_item_id, int) and not isinstance(batch_item_id, bool):
+            payload["batch_item_id"] = batch_item_id
         self._publish(
             self.settings.rabbitmq.progress_routing_key,
-            {
-                "message_type": "pipeline.batch.progress",
-                "service_name": "ai_pipeline_sandbox",
-                "run_id": run_id,
-                "chunk_key": chunk_key,
-                "processed": processed,
-                "total": total,
-                "message": message,
-                "phase": phase,
-            },
+            payload,
         )
 
     def _publish_result(self, run_id: str, chunk_key: str, results: list[dict[str, Any]]) -> None:

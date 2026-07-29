@@ -64,7 +64,7 @@ export const BatchAnnotationRunItemsPanel: React.FC<BatchAnnotationRunItemsPanel
     { key: 'all', label: '全部', count: run.total_count, countClass: 'text-blue-500' },
     { key: 'succeeded', label: '成功', count: run.succeeded_count, countClass: 'bg-green-50 text-green-500' },
     { key: 'failed', label: '失败', count: run.failed_count, countClass: 'bg-red-50 text-red-500' },
-    { key: 'pending', label: '待处理', count: pendingCount, countClass: 'bg-gray-100 text-gray-500' },
+    { key: 'pending', label: '未完成', count: pendingCount, countClass: 'bg-gray-100 text-gray-500' },
     { key: 'skipped', label: '已跳过', count: run.skipped_count, countClass: 'bg-yellow-50 text-yellow-600' },
     { key: 'canceled', label: '已取消', count: run.canceled_count, countClass: 'bg-orange-50 text-orange-500' },
   ];

@@ -43,6 +43,7 @@ from .batch_schemas import (
     AiPipelineBatchRunCreate,
     AiPipelineBatchRunDetailResponse,
     AiPipelineBatchRunEventResponse,
+    AiPipelineBatchRunIncrementalStatus,
     AiPipelineBatchRunItemResponse,
     AiPipelineBatchRunProgressPoint,
     AiPipelineBatchRunResponse,
@@ -512,6 +513,8 @@ class BatchAnnotationService:
         self,
         db: AsyncSession,
         data: AiPipelineBatchRunCreate,
+        *,
+        batch_group_id: str | None = None,
     ) -> AiPipelineBatchRunResponse:
         script = await self._get_script(db, data.script_key)
         if not script:
@@ -560,6 +563,7 @@ class BatchAnnotationService:
         now = datetime.now()
         run = AiPipelineBatchRun(
             run_id=f"batch_{uuid.uuid4().hex}",
+            batch_group_id=batch_group_id or f"batch_group_{uuid.uuid4().hex}",
             dataset_id=dataset.id,
             annotation_id=annotation.id,
             script_key=script["key"],
@@ -621,6 +625,83 @@ class BatchAnnotationService:
         await self._publish_run_update(run, event)
         await self._dispatch_or_record_failure(db, run)
         return self._to_run_response(run)
+
+    async def get_incremental_status(
+        self,
+        db: AsyncSession,
+        run_id: str,
+    ) -> AiPipelineBatchRunIncrementalStatus:
+        source_run = await self._get_run(db, run_id)
+        sample_ids = await self._get_incremental_sample_ids(db, source_run)
+        return AiPipelineBatchRunIncrementalStatus(incremental_count=len(sample_ids))
+
+    async def create_incremental_run(
+        self,
+        db: AsyncSession,
+        run_id: str,
+    ) -> AiPipelineBatchRunResponse:
+        source_run = await self._get_run(db, run_id)
+        if source_run.status in {"queued", "running"}:
+            raise BadRequestException("wait for the current batch run to finish before processing new samples")
+        if not source_run.batch_group_id:
+            source_run.batch_group_id = f"batch_group_{source_run.run_id}"
+            await db.flush()
+
+        sample_ids = await self._get_incremental_sample_ids(db, source_run)
+        if not sample_ids:
+            raise BadRequestException("no new unannotated samples found")
+        script_params = self._reveal_script_params(_load_json(source_run.script_params_json, {}))
+        return await self.create_run(
+            db,
+            AiPipelineBatchRunCreate(
+                dataset_id=source_run.dataset_id,
+                annotation_id=source_run.annotation_id,
+                script_key=source_run.script_key,
+                selection_mode="selected",
+                sample_item_ids=sample_ids,
+                overwrite_policy=source_run.overwrite_policy,
+                script_params=script_params,
+                batch_size=source_run.batch_size,
+                parallelism=source_run.parallelism,
+            ),
+            batch_group_id=source_run.batch_group_id,
+        )
+
+    async def _get_incremental_sample_ids(
+        self,
+        db: AsyncSession,
+        source_run: AiPipelineBatchRun,
+    ) -> list[int]:
+        handled_samples = (
+            select(AiPipelineBatchRunItem.id)
+            .join(AiPipelineBatchRun, AiPipelineBatchRun.id == AiPipelineBatchRunItem.batch_run_id)
+            .where(AiPipelineBatchRunItem.sample_item_id == SampleItem.id)
+        )
+        if source_run.batch_group_id:
+            handled_samples = handled_samples.where(
+                AiPipelineBatchRun.batch_group_id == source_run.batch_group_id
+            )
+        else:
+            handled_samples = handled_samples.where(AiPipelineBatchRun.id == source_run.id)
+        sample_ids = list(
+            (
+                await db.execute(
+                    select(SampleItem.id)
+                    .where(
+                        SampleItem.dataset_id == source_run.dataset_id,
+                        SampleItem.is_deleted == False,
+                        ~handled_samples.exists(),
+                    )
+                    .order_by(SampleItem.id.asc())
+                )
+            ).scalars().all()
+        )
+        existing_records = await self._load_existing_records(
+            db,
+            source_run.annotation_id,
+            sample_ids,
+        )
+        return [sample_id for sample_id in sample_ids if sample_id not in existing_records]
 
     async def list_runs(
         self,
@@ -804,7 +885,7 @@ class BatchAnnotationService:
                 await db.execute(
                     select(AiPipelineBatchRunItem).where(
                         AiPipelineBatchRunItem.batch_run_id == run.id,
-                        AiPipelineBatchRunItem.status.in_(["pending", "queued"]),
+                        AiPipelineBatchRunItem.status.in_(["pending", "queued", "running"]),
                         AiPipelineBatchRunItem.is_deleted == False,
                     )
                 )
@@ -901,13 +982,14 @@ class BatchAnnotationService:
         chunk_key = str(payload.get("chunk_key") or "")
         if not chunk_key:
             return
+        phase = str(payload.get("phase") or "execution")
         active_chunk_count = int(
             (
                 await db.execute(
                     select(func.count()).select_from(AiPipelineBatchRunItem).where(
                         AiPipelineBatchRunItem.batch_run_id == run.id,
                         AiPipelineBatchRunItem.chunk_key == chunk_key,
-                        AiPipelineBatchRunItem.status == "queued",
+                        AiPipelineBatchRunItem.status.in_(["queued", "running"]),
                         AiPipelineBatchRunItem.is_deleted == False,
                     )
                 )
@@ -918,7 +1000,19 @@ class BatchAnnotationService:
         if run.status == "queued":
             run.status = "running"
             run.started_at = run.started_at or datetime.now()
-        phase = str(payload.get("phase") or "execution")
+        batch_item_id = payload.get("batch_item_id")
+        if phase == "execution" and isinstance(batch_item_id, int) and not isinstance(batch_item_id, bool):
+            item = await db.scalar(
+                select(AiPipelineBatchRunItem).where(
+                    AiPipelineBatchRunItem.id == batch_item_id,
+                    AiPipelineBatchRunItem.batch_run_id == run.id,
+                    AiPipelineBatchRunItem.chunk_key == chunk_key,
+                    AiPipelineBatchRunItem.status == "queued",
+                    AiPipelineBatchRunItem.is_deleted == False,
+                )
+            )
+            if item:
+                item.status = "running"
         terminal_stmt = select(func.count()).select_from(AiPipelineBatchRunItem).where(
             AiPipelineBatchRunItem.batch_run_id == run.id,
             AiPipelineBatchRunItem.status.in_(TERMINAL_ITEM_STATUSES),
@@ -946,6 +1040,7 @@ class BatchAnnotationService:
                 "run_progress": run.progress,
                 "message": payload.get("message"),
                 "phase": phase,
+                "batch_item_id": batch_item_id,
             },
         )
         await db.commit()
@@ -966,7 +1061,7 @@ class BatchAnnotationService:
                     select(AiPipelineBatchRunItem).where(
                         AiPipelineBatchRunItem.batch_run_id == run.id,
                         AiPipelineBatchRunItem.chunk_key == chunk_key,
-                        AiPipelineBatchRunItem.status == "queued",
+                        AiPipelineBatchRunItem.status.in_(["queued", "running"]),
                         AiPipelineBatchRunItem.is_deleted == False,
                     )
                 )
@@ -978,7 +1073,7 @@ class BatchAnnotationService:
         now = datetime.now()
         if run.cancel_requested:
             for item in items:
-                if item.status == "queued":
+                if item.status in {"queued", "running"}:
                     item.status = "canceled"
                     item.finished_at = now
             await self._refresh_run_counts(db, run)
@@ -1088,7 +1183,7 @@ class BatchAnnotationService:
             select(func.count(func.distinct(AiPipelineBatchRunItem.chunk_key)))
             .where(
                 AiPipelineBatchRunItem.batch_run_id == run.id,
-                AiPipelineBatchRunItem.status == "queued",
+                AiPipelineBatchRunItem.status.in_(["queued", "running"]),
                 AiPipelineBatchRunItem.chunk_key.is_not(None),
                 AiPipelineBatchRunItem.is_deleted == False,
             )
@@ -1311,14 +1406,14 @@ class BatchAnnotationService:
         run.canceled_count = counts.get("canceled", 0)
         completed = sum(counts.get(status, 0) for status in TERMINAL_ITEM_STATUSES)
         run.progress = self._calculate_progress(run.total_count, completed)
-        active_count = counts.get("pending", 0) + counts.get("queued", 0)
+        active_count = counts.get("pending", 0) + counts.get("queued", 0) + counts.get("running", 0)
         if run.cancel_requested:
             run.status = "canceled"
             run.finished_at = run.finished_at or datetime.now()
         elif active_count == 0:
             run.finished_at = run.finished_at or datetime.now()
             run.status = "failed" if run.succeeded_count == 0 and run.failed_count > 0 else "succeeded"
-        elif run.status == "queued" and counts.get("queued", 0) > 0:
+        elif run.status == "queued" and counts.get("queued", 0) + counts.get("running", 0) > 0:
             run.status = "running"
             run.started_at = run.started_at or datetime.now()
 

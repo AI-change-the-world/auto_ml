@@ -80,6 +80,7 @@ class ModelUndeployedMessage(BaseMessage):
 class PipelineBatchProgressMessage(BaseMessage):
     run_id: str
     chunk_key: str
+    batch_item_id: Optional[int] = None
     processed: int = 0
     total: int = 0
     message: Optional[str] = None

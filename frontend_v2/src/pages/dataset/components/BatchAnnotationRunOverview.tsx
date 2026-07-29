@@ -64,7 +64,7 @@ export const BatchAnnotationRunOverview: React.FC<RunOverviewProps> = ({ run, pe
     { label: '总样本数', value: run.total_count, color: 'text-gray-800' },
     { label: '已完成', value: run.succeeded_count, color: 'text-green-500' },
     { label: '失败', value: run.failed_count, color: 'text-red-500' },
-    { label: '待处理', value: pendingCount, color: 'text-gray-800' },
+    { label: '未完成', value: pendingCount, color: 'text-gray-800' },
   ];
 
   return (
@@ -284,7 +284,7 @@ export const BatchAnnotationRunResults: React.FC<RunOverviewProps> = ({ run, pen
   const legend = [
     { label: '成功', value: run.succeeded_count, color: 'bg-green-500' },
     { label: '失败', value: run.failed_count, color: 'bg-red-500' },
-    { label: '待处理', value: pendingCount, color: 'bg-gray-300' },
+    { label: '未完成', value: pendingCount, color: 'bg-gray-300' },
     { label: '已跳过', value: run.skipped_count, color: 'bg-yellow-500' },
     { label: '已取消', value: run.canceled_count, color: 'bg-orange-500' },
   ];

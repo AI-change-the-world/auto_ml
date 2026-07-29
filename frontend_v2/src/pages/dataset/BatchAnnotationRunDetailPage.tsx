@@ -19,8 +19,10 @@ import {
 } from 'antd';
 import {
   cancelBatchAnnotationRun,
+  createIncrementalBatchAnnotationRun,
   getBatchAnnotationRun,
   getBatchAnnotationRunEvents,
+  getBatchAnnotationRunIncrementalStatus,
   getBatchAnnotationRunItems,
   resumeBatchAnnotationRun,
 } from '../../api/batchAnnotation';
@@ -70,6 +72,8 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [canceling, setCanceling] = React.useState(false);
   const [resuming, setResuming] = React.useState(false);
+  const [incrementalCount, setIncrementalCount] = React.useState(0);
+  const [startingIncremental, setStartingIncremental] = React.useState(false);
   const [logDrawerOpen, setLogDrawerOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<AiPipelineBatchRunItem | null>(null);
   const [annotationClassNames, setAnnotationClassNames] = React.useState<string[]>([]);
@@ -153,6 +157,19 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
     loadItemsRef.current = loadItems;
   }, [loadItems]);
 
+  const loadIncrementalStatus = React.useCallback(async () => {
+    if (!run || activeBatchRunStatuses.has(run.status)) {
+      setIncrementalCount(0);
+      return;
+    }
+    try {
+      const status = await getBatchAnnotationRunIncrementalStatus(run.run_id);
+      setIncrementalCount(status?.incremental_count ?? 0);
+    } catch (error) {
+      if (!handleMissingRun(error)) setIncrementalCount(0);
+    }
+  }, [handleMissingRun, run?.run_id, run?.status]);
+
   React.useEffect(() => {
     lastEventIdRef.current = 0;
     missingRunHandledRef.current = false;
@@ -190,6 +207,10 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
     setItemsPage(1);
     void loadItems(1);
   }, [loadItems]);
+
+  React.useEffect(() => {
+    void loadIncrementalStatus();
+  }, [loadIncrementalStatus]);
 
   React.useEffect(() => {
     if (!runId || !hasLoadedRun) return;
@@ -232,7 +253,7 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
   }, [run?.status, syncRun]);
 
   const handleRefresh = async () => {
-    await Promise.all([loadRun(), loadItems()]);
+    await Promise.all([loadRun(), loadItems(), loadIncrementalStatus()]);
   };
 
   const handleCancel = async () => {
@@ -243,7 +264,7 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
       if (nextRun) setRun((current) => current ? { ...current, ...nextRun } : current);
       emitBatchAnnotationRunsChanged();
       message.success('任务已取消，已完成的标注会保留');
-      await Promise.all([loadRun(), loadItems()]);
+      await Promise.all([loadRun(), loadItems(), loadIncrementalStatus()]);
     } catch {
       message.error('取消任务失败');
     } finally {
@@ -263,11 +284,28 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
       } else {
         message.success(run.status === 'queued' ? '任务已重新派发，等待执行端处理' : '失败样本已重新派发，等待执行端处理');
       }
-      await Promise.all([loadRun(), loadItems()]);
+      await Promise.all([loadRun(), loadItems(), loadIncrementalStatus()]);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '重新派发任务失败');
     } finally {
       setResuming(false);
+    }
+  };
+
+  const handleStartIncremental = async () => {
+    if (!run) return;
+    setStartingIncremental(true);
+    try {
+      const nextRun = await createIncrementalBatchAnnotationRun(run.run_id);
+      if (!nextRun) throw new Error('创建增量任务失败');
+      emitBatchAnnotationRunsChanged();
+      message.success(`已创建增量任务，处理 ${incrementalCount} 个新增样本`);
+      navigate(`/batch-annotation/runs/${nextRun.run_id}`);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '创建增量任务失败');
+      await loadIncrementalStatus();
+    } finally {
+      setStartingIncremental(false);
     }
   };
 
@@ -288,7 +326,11 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
     run.total_count - run.succeeded_count - run.failed_count - run.skipped_count - run.canceled_count,
     0,
   );
-  const processedCount = run.total_count - pendingCount;
+  const completedCount = run.total_count - pendingCount;
+  const processedCount = Math.min(
+    run.total_count,
+    Math.max(completedCount, Math.round((run.progress / 100) * run.total_count)),
+  );
 
   return (
     <ConfigProvider theme={{ token: { colorPrimary: '#3b82f6', borderRadius: 6 } }}>
@@ -301,6 +343,11 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
           </div>
           <div className="flex shrink-0 gap-3">
             <Button icon={<SyncOutlined />} loading={refreshing} onClick={() => void handleRefresh()}>刷新</Button>
+            {!activeBatchRunStatuses.has(run.status) && incrementalCount > 0 ? (
+              <Button type="primary" icon={<PlayCircleOutlined />} loading={startingIncremental} onClick={() => void handleStartIncremental()}>
+                处理新增 {incrementalCount} 个样本
+              </Button>
+            ) : null}
             {run.status === 'queued' || (
               ['failed', 'succeeded'].includes(run.status) && run.failed_count > 0
             ) ? (

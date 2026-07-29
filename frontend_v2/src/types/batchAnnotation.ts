@@ -61,6 +61,10 @@ export interface AiPipelineBatchRunProgressPoint {
   created_at: string;
 }
 
+export interface AiPipelineBatchRunIncrementalStatus {
+  incremental_count: number;
+}
+
 export interface AiPipelineBatchRunDetail extends AiPipelineBatchRun {
   dataset_name: string;
   annotation_name: string;

@@ -10,6 +10,7 @@ class AiPipelineBatchRun(BaseEntity):
     __tablename__ = "ai_pipeline_batch_run"
 
     run_id = Column(String(64), nullable=False, unique=True, index=True, comment="外部运行ID")
+    batch_group_id = Column(String(64), nullable=True, index=True, comment="连续增量批量标注分组ID")
     dataset_id = Column(BigInteger, nullable=False, index=True, comment="数据集ID")
     annotation_id = Column(BigInteger, nullable=False, index=True, comment="标注项目ID")
     script_key = Column(String(128), nullable=False, comment="脚本标识")

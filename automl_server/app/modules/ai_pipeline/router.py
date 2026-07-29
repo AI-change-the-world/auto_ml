@@ -29,6 +29,7 @@ from .batch_schemas import (
     AiPipelineBatchRunCreate,
     AiPipelineBatchRunDetailResponse,
     AiPipelineBatchRunEventResponse,
+    AiPipelineBatchRunIncrementalStatus,
     AiPipelineBatchRunItemResponse,
     AiPipelineBatchRunResponse,
     AiPipelineBatchScriptResponse,
@@ -160,6 +161,19 @@ async def get_batch_run(
 
 
 @router.get(
+    "/batch-runs/{run_id}/incremental-status",
+    response_model=Result[AiPipelineBatchRunIncrementalStatus],
+    summary="获取批量标注任务的新增待处理样本数",
+)
+async def get_batch_run_incremental_status(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.get_incremental_status(db, run_id))
+
+
+@router.get(
     "/batch-runs/{run_id}/stream",
     summary="批量自动标注任务 SSE 事件流",
 )
@@ -253,6 +267,22 @@ async def resume_batch_run(
     service: BatchAnnotationService = Depends(get_batch_annotation_service),
 ):
     return Result.ok(await service.resume_run(db, run_id), "Batch annotation run re-dispatched")
+
+
+@router.post(
+    "/batch-runs/{run_id}/incremental",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="按原配置处理新增未标注样本",
+)
+async def create_incremental_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(
+        await service.create_incremental_run(db, run_id),
+        "Incremental batch annotation run created",
+    )
 
 
 @router.delete(

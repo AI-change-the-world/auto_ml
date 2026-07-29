@@ -82,6 +82,10 @@ class AiPipelineBatchRunProgressPoint(BaseModel):
     created_at: datetime
 
 
+class AiPipelineBatchRunIncrementalStatus(BaseModel):
+    incremental_count: int
+
+
 class AiPipelineBatchRunDetailResponse(AiPipelineBatchRunResponse):
     dataset_name: str
     annotation_name: str
