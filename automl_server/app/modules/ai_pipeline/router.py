@@ -243,6 +243,19 @@ async def cancel_batch_run(
 
 
 @router.post(
+    "/batch-runs/{run_id}/resume",
+    response_model=Result[AiPipelineBatchRunResponse],
+    summary="继续执行等待中的批量自动标注任务",
+)
+async def resume_batch_run(
+    run_id: str,
+    db: AsyncSession = Depends(get_db),
+    service: BatchAnnotationService = Depends(get_batch_annotation_service),
+):
+    return Result.ok(await service.resume_run(db, run_id), "Batch annotation run re-dispatched")
+
+
+@router.post(
     "/templates",
     response_model=Result[AiPipelineTemplateListItem],
     summary="创建 AI Pipeline 模板",

@@ -81,3 +81,8 @@ export async function cancelBatchAnnotationRun(runId: string) {
   const res = await apiClient.post<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}/cancel`);
   return res.data.data;
 }
+
+export async function resumeBatchAnnotationRun(runId: string) {
+  const res = await apiClient.post<Result<AiPipelineBatchRun>>(`/ai-pipeline/batch-runs/${runId}/resume`);
+  return res.data.data;
+}

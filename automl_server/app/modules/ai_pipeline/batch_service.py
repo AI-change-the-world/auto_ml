@@ -782,9 +782,59 @@ class BatchAnnotationService:
         await self._publish_run_update(run, event)
         return self._to_run_response(run)
 
+    async def resume_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
+        run = await self._get_run(db, run_id)
+        if run.status != "queued" or run.cancel_requested:
+            raise BadRequestException("only queued batch runs can be resumed")
+
+        queued_items = list(
+            (
+                await db.execute(
+                    select(AiPipelineBatchRunItem).where(
+                        AiPipelineBatchRunItem.batch_run_id == run.id,
+                        AiPipelineBatchRunItem.status == "queued",
+                        AiPipelineBatchRunItem.is_deleted == False,
+                    )
+                )
+            ).scalars().all()
+        )
+        for item in queued_items:
+            item.status = "pending"
+            item.chunk_key = None
+            item.started_at = None
+
+        event = await self._append_event(
+            db,
+            run.id,
+            "resumed",
+            {"requeued_count": len(queued_items), "message": "batch run re-dispatched"},
+        )
+        await db.commit()
+        await db.refresh(run)
+        await self._publish_run_update(run, event)
+        await self._dispatch_available_chunks(db, run)
+        return self._to_run_response(run)
+
     async def handle_worker_progress(self, db: AsyncSession, payload: dict[str, Any]) -> None:
         run = await self._find_run(db, str(payload.get("run_id") or ""))
         if not run or run.cancel_requested:
+            return
+        chunk_key = str(payload.get("chunk_key") or "")
+        if not chunk_key:
+            return
+        active_chunk_count = int(
+            (
+                await db.execute(
+                    select(func.count()).select_from(AiPipelineBatchRunItem).where(
+                        AiPipelineBatchRunItem.batch_run_id == run.id,
+                        AiPipelineBatchRunItem.chunk_key == chunk_key,
+                        AiPipelineBatchRunItem.status == "queued",
+                        AiPipelineBatchRunItem.is_deleted == False,
+                    )
+                )
+            ).scalar() or 0
+        )
+        if active_chunk_count == 0:
             return
         if run.status == "queued":
             run.status = "running"
@@ -808,7 +858,7 @@ class BatchAnnotationService:
             run.id,
             "progress",
             {
-                "chunk_key": payload.get("chunk_key"),
+                "chunk_key": chunk_key,
                 "processed": payload.get("processed"),
                 "total": payload.get("total"),
                 "run_progress": run.progress,
@@ -833,6 +883,7 @@ class BatchAnnotationService:
                     select(AiPipelineBatchRunItem).where(
                         AiPipelineBatchRunItem.batch_run_id == run.id,
                         AiPipelineBatchRunItem.chunk_key == chunk_key,
+                        AiPipelineBatchRunItem.status == "queued",
                         AiPipelineBatchRunItem.is_deleted == False,
                     )
                 )

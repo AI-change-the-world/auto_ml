@@ -21,6 +21,7 @@ export const batchRunEventTitles: Record<string, string> = {
   queued: '任务开始执行',
   progress: '样本处理中',
   result: '批次处理完成',
+  resumed: '任务已重新派发',
   canceled: '任务已取消',
 };
 
@@ -101,6 +102,7 @@ export const getBatchRunEventText = (event: AiPipelineBatchRunEvent) => {
     return `成功 ${data.succeeded_count ?? 0}，失败 ${data.failed_count ?? 0}，已跳过 ${data.skipped_count ?? 0}`;
   }
   if (event.event_type === 'canceled') return '任务已取消，已完成的标注结果会保留';
+  if (event.event_type === 'resumed') return '等待中的样本已重新派发到执行队列';
   if (typeof payload === 'string') return payload;
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
     const data = payload as Record<string, unknown>;

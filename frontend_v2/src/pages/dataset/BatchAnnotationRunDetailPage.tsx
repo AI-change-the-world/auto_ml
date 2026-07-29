@@ -2,6 +2,7 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import {
   CloseOutlined,
+  PlayCircleOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import {
@@ -21,6 +22,7 @@ import {
   getBatchAnnotationRun,
   getBatchAnnotationRunEvents,
   getBatchAnnotationRunItems,
+  resumeBatchAnnotationRun,
 } from '../../api/batchAnnotation';
 import { subscribeBatchAnnotationRunStream } from '../../api/batchAnnotationStream';
 import type {
@@ -62,6 +64,7 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
   const [itemsLoading, setItemsLoading] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
   const [canceling, setCanceling] = React.useState(false);
+  const [resuming, setResuming] = React.useState(false);
   const [logDrawerOpen, setLogDrawerOpen] = React.useState(false);
   const [selectedItem, setSelectedItem] = React.useState<AiPipelineBatchRunItem | null>(null);
   const lastEventIdRef = React.useRef(0);
@@ -171,6 +174,22 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
     }
   };
 
+  const handleResume = async () => {
+    if (!run) return;
+    setResuming(true);
+    try {
+      const nextRun = await resumeBatchAnnotationRun(run.run_id);
+      if (nextRun) setRun((current) => current ? { ...current, ...nextRun } : current);
+      emitBatchAnnotationRunsChanged();
+      message.success('任务已重新派发，等待执行端处理');
+      await Promise.all([loadRun(), loadItems()]);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '重新派发任务失败');
+    } finally {
+      setResuming(false);
+    }
+  };
+
   const handlePageChange = (page: number) => {
     itemsPageRef.current = page;
     setItemsPage(page);
@@ -201,6 +220,9 @@ const BatchAnnotationRunDetailPage: React.FC = () => {
           </div>
           <div className="flex shrink-0 gap-3">
             <Button icon={<SyncOutlined />} loading={refreshing} onClick={() => void handleRefresh()}>刷新</Button>
+            {run.status === 'queued' ? (
+              <Button type="primary" icon={<PlayCircleOutlined />} loading={resuming} onClick={() => void handleResume()}>继续执行</Button>
+            ) : null}
             {activeBatchRunStatuses.has(run.status) ? (
               <Popconfirm
                 title="确认取消当前任务？"
