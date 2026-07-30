@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Button, Form, Input, InputNumber, Switch, message } from 'antd';
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CloudServerOutlined,
+  CommentOutlined,
+  CloseCircleOutlined,
+  SettingOutlined,
+  SlidersOutlined,
+} from '@ant-design/icons';
+import { Button, Divider, Form, Input, InputNumber, Switch, Tabs, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import { getAssistantConfig, updateAssistantConfig } from '../../api/assistant';
@@ -173,7 +181,7 @@ const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="page-container" style={{ maxWidth: 700 }}>
+    <div className="page-container" style={{ maxWidth: 960 }}>
       <div className="page-header">
         <div className="page-title-block">
           <div className="page-title-icon">
@@ -185,117 +193,133 @@ const SettingsPage: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('systemInfo')}</h3>
-        {[
-          { label: t('platformName'), value: platformName },
-          { label: t('version'), value: backendVersion },
-          { label: t('apiAddress'), value: apiBaseUrl, mono: true },
-          { label: t('backendProxy'), value: apiBaseUrl, mono: true },
-        ].map((item, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 3 ? '1px solid #f8f8f8' : 'none' }}>
-            <span className="body-text-sm" style={{ color: '#888' }}>{item.label}</span>
-            <span className="body-text-sm" style={{ color: '#111', fontFamily: item.mono ? 'monospace' : 'inherit', background: item.mono ? '#f7f7f8' : 'none', padding: item.mono ? '2px 8px' : 0, borderRadius: 4 }}>{item.value}</span>
-          </div>
-          ))}
-      </div>
-
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('serviceVersions')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-          {dependencyRows.map((item) => {
-            const detail = dependencyMap[item.key];
-            const version = detail?.version || '-';
-            const status = detail?.status || 'unavailable';
-            const versionText = version === '-' ? '-' : `v${version}`;
-            return (
-              <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fafafa', borderRadius: 8 }}>
-                <span className="body-text-sm" style={{ color: '#555' }}>{item.label}</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="body-text-sm" style={{ color: '#111', fontFamily: 'monospace' }}>{versionText}</span>
-                  {status === 'enabled' ? (
-                    <span className="caption-text" style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}>{tc('status.enabled')}</span>
-                  ) : (
-                    <span className="caption-text" style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>{tc('status.notAvailable')}</span>
-                  )}
-                </span>
+      <Tabs
+        className="settings-section-tabs"
+        defaultActiveKey="general"
+        animated={false}
+        items={[
+          {
+            key: 'general',
+            label: <span className="flex items-center gap-2"><SlidersOutlined />常规</span>,
+            children: (
+              <div className="settings-section-panel">
+                <h2 className="settings-section-title">常规设置</h2>
+                <div className="settings-section-subtitle">系统信息</div>
+                {[
+                  { label: t('platformName'), value: platformName },
+                  { label: t('version'), value: backendVersion },
+                  { label: t('apiAddress'), value: apiBaseUrl, mono: true },
+                  { label: t('backendProxy'), value: apiBaseUrl, mono: true },
+                ].map((item, index) => (
+                  <div className="settings-info-row" key={item.label} style={{ borderBottom: index < 3 ? '1px solid #f1f5f9' : 'none' }}>
+                    <span className="body-text-sm text-slate-500">{item.label}</span>
+                    <span className={`body-text-sm text-slate-900 ${item.mono ? 'settings-mono-value' : ''}`}>{item.value}</span>
+                  </div>
+                ))}
+                <Divider />
+                <div className="settings-section-subtitle">删除确认</div>
+                <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-4">
+                  <span className="body-text-sm text-slate-600">数据集删除需要确认</span>
+                  <Switch checked={datasetDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDatasetDeleteConfirmEnabledState, setDatasetDeleteConfirmEnabled, '数据集删除')} />
+                  <span className="body-text-sm text-slate-600">标注删除需要确认</span>
+                  <Switch checked={annotationDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setAnnotationDeleteConfirmEnabledState, setAnnotationDeleteConfirmEnabled, '标注删除')} />
+                  <span className="body-text-sm text-slate-600">任务删除需要确认</span>
+                  <Switch checked={taskDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setTaskDeleteConfirmEnabledState, setTaskDeleteConfirmEnabled, '任务删除')} />
+                  <span className="body-text-sm text-slate-600">部署下线需要确认</span>
+                  <Switch checked={deployConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDeployConfirmEnabledState, setDeployConfirmEnabled, '部署下线')} />
+                </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24, marginBottom: 20 }}>
-        <h3 className="card-title" style={{ marginBottom: 16 }}>删除确认</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
-          <span className="body-text-sm" style={{ color: '#555' }}>数据集删除需要确认</span>
-          <Switch checked={datasetDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDatasetDeleteConfirmEnabledState, setDatasetDeleteConfirmEnabled, '数据集删除')} />
-          <span className="body-text-sm" style={{ color: '#555' }}>标注删除需要确认</span>
-          <Switch checked={annotationDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setAnnotationDeleteConfirmEnabledState, setAnnotationDeleteConfirmEnabled, '标注删除')} />
-          <span className="body-text-sm" style={{ color: '#555' }}>任务删除需要确认</span>
-          <Switch checked={taskDeleteConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setTaskDeleteConfirmEnabledState, setTaskDeleteConfirmEnabled, '任务删除')} />
-          <span className="body-text-sm" style={{ color: '#555' }}>部署下线需要确认</span>
-          <Switch checked={deployConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDeployConfirmEnabledState, setDeployConfirmEnabled, '部署下线')} />
-        </div>
-      </div>
-
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: 24, marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-          <div>
-            <h3 className="card-title" style={{ marginBottom: 4 }}>智能助手</h3>
-            <div className="body-text-sm" style={{ color: '#888' }}>API Key 仅在保存时提交，服务端加密保存且不会读取回显。</div>
-          </div>
-          <Button type="primary" loading={assistantSaving} disabled={assistantLoading} onClick={() => void handleAssistantSave()}>
-            保存配置
-          </Button>
-        </div>
-        <Form form={assistantForm} layout="vertical" disabled={assistantLoading}>
-          <Form.Item label="启用智能助手" name="enabled" valuePropName="checked" style={{ marginBottom: 16 }}>
-            <Switch />
-          </Form.Item>
-          <Form.Item label="Base URL" name="base_url">
-            <Input placeholder="如：https://api.openai.com/v1" />
-          </Form.Item>
-          <Form.Item label="API Key" name="api_key" extra={assistantApiKeyConfigured ? '密钥已配置，留空会保留当前值。' : '首次启用时需要填写。'}>
-            <Input.Password autoComplete="new-password" placeholder={assistantApiKeyConfigured ? '留空保持当前密钥' : '请输入 API Key'} />
-          </Form.Item>
-          <Form.Item label="模型名称" name="model">
-            <Input placeholder="如：gpt-4.1-mini、qwen-plus、deepseek-chat" />
-          </Form.Item>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
-            <Form.Item label="超时（秒）" name="timeout_seconds" rules={[{ required: true }]}>
-              <InputNumber min={1} max={600} precision={0} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item label="Temperature" name="temperature" rules={[{ required: true }]}>
-              <InputNumber min={0} max={5} step={0.1} style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item label="最大输出 Token" name="max_tokens" rules={[{ required: true }]}>
-              <InputNumber min={1} max={65536} precision={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </div>
-          <Form.Item label="系统提示词" name="system_prompt" style={{ marginBottom: 0 }}>
-            <Input.TextArea rows={4} placeholder="留空时使用平台默认助手提示词" />
-          </Form.Item>
-        </Form>
-      </div>
-
-      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24 }}>
-        <h3 className="card-title" style={{ marginBottom: 16 }}>{t('modules')}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {modules.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#fafafa', borderRadius: 8 }}>
-              <span className="body-text-sm" style={{ color: '#555' }}>{m.name}</span>
-              {moduleStatusMap[m.key] === 'enabled' ? (
-                <span className="caption-text" style={{ color: '#16a34a', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircleOutlined /> {tc('status.enabled')}</span>
-              ) : moduleStatusMap[m.key] === 'unavailable' ? (
-                <span className="caption-text" style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
-              ) : (
-                <span className="caption-text" style={{ color: '#bbb', display: 'flex', alignItems: 'center', gap: 4 }}><ClockCircleOutlined /> {tc('status.pending')}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+            ),
+          },
+          {
+            key: 'assistant',
+            label: <span className="flex items-center gap-2"><CommentOutlined />智能助手</span>,
+            children: (
+              <div className="settings-section-panel">
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="settings-section-title">智能助手</h2>
+                    <div className="body-text-sm text-slate-500">API Key 仅在保存时提交，服务端加密保存且不会读取回显。</div>
+                  </div>
+                  <Button type="primary" loading={assistantSaving} disabled={assistantLoading} onClick={() => void handleAssistantSave()}>
+                    保存配置
+                  </Button>
+                </div>
+                <Form form={assistantForm} layout="vertical" disabled={assistantLoading}>
+                  <Form.Item label="启用智能助手" name="enabled" valuePropName="checked" style={{ marginBottom: 16 }}>
+                    <Switch />
+                  </Form.Item>
+                  <Form.Item label="Base URL" name="base_url">
+                    <Input placeholder="如：https://api.openai.com/v1" />
+                  </Form.Item>
+                  <Form.Item label="API Key" name="api_key" extra={assistantApiKeyConfigured ? '密钥已配置，留空会保留当前值。' : '首次启用时需要填写。'}>
+                    <Input.Password autoComplete="new-password" placeholder={assistantApiKeyConfigured ? '留空保持当前密钥' : '请输入 API Key'} />
+                  </Form.Item>
+                  <Form.Item label="模型名称" name="model">
+                    <Input placeholder="如：gpt-4.1-mini、qwen-plus、deepseek-chat" />
+                  </Form.Item>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Form.Item label="超时（秒）" name="timeout_seconds" rules={[{ required: true }]}>
+                      <InputNumber min={1} max={600} precision={0} className="w-full" />
+                    </Form.Item>
+                    <Form.Item label="Temperature" name="temperature" rules={[{ required: true }]}>
+                      <InputNumber min={0} max={5} step={0.1} className="w-full" />
+                    </Form.Item>
+                    <Form.Item label="最大输出 Token" name="max_tokens" rules={[{ required: true }]}>
+                      <InputNumber min={1} max={65536} precision={0} className="w-full" />
+                    </Form.Item>
+                  </div>
+                  <Form.Item label="系统提示词" name="system_prompt" style={{ marginBottom: 0 }}>
+                    <Input.TextArea rows={4} placeholder="留空时使用平台默认助手提示词" />
+                  </Form.Item>
+                </Form>
+              </div>
+            ),
+          },
+          {
+            key: 'runtime',
+            label: <span className="flex items-center gap-2"><CloudServerOutlined />运行状态</span>,
+            children: (
+              <div className="settings-section-panel">
+                <h2 className="settings-section-title">{t('serviceVersions')}</h2>
+                <div className="space-y-2">
+                  {dependencyRows.map((item) => {
+                    const detail = dependencyMap[item.key];
+                    const version = detail?.version || '-';
+                    const status = detail?.status || 'unavailable';
+                    const versionText = version === '-' ? '-' : `v${version}`;
+                    return (
+                      <div key={item.key} className="flex items-center justify-between border-b border-slate-100 py-3 last:border-b-0">
+                        <span className="body-text-sm text-slate-600">{item.label}</span>
+                        <span className="flex items-center gap-3">
+                          <span className="body-text-sm font-mono text-slate-900">{versionText}</span>
+                          <span className={`caption-text ${status === 'enabled' ? 'text-emerald-600' : 'text-rose-600'}`}>{status === 'enabled' ? tc('status.enabled') : tc('status.notAvailable')}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Divider />
+                <div className="settings-section-subtitle">{t('modules')}</div>
+                <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+                  {modules.map((module) => (
+                    <div key={module.key} className="flex items-center justify-between border-b border-slate-100 py-3">
+                      <span className="body-text-sm text-slate-600">{module.name}</span>
+                      {moduleStatusMap[module.key] === 'enabled' ? (
+                        <span className="caption-text flex items-center gap-1 text-emerald-600"><CheckCircleOutlined /> {tc('status.enabled')}</span>
+                      ) : moduleStatusMap[module.key] === 'unavailable' ? (
+                        <span className="caption-text flex items-center gap-1 text-rose-600"><CloseCircleOutlined /> {tc('status.notAvailable')}</span>
+                      ) : (
+                        <span className="caption-text flex items-center gap-1 text-slate-400"><ClockCircleOutlined /> {tc('status.pending')}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 };

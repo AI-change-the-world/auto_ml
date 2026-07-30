@@ -85,6 +85,128 @@
   margin: 0 auto;
 }
 
+/* ========= 设置页 ========= */
+.settings-section-tabs > .ant-tabs-nav {
+  margin: 0 0 16px;
+  padding: 4px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f3f4f6;
+}
+
+.settings-section-tabs > .ant-tabs-nav::before {
+  border-bottom: 0;
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+  justify-content: flex-start;
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-nav-list {
+  gap: 4px;
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-tab {
+  margin: 0;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #64748b;
+  transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-tab:hover {
+  color: #334155;
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-tab-active {
+  border-color: #d8dee8;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.settings-section-tabs > .ant-tabs-nav .ant-tabs-ink-bar {
+  display: none;
+}
+
+.settings-section-tabs .ant-tabs-content-holder {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.settings-section-panel {
+  padding: 24px;
+}
+
+.settings-section-title {
+  margin: 0 0 20px;
+  font-size: var(--font-size-section-title);
+  line-height: var(--line-height-section-title);
+  font-weight: 700;
+  color: #111827;
+}
+
+.settings-section-subtitle {
+  margin: 0 0 8px;
+  font-size: var(--font-size-body-sm);
+  line-height: var(--line-height-body-sm);
+  font-weight: 600;
+  color: #475569;
+}
+
+.settings-info-row {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.settings-mono-value {
+  max-width: min(65%, 560px);
+  overflow: hidden;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #f8fafc;
+  color: #334155;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-section-panel .ant-divider {
+  margin: 20px 0;
+  border-color: #e5e7eb;
+}
+
+@media (max-width: 640px) {
+  .settings-section-tabs > .ant-tabs-nav .ant-tabs-tab {
+    padding-inline: 10px;
+  }
+
+  .settings-section-panel {
+    padding: 18px;
+  }
+
+  .settings-info-row {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 0;
+  }
+
+  .settings-mono-value {
+    max-width: 100%;
+  }
+}
+
 .batch-script-readme {
   color: #334155;
   line-height: 1.65;
