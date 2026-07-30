@@ -22,7 +22,7 @@
     "assistant": {
         "entry": "Workbench assistant",
         "title": "Workbench Assistant",
-        "subtitle": "For workspace status, recent projects, and fast navigation",
+        "subtitle": "Answer questions with platform context and provide quick navigation",
         "placeholder": "Try: how many datasets do we have? any running training tasks?",
         "send": "Send",
         "clear": "Clear",
@@ -30,7 +30,7 @@
         "open": "Open",
         "unsupported": "I currently work best for datasets, annotations, training, deployment status, and fast page navigation.",
         "welcomeTitle": "Ask about the current workspace",
-        "welcomeBody": "This version focuses on status lookup, recent project lookup, and quick workbench jumps.",
+        "welcomeBody": "Configure a model for natural-language answers; status queries and quick navigation remain available without one.",
         "suggestions": {
             "datasetCount": "How many datasets do we have?",
             "runningTasks": "Are any training tasks running?",

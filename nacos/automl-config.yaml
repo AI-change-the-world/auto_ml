@@ -77,6 +77,9 @@ logging:
 ai-pipeline-batch:
   secret_key: erwQngaQgmx96Ym8r2QBwMtQOWCHR3EjtQit04jD-Y8=
 
+assistant:
+  secret_key: erwQngaQgmx96Ym8r2QBwMtQOWCHR3EjtQit04jD-Y8=
+
 ai-pipeline-sandbox:
   rabbitmq:
     host: rabbitmq

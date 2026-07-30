@@ -129,6 +129,12 @@ export type {
 export type { AugmentCapability, AugmentRequest } from './augment';
 export { AugmentTypeLabels, AugmentTypeColors } from './augment';
 export type {
+  AssistantConfig,
+  AssistantConfigUpdateRequest,
+  AssistantAction,
+  AssistantChatResponse,
+} from './assistant';
+export type {
   AiPipelineBatchScriptField,
   AiPipelineBatchScriptParameterValue,
   AiPipelineBatchScript,

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, Input, Modal, Space, Spin } from 'antd';
-import { ArrowRightOutlined, RobotOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, CommentOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { askWorkbenchAssistant, getAssistantConfig } from '../api/assistant';
 import type { AnnotationProject, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
 
 interface WorkbenchAssistantModalProps {
@@ -46,11 +47,14 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
   const { t, i18n } = useTranslation('common');
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
+  const [assistantEnabled, setAssistantEnabled] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     if (!open) {
       return;
     }
+    let active = true;
     setMessages([
       {
         id: 'welcome',
@@ -58,6 +62,15 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
         content: `${t('assistant.welcomeTitle')}\n${t('assistant.welcomeBody')}`,
       },
     ]);
+    void getAssistantConfig().then((config) => {
+      if (!active) return;
+      setAssistantEnabled(config?.enabled === true && config.api_key_configured === true);
+    }).catch(() => {
+      if (active) setAssistantEnabled(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [open, t]);
 
   const suggestionTexts = useMemo(
@@ -167,7 +180,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
     };
   };
 
-  const submitQuestion = (value: string) => {
+  const submitQuestion = async (value: string) => {
     const question = value.trim();
     if (!question) {
       return;
@@ -176,9 +189,46 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
     setMessages((prev) => [
       ...prev,
       { id: `user-${Date.now()}`, role: 'user', content: question },
-      buildResponse(question),
     ]);
     setInputValue('');
+    if (!assistantEnabled) {
+      setMessages((prev) => [...prev, buildResponse(question)]);
+      return;
+    }
+
+    setChatLoading(true);
+    try {
+      const response = await askWorkbenchAssistant({
+        content: question,
+        page_context: window.location.pathname,
+        language: i18n.language,
+      });
+      if (!response) {
+        throw new Error('智能助手未返回内容');
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: response.content,
+          actions: response.actions,
+        },
+      ]);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '智能助手请求失败，请查看服务端日志';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: errorMessage,
+          actions: [{ key: 'settings', label: t('assistant.actions.settings'), path: '/settings' }],
+        },
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
   };
 
   const resetConversation = () => {
@@ -202,7 +252,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
       title={(
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
-            <RobotOutlined />
+            <CommentOutlined />
           </div>
           <div>
             <div className="modal-title">{t('assistant.title')}</div>
@@ -220,7 +270,8 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
               <button
                 key={suggestion}
                 type="button"
-                onClick={() => submitQuestion(suggestion)}
+                onClick={() => void submitQuestion(suggestion)}
+                disabled={chatLoading}
                 className="body-text-sm rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50"
               >
                 {suggestion}
@@ -281,13 +332,13 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
             <Input
               value={inputValue}
               onChange={(event) => setInputValue(event.target.value)}
-              onPressEnter={() => submitQuestion(inputValue)}
-              prefix={<RobotOutlined className="text-slate-400" />}
+              onPressEnter={() => void submitQuestion(inputValue)}
+              prefix={<CommentOutlined className="text-slate-400" />}
               placeholder={t('assistant.placeholder')}
-              disabled={loading}
+              disabled={loading || chatLoading}
               size="large"
             />
-            <Button type="primary" size="large" onClick={() => submitQuestion(inputValue)} disabled={loading}>
+            <Button type="primary" size="large" loading={chatLoading} onClick={() => void submitQuestion(inputValue)} disabled={loading}>
               {t('assistant.send')}
             </Button>
           </Space.Compact>

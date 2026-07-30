@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { SettingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
-import { Switch, message } from 'antd';
+import { Button, Form, Input, InputNumber, Switch, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
+import { getAssistantConfig, updateAssistantConfig } from '../../api/assistant';
 import {
   getAnnotationDeleteConfirmEnabled,
   getDatasetDeleteConfirmEnabled,
@@ -13,6 +14,7 @@ import {
   setDeployConfirmEnabled,
   setTaskDeleteConfirmEnabled,
 } from '../../utils/localSettings';
+import type { AssistantConfigUpdateRequest } from '../../types';
 
 type ModuleState = 'enabled' | 'unavailable' | 'disabled';
 
@@ -27,6 +29,8 @@ type HealthResponse = {
   }>>;
 };
 
+type AssistantFormValues = AssistantConfigUpdateRequest;
+
 const getConfiguredApiBaseUrl = () => {
   const base = import.meta.env.VITE_API_BASE_URL || '/api';
   if (/^https?:\/\//i.test(base)) {
@@ -38,6 +42,7 @@ const getConfiguredApiBaseUrl = () => {
 const SettingsPage: React.FC = () => {
   const { t } = useTranslation('settings');
   const tc = useTranslation('common').t;
+  const [assistantForm] = Form.useForm<AssistantFormValues>();
   const [backendVersion, setBackendVersion] = useState<string>('-');
   const [platformName, setPlatformName] = useState<string>('AutoML Studio');
   const [datasetDeleteConfirmEnabled, setDatasetDeleteConfirmEnabledState] = useState(true);
@@ -53,6 +58,9 @@ const SettingsPage: React.FC = () => {
     user_mgmt: 'disabled',
   });
   const [dependencyMap, setDependencyMap] = useState<NonNullable<HealthResponse['dependencies']>>({});
+  const [assistantLoading, setAssistantLoading] = useState(true);
+  const [assistantSaving, setAssistantSaving] = useState(false);
+  const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = useState(false);
 
   const modules = [
     { key: 'dataset_mgmt', name: t('datasetMgmt') },
@@ -102,10 +110,33 @@ const SettingsPage: React.FC = () => {
     };
 
     void loadHealth();
+    const loadAssistantConfig = async () => {
+      try {
+        const config = await getAssistantConfig();
+        if (!active) return;
+        setAssistantApiKeyConfigured(config?.api_key_configured === true);
+        assistantForm.setFieldsValue({
+          enabled: config?.enabled === true,
+          base_url: config?.base_url || undefined,
+          api_key: undefined,
+          model: config?.model || undefined,
+          timeout_seconds: config?.timeout_seconds ?? 60,
+          temperature: config?.temperature ?? 0.2,
+          max_tokens: config?.max_tokens ?? 2048,
+          system_prompt: config?.system_prompt || undefined,
+        });
+      } catch {
+        if (!active) return;
+        message.error('加载智能助手配置失败');
+      } finally {
+        if (active) setAssistantLoading(false);
+      }
+    };
+    void loadAssistantConfig();
     return () => {
       active = false;
     };
-  }, []);
+  }, [assistantForm]);
 
   const handleConfirmDeleteChange = (
     checked: boolean,
@@ -116,6 +147,29 @@ const SettingsPage: React.FC = () => {
     setter(checked);
     persist(checked);
     message.success(`${label}${checked ? '已开启确认' : '已关闭确认'}`);
+  };
+
+  const handleAssistantSave = async () => {
+    try {
+      const values = await assistantForm.validateFields();
+      setAssistantSaving(true);
+      const config = await updateAssistantConfig({
+        ...values,
+        base_url: values.base_url?.trim() || undefined,
+        api_key: values.api_key?.trim() || undefined,
+        model: values.model?.trim() || undefined,
+        system_prompt: values.system_prompt?.trim() || undefined,
+      });
+      setAssistantApiKeyConfigured(config?.api_key_configured === true);
+      assistantForm.setFieldValue('api_key', undefined);
+      message.success('智能助手配置已保存');
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        message.error(error.message);
+      }
+    } finally {
+      setAssistantSaving(false);
+    }
   };
 
   return (
@@ -183,6 +237,46 @@ const SettingsPage: React.FC = () => {
           <span className="body-text-sm" style={{ color: '#555' }}>部署下线需要确认</span>
           <Switch checked={deployConfirmEnabled} onChange={(checked) => handleConfirmDeleteChange(checked, setDeployConfirmEnabledState, setDeployConfirmEnabled, '部署下线')} />
         </div>
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: 24, marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+          <div>
+            <h3 className="card-title" style={{ marginBottom: 4 }}>智能助手</h3>
+            <div className="body-text-sm" style={{ color: '#888' }}>API Key 仅在保存时提交，服务端加密保存且不会读取回显。</div>
+          </div>
+          <Button type="primary" loading={assistantSaving} disabled={assistantLoading} onClick={() => void handleAssistantSave()}>
+            保存配置
+          </Button>
+        </div>
+        <Form form={assistantForm} layout="vertical" disabled={assistantLoading}>
+          <Form.Item label="启用智能助手" name="enabled" valuePropName="checked" style={{ marginBottom: 16 }}>
+            <Switch />
+          </Form.Item>
+          <Form.Item label="Base URL" name="base_url">
+            <Input placeholder="如：https://api.openai.com/v1" />
+          </Form.Item>
+          <Form.Item label="API Key" name="api_key" extra={assistantApiKeyConfigured ? '密钥已配置，留空会保留当前值。' : '首次启用时需要填写。'}>
+            <Input.Password autoComplete="new-password" placeholder={assistantApiKeyConfigured ? '留空保持当前密钥' : '请输入 API Key'} />
+          </Form.Item>
+          <Form.Item label="模型名称" name="model">
+            <Input placeholder="如：gpt-4.1-mini、qwen-plus、deepseek-chat" />
+          </Form.Item>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12 }}>
+            <Form.Item label="超时（秒）" name="timeout_seconds" rules={[{ required: true }]}>
+              <InputNumber min={1} max={600} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="Temperature" name="temperature" rules={[{ required: true }]}>
+              <InputNumber min={0} max={5} step={0.1} style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item label="最大输出 Token" name="max_tokens" rules={[{ required: true }]}>
+              <InputNumber min={1} max={65536} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+          <Form.Item label="系统提示词" name="system_prompt" style={{ marginBottom: 0 }}>
+            <Input.TextArea rows={4} placeholder="留空时使用平台默认助手提示词" />
+          </Form.Item>
+        </Form>
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: 24 }}>

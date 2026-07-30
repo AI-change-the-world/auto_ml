@@ -3,7 +3,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AppstoreOutlined,
+  ClusterOutlined,
   CloudServerOutlined,
+  CommentOutlined,
   DashboardOutlined,
   DeploymentUnitOutlined,
   DownOutlined,
@@ -13,8 +15,6 @@ import {
   LeftOutlined,
   QuestionCircleOutlined,
   RightOutlined,
-  RobotOutlined,
-  SearchOutlined,
   SettingOutlined,
   TagsOutlined,
   ToolOutlined,
@@ -309,12 +309,12 @@ const MainLayout: React.FC = () => {
     },
     {
       key: '/batch-annotation/runs',
-      icon: <RobotOutlined />,
+      icon: <ClusterOutlined />,
       label: '批量标注任务',
       children: batchAnnotationRuns.map((run) => ({
         key: `/batch-annotation/runs/${run.run_id}`,
         label: `${run.script_key} · ${run.run_id.slice(-8)}`,
-        icon: <RobotOutlined className={run.status === 'failed' ? 'text-rose-500' : run.status === 'succeeded' ? 'text-emerald-500' : 'text-amber-500'} />,
+        icon: <ClusterOutlined className={run.status === 'failed' ? 'text-rose-500' : run.status === 'succeeded' ? 'text-emerald-500' : 'text-amber-500'} />,
         badge: `${run.progress}%`,
       })),
     },
@@ -391,7 +391,7 @@ const MainLayout: React.FC = () => {
               onClick={() => setAssistantOpen(true)}
               className="group flex w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition-colors hover:border-slate-300 hover:bg-white"
             >
-              <SearchOutlined className="text-sm text-slate-400 transition-colors group-hover:text-slate-600" />
+              <CommentOutlined className="text-sm text-slate-400 transition-colors group-hover:text-slate-600" />
               <div className="ml-3 min-w-0 flex-1">
                 <div className="assistant-entry-title truncate text-slate-700">{t('assistant.entry')}</div>
                 {/* <div className="assistant-entry-subtitle truncate text-slate-400">{t('assistant.placeholder')}</div> */}
@@ -409,7 +409,7 @@ const MainLayout: React.FC = () => {
               title={t('assistant.entry')}
               className="flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-700"
             >
-              <SearchOutlined className="text-[16px]" />
+              <CommentOutlined className="text-[16px]" />
             </button>
           </div>
         )}

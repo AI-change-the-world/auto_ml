@@ -74,6 +74,16 @@ class AiPipelineProviderResource(BaseEntity):
     created_by = Column(String(64), nullable=True, comment="创建人")
 
 
+class AssistantConfig(BaseEntity):
+    """工作台智能助手的单例配置。"""
+    __tablename__ = "assistant_config"
+
+    config_key = Column(String(64), nullable=False, unique=True, comment="配置稳定标识")
+    enabled = Column(Boolean, nullable=False, default=False, comment="是否启用智能助手")
+    provider_resource_id = Column(BigInteger, nullable=True, comment="关联的 Provider 资源ID")
+    system_prompt = Column(Text, nullable=True, comment="助手系统提示词")
+
+
 class AiPipelineRun(BaseEntity):
     """AI Pipeline 运行主表"""
     __tablename__ = "ai_pipeline_run"

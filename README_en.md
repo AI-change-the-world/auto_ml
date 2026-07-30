@@ -1,5 +1,7 @@
 # AutoML Studio
 
+[简体中文](./README.md) | [English](./README_en.md)
+
 An integrated workspace for multi-modal datasets, annotation, training, deployment, and AI-assisted production. In addition to the regular annotation flow, the platform now includes a full batch annotation pipeline: script ZIP upload, task orchestration, live run detail, failed-item retry, incremental execution, and result preview.
 
 <div align="center">

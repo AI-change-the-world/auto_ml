@@ -56,6 +56,7 @@ async def init_db():
             Task, TaskLog, TaskSource, BaseModels,
             AvailableModel, ModelInferenceLog,
             AiPipelineTemplate, AiPipelineTemplateVersion, AiPipelineBinding, AiPipelineProviderResource,
+            AssistantConfig,
             AiPipelineRun, AiPipelineRunStep, AiPipelineArtifact, AiPipelineEventLog,
             AiPipelineBatchRun, AiPipelineBatchRunItem, AiPipelineBatchRunEvent,
             AiPipelineBatchBuiltinScriptSetting,

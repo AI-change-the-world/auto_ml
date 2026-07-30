@@ -8,12 +8,16 @@ from sqlalchemy import case, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
+    AssistantConfig,
     AiPipelineBinding,
     AiPipelineProviderResource,
     AiPipelineTemplate,
     AiPipelineTemplateVersion,
     AvailableModel,
 )
+
+
+ASSISTANT_CONFIG_KEY = "workbench"
 
 
 def _dump_json(value):
@@ -423,6 +427,34 @@ async def delete_provider_resource(
 ) -> None:
     resource.is_deleted = True
     await db.flush()
+
+
+async def get_assistant_config(db: AsyncSession) -> Optional[AssistantConfig]:
+    stmt = select(AssistantConfig).where(
+        AssistantConfig.config_key == ASSISTANT_CONFIG_KEY,
+        AssistantConfig.is_deleted == False,
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def create_assistant_config(db: AsyncSession, **kwargs) -> AssistantConfig:
+    item = AssistantConfig(config_key=ASSISTANT_CONFIG_KEY, **kwargs)
+    db.add(item)
+    await db.flush()
+    await db.refresh(item)
+    return item
+
+
+async def update_assistant_config(
+    db: AsyncSession,
+    config: AssistantConfig,
+    **kwargs,
+) -> AssistantConfig:
+    for key, value in kwargs.items():
+        setattr(config, key, value)
+    await db.flush()
+    await db.refresh(config)
+    return config
 
 
 async def clear_default_bindings(

@@ -40,6 +40,7 @@ ASSIST_CAPABILITIES = {
     "render_white_annotation_overlay",
     "understand_white_annotations",
 }
+INTERNAL_ASSISTANT_PROVIDER_NAME = "workbench_assistant"
 
 
 class AiPipelineService:
@@ -611,7 +612,11 @@ class AiPipelineService:
             offset=0,
             limit=limit,
         )
-        return [self._build_provider_resource_item(item) for item in items]
+        return [
+            self._build_provider_resource_item(item)
+            for item in items
+            if getattr(item, "provider_name", None) != INTERNAL_ASSISTANT_PROVIDER_NAME
+        ]
 
     async def list_provider_resource_options(
         self,
@@ -626,7 +631,11 @@ class AiPipelineService:
             offset=0,
             limit=limit,
         )
-        return [self._build_provider_resource_option(item) for item in items]
+        return [
+            self._build_provider_resource_option(item)
+            for item in items
+            if getattr(item, "provider_name", None) != INTERNAL_ASSISTANT_PROVIDER_NAME
+        ]
 
     async def create_provider_resource(
         self,
@@ -634,6 +643,8 @@ class AiPipelineService:
         data: AiPipelineProviderResourceCreate,
     ) -> AiPipelineProviderResourceItem:
         payload = self._normalize_provider_resource_payload(data.model_dump())
+        if payload["provider_name"] == INTERNAL_ASSISTANT_PROVIDER_NAME:
+            raise BadRequestException("workbench assistant provider must be managed from Settings")
         existing = await crud.get_provider_resource_by_key(db, payload["resource_id"])
         if existing:
             raise BadRequestException(f"AI pipeline provider resource `{payload['resource_id']}` already exists")
@@ -652,6 +663,8 @@ class AiPipelineService:
         resource = await crud.get_provider_resource_by_id(db, resource_id)
         if not resource:
             raise NotFoundException(f"AI pipeline provider resource `{resource_id}` not found")
+        if resource.provider_name == INTERNAL_ASSISTANT_PROVIDER_NAME:
+            raise BadRequestException("workbench assistant provider must be managed from Settings")
         payload = self._normalize_provider_resource_payload(data.model_dump(exclude_unset=True))
         if "resource_id" in payload:
             raise BadRequestException("resource_id cannot be updated")
@@ -670,6 +683,8 @@ class AiPipelineService:
         resource = await crud.get_provider_resource_by_id(db, resource_id)
         if not resource:
             raise NotFoundException(f"AI pipeline provider resource `{resource_id}` not found")
+        if resource.provider_name == INTERNAL_ASSISTANT_PROVIDER_NAME:
+            raise BadRequestException("workbench assistant provider must be managed from Settings")
         bindings = await crud.list_bindings_with_resource_bindings(db)
         referencing_bindings = [
             binding
