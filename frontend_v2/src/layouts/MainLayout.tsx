@@ -3,13 +3,13 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   AppstoreOutlined,
-  ApartmentOutlined,
   CloudServerOutlined,
+  DashboardOutlined,
+  DeploymentUnitOutlined,
   DownOutlined,
   EditOutlined,
   ExperimentOutlined,
   GlobalOutlined,
-  HomeOutlined,
   LeftOutlined,
   QuestionCircleOutlined,
   RightOutlined,
@@ -17,6 +17,7 @@ import {
   SearchOutlined,
   SettingOutlined,
   TagsOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
@@ -343,6 +344,18 @@ const MainLayout: React.FC = () => {
     return location.pathname === key || location.pathname.startsWith(`${key}/`);
   };
 
+  const openProjectGroup = (groupKey: string) => {
+    if (!expanded[groupKey]) {
+      setExpanded((current) => ({ ...current, [groupKey]: true }));
+      return;
+    }
+    navigate(groupKey);
+  };
+
+  const toggleProjectGroup = (groupKey: string) => {
+    setExpanded((current) => ({ ...current, [groupKey]: !current[groupKey] }));
+  };
+
   const pageTitle = (() => {
     if (location.pathname === '/') return t('nav.home');
     if (location.pathname.startsWith('/datasets')) return t('nav.datasets');
@@ -403,9 +416,9 @@ const MainLayout: React.FC = () => {
 
         <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
           {[
-            { key: '/', icon: <HomeOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
-            { key: '/ai-pipeline', icon: <ApartmentOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
-            { key: '/batch-annotation/tools', icon: <RobotOutlined className="text-[18px]" />, label: '批量标注工具' },
+            { key: '/', icon: <DashboardOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
+            { key: '/ai-pipeline', icon: <DeploymentUnitOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
+            { key: '/batch-annotation/tools', icon: <ToolOutlined className="text-[18px]" />, label: '批量标注工具' },
           ].map((item) => {
             const active = isActive(item.key);
             return (
@@ -453,29 +466,30 @@ const MainLayout: React.FC = () => {
                   } ${sidebarCollapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2'}`}>
                   <button
                     type="button"
-                    onClick={() => navigate(group.key)}
+                    onClick={() => sidebarCollapsed ? navigate(group.key) : openProjectGroup(group.key)}
                     title={sidebarCollapsed ? group.label : undefined}
+                    aria-expanded={sidebarCollapsed ? undefined : Boolean(expanded[group.key])}
                     className="flex min-w-0 flex-1 items-center text-left"
                   >
                     <span className={`${sidebarCollapsed ? '' : 'mr-3'} text-slate-400`}>{group.icon}</span>
                     {!sidebarCollapsed ? <span className="flex-1 font-medium">{group.label}</span> : null}
                   </button>
-                  {!sidebarCollapsed && group.children && group.children.length > 0 ? (
+                  {!sidebarCollapsed ? (
                     <button
                       type="button"
                       aria-label={expanded[group.key] ? `收起${group.label}` : `展开${group.label}`}
                       aria-expanded={expanded[group.key]}
-                      onClick={() => setExpanded((prev) => ({ ...prev, [group.key]: !prev[group.key] }))}
-                      className="flex h-5 w-5 shrink-0 items-center justify-center text-[10px] text-slate-400"
+                      onClick={() => toggleProjectGroup(group.key)}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center text-[10px] text-slate-400 transition-colors hover:text-slate-700"
                     >
-                      <DownOutlined className={expanded[group.key] ? '' : '-rotate-90'} />
+                      <DownOutlined className={`transition-transform ${expanded[group.key] ? '' : '-rotate-90'}`} />
                     </button>
                   ) : null}
                 </div>
 
-                {!sidebarCollapsed && group.children && group.children.length > 0 && expanded[group.key] ? (
+                {!sidebarCollapsed && expanded[group.key] ? (
                   <div className="space-y-1">
-                    {group.children.map((child) => (
+                    {group.children && group.children.length > 0 ? group.children.map((child) => (
                       <button
                         key={child.key}
                         type="button"
@@ -486,14 +500,12 @@ const MainLayout: React.FC = () => {
                         <span className="flex-1 truncate">{child.label}</span>
                         {child.badge ? <span className="text-[11px] text-slate-400">{child.badge}</span> : null}
                       </button>
-                    ))}
+                    )) : (
+                      <p className="sidebar-subnav-text px-10 py-1 text-slate-400">
+                        {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
+                      </p>
+                    )}
                   </div>
-                ) : null}
-
-                {!sidebarCollapsed && group.children && group.children.length === 0 ? (
-                  <p className="sidebar-subnav-text px-10 py-1 text-slate-400">
-                    {group.key === '/deploy' ? t('nav.noActiveDeploy') : t('nav.noItems', { defaultValue: '暂无内容' })}
-                  </p>
                 ) : null}
               </div>
             );
