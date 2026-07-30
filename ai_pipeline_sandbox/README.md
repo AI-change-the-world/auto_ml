@@ -1,5 +1,14 @@
 # AI Pipeline Batch Sandbox
 
+`ai_pipeline_sandbox` 是批量标注脚本执行服务。它从 RabbitMQ 消费 `pipeline.batch.execute` 消息，在独立工作目录和受限子进程中执行内置脚本或用户上传的 ZIP 脚本包，再把进度和结果通过 `pipeline.batch.progress`、`pipeline.batch.result` 回传给 `automl_server`。
+
+当前这条链路已经覆盖以下能力：
+
+- 内置脚本与上传 ZIP 脚本共存
+- ZIP 根目录 `batch_script.json` + 可选 `README.md` 元数据
+- 独立 venv、`requirements.txt` 自动安装和环境缓存复用
+- `loguru` 结构化日志、错误明细、traceback 和 `/health` 健康检查
+
 批量标注工具以 ZIP 包发布。ZIP 根目录的 `batch_script.json` 是工具元数据和运行参数的唯一来源：平台上传时解析并保存它，工具列表按它展示名称、描述、兼容类型和参数数量，执行弹窗按它动态生成表单。
 
 因此，上传页面只选择 ZIP，不再维护一套容易与脚本脱节的名称、类型、入口和参数表单。需要修改这些信息时，修改 ZIP 内的清单后重新上传即可。
@@ -11,6 +20,7 @@
 ```text
 vision_llm_labeler.zip
 ├── batch_script.json       # 必需：工具与参数清单
+├── README.md               # 可选：工具说明，前端详情抽屉可直接展示/编辑
 ├── main.py                 # 必需：与 entrypoint 对应
 ├── requirements.txt        # 可选：运行时自动安装的 Python 依赖
 ├── .env                    # 可选：仅传给本 ZIP 脚本的环境变量
@@ -27,11 +37,26 @@ vision_llm_labeler.zip
 
 ZIP 根目录的可选 `.env` 会在运行入口脚本时注入子进程，不会覆盖虚拟环境、`PATH`、工作目录与临时目录。它不用于配置 Sandbox 本身；Sandbox 的基础设施、pip 源和资源限制始终由 Nacos 管理。创建、复用和安装依赖的每一行输出都会写入 Sandbox 容器日志；失败结果会带最后一段 pip 输出。
 
+ZIP 根目录的可选 `README.md` 会在上传时一并保存到主服务数据库，前端“批量标注工具”详情抽屉可直接查看和编辑。它仅用于工具说明，不会参与脚本执行。
+
 ## 运行配置
 
 Sandbox 的 RabbitMQ、MinIO 和执行资源限制统一从 Nacos 的 `AUTO_ML_CONFIG` 读取。`ai-pipeline-sandbox` 配置段包含 `timeout_seconds`、`max_output_bytes`、`memory_bytes`、`cpu_seconds`、`max_processes`，以及 `script_runtime.venv_root`、`script_runtime.pip_cache_dir`、`script_runtime.pip_index_url`、`script_runtime.pip_extra_index_url`、`script_runtime.pip_trusted_host`、`script_runtime.idle_timeout_seconds`、`script_runtime.bootstrap_max_processes`、`script_runtime.process_fsize_bytes` 和 `script_runtime.process_nofile`。
 
 容器只保留 Nacos 连接所需的引导环境变量。未启用或无法连接 Nacos 时，代码才使用同名本地环境变量和内置默认值，便于独立调试。资源限制通过 Nacos listener 实时更新，listener 不可用时会回退为轮询，并应用到后续批次；RabbitMQ 和 MinIO 配置在容器启动时生效。
+
+## 运行目录
+
+默认工作目录位于 `/app/runtime-data`：
+
+```text
+/app/runtime-data/
+├── task_<run_id>_<uuid>/   # 单次 chunk 的独立工作目录
+├── venvs/                  # 按脚本版本和依赖内容缓存的虚拟环境
+└── pip-cache/              # pip 下载缓存
+```
+
+`task_*` 目录内会包含当前 chunk 的输入副本、解压后的脚本包、payload 和中间日志；任务结束后由运行时清理。`venvs/` 与 `pip-cache/` 会跨任务复用。
 
 ## 清单格式
 
@@ -202,8 +227,21 @@ unzip -l vision_llm_labeler.zip
 
 上传会校验以下约束：ZIP 最大 100 MB、最多 512 个文件、解压后最多 512 MB；清单最大 256 KB；不允许绝对路径、`..` 路径或符号链接；`entrypoint` 必须存在于 ZIP 内。每个任务会保存当时的脚本包路径、入口、版本和参数快照，因此工具升级或删除不会影响已创建任务。
 
+如果上传时报 `script ZIP must contain exactly one root batch_script.json manifest`，通常是把最外层目录一起压进 ZIP 了。`unzip -l` 的输出里应该直接看到 `batch_script.json`，而不是 `some-folder/batch_script.json`。
+
 ## 内置脚本
 
 平台内置脚本可随镜像发布：在 `scripts/` 新增 `<script_key>.py`，并在 `automl_server/app/modules/ai_pipeline/batch_scripts.py` 注册同名元数据和参数定义。上传 ZIP 的用户工具不需要修改平台源码。
 
 脚本进程只会收到任务输入、参数、ZIP 内 `.env` 和本次工作目录；运行时会在 `runtime/` 中统一处理安全解包、虚拟环境、依赖缓存、CPU/内存/文件/进程/文件描述符限制、总超时、空闲超时、输出限制和整组子进程清理。
+
+## 观测与日志
+
+服务使用 `loguru` 输出关键流程日志，至少包括：
+
+- RabbitMQ 连接、消费状态和 chunk 收发
+- 虚拟环境创建、`ensurepip`、依赖安装与缓存复用
+- 脚本 stdout / stderr 片段和结构化错误明细
+- chunk 开始、完成、失败以及耗时
+
+`/health` 会返回 `service`、`active_chunks` 和 `execute_queue`。只有 MQ worker 已连通时才返回 `200 OK`，否则返回 `503`。

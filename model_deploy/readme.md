@@ -1,6 +1,6 @@
 # Model Deploy Service
 
-模型部署服务，作为可选插件式能力负责 ONNX 模型的部署、运行时管理和推理转发，当前主要面向 YOLO 系列模型。
+模型部署服务，作为可选插件式能力负责 ONNX 模型的部署、运行时管理和推理转发，当前主要面向 YOLO 系列模型。当前这条链路是“HTTP 控制 + MQ 状态同步”：主服务直接调用部署接口，部署结果再通过 RabbitMQ 回写主库。
 
 ## 服务特性
 
@@ -8,6 +8,24 @@
 - 模型即部署单元：管理的是部署实例，而不是单个进程
 - ONNX 统一格式：训练 -> 导出 ONNX -> 部署
 - 轻量运行：不依赖 K8s 或 Triton，Docker Compose 即可运行
+
+## 通信方式
+
+- 部署控制：`automl_server -> HTTP -> model_deploy`
+- 推理调用：`automl_server -> HTTP -> model_deploy`
+- 状态同步：`model_deploy -> RabbitMQ -> automl_server`
+- 回传消息：
+  - `model.deployed`
+  - `model.undeployed`
+- HTTP 接口：
+  - `GET /health`
+  - `POST /deploy`
+  - `POST /undeploy/{model_id}`
+  - `GET /deployments`
+  - `GET /deploy/{model_id}/health`
+  - `POST /predict/{model_id}` 及其 `base64` / `url` 变体
+
+当前没有单独启用 `service.heartbeat` 这类 MQ 心跳消息。主服务获取部署概览或单模型运行状态时，会直接调用 `model_deploy` 的 `/deployments` 与 `/deploy/{model_id}/health`。
 
 ## 当前支持
 
@@ -18,30 +36,21 @@
 
 ## 整体架构
 
-```
-                ┌──────────────────────┐
-                │      主系统          │
-                │  （模型管理 / API）   │
-                └─────────┬────────────┘
-                          ↓
-                     MQ / HTTP
-                          ↓
-        ┌────────────────────────────┐
-        │   model-deploy-service     │  ← 控制层
-        │     (Python / FastAPI)     │
-        └─────────┬──────────────────┘
-                  ↓
-        ┌────────────────────────────┐
-        │     Runtime Manager        │
-        │   （模型实例管理 / 调度）   │
-        └──────┬─────────────────────┘
-               ↓
-     ┌──────────────────────┐
-     │    model-runtime     │
-     │    ONNX Runtime      │
-     │    (独立进程)         │
-     │    Port: 9001+       │
-     └──────────────────────┘
+```text
+automl_server
+  ├─ HTTP /deploy /undeploy /deployments /deploy/{id}/health /predict
+  ▼
+model-deploy
+  ├─ Runtime Manager
+  ▼
+model runtime processes (port 9001+)
+
+model-deploy
+  ├─ MQ: model.deployed / model.undeployed
+  ▼
+RabbitMQ
+  ▼
+automl_server
 ```
 
 ## 核心组件
@@ -117,7 +126,7 @@ Content-Type: application/json
 ### 卸载模型
 
 ```bash
-POST /undeploy/{deployment_id}
+POST /undeploy/{model_id}
 ```
 
 ### 获取部署列表
@@ -193,7 +202,7 @@ Content-Type: application/json
 3. 校验模型文件
 4. 启动 Runtime 实例 (独立进程)
 5. 注册实例 (端口 / PID)
-6. 健康检查
+6. 通过 MQ 回传 `model.deployed`，由主服务更新数据库
 ```
 
 ### 2. 推理流程
@@ -211,7 +220,7 @@ Content-Type: application/json
 1. 接收卸载请求
 2. 停止 Runtime 进程
 3. 释放端口
-4. 更新部署状态
+4. 通过 MQ 回传 `model.undeployed`，由主服务清理部署状态
 ```
 
 ## 目录结构

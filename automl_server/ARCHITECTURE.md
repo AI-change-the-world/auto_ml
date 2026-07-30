@@ -40,20 +40,39 @@ automl_server/
 
 - MySQL for primary persistence
 - MinIO for datasets, models, annotations, and artifacts
-- RabbitMQ for task and model lifecycle events
+- RabbitMQ for training jobs, AI Pipeline RPC, batch annotation execution, and deployment status callbacks
 - Nacos for runtime configuration
 - `model_trainer` as an optional training plug-in
 - `model_deploy` as an optional deployment plug-in
 - `ai_pipeline_runtime` as an optional AI-assisted annotation plug-in
+- `ai_pipeline_sandbox` as the batch annotation execution plug-in
+
+## Communication Paths
+
+- Training:
+  - `automl_server -> RabbitMQ -> model_trainer` for training job delivery
+  - `model_trainer -> RabbitMQ -> automl_server` for task status, task logs, and model registration
+  - `automl_server -> model_trainer` over HTTP for `/health` and `/tasks/{task_id}/cancel`
+- Deployment:
+  - `automl_server -> model_deploy` over HTTP for deploy, undeploy, deployment listing, deployment health, and inference
+  - `model_deploy -> RabbitMQ -> automl_server` for `model.deployed` and `model.undeployed`
+- AI runtime:
+  - `automl_server <-> ai_pipeline_runtime` via RabbitMQ RPC for assist annotation and pipeline execution
+- Batch annotation:
+  - `automl_server -> RabbitMQ -> ai_pipeline_sandbox` for `pipeline.batch.execute`
+  - `ai_pipeline_sandbox -> RabbitMQ -> automl_server` for progress and result callbacks
+
+`service.heartbeat` still exists in the shared message definitions, but trainer and deploy do not currently use a standalone MQ heartbeat channel. Service status in the UI is derived from on-demand `/health` probes initiated by `automl_server`.
 
 ## Request Flow
 
 1. Frontend calls `automl_server`
 2. `automl_server` reads config from Nacos or environment variables
 3. The service persists metadata to MySQL and artifacts to MinIO
-4. Training and deployment requests are published to RabbitMQ when the related plug-ins are enabled
-5. Status updates are consumed back from RabbitMQ
-6. AI-assisted annotation calls are routed to the AI pipeline runtime when enabled
+4. Training jobs are published to RabbitMQ when `model_trainer` is enabled
+5. Deployment control and inference requests are sent to `model_deploy` over HTTP
+6. Deployment status, training status, logs, model registration, and batch callbacks are consumed back from RabbitMQ
+7. AI-assisted annotation calls are routed to `ai_pipeline_runtime` via RabbitMQ RPC when enabled
 
 ## Configuration
 

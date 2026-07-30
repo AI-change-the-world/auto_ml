@@ -1,14 +1,28 @@
 # Model Trainer Service
 
-模型训练服务，作为可选插件式能力面向训练任务。当前主要支持 YOLO 系列的检测和分类，训练请求通过 RabbitMQ 下发，服务按配置并发执行并回传状态。
+模型训练服务，作为可选插件式能力面向训练任务。当前主要支持 YOLO 系列的检测和分类，训练任务由 `automl_server` 通过 RabbitMQ 下发，服务按配置并发执行，并通过 RabbitMQ 回传状态、日志和模型注册结果。
 
 ## 服务特性
 
-- 独立部署：可通过 HTTP API 或消息队列接收训练任务
+- 独立部署：训练任务通过 RabbitMQ 接收，HTTP 只承担健康检查和取消任务
 - 异步执行：训练任务在后台线程中运行，API 立即返回
 - 并发控制：由部署配置控制同时执行的训练数
 - 状态追踪：实时记录训练日志和进度到数据库
 - 模型上传：训练完成后自动上传模型到 S3 / MinIO
+
+## 通信方式
+
+- 任务下发：`automl_server -> RabbitMQ -> model_trainer`
+- 状态回传：`model_trainer -> RabbitMQ -> automl_server`
+- 回传消息：
+  - `task.status.update`
+  - `task.log`
+  - `model.registered`
+- HTTP 接口：
+  - `GET /health`
+  - `POST /tasks/{task_id}/cancel`
+
+当前没有单独启用 `service.heartbeat` 这类 MQ 心跳消息。主服务展示训练服务状态时，会按需请求 `model_trainer` 的 `/health`；任务总览页的 SSE 也只是每 5 秒重新探测一次 `/health`。
 
 ## 当前支持
 

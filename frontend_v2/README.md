@@ -1,6 +1,6 @@
 # AutoML Workbench Frontend
 
-Frontend workbench for AutoML Studio. It covers dataset browsing, annotation project management, image/text/multimodal annotation workbenches, DPO preference labeling, task tracking, deployment views, and AI pipeline management in a single React workspace.
+Frontend workbench for AutoML Studio. It covers dataset browsing, annotation project management, image/text/multimodal annotation workbenches, DPO preference labeling, task tracking, deployment views, AI pipeline management, and the batch annotation tool workflow in a single React workspace.
 
 ## Scope
 
@@ -9,6 +9,7 @@ Frontend workbench for AutoML Studio. It covers dataset browsing, annotation pro
 - Task list and task detail tracking
 - Deployment overview and deployment detail pages
 - AI pipeline template, provider, and binding management
+- Batch annotation tool management, run list, run detail, result preview, retry, and incremental execution
 - Basic platform settings and bilingual UI support
 
 ## Stack
