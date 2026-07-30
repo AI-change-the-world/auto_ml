@@ -85,6 +85,76 @@
   margin: 0 auto;
 }
 
+.batch-script-readme {
+  color: #334155;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.batch-script-readme > :first-child {
+  margin-top: 0;
+}
+
+.batch-script-readme h1,
+.batch-script-readme h2,
+.batch-script-readme h3,
+.batch-script-readme h4 {
+  color: #111827;
+  margin: 24px 0 12px;
+}
+
+.batch-script-readme h1 { font-size: 22px; }
+.batch-script-readme h2 { font-size: 18px; }
+.batch-script-readme h3 { font-size: 16px; }
+.batch-script-readme p,
+.batch-script-readme ul,
+.batch-script-readme ol,
+.batch-script-readme pre,
+.batch-script-readme table,
+.batch-script-readme blockquote { margin: 0 0 14px; }
+
+.batch-script-readme pre {
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+
+.batch-script-readme code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.batch-script-readme :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #f1f5f9;
+}
+
+.batch-script-readme table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.batch-script-readme th,
+.batch-script-readme td {
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.batch-script-readme th { background: #f8fafc; }
+
+.batch-script-readme blockquote {
+  padding-left: 12px;
+  border-left: 3px solid #cbd5e1;
+  color: #64748b;
+}
+
 /* ========= 统计行 ========= */
 .stats-grid {
   display: grid;

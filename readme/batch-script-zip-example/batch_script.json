@@ -1,0 +1,38 @@
+{
+  "key": "image_center_box_zip_check",
+  "version": "1.0.0",
+  "name": "ZIP 验证：图片中心框",
+  "description": "读取图片尺寸并生成中心边界框，用于验证上传 ZIP、依赖安装、虚拟环境缓存和批量标注执行链路。",
+  "entrypoint": "image_center_box.py",
+  "supported_data_types": [0],
+  "supported_annotation_types": [0],
+  "parameters": [
+    {
+      "key": "class_index",
+      "label": "类别索引",
+      "value_type": "number",
+      "required": true,
+      "default_value": 0,
+      "description": "YOLO 类别索引，从 0 开始。",
+      "widget": "number"
+    },
+    {
+      "key": "box_width",
+      "label": "框宽度比例",
+      "value_type": "number",
+      "required": false,
+      "default_value": 0.5,
+      "description": "中心框占图片宽度的比例，范围 0 到 1。",
+      "widget": "number"
+    },
+    {
+      "key": "box_height",
+      "label": "框高度比例",
+      "value_type": "number",
+      "required": false,
+      "default_value": 0.5,
+      "description": "中心框占图片高度的比例，范围 0 到 1。",
+      "widget": "number"
+    }
+  ]
+}

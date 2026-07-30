@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 import json
-import logging
 import os
 import queue
 import shutil
@@ -16,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pika
+from loguru import logger
 
 from config import SandboxSettings
 from runtime import (
@@ -28,8 +28,6 @@ from runtime import (
 )
 from storage import DatasetStorage
 
-
-logger = logging.getLogger(__name__)
 
 EVENT_PREFIX = "__AUTO_ML_BATCH_EVENT__="
 RESULT_PREFIX = "__AUTO_ML_BATCH_RESULT__="
@@ -78,6 +76,7 @@ class BatchSandboxWorker:
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
+            logger.info("Sandbox worker is already running")
             return
         self.settings.workspace_root.mkdir(parents=True, exist_ok=True)
         self.settings.script_runtime.venv_root.mkdir(parents=True, exist_ok=True)
@@ -85,13 +84,20 @@ class BatchSandboxWorker:
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._consume_loop, name="pipeline-sandbox-worker", daemon=True)
         self._thread.start()
+        logger.info(
+            "Sandbox worker started: workspace_root={} execute_queue={}",
+            self.settings.workspace_root,
+            self.settings.rabbitmq.execute_queue,
+        )
 
     def stop(self) -> None:
+        logger.info("Stopping sandbox worker")
         self._stop_event.set()
         self._close()
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)
         self._thread = None
+        logger.info("Sandbox worker stopped")
 
     def update_execution_limits(self, settings: SandboxSettings) -> None:
         self.settings = replace(
@@ -103,8 +109,10 @@ class BatchSandboxWorker:
             max_processes=settings.max_processes,
             script_runtime=settings.script_runtime,
         )
+
     def _connect(self):
         mq = self.settings.rabbitmq
+        logger.info("Connecting to RabbitMQ: host={} port={} queue={}", mq.host, mq.port, mq.execute_queue)
         credentials = pika.PlainCredentials(mq.username, mq.password)
         connection = pika.BlockingConnection(
             pika.ConnectionParameters(
@@ -121,6 +129,7 @@ class BatchSandboxWorker:
         channel.queue_declare(queue=mq.execute_queue, durable=True)
         channel.queue_bind(queue=mq.execute_queue, exchange=mq.exchange_name, routing_key=mq.execute_routing_key)
         channel.basic_qos(prefetch_count=1)
+        logger.info("RabbitMQ worker connection established: queue={}", mq.execute_queue)
         return connection, channel
 
     def _consume_loop(self) -> None:
@@ -130,11 +139,12 @@ class BatchSandboxWorker:
                 self._connection = connection
                 self._channel = channel
                 channel.basic_consume(queue=self.settings.rabbitmq.execute_queue, on_message_callback=self._on_message, auto_ack=False)
+                logger.info("Waiting for batch execution messages: queue={}", self.settings.rabbitmq.execute_queue)
                 while not self._stop_event.is_set():
                     connection.process_data_events(time_limit=1)
             except Exception:
                 if not self._stop_event.is_set():
-                    logger.warning("Sandbox worker RabbitMQ connection failed; retrying", exc_info=True)
+                    logger.opt(exception=True).warning("Sandbox worker RabbitMQ connection failed; retrying in 2 seconds")
                     time.sleep(2)
             finally:
                 self._close()
@@ -144,8 +154,16 @@ class BatchSandboxWorker:
         try:
             payload = json.loads(body)
             if payload.get("message_type") != "pipeline.batch.execute":
+                logger.warning("Ignoring unsupported Sandbox message: message_type={}", payload.get("message_type"))
                 channel.basic_ack(delivery_tag=method.delivery_tag)
                 return
+            logger.info(
+                "Received batch execution message: run_id={} chunk_key={} script_key={} item_count={}",
+                payload.get("run_id"),
+                payload.get("chunk_key"),
+                payload.get("script_key"),
+                len(payload.get("items") or []),
+            )
             with self._active_lock:
                 self._active_chunks += 1
             self._execute_payload(payload)
@@ -158,8 +176,8 @@ class BatchSandboxWorker:
                 chunk_key = str(payload.get("chunk_key") or "")
             except Exception:
                 pass
-            logger.exception(
-                "Sandbox message handling failed: run_id=%s chunk_key=%s",
+            logger.opt(exception=True).error(
+                "Sandbox message handling failed: run_id={} chunk_key={}",
                 run_id,
                 chunk_key,
             )
@@ -180,6 +198,15 @@ class BatchSandboxWorker:
         script_key = str(payload["script_key"])
         task_root = self.settings.workspace_root / f"task_{run_id}_{uuid.uuid4().hex}"
         task_root.mkdir(parents=True, exist_ok=False)
+        started_at = time.monotonic()
+        logger.info(
+            "Starting batch chunk: run_id={} chunk_key={} script_key={} item_count={} task_root={}",
+            run_id,
+            chunk_key,
+            script_key,
+            len(payload.get("items") or []),
+            task_root,
+        )
         try:
             self._publish_progress(
                 run_id,
@@ -197,19 +224,28 @@ class BatchSandboxWorker:
                 results = []
             results.extend(failed_results)
             self._publish_result(run_id, chunk_key, results)
+            logger.info(
+                "Batch chunk completed: run_id={} chunk_key={} succeeded={} failed={} skipped={} elapsed_seconds={:.2f}",
+                run_id,
+                chunk_key,
+                sum(item.get("status") == "succeeded" for item in results),
+                sum(item.get("status") == "failed" for item in results),
+                sum(item.get("status") == "skipped" for item in results),
+                time.monotonic() - started_at,
+            )
         except Exception as exc:
             error_detail = self._execution_error_detail(payload, exc)
             if isinstance(exc, SandboxScriptExecutionError):
                 logger.error(
-                    "Sandbox chunk execution failed: run_id=%s chunk_key=%s script_key=%s detail=%s",
+                    "Sandbox chunk execution failed: run_id={} chunk_key={} script_key={} detail={}",
                     run_id,
                     chunk_key,
                     script_key,
                     error_detail,
                 )
             else:
-                logger.exception(
-                    "Sandbox chunk execution failed: run_id=%s chunk_key=%s script_key=%s",
+                logger.opt(exception=True).error(
+                    "Sandbox chunk execution failed: run_id={} chunk_key={} script_key={}",
                     run_id,
                     chunk_key,
                     script_key,
@@ -225,6 +261,7 @@ class BatchSandboxWorker:
                 ),
             )
         finally:
+            logger.info("Cleaning batch task workspace: run_id={} chunk_key={} task_root={}", run_id, chunk_key, task_root)
             shutil.rmtree(task_root, ignore_errors=True)
 
     def _prepare_inputs(
@@ -235,12 +272,19 @@ class BatchSandboxWorker:
         runnable_items: list[dict[str, Any]] = []
         failed_results: list[dict[str, Any]] = []
         items = payload.get("items") if isinstance(payload.get("items"), list) else []
+        logger.info(
+            "Preparing batch inputs: run_id={} chunk_key={} item_count={}",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            len(items),
+        )
         for raw_item in items:
             if not isinstance(raw_item, dict):
                 continue
             batch_item_id = raw_item.get("batch_item_id")
             asset_path = raw_item.get("asset_path")
             if not isinstance(batch_item_id, int) or not isinstance(asset_path, str) or not asset_path:
+                logger.warning("Skipping invalid batch input: batch_item_id={} asset_path_present={}", batch_item_id, bool(asset_path))
                 failed_results.append({
                     "batch_item_id": batch_item_id,
                     "status": "failed",
@@ -257,8 +301,8 @@ class BatchSandboxWorker:
             try:
                 asyncio.run(self.storage.download(asset_path, destination))
             except Exception as exc:
-                logger.exception(
-                    "Sandbox input download failed: run_id=%s chunk_key=%s batch_item_id=%s",
+                logger.opt(exception=True).error(
+                    "Sandbox input download failed: run_id={} chunk_key={} batch_item_id={}",
                     payload.get("run_id"),
                     payload.get("chunk_key"),
                     batch_item_id,
@@ -278,6 +322,7 @@ class BatchSandboxWorker:
             item = dict(raw_item)
             item["local_path"] = str(destination)
             runnable_items.append(item)
+            logger.info("Batch input prepared: batch_item_id={} file_name={}", batch_item_id, file_name)
             self._publish_progress(
                 str(payload["run_id"]),
                 str(payload["chunk_key"]),
@@ -286,10 +331,26 @@ class BatchSandboxWorker:
                 "sample input prepared",
                 phase="prepare",
             )
+        logger.info(
+            "Batch input preparation finished: run_id={} chunk_key={} runnable_count={} failed_count={}",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            len(runnable_items),
+            len(failed_results),
+        )
         return runnable_items, failed_results
 
     def _run_script(self, payload: dict[str, Any], items: list[dict[str, Any]], task_root: Path) -> Any:
         script_path, requirements_file, bundle_environment = self._resolve_script_path(payload, task_root)
+        logger.info(
+            "Preparing script execution: run_id={} chunk_key={} script_key={} entrypoint={} requirements_file={} environment_variables={}",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            payload.get("script_key"),
+            script_path,
+            requirements_file,
+            len(bundle_environment),
+        )
         self._publish_progress(
             str(payload["run_id"]),
             str(payload["chunk_key"]),
@@ -318,6 +379,13 @@ class BatchSandboxWorker:
             script_version=str(payload.get("script_version") or "unknown"),
             requirements_file=requirements_file,
         )
+        logger.info(
+            "Script environment ready: run_id={} chunk_key={} venv_dir={} elapsed_seconds={:.2f}",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            environment.venv_dir,
+            environment.elapsed_seconds,
+        )
 
         runner_payload = {
             "run_id": payload["run_id"],
@@ -330,6 +398,13 @@ class BatchSandboxWorker:
         payload_path.write_text(json.dumps(runner_payload, ensure_ascii=False), encoding="utf-8")
         command = [str(environment.python_executable), "/app/runner.py", str(script_path), str(payload_path)]
         env = self._build_subprocess_env(task_root, environment.venv_dir, bundle_environment)
+        logger.info(
+            "Starting batch script: run_id={} chunk_key={} script_key={} item_count={}",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            payload.get("script_key"),
+            len(items),
+        )
         result_payload: dict[str, Any] | None = None
         script_error_detail: dict[str, Any] | None = None
         output_tail: deque[str] = deque(maxlen=SCRIPT_DIAGNOSTIC_MAX_LINES)
@@ -339,10 +414,25 @@ class BatchSandboxWorker:
             if stream == "stderr":
                 if line:
                     output_tail.append(line)
+                    logger.warning(
+                        "Batch script stderr: run_id={} chunk_key={} line={}",
+                        payload.get("run_id"),
+                        payload.get("chunk_key"),
+                        self._redact_script_output(payload, line),
+                    )
                 return
             if line.startswith(EVENT_PREFIX):
                 event = self._parse_json_line(line[len(EVENT_PREFIX):])
                 if isinstance(event, dict):
+                    logger.info(
+                        "Batch script progress: run_id={} chunk_key={} batch_item_id={} processed={}/{} message={}",
+                        payload.get("run_id"),
+                        payload.get("chunk_key"),
+                        event.get("batch_item_id"),
+                        event.get("processed"),
+                        event.get("total"),
+                        event.get("message"),
+                    )
                     if event.get("level") == "error":
                         self._log_script_error(
                             payload,
@@ -373,9 +463,21 @@ class BatchSandboxWorker:
                     raw_detail = parsed.get("error_detail")
                     if isinstance(raw_detail, dict):
                         script_error_detail = raw_detail
+                    logger.info(
+                        "Batch script returned result: run_id={} chunk_key={} success={}",
+                        payload.get("run_id"),
+                        payload.get("chunk_key"),
+                        parsed.get("success"),
+                    )
                 return
             if line:
                 output_tail.append(line)
+                logger.info(
+                    "Batch script output: run_id={} chunk_key={} line={}",
+                    payload.get("run_id"),
+                    payload.get("chunk_key"),
+                    self._redact_script_output(payload, line),
+                )
 
         remaining_timeout = self.settings.timeout_seconds - environment.elapsed_seconds
         try:
@@ -418,6 +520,12 @@ class BatchSandboxWorker:
             )
         if not result_payload or not result_payload.get("success"):
             raise RuntimeError(str((result_payload or {}).get("error") or "sandbox runner returned no result"))
+        logger.info(
+            "Batch script execution succeeded: run_id={} chunk_key={} script_key={}",
+            payload.get("run_id"),
+            payload.get("chunk_key"),
+            payload.get("script_key"),
+        )
         return result_payload.get("data")
 
     def _execution_error_detail(self, payload: dict[str, Any], exc: Exception) -> dict[str, Any]:
@@ -470,9 +578,9 @@ class BatchSandboxWorker:
         detail = self._redact_script_diagnostic(payload, error_detail)
         detail_mapping = detail if isinstance(detail, dict) else {}
         logger.error(
-            "Batch script reported an error: run_id=%s chunk_key=%s batch_item_id=%s "
-            "source=%s stage=%s type=%s http_status=%s request_id=%s message=%s\n"
-            "traceback:\n%s\nprovider_response:\n%s",
+            "Batch script reported an error: run_id={} chunk_key={} batch_item_id={} "
+            "source={} stage={} type={} http_status={} request_id={} message={}\n"
+            "traceback:\n{}\nprovider_response:\n{}",
             payload.get("run_id"),
             payload.get("chunk_key"),
             batch_item_id,
@@ -494,6 +602,12 @@ class BatchSandboxWorker:
         package_path = payload.get("script_package_path")
         if isinstance(package_path, str) and package_path:
             archive_path = task_root / "script-package.zip"
+            logger.info(
+                "Resolving uploaded script package: run_id={} chunk_key={} object_key={}",
+                payload.get("run_id"),
+                payload.get("chunk_key"),
+                package_path,
+            )
             asyncio.run(self.storage.download_script_package(package_path, archive_path))
             script_root = task_root / "script"
             extract_script_package(archive_path, script_root)
@@ -506,6 +620,11 @@ class BatchSandboxWorker:
             if not script_path.is_file():
                 raise RuntimeError("script entrypoint is unavailable after package extraction")
             requirements_file = script_root / "requirements.txt"
+            logger.info(
+                "Uploaded script package resolved: entrypoint={} requirements_present={}",
+                script_path,
+                requirements_file.is_file(),
+            )
             return script_path, requirements_file if requirements_file.is_file() else None, load_package_environment(script_root)
 
         script_key = str(payload["script_key"])
@@ -516,6 +635,7 @@ class BatchSandboxWorker:
             raise RuntimeError("script path escapes sandbox scripts directory") from exc
         if not script_path.is_file():
             raise RuntimeError(f"registered script `{script_key}` is not installed")
+        logger.info("Resolved built-in script: script_key={} path={}", script_key, script_path)
         return script_path, None, {}
 
     @staticmethod
@@ -550,6 +670,7 @@ class BatchSandboxWorker:
                 })
                 continue
             normalized.append(script_item)
+        logger.info("Normalized script results: requested_count={} returned_count={}", len(items), len(returned_items))
         return normalized
 
     def _failed_results(
@@ -599,12 +720,30 @@ class BatchSandboxWorker:
         }
         if isinstance(batch_item_id, int) and not isinstance(batch_item_id, bool):
             payload["batch_item_id"] = batch_item_id
+        logger.info(
+            "Publishing batch progress: run_id={} chunk_key={} phase={} batch_item_id={} processed={}/{}",
+            run_id,
+            chunk_key,
+            phase,
+            batch_item_id,
+            processed,
+            total,
+        )
         self._publish(
             self.settings.rabbitmq.progress_routing_key,
             payload,
         )
 
     def _publish_result(self, run_id: str, chunk_key: str, results: list[dict[str, Any]]) -> None:
+        logger.info(
+            "Publishing batch result: run_id={} chunk_key={} item_count={} succeeded={} failed={} skipped={}",
+            run_id,
+            chunk_key,
+            len(results),
+            sum(item.get("status") == "succeeded" for item in results),
+            sum(item.get("status") == "failed" for item in results),
+            sum(item.get("status") == "skipped" for item in results),
+        )
         self._publish(
             self.settings.rabbitmq.result_routing_key,
             {
@@ -625,6 +764,7 @@ class BatchSandboxWorker:
             body=json.dumps(payload, ensure_ascii=False),
             properties=pika.BasicProperties(delivery_mode=2, content_type="application/json"),
         )
+        logger.debug("RabbitMQ message published: routing_key={} message_type={}", routing_key, payload.get("message_type"))
 
     def _build_subprocess_env(
         self,
@@ -710,3 +850,4 @@ class BatchSandboxWorker:
                 connection.close()
             except Exception:
                 pass
+        logger.info("RabbitMQ worker connection closed")

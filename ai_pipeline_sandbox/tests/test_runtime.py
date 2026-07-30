@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -165,6 +166,54 @@ class BatchRuntimeTest(unittest.TestCase):
             )
 
         self.assertEqual(raised.exception.error_detail["exception_type"], "OutputLimitExceeded")
+
+    def test_uploaded_zip_example_runs_through_runner_contract(self) -> None:
+        example_root = Path(__file__).resolve().parents[2] / "readme" / "batch-script-zip-example"
+        example_zip = self.root / "image_center_box_zip_check.zip"
+        with zipfile.ZipFile(example_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in ("batch_script.json", "requirements.txt", "image_center_box.py", "box_utils.py"):
+                archive.write(example_root / name, name)
+        package_root = self.root / "uploaded-script"
+        extract_script_package(example_zip, package_root)
+        image_path = self.root / "sample.png"
+        image_path.write_bytes(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mNk+M/wHwAF/gL+Q10r7QAAAABJRU5ErkJggg=="
+            )
+        )
+        payload_path = self.root / "payload.json"
+        payload_path.write_text(
+            json.dumps(
+                {
+                    "script_params": {"class_index": 0, "box_width": 0.5, "box_height": 0.5},
+                    "items": [{"batch_item_id": 42, "local_path": str(image_path)}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve().parents[1] / "runner.py"),
+                str(package_root / "image_center_box.py"),
+                str(payload_path),
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+
+        lines = result.stdout.splitlines()
+        progress_event = json.loads(next(line.split("=", 1)[1] for line in lines if line.startswith("__AUTO_ML_BATCH_EVENT__=")))
+        response = json.loads(next(line.split("=", 1)[1] for line in lines if line.startswith("__AUTO_ML_BATCH_RESULT__=")))
+        item = response["data"]["items"][0]
+        self.assertEqual(progress_event["batch_item_id"], 42)
+        self.assertEqual(item["status"], "succeeded")
+        self.assertEqual(item["content"]["label_text"], "0 0.500000 0.500000 0.500000 0.500000")
+        self.assertEqual(item["content"]["image_width"], 1)
+        self.assertEqual(item["content"]["image_height"], 1)
 
 
 def _write_local_wheel(path: Path) -> None:

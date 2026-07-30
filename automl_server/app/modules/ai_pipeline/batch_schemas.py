@@ -12,6 +12,7 @@ class AiPipelineBatchScriptResponse(BaseModel):
     version: str
     name: str
     description: str | None = None
+    readme_markdown: str | None = None
     supported_data_types: list[int] = Field(default_factory=list)
     supported_annotation_types: list[int] = Field(default_factory=list)
     parameter_fields: list[dict[str, Any]] = Field(default_factory=list)
@@ -33,6 +34,9 @@ class AiPipelineBatchScriptManifest(BaseModel):
 
 class AiPipelineBatchScriptUpdate(BaseModel):
     enabled: bool | None = None
+    name: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    readme_markdown: str | None = Field(default=None, max_length=512 * 1024)
 
 
 class AiPipelineBatchRunCreate(BaseModel):

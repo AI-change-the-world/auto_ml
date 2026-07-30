@@ -1,5 +1,6 @@
 """Batch annotation sandbox models."""
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 from .base_entity import BaseEntity
 
@@ -79,6 +80,7 @@ class AiPipelineBatchScript(BaseEntity):
     version = Column(String(64), nullable=False, comment="脚本版本")
     name = Column(String(255), nullable=False, comment="脚本名称")
     description = Column(Text, nullable=True, comment="脚本描述")
+    readme_markdown = Column(LONGTEXT, nullable=True, comment="ZIP 根目录 README.md 内容")
     package_object_key = Column(String(512), nullable=False, comment="ZIP 脚本包对象路径")
     package_file_name = Column(String(255), nullable=False, comment="上传文件名")
     entrypoint = Column(String(255), nullable=False, comment="ZIP 内 Python 入口文件")

@@ -6,6 +6,7 @@ from pathlib import Path
 import opendal
 
 from config import StorageSettings
+from runtime.logging_utils import logger
 
 
 class DatasetStorage:
@@ -30,10 +31,16 @@ class DatasetStorage:
 
     async def download(self, object_key: str, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
+        logger.info("Downloading dataset asset: object_key={} destination={}", object_key, destination)
         data = await self._dataset_operator.read(object_key)
-        destination.write_bytes(bytes(data))
+        content = bytes(data)
+        destination.write_bytes(content)
+        logger.info("Dataset asset downloaded: object_key={} bytes={}", object_key, len(content))
 
     async def download_script_package(self, object_key: str, destination: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
+        logger.info("Downloading script package: object_key={} destination={}", object_key, destination)
         data = await self._script_operator.read(object_key)
-        destination.write_bytes(bytes(data))
+        content = bytes(data)
+        destination.write_bytes(content)
+        logger.info("Script package downloaded: object_key={} bytes={}", object_key, len(content))

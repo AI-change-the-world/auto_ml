@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 from .errors import RuntimeExecutionError
+from .logging_utils import logger
 from .models import ProcessResult
 
 
@@ -43,6 +44,12 @@ def run_isolated_process(
             _error_detail(stage, "TimeoutError", f"{stage} exceeded the total sandbox timeout"),
         )
     try:
+        logger.info(
+            "Starting sandbox subprocess: stage={} cwd={} command={}",
+            stage,
+            cwd,
+            " ".join(command),
+        )
         process = subprocess.Popen(
             [*(resource_limit_command or []), *command],
             cwd=str(cwd),
@@ -173,13 +180,22 @@ def run_isolated_process(
             if line_buffers[stream] and line_callback:
                 line_callback(stream, line_buffers[stream])
 
-    return ProcessResult(
+    result = ProcessResult(
         return_code=process.returncode or 0,
         stdout="".join(stdout_chunks),
         stderr="".join(stderr_chunks),
         stdout_bytes=stdout_bytes,
         stderr_bytes=stderr_bytes,
     )
+    logger.info(
+        "Sandbox subprocess completed: stage={} exit_code={} elapsed_seconds={:.2f} stdout_bytes={} stderr_bytes={}",
+        stage,
+        result.return_code,
+        time.monotonic() - started_at,
+        result.stdout_bytes,
+        result.stderr_bytes,
+    )
+    return result
 
 
 def _start_reader(

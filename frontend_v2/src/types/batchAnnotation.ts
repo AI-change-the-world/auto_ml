@@ -17,6 +17,7 @@ export interface AiPipelineBatchScript {
   version: string;
   name: string;
   description?: string | null;
+  readme_markdown?: string | null;
   supported_data_types: number[];
   supported_annotation_types: number[];
   parameter_fields: AiPipelineBatchScriptField[];
@@ -27,6 +28,9 @@ export interface AiPipelineBatchScript {
 
 export interface AiPipelineBatchScriptUpdateRequest {
   enabled?: boolean;
+  name?: string;
+  description?: string | null;
+  readme_markdown?: string | null;
 }
 
 export interface AiPipelineBatchRun {

@@ -58,6 +58,7 @@ TERMINAL_ITEM_STATUSES = {"succeeded", "failed", "skipped", "canceled"}
 SCRIPT_ARCHIVE_MAX_BYTES = 100 * 1024 * 1024
 SCRIPT_ARCHIVE_MAX_FILES = 512
 SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
+SCRIPT_README_MAX_BYTES = 512 * 1024
 SCRIPT_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 SECRET_VALUE_MARKER = "__pipeline_batch_secret__"
 
@@ -115,22 +116,37 @@ class BatchAnnotationService:
         builtin_enabled_by_key = await self._get_builtin_enabled_by_key(db, builtin_scripts)
         builtins = [
             self._to_script_response(
-                self._builtin_script(item, enabled=builtin_enabled_by_key.get(item["key"], True))
+                self._builtin_script(item, enabled=builtin_enabled_by_key.get(item["key"], True)),
+                include_readme=False,
             )
             for item in builtin_scripts
             if include_disabled or builtin_enabled_by_key.get(item["key"], True)
         ]
-        return [*builtins, *(self._to_script_response(self._custom_script_dict(item)) for item in custom_scripts)]
+        return [
+            *builtins,
+            *(
+                self._to_script_response(self._custom_script_dict(item), include_readme=False)
+                for item in custom_scripts
+            ),
+        ]
 
     async def get_script(
         self,
         db: AsyncSession,
         script_key: str,
     ) -> AiPipelineBatchScriptResponse:
-        script = await self._get_script(db, script_key)
-        if not script:
-            raise NotFoundException(f"Batch script {script_key} not found")
-        return self._to_script_response(script)
+        builtin = get_batch_script(script_key)
+        if builtin:
+            setting = await db.scalar(
+                select(AiPipelineBatchBuiltinScriptSetting).where(
+                    AiPipelineBatchBuiltinScriptSetting.script_key == builtin["key"]
+                )
+            )
+            return self._to_script_response(
+                self._builtin_script(builtin, enabled=setting.enabled if setting else True)
+            )
+        script = await self._get_custom_script(db, script_key)
+        return self._to_script_response(self._custom_script_dict(script))
 
     async def upload_script(
         self,
@@ -144,6 +160,7 @@ class BatchAnnotationService:
         entrypoint = self._normalize_entrypoint(manifest.entrypoint)
         normalized_fields = self._normalize_parameter_fields(manifest.parameters)
         self._validate_script_archive(archive_bytes, entrypoint)
+        readme_markdown = self._read_bundle_readme(archive_bytes)
 
         archive_file_name = PurePosixPath(archive_name or "script.zip").name
         if not archive_file_name.lower().endswith(".zip"):
@@ -165,6 +182,7 @@ class BatchAnnotationService:
         script.version = manifest.version.strip()
         script.name = manifest.name.strip()
         script.description = manifest.description.strip() if manifest.description else None
+        script.readme_markdown = readme_markdown
         script.package_object_key = object_key
         script.package_file_name = archive_file_name
         script.entrypoint = entrypoint
@@ -186,6 +204,9 @@ class BatchAnnotationService:
         update_data = data.model_dump(exclude_unset=True)
         builtin = get_batch_script(script_key)
         if builtin:
+            unsupported_fields = set(update_data) - {"enabled"}
+            if unsupported_fields:
+                raise BadRequestException("platform scripts can only update the enabled state")
             setting = await db.scalar(
                 select(AiPipelineBatchBuiltinScriptSetting).where(
                     AiPipelineBatchBuiltinScriptSetting.script_key == builtin["key"]
@@ -203,6 +224,17 @@ class BatchAnnotationService:
         script = await self._get_custom_script(db, script_key)
         if "enabled" in update_data:
             script.enabled = bool(update_data["enabled"])
+        if "name" in update_data:
+            name = (update_data["name"] or "").strip()
+            if not name:
+                raise BadRequestException("script name cannot be blank")
+            script.name = name
+        if "description" in update_data:
+            description = update_data["description"]
+            script.description = description.strip() if description and description.strip() else None
+        if "readme_markdown" in update_data:
+            readme_markdown = update_data["readme_markdown"]
+            script.readme_markdown = readme_markdown if readme_markdown and readme_markdown.strip() else None
         await db.commit()
         await db.refresh(script)
         return self._to_script_response(self._custom_script_dict(script))
@@ -250,6 +282,7 @@ class BatchAnnotationService:
             **script,
             "entrypoint": f"{script['key']}.py",
             "package_object_key": None,
+            "readme_markdown": None,
             "is_builtin": True,
             "enabled": enabled,
         }
@@ -280,6 +313,7 @@ class BatchAnnotationService:
             "version": script.version,
             "name": script.name,
             "description": script.description,
+            "readme_markdown": script.readme_markdown,
             "supported_data_types": _load_json(script.supported_data_types_json, []),
             "supported_annotation_types": _load_json(script.supported_annotation_types_json, []),
             "parameter_fields": _load_json(script.parameter_fields_json, []),
@@ -290,12 +324,17 @@ class BatchAnnotationService:
         }
 
     @staticmethod
-    def _to_script_response(script: dict[str, Any]) -> AiPipelineBatchScriptResponse:
+    def _to_script_response(
+        script: dict[str, Any],
+        *,
+        include_readme: bool = True,
+    ) -> AiPipelineBatchScriptResponse:
         return AiPipelineBatchScriptResponse(
             key=str(script["key"]),
             version=str(script["version"]),
             name=str(script["name"]),
             description=script.get("description"),
+            readme_markdown=script.get("readme_markdown") if include_readme else None,
             supported_data_types=list(script.get("supported_data_types") or []),
             supported_annotation_types=list(script.get("supported_annotation_types") or []),
             parameter_fields=list(script.get("parameter_fields") or []),
@@ -354,6 +393,20 @@ class BatchAnnotationService:
                 info for info in archive.infolist()
                 if not info.is_dir() and PurePosixPath(info.filename).as_posix() == "batch_script.json"
             ]
+            if not manifest_entries:
+                nested_manifest_paths = [
+                    PurePosixPath(info.filename).as_posix()
+                    for info in archive.infolist()
+                    if not info.is_dir()
+                    and PurePosixPath(info.filename).name == "batch_script.json"
+                ]
+                if nested_manifest_paths:
+                    preview = ", ".join(nested_manifest_paths[:3])
+                    raise BadRequestException(
+                        "未在 ZIP 根目录找到 batch_script.json；检测到 "
+                        f"`{preview}`。你可能把脚本文件夹整体压缩进 ZIP 了，请直接压缩目录内文件。"
+                    )
+                raise BadRequestException("script ZIP must contain exactly one root batch_script.json manifest")
             if len(manifest_entries) != 1:
                 raise BadRequestException("script ZIP must contain exactly one root batch_script.json manifest")
             manifest_entry = manifest_entries[0]
@@ -364,6 +417,33 @@ class BatchAnnotationService:
                 return AiPipelineBatchScriptManifest.model_validate(manifest_payload)
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
                 raise BadRequestException(f"invalid batch_script.json manifest: {exc}") from exc
+
+    @staticmethod
+    def _read_bundle_readme(archive_bytes: bytes) -> str | None:
+        try:
+            archive = zipfile.ZipFile(io.BytesIO(archive_bytes))
+        except zipfile.BadZipFile as exc:
+            raise BadRequestException("script package must be a valid ZIP archive") from exc
+        with archive:
+            readme_entries = [
+                info
+                for info in archive.infolist()
+                if not info.is_dir()
+                and PurePosixPath(info.filename).parent == PurePosixPath(".")
+                and PurePosixPath(info.filename).name.lower() == "readme.md"
+            ]
+            if not readme_entries:
+                return None
+            if len(readme_entries) > 1:
+                raise BadRequestException("script ZIP can contain only one root README.md")
+            readme_entry = readme_entries[0]
+            if readme_entry.file_size > SCRIPT_README_MAX_BYTES:
+                raise BadRequestException("README.md exceeds the 512 KB limit")
+            try:
+                readme_markdown = archive.read(readme_entry).decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise BadRequestException("README.md must use UTF-8 encoding") from exc
+            return readme_markdown if readme_markdown.strip() else None
 
     @staticmethod
     def _normalize_parameter_fields(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:

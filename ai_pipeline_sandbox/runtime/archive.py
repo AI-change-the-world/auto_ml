@@ -6,6 +6,8 @@ import stat
 import zipfile
 from pathlib import Path
 
+from .logging_utils import logger
+
 
 SCRIPT_ARCHIVE_MAX_FILES = 512
 SCRIPT_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
@@ -13,6 +15,7 @@ DOTENV_MAX_BYTES = 256 * 1024
 
 
 def extract_script_package(archive_path: Path, destination: Path) -> None:
+    logger.info("Extracting script package: archive={} destination={}", archive_path, destination)
     try:
         archive = zipfile.ZipFile(archive_path)
     except zipfile.BadZipFile as exc:
@@ -46,6 +49,7 @@ def extract_script_package(archive_path: Path, destination: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(info, "r") as source, target.open("wb") as output:
                 shutil.copyfileobj(source, output)
+    logger.info("Script package extracted: archive={} files={} unpacked_bytes={}", archive_path, len(infos), total_size)
 
 
 def load_bundle_dotenv(bundle_root: Path) -> dict[str, str]:
@@ -73,6 +77,7 @@ def load_bundle_dotenv(bundle_root: Path) -> dict[str, str]:
         if not key or "\x00" in key or "\x00" in value:
             raise RuntimeError("script package .env contains an invalid variable")
         values[key] = _parse_dotenv_value(value)
+    logger.info("Loaded script package environment: bundle_root={} variables={}", bundle_root, len(values))
     return values
 
 

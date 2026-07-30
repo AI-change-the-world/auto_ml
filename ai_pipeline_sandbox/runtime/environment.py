@@ -69,10 +69,19 @@ class ScriptEnvironmentManager:
         )
         venv_dir = self.settings.venv_root / self._environment_name(script_key, marker)
         python_executable = self._venv_python(venv_dir)
+        logger.info(
+            "Preparing script environment: script_key={} version={} venv_dir={} requirements_present={} builtin_package_count={}",
+            script_key,
+            script_version,
+            venv_dir,
+            requirements_file is not None,
+            len(packages),
+        )
         lock = self._lock_for(venv_dir)
         with lock:
             if self._marker_matches(venv_dir, marker) and python_executable.is_file():
                 self._emit("reuse_venv", f"Reusing cached virtual environment: {venv_dir}")
+                logger.info("Reusing cached script environment: script_key={} venv_dir={}", script_key, venv_dir)
                 return ScriptEnvironment(
                     python_executable,
                     venv_dir,
@@ -82,7 +91,7 @@ class ScriptEnvironmentManager:
                 )
 
             if venv_dir.exists():
-                logger.warning("Removing incomplete or stale batch script venv: %s", venv_dir)
+                logger.warning("Removing incomplete or stale batch script venv: {}", venv_dir)
                 shutil.rmtree(venv_dir, ignore_errors=True)
             venv_dir.parent.mkdir(parents=True, exist_ok=True)
             self.settings.pip_cache_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +109,12 @@ class ScriptEnvironmentManager:
                 json.dumps(marker, ensure_ascii=False, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+        logger.info(
+            "Script environment prepared: script_key={} venv_dir={} elapsed_seconds={:.2f}",
+            script_key,
+            venv_dir,
+            time.monotonic() - started_at,
+        )
         return ScriptEnvironment(
             python_executable,
             venv_dir,
@@ -197,7 +212,7 @@ class ScriptEnvironmentManager:
             )
         except RuntimeProcessError as exc:
             logger.error(
-                "Batch script environment step failed: script_key=%s stage=%s detail=%s",
+                "Batch script environment step failed: script_key={} stage={} detail={}",
                 script_key,
                 stage,
                 exc.error_detail,
@@ -206,7 +221,7 @@ class ScriptEnvironmentManager:
 
         if result.return_code == 0:
             logger.info(
-                "Batch script environment step completed: script_key=%s stage=%s stdout_bytes=%s stderr_bytes=%s",
+                "Batch script environment step completed: script_key={} stage={} stdout_bytes={} stderr_bytes={}",
                 script_key,
                 stage,
                 result.stdout_bytes,
@@ -215,7 +230,7 @@ class ScriptEnvironmentManager:
             return
         output_tail = _combined_output_tail(result.stdout, result.stderr)
         logger.error(
-            "Batch script environment step failed: script_key=%s stage=%s exit_code=%s\n%s",
+            "Batch script environment step failed: script_key={} stage={} exit_code={}\n{}",
             script_key,
             stage,
             result.return_code,
@@ -238,7 +253,7 @@ class ScriptEnvironmentManager:
     def _emit_output(self, script_key: str, stage: str, stream: str, line: str) -> None:
         if line:
             logger.info(
-                "Batch script environment output: script_key=%s stage=%s stream=%s line=%s",
+                "Batch script environment output: script_key={} stage={} stream={} line={}",
                 script_key,
                 stage,
                 stream,
@@ -248,7 +263,7 @@ class ScriptEnvironmentManager:
             self.output_callback(stage, line)
 
     def _emit(self, stage: str, message: str) -> None:
-        logger.info("Batch script environment: stage=%s message=%s", stage, message)
+        logger.info("Batch script environment: stage={} message={}", stage, message)
         if self.output_callback:
             self.output_callback(stage, message)
 

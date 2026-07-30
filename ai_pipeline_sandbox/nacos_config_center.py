@@ -2,16 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import os
 import threading
 from pathlib import Path
 from typing import Callable
 
 import yaml
+from loguru import logger
 
-
-logger = logging.getLogger(__name__)
 ConfigCallback = Callable[[dict, dict], None]
 
 
@@ -75,7 +73,7 @@ class NacosConfigCenter:
             return self._apply_config_text(self._fetch_config_text(), notify=notify)
         except Exception as exc:
             if not self._last_fetch_failed:
-                logger.warning("Failed to refresh Nacos config: %s", exc)
+                logger.warning("Failed to refresh Nacos config: {}", exc)
             self._last_fetch_failed = True
             with self._lock:
                 return self._config_data
@@ -88,7 +86,7 @@ class NacosConfigCenter:
         if not self._start_listener():
             self._start_polling()
         self._started = True
-        logger.info("Nacos config sync started, mode=%s", self._listener_mode)
+        logger.info("Nacos config sync started: mode={}", self._listener_mode)
 
     def stop(self) -> None:
         if not self._started:
@@ -105,7 +103,7 @@ class NacosConfigCenter:
         try:
             from v2.nacos import ClientConfigBuilder, ConfigParam, GRPCConfig, NacosConfigService
         except ImportError:
-            logger.info("Nacos v2 listener unavailable, falling back to polling")
+            logger.info("Nacos v2 listener unavailable; falling back to polling")
             return False
 
         server_addr, namespace, data_id, group = self._client_args()
@@ -163,7 +161,7 @@ class NacosConfigCenter:
 
             async def on_change(_tenant, changed_data_id, changed_group, content):
                 logger.info(
-                    "Nacos listener received update: dataId=%s, group=%s",
+                    "Nacos listener received update: data_id={} group={}",
                     changed_data_id,
                     changed_group,
                 )
@@ -177,7 +175,7 @@ class NacosConfigCenter:
             while not self._stop_event.is_set():
                 await asyncio.sleep(1)
         except Exception as exc:
-            logger.warning("Nacos listener failed, falling back to polling: %s", exc)
+            logger.warning("Nacos listener failed; falling back to polling: {}", exc)
             self._listener_mode = "poll"
             self._start_polling()
         finally:
@@ -206,7 +204,7 @@ class NacosConfigCenter:
         )
         self._poll_thread.start()
         self._listener_mode = "poll"
-        logger.info("Nacos config polling started, interval=%ss", self.poll_interval())
+        logger.info("Nacos config polling started: interval_seconds={}", self.poll_interval())
 
     def _poll_loop(self) -> None:
         while not self._stop_event.wait(self.poll_interval()):
@@ -251,12 +249,12 @@ class NacosConfigCenter:
         self._last_fetch_failed = False
 
         if changed and notify:
-            logger.info("Nacos config updated, keys=%s", list(config_data.keys()))
+            logger.info("Nacos config updated: keys={}", list(config_data.keys()))
             for name, callback in callbacks.items():
                 try:
                     callback(old_config, config_data)
                 except Exception as exc:
-                    logger.error("Nacos config callback '%s' failed: %s", name, exc)
+                    logger.opt(exception=True).error("Nacos config callback '{}' failed", name)
         return config_data
 
 

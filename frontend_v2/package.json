@@ -29,7 +29,9 @@
     "react-dom": "^19.2.4",
     "react-i18next": "^17.0.8",
     "react-konva": "^19.2.3",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.1",
+    "remark-gfm": "^4.0.1",
     "uuid": "^13.0.1",
     "yjs": "^13.6.31",
     "zustand": "^5.0.12"

@@ -752,6 +752,7 @@ CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_script` (
     `version` VARCHAR(64) NOT NULL,
     `name` VARCHAR(255) NOT NULL,
     `description` TEXT DEFAULT NULL,
+    `readme_markdown` LONGTEXT DEFAULT NULL,
     `package_object_key` VARCHAR(512) NOT NULL,
     `package_file_name` VARCHAR(255) NOT NULL,
     `entrypoint` VARCHAR(255) NOT NULL,
