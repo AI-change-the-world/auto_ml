@@ -48,17 +48,38 @@ export const appendProgressPointFromEvent = (
   if (!event.created_at || !['progress', 'result'].includes(event.event_type)) return current;
   const payload = event.event_payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return current;
+  if (event.event_type === 'progress' && payload.phase && payload.phase !== 'execution') return current;
   const rawProgress = payload.run_progress ?? payload.progress;
   if (typeof rawProgress !== 'number' || !Number.isFinite(rawProgress)) return current;
   const progress = Math.min(Math.max(Math.floor(rawProgress), 0), 100);
   if (current.at(-1)?.progress === progress) return current;
-  return [...current, { progress, created_at: event.created_at }].slice(-240);
+  const occurredAt = typeof payload.occurred_at === 'string' && !Number.isNaN(new Date(payload.occurred_at).getTime())
+    ? payload.occurred_at
+    : event.created_at;
+  return [...current, { progress, created_at: occurredAt }].slice(-240);
 };
 
 const parseDate = (value?: string | null) => {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const parseTimestampMilliseconds = (value?: string | null) => {
+  const date = parseDate(value);
+  if (!date || !value) return null;
+  const decimalIndex = value.indexOf('.');
+  if (decimalIndex < 0) return date.getTime();
+  const timezoneIndexes = [
+    value.indexOf('Z', decimalIndex),
+    value.indexOf('+', decimalIndex),
+    value.indexOf('-', decimalIndex),
+  ].filter((index) => index >= 0);
+  const fractionEnd = timezoneIndexes.length > 0 ? Math.min(...timezoneIndexes) : value.length;
+  const fraction = value.slice(decimalIndex + 1, fractionEnd);
+  if (!fraction || !/^\d+$/.test(fraction)) return date.getTime();
+  const fractionalMilliseconds = Number(`0.${fraction}`) * 1000;
+  return date.getTime() - Math.floor(fractionalMilliseconds) + fractionalMilliseconds;
 };
 
 const padNumber = (value: number) => String(value).padStart(2, '0');
@@ -89,11 +110,10 @@ export const formatDuration = (start?: string | null, end?: string | null) => {
 };
 
 export const getItemDuration = (item: AiPipelineBatchRunItem) => {
-  if (!item.started_at) return '-';
-  const start = parseDate(item.started_at);
-  const end = parseDate(item.finished_at);
-  if (!start || !end) return '-';
-  const seconds = Math.max(0, end.getTime() - start.getTime()) / 1000;
+  const durationMs = item.processing_duration_ms;
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs < 0) return '-';
+  if (durationMs < 1000) return `${Math.round(durationMs)}ms`;
+  const seconds = durationMs / 1000;
   return `${seconds.toFixed(seconds < 10 ? 2 : 1)}s`;
 };
 
@@ -160,7 +180,10 @@ export const buildProcessingRatePoints = (
   for (let index = 1; index < progressPoints.length; index += 1) {
     const previous = progressPoints[index - 1];
     const current = progressPoints[index];
-    const elapsedMinutes = (new Date(current.created_at).getTime() - new Date(previous.created_at).getTime()) / 60000;
+    const previousTimestamp = parseTimestampMilliseconds(previous.created_at);
+    const currentTimestamp = parseTimestampMilliseconds(current.created_at);
+    if (previousTimestamp === null || currentTimestamp === null) continue;
+    const elapsedMinutes = (currentTimestamp - previousTimestamp) / 60000;
     const processedCount = ((current.progress - previous.progress) / 100) * totalCount;
     if (elapsedMinutes <= 0 || processedCount < 0) continue;
     points.push({ createdAt: current.created_at, rate: Math.round(processedCount / elapsedMinutes) });

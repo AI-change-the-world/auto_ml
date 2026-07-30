@@ -59,6 +59,7 @@ class AiPipelineBatchRunItem(BaseEntity):
     error_message = Column(Text, nullable=True, comment="错误信息")
     started_at = Column(DateTime, nullable=True, comment="开始时间")
     finished_at = Column(DateTime, nullable=True, comment="结束时间")
+    processing_duration_ms = Column(Integer, nullable=True, comment="样本实际处理耗时（毫秒）")
 
 
 class AiPipelineBatchRunEvent(BaseEntity):

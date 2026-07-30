@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from datetime import datetime, timezone
 import json
 import os
 import queue
@@ -408,6 +409,13 @@ class BatchSandboxWorker:
         result_payload: dict[str, Any] | None = None
         script_error_detail: dict[str, Any] | None = None
         output_tail: deque[str] = deque(maxlen=SCRIPT_DIAGNOSTIC_MAX_LINES)
+        self._publish_progress(
+            str(payload["run_id"]),
+            str(payload["chunk_key"]),
+            0,
+            len(items),
+            "script execution started",
+        )
 
         def consume_script_output(stream: str, line: str) -> None:
             nonlocal result_payload, script_error_detail
@@ -439,13 +447,17 @@ class BatchSandboxWorker:
                             event.get("batch_item_id"),
                             event.get("error_detail") or {"message": event.get("message")},
                         )
+                    batch_item_id = event.get("batch_item_id")
+                    processing_duration_ms = event.get("processing_duration_ms")
                     self._publish_progress(
                         str(payload["run_id"]),
                         str(payload["chunk_key"]),
                         int(event.get("processed") or 0),
                         int(event.get("total") or len(items)),
                         str(event.get("message") or "script progress"),
-                        batch_item_id=event.get("batch_item_id"),
+                        batch_item_id=batch_item_id,
+                        processing_duration_ms=processing_duration_ms,
+                        occurred_at=event.get("occurred_at"),
                     )
                 return
             if line.startswith(LOG_PREFIX):
@@ -707,7 +719,14 @@ class BatchSandboxWorker:
         *,
         phase: str = "execution",
         batch_item_id: int | None = None,
+        processing_duration_ms: int | None = None,
+        occurred_at: str | None = None,
     ) -> None:
+        event_occurred_at = (
+            occurred_at
+            if isinstance(occurred_at, str)
+            else datetime.now(timezone.utc).isoformat(timespec="microseconds")
+        )
         payload = {
             "message_type": "pipeline.batch.progress",
             "service_name": "ai_pipeline_sandbox",
@@ -717,9 +736,12 @@ class BatchSandboxWorker:
             "total": total,
             "message": message,
             "phase": phase,
+            "occurred_at": event_occurred_at,
         }
         if isinstance(batch_item_id, int) and not isinstance(batch_item_id, bool):
             payload["batch_item_id"] = batch_item_id
+        if isinstance(processing_duration_ms, int) and processing_duration_ms >= 0:
+            payload["processing_duration_ms"] = processing_duration_ms
         logger.info(
             "Publishing batch progress: run_id={} chunk_key={} phase={} batch_item_id={} processed={}/{}",
             run_id,
@@ -751,6 +773,7 @@ class BatchSandboxWorker:
                 "service_name": "ai_pipeline_sandbox",
                 "run_id": run_id,
                 "chunk_key": chunk_key,
+                "occurred_at": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
                 "results": results,
             },
         )

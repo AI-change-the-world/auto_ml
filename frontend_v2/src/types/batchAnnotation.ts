@@ -100,6 +100,7 @@ export interface AiPipelineBatchRunItem {
   result?: Record<string, unknown> | null;
   started_at?: string | null;
   finished_at?: string | null;
+  processing_duration_ms?: number | null;
   created_at?: string | null;
   updated_at?: string | null;
 }

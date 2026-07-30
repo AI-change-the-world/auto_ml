@@ -933,7 +933,8 @@ class BatchAnnotationService:
                 continue
             if points and points[-1].progress == progress:
                 continue
-            points.append(AiPipelineBatchRunProgressPoint(progress=progress, created_at=event.created_at))
+            occurred_at = self._parse_event_occurred_at(payload.get("occurred_at")) or event.created_at
+            points.append(AiPipelineBatchRunProgressPoint(progress=progress, created_at=occurred_at))
         baseline_at = run.started_at or run.created_at
         if baseline_at is not None and len(events) < 240 and (not points or points[0].progress > 0):
             points.insert(0, AiPipelineBatchRunProgressPoint(progress=0, created_at=baseline_at))
@@ -953,6 +954,16 @@ class BatchAnnotationService:
             "sample input prepared",
             "preparing script virtual environment",
         } and not message.startswith("reuse_venv:")
+
+    @staticmethod
+    def _parse_event_occurred_at(value: Any) -> datetime | None:
+        if not isinstance(value, str):
+            return None
+        try:
+            occurred_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return occurred_at
 
     async def cancel_run(self, db: AsyncSession, run_id: str) -> AiPipelineBatchRunResponse:
         run = await self._get_run(db, run_id)
@@ -1032,6 +1043,7 @@ class BatchAnnotationService:
             item.chunk_key = None
             item.started_at = None
             item.finished_at = None
+            item.processing_duration_ms = None
             item.error_message = None
             item.result_json = None
 
@@ -1093,6 +1105,13 @@ class BatchAnnotationService:
             )
             if item:
                 item.status = "running"
+                processing_duration_ms = payload.get("processing_duration_ms")
+                if (
+                    isinstance(processing_duration_ms, int)
+                    and not isinstance(processing_duration_ms, bool)
+                    and processing_duration_ms >= 0
+                ):
+                    item.processing_duration_ms = processing_duration_ms
         terminal_stmt = select(func.count()).select_from(AiPipelineBatchRunItem).where(
             AiPipelineBatchRunItem.batch_run_id == run.id,
             AiPipelineBatchRunItem.status.in_(TERMINAL_ITEM_STATUSES),
@@ -1121,6 +1140,7 @@ class BatchAnnotationService:
                 "message": payload.get("message"),
                 "phase": phase,
                 "batch_item_id": batch_item_id,
+                "occurred_at": payload.get("occurred_at"),
             },
         )
         await db.commit()
@@ -1189,6 +1209,7 @@ class BatchAnnotationService:
                 "failed_count": run.failed_count,
                 "skipped_count": run.skipped_count,
                 "progress": run.progress,
+                "occurred_at": payload.get("occurred_at"),
             },
         )
         await db.commit()
@@ -1622,6 +1643,7 @@ class BatchAnnotationService:
             result=result if isinstance(result, dict) else None,
             started_at=item.started_at,
             finished_at=item.finished_at,
+            processing_duration_ms=item.processing_duration_ms,
             created_at=item.created_at,
             updated_at=item.updated_at,
         )

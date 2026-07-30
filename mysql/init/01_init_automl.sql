@@ -694,6 +694,7 @@ CREATE TABLE IF NOT EXISTS `ai_pipeline_batch_run` (
     `error_message` TEXT DEFAULT NULL,
     `started_at` DATETIME DEFAULT NULL,
     `finished_at` DATETIME DEFAULT NULL,
+    `processing_duration_ms` INT DEFAULT NULL COMMENT '样本实际处理耗时（毫秒）',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_ai_pipeline_batch_run_run_id` (`run_id`),
     KEY `idx_ai_pipeline_batch_run_group` (`batch_group_id`),

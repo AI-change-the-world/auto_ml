@@ -267,6 +267,7 @@ const ProcessingSpeedChart: React.FC<{ run: AiPipelineBatchRunDetail }> = ({ run
           })}
           <path d={areaPath} fill="#eff6ff" opacity="0.9" />
           <path d={linePath} fill="none" stroke="#3b82f6" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          {coordinates.map((point) => <circle key={`point-${point.createdAt}`} cx={point.x} cy={point.y} r="3" fill="#3b82f6" />)}
           {labelIndexes.map((index) => {
             const point = coordinates[index];
             const anchor = index === 0 ? 'start' : index === coordinates.length - 1 ? 'end' : 'middle';

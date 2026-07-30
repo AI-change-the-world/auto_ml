@@ -110,6 +110,7 @@ class AiPipelineBatchRunItemResponse(BaseModel):
     result: dict[str, Any] | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    processing_duration_ms: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

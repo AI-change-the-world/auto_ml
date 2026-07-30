@@ -6,9 +6,11 @@ import importlib.util
 import inspect
 import json
 import sys
+import time
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 RESULT_PREFIX = "__AUTO_ML_BATCH_RESULT__="
@@ -32,10 +34,6 @@ async def maybe_await(value: Any) -> Any:
     return await value if inspect.isawaitable(value) else value
 
 
-def report(**event: Any) -> None:
-    print(EVENT_PREFIX + json.dumps(event, ensure_ascii=False), flush=True)
-
-
 async def run() -> int:
     if len(sys.argv) != 3:
         print(RESULT_PREFIX + json.dumps({"success": False, "error": "Usage: runner.py <script.py> <payload.json>"}))
@@ -48,6 +46,20 @@ async def run() -> int:
         if not callable(execute_batch):
             raise RuntimeError("Batch script must define callable execute_batch(params, report)")
         signature = inspect.signature(execute_batch)
+        last_item_report_at = time.monotonic()
+
+        def report(**event: Any) -> None:
+            nonlocal last_item_report_at
+            now = time.monotonic()
+            event["occurred_at"] = datetime.now(timezone.utc).isoformat(timespec="microseconds")
+            batch_item_id = event.get("batch_item_id")
+            if isinstance(batch_item_id, int) and not isinstance(batch_item_id, bool):
+                duration_ms = event.get("processing_duration_ms")
+                if not isinstance(duration_ms, int) or isinstance(duration_ms, bool) or duration_ms < 0:
+                    event["processing_duration_ms"] = max(round((now - last_item_report_at) * 1000), 0)
+                last_item_report_at = now
+            print(EVENT_PREFIX + json.dumps(event, ensure_ascii=False), flush=True)
+
         if len(signature.parameters) >= 2:
             result = await maybe_await(execute_batch(payload, report))
         else:
