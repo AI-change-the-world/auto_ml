@@ -57,7 +57,7 @@ class AiPipelineRuntimeConfig(BaseModel):
 class Settings(BaseModel):
     """全局设置"""
     # 服务配置
-    app_name: str = "AutoML Server"
+    app_name: str = "AutoML Studio"
     app_version: str = __version__
     host: str = "0.0.0.0"
     port: int = 45678

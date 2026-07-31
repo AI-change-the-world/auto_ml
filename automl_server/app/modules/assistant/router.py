@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import Result
+from app.common.sse import create_sse_response
 from app.config.database import get_db
 
 from .schemas import (
@@ -41,3 +42,12 @@ async def chat(
     service: AssistantService = Depends(get_assistant_service),
 ):
     return Result.ok(await service.chat(db, data))
+
+
+@router.post("/chat/stream", summary="流式向智能助手提问")
+async def stream_chat(
+    data: AssistantChatRequest,
+    db: AsyncSession = Depends(get_db),
+    service: AssistantService = Depends(get_assistant_service),
+):
+    return create_sse_response(service.stream_chat(db, data))

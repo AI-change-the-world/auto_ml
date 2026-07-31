@@ -27,6 +27,11 @@
         "send": "发送",
         "clear": "清空对话",
         "syncing": "正在同步当前平台状态…",
+        "generating": "正在生成回答…",
+        "requestFailed": "智能助手请求失败，请查看服务端日志",
+        "execution": {
+            "title": "执行步骤"
+        },
         "open": "打开",
         "unsupported": "我当前更擅长回答数据集、标注、训练、部署状态，以及帮你快速跳转页面。",
         "welcomeTitle": "可以直接问我平台现在的情况",

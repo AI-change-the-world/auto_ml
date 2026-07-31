@@ -27,6 +27,11 @@
         "send": "Send",
         "clear": "Clear",
         "syncing": "Syncing current workspace status…",
+        "generating": "Generating answer…",
+        "requestFailed": "Assistant request failed. Check the server logs.",
+        "execution": {
+            "title": "Execution steps"
+        },
         "open": "Open",
         "unsupported": "I currently work best for datasets, annotations, training, deployment status, and fast page navigation.",
         "welcomeTitle": "Ask about the current workspace",

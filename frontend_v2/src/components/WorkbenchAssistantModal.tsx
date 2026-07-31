@@ -1,8 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Empty, Input, Modal, Space, Spin } from 'antd';
-import { ArrowRightOutlined, CommentOutlined } from '@ant-design/icons';
+import {
+  ArrowRightOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  CommentOutlined,
+  LoadingOutlined,
+} from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { askWorkbenchAssistant, getAssistantConfig } from '../api/assistant';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { getAssistantConfig, streamWorkbenchAssistant, type AssistantStreamEvent } from '../api/assistant';
 import type { AnnotationProject, DeploymentOverviewItem, HomeStats, TaskResponse } from '../types';
 
 interface WorkbenchAssistantModalProps {
@@ -28,6 +36,15 @@ interface AssistantMessage {
   role: 'assistant' | 'user';
   content: string;
   actions?: AssistantAction[];
+  steps?: AssistantStep[];
+  streaming?: boolean;
+}
+
+interface AssistantStep {
+  id: string;
+  label: string;
+  status: 'running' | 'completed' | 'failed';
+  detail?: string;
 }
 
 function includesAny(source: string, keywords: string[]) {
@@ -49,6 +66,8 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [assistantEnabled, setAssistantEnabled] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const streamAbortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -73,6 +92,13 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
     };
   }, [open, t]);
 
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (messageList) {
+      messageList.scrollTop = messageList.scrollHeight;
+    }
+  }, [messages, chatLoading]);
+
   const suggestionTexts = useMemo(
     () => [
       t('assistant.suggestions.datasetCount'),
@@ -84,9 +110,65 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
     [t],
   );
 
+  const handleClose = () => {
+    streamAbortControllerRef.current?.abort();
+    streamAbortControllerRef.current = null;
+    onClose();
+  };
+
   const handleNavigate = (path: string) => {
     onNavigate(path);
-    onClose();
+    handleClose();
+  };
+
+  const updateMessage = (messageId: string, update: (message: AssistantMessage) => AssistantMessage) => {
+    setMessages((prev) => prev.map((message) => (message.id === messageId ? update(message) : message)));
+  };
+
+  const applyStreamEvent = (messageId: string, event: AssistantStreamEvent) => {
+    if (event.event === 'plan' || event.event === 'tool') {
+      const step = event.data.id && event.data.label && event.data.status
+        ? {
+            id: event.data.id,
+            label: event.data.label,
+            status: event.data.status,
+            detail: event.data.detail,
+          }
+        : null;
+      if (!step) return;
+      updateMessage(messageId, (message) => {
+        const steps = message.steps || [];
+        const existing = steps.some((item) => item.id === step.id);
+        return {
+          ...message,
+          steps: existing ? steps.map((item) => (item.id === step.id ? { ...item, ...step } : item)) : [...steps, step],
+        };
+      });
+      return;
+    }
+    if (event.event === 'answer_delta' && event.data.delta) {
+      updateMessage(messageId, (message) => ({ ...message, content: `${message.content}${event.data.delta}` }));
+      return;
+    }
+    if (event.event === 'done') {
+      updateMessage(messageId, (message) => ({
+        ...message,
+        actions: event.data.actions,
+        streaming: false,
+      }));
+      return;
+    }
+    if (event.event === 'error') {
+      updateMessage(messageId, (message) => ({
+        ...message,
+        steps: (message.steps || []).map((step) => (
+          step.status === 'running' ? { ...step, status: 'failed', detail: event.data.message } : step
+        )),
+        content: message.content || event.data.message || t('assistant.requestFailed'),
+        actions: [{ key: 'settings', label: t('assistant.actions.settings'), path: '/settings' }],
+        streaming: false,
+      }));
+    }
   };
 
   const buildResponse = (question: string): AssistantMessage => {
@@ -186,6 +268,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
       return;
     }
 
+    const assistantMessageId = `assistant-${Date.now()}`;
     setMessages((prev) => [
       ...prev,
       { id: `user-${Date.now()}`, role: 'user', content: question },
@@ -196,42 +279,40 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
       return;
     }
 
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantMessageId, role: 'assistant', content: '', steps: [], streaming: true },
+    ]);
     setChatLoading(true);
+    const controller = new AbortController();
+    streamAbortControllerRef.current = controller;
     try {
-      const response = await askWorkbenchAssistant({
+      await streamWorkbenchAssistant({
         content: question,
         page_context: window.location.pathname,
         language: i18n.language,
-      });
-      if (!response) {
-        throw new Error('智能助手未返回内容');
-      }
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: response.content,
-          actions: response.actions,
-        },
-      ]);
+      }, (event) => applyStreamEvent(assistantMessageId, event), controller.signal);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '智能助手请求失败，请查看服务端日志';
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: errorMessage,
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        const errorMessage = error instanceof Error ? error.message : t('assistant.requestFailed');
+        updateMessage(assistantMessageId, (message) => ({
+          ...message,
+          content: message.content || errorMessage,
           actions: [{ key: 'settings', label: t('assistant.actions.settings'), path: '/settings' }],
-        },
-      ]);
+          streaming: false,
+        }));
+      }
     } finally {
+      streamAbortControllerRef.current = null;
       setChatLoading(false);
+      updateMessage(assistantMessageId, (message) => ({ ...message, streaming: false }));
     }
   };
 
   const resetConversation = () => {
+    streamAbortControllerRef.current?.abort();
+    streamAbortControllerRef.current = null;
+    setChatLoading(false);
     setMessages([
       {
         id: 'welcome',
@@ -244,7 +325,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
   return (
     <Modal
       open={open}
-      onCancel={onClose}
+      onCancel={handleClose}
       footer={null}
       width={960}
       centered
@@ -284,7 +365,7 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
+          <div ref={messageListRef} className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
             {loading ? (
               <div className="body-text flex h-full items-center justify-center gap-2 text-slate-500">
                 <Spin size="small" />
@@ -299,7 +380,38 @@ const WorkbenchAssistantModal: React.FC<WorkbenchAssistantModalProps> = ({
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     <div className={`body-text max-w-[80%] rounded-xl px-4 py-3 ${message.role === 'user' ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-slate-50 text-slate-700'}`}>
-                      <div className="whitespace-pre-line">{message.content}</div>
+                      {message.steps && message.steps.length > 0 ? (
+                        <div className="mb-3 border-b border-slate-200 pb-3">
+                          <div className="caption-text mb-2 font-medium text-slate-500">{t('assistant.execution.title')}</div>
+                          <div className="space-y-1.5">
+                            {message.steps.map((step) => (
+                              <div key={step.id} className="flex items-start gap-2 text-xs text-slate-600">
+                                <span className="mt-0.5 shrink-0">
+                                  {step.status === 'running' ? <LoadingOutlined spin className="text-blue-500" /> : null}
+                                  {step.status === 'completed' ? <CheckCircleOutlined className="text-emerald-500" /> : null}
+                                  {step.status === 'failed' ? <CloseCircleOutlined className="text-rose-500" /> : null}
+                                </span>
+                                <span className="min-w-0">
+                                  <span>{step.label}</span>
+                                  {step.detail ? <span className="ml-2 text-slate-400">{step.detail}</span> : null}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                      {message.content ? (
+                        message.role === 'assistant' ? (
+                          <div className="assistant-markdown batch-script-readme">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="whitespace-pre-line">{message.content}</div>
+                        )
+                      ) : null}
+                      {!message.content && message.streaming ? (
+                        <span className="text-slate-400"><Spin size="small" /> {t('assistant.generating')}</span>
+                      ) : null}
                       {message.actions && message.actions.length > 0 ? (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {message.actions.map((action) => (

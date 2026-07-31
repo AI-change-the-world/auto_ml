@@ -277,6 +277,28 @@
   color: #64748b;
 }
 
+.assistant-markdown h1,
+.assistant-markdown h2,
+.assistant-markdown h3,
+.assistant-markdown h4 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.assistant-markdown h1 { font-size: 18px; }
+.assistant-markdown h2 { font-size: 16px; }
+.assistant-markdown h3,
+.assistant-markdown h4 { font-size: 14px; }
+
+.assistant-markdown p:last-child,
+.assistant-markdown ul:last-child,
+.assistant-markdown ol:last-child,
+.assistant-markdown pre:last-child,
+.assistant-markdown table:last-child,
+.assistant-markdown blockquote:last-child {
+  margin-bottom: 0;
+}
+
 /* ========= 统计行 ========= */
 .stats-grid {
   display: grid;
