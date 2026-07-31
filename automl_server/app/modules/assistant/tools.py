@@ -21,7 +21,11 @@ from app.db.models import (
     Task,
 )
 
-from .knowledge_base import AssistantKnowledgeBase
+from .knowledge_base import (
+    PRODUCT_KNOWLEDGE_DOCUMENTS,
+    PRODUCT_KNOWLEDGE_SOURCES,
+    AssistantKnowledgeBase,
+)
 
 
 TASK_STATUS_NAMES = {
@@ -39,23 +43,25 @@ ASSISTANT_QUERY_TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "search_product_knowledge",
-            "description": "检索 AutoML 工作台操作知识库。用户询问如何创建、上传、标注、导出、训练、部署、字段格式、页面入口或操作步骤时必须使用。返回与问题最相关的内部产品文档。",
+            "name": "read_product_knowledge",
+            "description": (
+                "读取 AutoML 工作台操作知识库。用户询问如何创建、上传、标注、导出、训练、部署、字段格式、页面入口或操作步骤时必须使用。"
+                "请根据问题从下列文件中选择所有需要的文件并在一次调用中传入；不要按关键词搜索，也不要遗漏跨流程问题所需的文件。\n"
+                + "\n".join(f"- {document.source}: {document.description}" for document in PRODUCT_KNOWLEDGE_DOCUMENTS)
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "要检索的操作问题或关键词，例如：怎么开始 DPO 标注。",
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 5,
-                        "description": "最多返回文档数量，默认 3。",
+                    "documents": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": list(PRODUCT_KNOWLEDGE_SOURCES)},
+                        "minItems": 1,
+                        "maxItems": 5,
+                        "uniqueItems": True,
+                        "description": "要读取的知识库文件名。一个问题涉及多个主题时，选择多个文件。",
                     },
                 },
-                "required": ["query"],
+                "required": ["documents"],
                 "additionalProperties": False,
             },
         },
@@ -250,7 +256,7 @@ class AssistantQueryTools:
         try:
             arguments = self._parse_arguments(raw_arguments)
             allowed_arguments = {
-                "search_product_knowledge": {"query", "limit"},
+                "read_product_knowledge": {"documents"},
                 "get_platform_overview": set(),
                 "list_datasets": {"keyword", "limit"},
                 "list_annotations": {"keyword", "dataset_id", "limit"},
@@ -260,7 +266,7 @@ class AssistantQueryTools:
                 "get_batch_annotation_run_detail": {"run_id"},
             }
             handlers = {
-                "search_product_knowledge": self.search_product_knowledge,
+                "read_product_knowledge": self.read_product_knowledge,
                 "get_platform_overview": self.get_platform_overview,
                 "list_datasets": self.list_datasets,
                 "list_annotations": self.list_annotations,
@@ -284,14 +290,13 @@ class AssistantQueryTools:
             logger.exception("Assistant query tool failed: tool={}", tool_name)
             return {"ok": False, "error": "平台查询失败，请告知用户查看服务端日志或稍后重试。"}
 
-    async def search_product_knowledge(self, arguments: dict[str, Any]) -> list[dict[str, Any]]:
-        query = arguments.get("query")
-        if not isinstance(query, str) or not query.strip():
-            raise ValueError("query 必须是非空字符串")
-        if len(query.strip()) > 200:
-            raise ValueError("query 不能超过 200 个字符")
-        limit = self._limit(arguments.get("limit"))
-        return self.knowledge_base.search(query, limit=min(limit, 5))
+    async def read_product_knowledge(self, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+        documents = arguments.get("documents")
+        if not isinstance(documents, list) or not documents:
+            raise ValueError("documents 必须是至少包含一个文件名的数组")
+        if not all(isinstance(source, str) and source in PRODUCT_KNOWLEDGE_SOURCES for source in documents):
+            raise ValueError("documents 包含不支持的知识库文件")
+        return self.knowledge_base.read(documents)
 
     async def get_platform_overview(self, _arguments: dict[str, Any]) -> dict[str, Any]:
         dataset_count, annotation_count, task_count, running_task_count, deployed_model_count, batch_run_count, running_batch_count = (
