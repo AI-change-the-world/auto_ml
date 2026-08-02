@@ -1,3 +1,7 @@
 fastapi==0.136.1
 uvicorn[standard]==0.46.0
 pydantic==2.10.4
+jsonschema==4.23.0
+opendal==0.46.0
+nacos-sdk-python==2.0.9
+PyYAML==6.0.2

@@ -19,6 +19,7 @@ from typing import Any, Callable
 
 from pydantic import ValidationError
 
+from admission import ContractAdmissionError, validate_result_admission
 from contracts import (
     EVENT_PROTOCOL_VERSION,
     RESULT_PROTOCOL_VERSION,
@@ -95,6 +96,7 @@ async def run() -> int:
             await maybe_await(train(context, report))
         )
         result = _build_success_result(execution_id, completion, output_dir)
+        _validate_output_contract(context, result)
         _write_result(output_dir, result)
         _emit_result(result.model_dump(mode="json"))
         return 0
@@ -205,6 +207,22 @@ def _build_success_result(
         artifacts=artifacts,
         model=completion.model,
     )
+
+
+def _validate_output_contract(context: dict[str, Any], result: TrainingResult) -> None:
+    """Apply semantic artifact rules when a worker supplied its resolved manifest."""
+    if context.get("package_manifest") is None:
+        return
+    try:
+        from contracts import TrainingExecutionRequest
+
+        execution = TrainingExecutionRequest.model_validate(context)
+        manifest = execution.package_manifest
+        if manifest is None:
+            return
+        validate_result_admission(manifest, execution, result)
+    except (ValidationError, ContractAdmissionError) as exc:
+        raise TrainingRunnerError(f"training result violates package output contract: {exc}") from exc
 
 
 def _file_sha256(path: Path) -> str:

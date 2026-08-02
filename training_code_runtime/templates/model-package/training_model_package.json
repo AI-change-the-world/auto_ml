@@ -1,0 +1,13 @@
+{
+  "protocol_version": "training-model-package/v1",
+  "name": "Imported PyTorch Classifier",
+  "task_kind": "classification",
+  "class_names": ["cat", "dog"],
+  "framework": {"id": "pytorch", "version": "2.5"},
+  "artifact_path": "weights/model.pt",
+  "format": "pt",
+  "resume_checkpoint_path": "checkpoints/last.pt",
+  "metadata": {
+    "architecture": "resnet18"
+  }
+}

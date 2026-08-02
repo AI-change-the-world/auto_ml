@@ -30,7 +30,17 @@ def package_manifest() -> dict:
                 "annotation_kinds": ["classification"],
             }
         ],
-        "parameters_schema": {"type": "object", "properties": {"epochs": {"type": "integer"}}},
+        "parameters_schema": {
+            "type": "object",
+            "properties": {"epochs": {"type": "integer", "minimum": 1}},
+            "required": ["epochs"],
+            "additionalProperties": False,
+        },
+        "model_input_contract": {
+            "framework": {"id": "pytorch", "version": "2.5"},
+            "formats": ["pt"],
+            "modes": ["initialize", "resume"],
+        },
         "output_contract": {
             "artifacts": [{"role": "model", "formats": ["onnx"], "deployable": True}],
         },
@@ -76,6 +86,50 @@ def execution_request() -> dict:
     }
 
 
+def model_input(*, mode: str = "initialize", resume_supported: bool = False) -> dict:
+    return {
+        "mode": mode,
+        "artifact": {
+            "source": "uploaded_model_package",
+            "object": {
+                "bucket": "models",
+                "object_key": "training-code-runtime/model-packages/a/model.pt",
+                "sha256": "c" * 64,
+                "size_bytes": 1024,
+            },
+            "format": "pt",
+            "task_kind": "classification",
+            "class_names": ["cat", "dog"],
+            "display_name": "Imported classifier",
+            "framework": {"id": "pytorch", "version": "2.5"},
+            "resume_supported": resume_supported,
+        },
+    }
+
+
+def successful_result(execution_id: str) -> dict:
+    return {
+        "protocol_version": "training-result/v1",
+        "execution_id": execution_id,
+        "status": "succeeded",
+        "metrics": {"accuracy": 0.93},
+        "artifacts": [
+            {
+                "path": "model.onnx",
+                "role": "model",
+                "format": "onnx",
+                "size_bytes": 1024,
+                "deployable": True,
+            }
+        ],
+        "model": {
+            "task_kind": "classification",
+            "class_names": ["cat", "dog"],
+            "framework": {"id": "pytorch", "version": "2.5"},
+        },
+    }
+
+
 class ContractApiTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -112,6 +166,42 @@ class ContractApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["valid"])
         self.assertEqual(response.json()["manifest"]["entrypoint"], "train.py")
+
+    def test_validates_model_package_zip_without_loading_model_bytes(self) -> None:
+        model_manifest = {
+            "protocol_version": "training-model-package/v1",
+            "name": "Imported classifier",
+            "task_kind": "classification",
+            "class_names": ["cat", "dog"],
+            "framework": {"id": "pytorch", "version": "2.5"},
+            "artifact_path": "weights/model.pt",
+            "resume_checkpoint_path": "checkpoints/last.pt",
+            "format": "pt",
+        }
+        archive = BytesIO()
+        with ZipFile(archive, "w") as bundle:
+            bundle.writestr("training_model_package.json", json.dumps(model_manifest))
+            bundle.writestr("weights/model.pt", b"not deserialized")
+            bundle.writestr("checkpoints/last.pt", b"not deserialized")
+        response = self.client.post(
+            "/v1/model-packages/archive/validate",
+            content=archive.getvalue(),
+            headers={"content-type": "application/zip"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["manifest"]["artifact_path"], "weights/model.pt")
+
+        missing_member = BytesIO()
+        with ZipFile(missing_member, "w") as bundle:
+            bundle.writestr("training_model_package.json", json.dumps(model_manifest))
+            bundle.writestr("weights/model.pt", b"not deserialized")
+        response = self.client.post(
+            "/v1/model-packages/archive/validate",
+            content=missing_member.getvalue(),
+            headers={"content-type": "application/zip"},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("missing regular file", response.json()["detail"])
 
     def test_rejects_zip_path_traversal(self) -> None:
         archive = BytesIO()
@@ -157,24 +247,127 @@ class ContractApiTest(unittest.TestCase):
         response = self.client.post("/v1/contracts/event/validate", json=event)
         self.assertEqual(response.status_code, 200)
 
-        result = {
-            "protocol_version": "training-result/v1",
-            "execution_id": execution_id,
-            "status": "succeeded",
-            "metrics": {"accuracy": 0.93},
-            "artifacts": [
-                {
-                    "path": "model.onnx",
-                    "role": "model",
-                    "format": "onnx",
-                    "size_bytes": 1024,
-                    "deployable": True,
-                }
-            ],
-            "model": {"task_kind": "classification", "class_names": ["cat", "dog"]},
-        }
+        result = successful_result(execution_id)
         response = self.client.post("/v1/contracts/result/validate", json=result)
         self.assertEqual(response.status_code, 200)
+
+    def test_admits_compatible_package_execution_and_result(self) -> None:
+        execution = execution_request()
+        request = {"manifest": package_manifest(), "execution": execution}
+        response = self.client.post("/v1/admission/execution/validate", json=request)
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.post(
+            "/v1/admission/result/validate",
+            json={**request, "result": successful_result(execution["execution_id"])},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_admits_model_package_inputs_and_requires_real_resume_checkpoint(self) -> None:
+        execution = execution_request()
+        execution["model_input"] = model_input()
+        execution["model_input_path"] = "/workspace/input/model-input/model.pt"
+        response = self.client.post(
+            "/v1/admission/execution/validate",
+            json={"manifest": package_manifest(), "execution": execution},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        execution["model_input"] = model_input(mode="resume")
+        response = self.client.post(
+            "/v1/admission/execution/validate",
+            json={"manifest": package_manifest(), "execution": execution},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("resumable checkpoint", response.json()["detail"])
+
+        execution["model_input"] = model_input(mode="resume", resume_supported=True)
+        response = self.client.post(
+            "/v1/admission/execution/validate",
+            json={"manifest": package_manifest(), "execution": execution},
+        )
+        self.assertEqual(response.status_code, 200)
+
+        execution["model_input"]["artifact"]["framework"]["version"] = "2.4"
+        response = self.client.post(
+            "/v1/admission/execution/validate",
+            json={"manifest": package_manifest(), "execution": execution},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("framework", response.json()["detail"])
+
+    def test_rejects_parameters_task_and_output_contract_mismatches(self) -> None:
+        execution = execution_request()
+        request = {"manifest": package_manifest(), "execution": execution}
+
+        request["execution"]["parameters"] = {"epochs": 0}
+        response = self.client.post("/v1/admission/execution/validate", json=request)
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("$parameters.epochs", response.json()["detail"])
+
+        request = {"manifest": package_manifest(), "execution": execution_request()}
+        request["execution"]["dataset"]["annotation_kinds"] = ["detection"]
+        response = self.client.post("/v1/admission/execution/validate", json=request)
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("annotation_kinds", response.json()["detail"])
+
+        request = {"manifest": package_manifest(), "execution": execution_request()}
+        invalid_result = successful_result(request["execution"]["execution_id"])
+        invalid_result["artifacts"][0]["format"] = "pt"
+        response = self.client.post(
+            "/v1/admission/result/validate",
+            json={**request, "result": invalid_result},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("format `pt`", response.json()["detail"])
+
+    def test_rejects_result_resume_pointer_without_checkpoint_artifact(self) -> None:
+        execution = execution_request()
+        result = successful_result(execution["execution_id"])
+        result["model"]["resume_checkpoint_path"] = "last.pt"
+        response = self.client.post(
+            "/v1/admission/result/validate",
+            json={"manifest": package_manifest(), "execution": execution, "result": result},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("resume_checkpoint_path", response.json()["detail"])
+
+    def test_accepts_result_resume_pointer_to_checkpoint_artifact(self) -> None:
+        manifest = package_manifest()
+        manifest["output_contract"]["artifacts"].append(
+            {"role": "checkpoint", "formats": ["pt"], "required": False}
+        )
+        execution = execution_request()
+        result = successful_result(execution["execution_id"])
+        result["artifacts"].append(
+            {
+                "path": "checkpoints/last.pt",
+                "role": "checkpoint",
+                "format": "pt",
+                "size_bytes": 2048,
+            }
+        )
+        result["model"]["resume_checkpoint_path"] = "checkpoints/last.pt"
+        response = self.client.post(
+            "/v1/admission/result/validate",
+            json={"manifest": manifest, "execution": execution, "result": result},
+        )
+        self.assertEqual(response.status_code, 200)
+
+    def test_rejects_shared_workspace_directories_and_invalid_package_schema(self) -> None:
+        execution = execution_request()
+        execution["workspace"]["output_dir"] = execution["workspace"]["input_dir"]
+        response = self.client.post(
+            "/v1/admission/execution/validate",
+            json={"manifest": package_manifest(), "execution": execution},
+        )
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("separate directories", response.json()["detail"])
+
+        invalid_manifest = package_manifest()
+        invalid_manifest["parameters_schema"] = {"type": "object", "properties": "not-an-object"}
+        response = self.client.post("/v1/contracts/package/validate", json=invalid_manifest)
+        self.assertEqual(response.status_code, 422)
 
     def test_rejects_invalid_metric_and_invalid_result_state(self) -> None:
         execution_id = str(uuid4())
@@ -206,8 +399,18 @@ class ContractApiTest(unittest.TestCase):
                 "execution_id": str(uuid4()),
                 "task": {"task_id": 1, "task_kind": "classification"},
                 "package": {"key": "pytorch-image-classifier", "version": "1.0.0", "sha256": PACKAGE_SHA256},
-                "package_archive": {"object_key": "training-packages/classifier.zip", "sha256": PACKAGE_SHA256},
-                "dataset_manifest": {"object_key": "training-inputs/1.json", "sha256": DATASET_SHA256},
+                "package_archive": {
+                    "bucket": "default",
+                    "object_key": "training-packages/classifier.zip",
+                    "sha256": PACKAGE_SHA256,
+                    "size_bytes": 1024,
+                },
+                "dataset_source_snapshot": {
+                    "bucket": "default",
+                    "object_key": "training-inputs/1.json",
+                    "sha256": DATASET_SHA256,
+                    "size_bytes": 1024,
+                },
                 "runtime": {"id": "pytorch-2.5-cu124"},
                 "resources": {"device": "cpu", "gpu_count": 0},
             },

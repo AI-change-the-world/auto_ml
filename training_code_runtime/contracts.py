@@ -19,6 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator,
 
 PACKAGE_PROTOCOL_VERSION = "training-code-package/v1"
 DATASET_PROTOCOL_VERSION = "training-dataset-manifest/v1"
+DATASET_SOURCE_PROTOCOL_VERSION = "training-dataset-source-manifest/v1"
+MODEL_PACKAGE_PROTOCOL_VERSION = "training-model-package/v1"
 EXECUTION_PROTOCOL_VERSION = "training-execution/v1"
 EVENT_PROTOCOL_VERSION = "training-event/v1"
 RESULT_PROTOCOL_VERSION = "training-result/v1"
@@ -26,6 +28,8 @@ SUBMISSION_PROTOCOL_VERSION = "training-code-submit/v1"
 
 PACKAGE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,127}$")
 TASK_KIND_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+FRAMEWORK_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_.-]{0,127}$")
+FORMAT_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -46,6 +50,10 @@ def _workspace_path(value: str) -> str:
     return normalized
 
 
+def _path_is_same_or_descendant(path: PurePosixPath, parent: PurePosixPath) -> bool:
+    return path == parent or parent in path.parents
+
+
 def _finite_metric_values(value: dict[str, float]) -> dict[str, float]:
     for name, metric in value.items():
         if not name.strip():
@@ -53,6 +61,15 @@ def _finite_metric_values(value: dict[str, float]) -> dict[str, float]:
         if not math.isfinite(metric):
             raise ValueError(f"metric `{name}` must be finite")
     return value
+
+
+def _non_empty_unique_strings(value: list[str], field_name: str) -> list[str]:
+    normalized = [item.strip() for item in value]
+    if any(not item for item in normalized):
+        raise ValueError(f"{field_name} must not contain empty values")
+    if len(normalized) != len(set(normalized)):
+        raise ValueError(f"{field_name} must not contain duplicates")
+    return normalized
 
 
 class ContractModel(BaseModel):
@@ -67,11 +84,94 @@ class ArtifactRole(str, Enum):
     OTHER = "other"
 
 
+class StorageBucket(str, Enum):
+    """Logical buckets already provisioned by the platform's S3 configuration."""
+
+    DEFAULT = "default"
+    DATASETS = "datasets"
+    MODELS = "models"
+    ANNOTATIONS = "annotations"
+
+
+class S3ObjectReference(ContractModel):
+    """A platform-owned OpenDAL/S3 object, never an arbitrary URL or path."""
+
+    bucket: StorageBucket
+    object_key: str
+    sha256: str | None = None
+    size_bytes: int | None = Field(default=None, ge=0)
+
+    _validate_object_key = field_validator("object_key")(_relative_path)
+
+    @field_validator("sha256")
+    @classmethod
+    def validate_sha256(cls, value: str | None) -> str | None:
+        if value is not None and not SHA256_PATTERN.fullmatch(value):
+            raise ValueError("must be a lowercase SHA-256 hex digest")
+        return value
+
+
 class PackageRuntime(ContractModel):
     """A runtime must be selected from platform-managed, immutable images."""
 
     id: str = Field(min_length=1, max_length=128)
     kind: Literal["platform_managed"] = "platform_managed"
+
+
+class ModelFramework(ContractModel):
+    """Exact framework compatibility identity for a serialized model artifact."""
+
+    id: str = Field(min_length=1, max_length=128)
+    version: str = Field(min_length=1, max_length=128)
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not FRAMEWORK_ID_PATTERN.fullmatch(normalized):
+            raise ValueError("must contain lowercase letters, digits, '_', '-' or '.' only")
+        return normalized
+
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be empty")
+        return normalized
+
+
+class ModelInputMode(str, Enum):
+    INITIALIZE = "initialize"
+    RESUME = "resume"
+
+
+class ModelInputContract(ContractModel):
+    """How this package may consume a platform-stored base model/checkpoint."""
+
+    required: bool = False
+    framework: ModelFramework
+    formats: list[str] = Field(min_length=1, max_length=16)
+    modes: list[ModelInputMode] = Field(min_length=1, max_length=2)
+    require_matching_task_kind: bool = True
+    require_matching_class_names_for_resume: bool = True
+
+    @field_validator("formats")
+    @classmethod
+    def normalize_formats(cls, value: list[str]) -> list[str]:
+        normalized = [item.strip().lower() for item in value if item.strip()]
+        if not normalized:
+            raise ValueError("must contain at least one non-empty format")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("must not contain duplicate formats")
+        return normalized
+
+    @field_validator("modes")
+    @classmethod
+    def reject_duplicate_modes(cls, value: list[ModelInputMode]) -> list[ModelInputMode]:
+        if len(value) != len(set(value)):
+            raise ValueError("must not contain duplicate modes")
+        return value
 
 
 class SupportedTask(ContractModel):
@@ -86,6 +186,11 @@ class SupportedTask(ContractModel):
             raise ValueError("must contain lowercase letters, digits, and underscores only")
         return value
 
+    @field_validator("data_modalities", "annotation_kinds")
+    @classmethod
+    def validate_kinds(cls, value: list[str], info) -> list[str]:
+        return _non_empty_unique_strings(value, info.field_name)
+
 
 class ArtifactDeclaration(ContractModel):
     role: ArtifactRole
@@ -99,6 +204,8 @@ class ArtifactDeclaration(ContractModel):
         normalized = [item.strip().lower() for item in value if item.strip()]
         if not normalized:
             raise ValueError("must contain at least one non-empty format")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("must not contain duplicate formats")
         return normalized
 
     @model_validator(mode="after")
@@ -133,6 +240,7 @@ class TrainingPackageManifest(ContractModel):
     entrypoint_symbol: Literal["train"] = "train"
     supported_tasks: list[SupportedTask] = Field(min_length=1, max_length=32)
     parameters_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
+    model_input_contract: ModelInputContract | None = None
     output_contract: PackageOutputContract
 
     @field_validator("key")
@@ -182,6 +290,54 @@ class DatasetItem(ContractModel):
         return _relative_path(value) if value is not None else None
 
 
+class DatasetSourceItem(ContractModel):
+    """One S3-backed sample before the worker materializes local input files."""
+
+    item_id: str = Field(min_length=1, max_length=256)
+    split: Literal["train", "val", "test", "unspecified"] = "unspecified"
+    media: S3ObjectReference
+    annotation: S3ObjectReference | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def restrict_media_to_dataset_bucket(self) -> "DatasetSourceItem":
+        if self.media.bucket != StorageBucket.DATASETS:
+            raise ValueError("media must reference the datasets bucket")
+        if self.annotation is not None and self.annotation.bucket != StorageBucket.ANNOTATIONS:
+            raise ValueError("annotation must reference the annotations bucket")
+        return self
+
+
+class TrainingDatasetSourceManifest(ContractModel):
+    """S3-source manifest built from the platform's existing dataset records."""
+
+    protocol_version: Literal[DATASET_SOURCE_PROTOCOL_VERSION]
+    task_kind: str = Field(min_length=1, max_length=64)
+    data_modalities: list[str] = Field(min_length=1, max_length=8)
+    annotation_kinds: list[str] = Field(default_factory=list, max_length=16)
+    class_names: list[str] = Field(default_factory=list, max_length=10000)
+    items: list[DatasetSourceItem] = Field(min_length=1, max_length=10_000_000)
+
+    @field_validator("task_kind")
+    @classmethod
+    def validate_task_kind(cls, value: str) -> str:
+        if not TASK_KIND_PATTERN.fullmatch(value):
+            raise ValueError("must contain lowercase letters, digits, and underscores only")
+        return value
+
+    @field_validator("data_modalities", "annotation_kinds", "class_names")
+    @classmethod
+    def validate_list_values(cls, value: list[str], info) -> list[str]:
+        return _non_empty_unique_strings(value, info.field_name)
+
+    @model_validator(mode="after")
+    def reject_duplicate_item_ids(self) -> "TrainingDatasetSourceManifest":
+        item_ids = [item.item_id for item in self.items]
+        if len(item_ids) != len(set(item_ids)):
+            raise ValueError("items must not contain duplicate item_id values")
+        return self
+
+
 class TrainingDatasetManifest(ContractModel):
     """Materialized input manifest made by the orchestrator, never by package code."""
 
@@ -198,6 +354,11 @@ class TrainingDatasetManifest(ContractModel):
         if not TASK_KIND_PATTERN.fullmatch(value):
             raise ValueError("must contain lowercase letters, digits, and underscores only")
         return value
+
+    @field_validator("data_modalities", "annotation_kinds", "class_names")
+    @classmethod
+    def validate_list_values(cls, value: list[str], info) -> list[str]:
+        return _non_empty_unique_strings(value, info.field_name)
 
     @model_validator(mode="after")
     def reject_duplicate_item_ids(self) -> "TrainingDatasetManifest":
@@ -276,11 +437,145 @@ class ResourceAllocation(ContractModel):
         return self
 
 
-class ResumeInput(ContractModel):
-    checkpoint_path: str
+class ModelArtifactReference(ContractModel):
+    """Immutable model/checkpoint artifact from the existing models bucket."""
+
+    source: Literal["uploaded_model_package", "registered_model", "previous_execution"]
+    object: S3ObjectReference
+    format: str = Field(min_length=1, max_length=64)
+    task_kind: str = Field(min_length=1, max_length=64)
+    class_names: list[str] = Field(default_factory=list, max_length=10000)
+    display_name: str = Field(min_length=1, max_length=255)
+    framework: ModelFramework | None = None
+    resume_supported: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    _validate_checkpoint_path = field_validator("checkpoint_path")(_workspace_path)
+    @field_validator("format")
+    @classmethod
+    def normalize_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not FORMAT_PATTERN.fullmatch(normalized):
+            raise ValueError("must contain lowercase letters, digits, '_' or '-' only")
+        return normalized
+
+    @field_validator("task_kind")
+    @classmethod
+    def validate_task_kind(cls, value: str) -> str:
+        if not TASK_KIND_PATTERN.fullmatch(value):
+            raise ValueError("must contain lowercase letters, digits, and underscores only")
+        return value
+
+    @field_validator("class_names")
+    @classmethod
+    def validate_class_names(cls, value: list[str]) -> list[str]:
+        return _non_empty_unique_strings(value, "class_names")
+
+    @model_validator(mode="after")
+    def require_models_bucket_and_digest(self) -> "ModelArtifactReference":
+        if self.object.bucket != StorageBucket.MODELS:
+            raise ValueError("model artifact must reference the models bucket")
+        if self.object.sha256 is None or self.object.size_bytes is None:
+            raise ValueError("model artifact must include immutable object SHA-256 and size_bytes")
+        return self
+
+
+class ModelInputReference(ContractModel):
+    """Selected base model/checkpoint and the requested initialize/resume mode."""
+
+    artifact: ModelArtifactReference
+    mode: ModelInputMode
+
+
+class TrainingModelPackageManifest(ContractModel):
+    """Root `training_model_package.json` for an imported model/checkpoint ZIP."""
+
+    protocol_version: Literal[MODEL_PACKAGE_PROTOCOL_VERSION]
+    name: str = Field(min_length=1, max_length=255)
+    task_kind: str = Field(min_length=1, max_length=64)
+    class_names: list[str] = Field(default_factory=list, max_length=10000)
+    framework: ModelFramework
+    artifact_path: str
+    format: str = Field(min_length=1, max_length=64)
+    resume_checkpoint_path: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("task_kind")
+    @classmethod
+    def validate_task_kind(cls, value: str) -> str:
+        if not TASK_KIND_PATTERN.fullmatch(value):
+            raise ValueError("must contain lowercase letters, digits, and underscores only")
+        return value
+
+    @field_validator("class_names")
+    @classmethod
+    def validate_class_names(cls, value: list[str]) -> list[str]:
+        return _non_empty_unique_strings(value, "class_names")
+
+    _validate_artifact_path = field_validator("artifact_path")(_relative_path)
+
+    @field_validator("resume_checkpoint_path")
+    @classmethod
+    def validate_resume_checkpoint_path(cls, value: str | None) -> str | None:
+        return _relative_path(value) if value is not None else None
+
+    @field_validator("format")
+    @classmethod
+    def normalize_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not FORMAT_PATTERN.fullmatch(normalized):
+            raise ValueError("must contain lowercase letters, digits, '_' or '-' only")
+        return normalized
+
+
+class ModelPackageRegistration(ContractModel):
+    """Immutable imported ZIP and the materializable artifacts it contains."""
+
+    manifest: TrainingModelPackageManifest
+    archive: S3ObjectReference
+    package_file_name: str = Field(min_length=1, max_length=255)
+    initialize_artifact: ModelArtifactReference
+    resume_artifact: ModelArtifactReference | None = None
+
+    @model_validator(mode="after")
+    def registration_must_match_model_package(self) -> "ModelPackageRegistration":
+        if (
+            self.archive.bucket != StorageBucket.MODELS
+            or self.archive.sha256 is None
+            or self.archive.size_bytes is None
+        ):
+            raise ValueError("model package archive must be an immutable models bucket object")
+        if self.initialize_artifact.source != "uploaded_model_package":
+            raise ValueError("initialize_artifact must originate from the uploaded model package")
+        if self.initialize_artifact.resume_supported:
+            raise ValueError("initialize_artifact must not be marked resume_supported")
+        if self.resume_artifact is None and self.manifest.resume_checkpoint_path is not None:
+            raise ValueError("resume_checkpoint_path requires resume_artifact")
+        if self.resume_artifact is not None:
+            if self.manifest.resume_checkpoint_path is None:
+                raise ValueError("resume_artifact requires manifest.resume_checkpoint_path")
+            if not self.resume_artifact.resume_supported:
+                raise ValueError("resume_artifact must be marked resume_supported")
+        expected = (self.manifest.task_kind, self.manifest.class_names, self.manifest.framework)
+        for artifact in (self.initialize_artifact, self.resume_artifact):
+            if artifact is not None and (artifact.task_kind, artifact.class_names, artifact.framework) != expected:
+                raise ValueError("model package artifacts must match the manifest task, classes, and framework")
+        return self
+
+
+class TrainingPackageRegistration(ContractModel):
+    """Immutable code-package release stored in the default S3 bucket."""
+
+    manifest: TrainingPackageManifest
+    archive: S3ObjectReference
+    package_file_name: str = Field(min_length=1, max_length=255)
+
+    @model_validator(mode="after")
+    def archive_must_match_manifest(self) -> "TrainingPackageRegistration":
+        if self.archive.bucket != StorageBucket.DEFAULT:
+            raise ValueError("package archive must reference the default package bucket")
+        if self.archive.sha256 is None or self.archive.size_bytes is None:
+            raise ValueError("package archive must include immutable SHA-256 and size_bytes")
+        return self
 
 
 class TrainingExecutionRequest(ContractModel):
@@ -295,12 +590,25 @@ class TrainingExecutionRequest(ContractModel):
     dataset: TrainingDatasetManifest
     parameters: dict[str, Any] = Field(default_factory=dict)
     resources: ResourceAllocation
-    resume: ResumeInput | None = None
+    model_input: ModelInputReference | None = None
+    model_input_path: str | None = None
+    package_manifest: TrainingPackageManifest | None = None
 
     @model_validator(mode="after")
     def package_and_dataset_must_match_task(self) -> "TrainingExecutionRequest":
         if self.dataset.task_kind != self.task.task_kind:
             raise ValueError("dataset.task_kind must match task.task_kind")
+        if self.model_input_path is not None:
+            self.model_input_path = _workspace_path(self.model_input_path)
+        if self.model_input is None and self.model_input_path is not None:
+            raise ValueError("model_input_path requires model_input")
+        if self.model_input is not None and self.model_input_path is None:
+            raise ValueError("model_input requires its materialized model_input_path")
+        if self.model_input_path and not _path_is_same_or_descendant(
+            PurePosixPath(self.model_input_path),
+            PurePosixPath(self.workspace.input_dir),
+        ):
+            raise ValueError("model_input_path must be under workspace.input_dir")
         return self
 
 
@@ -411,6 +719,8 @@ class ProducedArtifact(ContractModel):
 class ModelMetadata(ContractModel):
     task_kind: str = Field(min_length=1, max_length=64)
     class_names: list[str] = Field(default_factory=list, max_length=10000)
+    framework: ModelFramework
+    resume_checkpoint_path: str | None = None
     preprocessing: dict[str, Any] = Field(default_factory=dict)
     postprocessing: dict[str, Any] = Field(default_factory=dict)
 
@@ -420,6 +730,16 @@ class ModelMetadata(ContractModel):
         if not TASK_KIND_PATTERN.fullmatch(value):
             raise ValueError("must contain lowercase letters, digits, and underscores only")
         return value
+
+    @field_validator("class_names")
+    @classmethod
+    def validate_class_names(cls, value: list[str]) -> list[str]:
+        return _non_empty_unique_strings(value, "class_names")
+
+    @field_validator("resume_checkpoint_path")
+    @classmethod
+    def validate_resume_checkpoint_path(cls, value: str | None) -> str | None:
+        return _relative_path(value) if value is not None else None
 
 
 class TrainingPackageCompletion(ContractModel):
@@ -468,20 +788,6 @@ class TrainingResult(ContractModel):
         return self
 
 
-class ObjectReference(ContractModel):
-    object_key: str
-    sha256: str
-
-    _validate_object_key = field_validator("object_key")(_relative_path)
-
-    @field_validator("sha256")
-    @classmethod
-    def validate_sha256(cls, value: str) -> str:
-        if not SHA256_PATTERN.fullmatch(value):
-            raise ValueError("must be a lowercase SHA-256 hex digest")
-        return value
-
-
 class TrainingCodeSubmission(ContractModel):
     """Future MQ payload; the worker creates local workspace paths after consuming it."""
 
@@ -490,9 +796,23 @@ class TrainingCodeSubmission(ContractModel):
     execution_id: UUID
     task: TaskReference
     package: ResolvedPackage
-    package_archive: ObjectReference
-    dataset_manifest: ObjectReference
+    package_archive: S3ObjectReference
+    dataset_source_snapshot: S3ObjectReference
     runtime: PackageRuntime
     parameters: dict[str, Any] = Field(default_factory=dict)
     resources: ResourceAllocation
-    resume_artifact: ObjectReference | None = None
+    model_input: ModelInputReference | None = None
+
+    @model_validator(mode="after")
+    def restrict_submission_object_buckets(self) -> "TrainingCodeSubmission":
+        if self.package_archive.bucket != StorageBucket.DEFAULT:
+            raise ValueError("package_archive must reference the default package bucket")
+        if self.dataset_source_snapshot.bucket != StorageBucket.DEFAULT:
+            raise ValueError("dataset_source_snapshot must reference the default manifest bucket")
+        for label, reference in (
+            ("package_archive", self.package_archive),
+            ("dataset_source_snapshot", self.dataset_source_snapshot),
+        ):
+            if reference.sha256 is None or reference.size_bytes is None:
+                raise ValueError(f"{label} must include immutable SHA-256 and size_bytes")
+        return self

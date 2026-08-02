@@ -47,6 +47,7 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
         "model": {
             "task_kind": context["task"]["task_kind"],
             "class_names": class_names,
+            "framework": {"id": "pytorch", "version": "2.5"},
             "preprocessing": {},
             "postprocessing": {},
         },
