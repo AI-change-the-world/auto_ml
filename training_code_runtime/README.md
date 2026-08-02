@@ -134,6 +134,19 @@ through OpenDAL, records its SHA-256 and size, and stores an immutable source
 manifest in the default bucket. The worker later reads only that snapshot and
 materializes files under its task-local `input_dir`.
 
+The control plane currently exposes the prerequisite read-only preview at
+`POST /task/training-dataset-snapshot/preview`. It builds the source manifest
+from the same task source selection as the legacy trainer, but does not create
+a task, read object bodies, call this runtime, write S3, or publish MQ. Calling
+the runtime registration endpoint is an explicit second step through
+`POST /task/training-dataset-snapshot/register`, and remains disabled unless
+the shared Nacos `AUTO_ML_CONFIG.training-code-runtime.enabled` is true and
+its `base_url` is configured. It pins the current object content through
+OpenDAL but still does not create a task, publish MQ, or execute code. Repeated
+registrations of the same resolved content return the same immutable snapshot
+with `created: false`. When the same Nacos block configures `token`, all
+registry write endpoints require its `Authorization: Bearer ...` value.
+
 For imported base models and incremental training, upload a ZIP following the
 [model-package template](./templates/model-package/README.md). The registry
 stores the original ZIP and each declared selected artifact in the existing

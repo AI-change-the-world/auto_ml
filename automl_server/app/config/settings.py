@@ -54,6 +54,15 @@ class AiPipelineRuntimeConfig(BaseModel):
     timeout: int = 120
 
 
+class TrainingCodeRuntimeConfig(BaseModel):
+    """Experimental training-code runtime; disabled until explicitly enabled."""
+
+    enabled: bool = False
+    base_url: str = ""
+    timeout: int = 120
+    token: str = ""
+
+
 class Settings(BaseModel):
     """全局设置"""
     # 服务配置
@@ -72,6 +81,7 @@ class Settings(BaseModel):
     model_trainer: ModelTrainerConfig = ModelTrainerConfig()
     model_deploy: ModelDeployConfig = ModelDeployConfig()
     ai_pipeline_runtime: AiPipelineRuntimeConfig = AiPipelineRuntimeConfig()
+    training_code_runtime: TrainingCodeRuntimeConfig = TrainingCodeRuntimeConfig()
 
 
 def _load_from_nacos(nacos_config: NacosConfig) -> dict:
@@ -193,6 +203,17 @@ def _load_settings() -> Settings:
         )),
     )
 
+    training_code_runtime_nacos = nacos_data.get("training-code-runtime", {})
+    if not isinstance(training_code_runtime_nacos, dict):
+        training_code_runtime_nacos = {}
+    training_code_runtime = TrainingCodeRuntimeConfig(
+        # This experimental integration is centrally managed through Nacos.
+        enabled=training_code_runtime_nacos.get("enabled", False),
+        base_url=str(training_code_runtime_nacos.get("base_url", "") or ""),
+        timeout=training_code_runtime_nacos.get("timeout", 120),
+        token=str(training_code_runtime_nacos.get("token", "") or ""),
+    )
+
     task_stale_timeout_seconds = int(
         os.getenv(
             "TASK_STALE_TIMEOUT_SECONDS",
@@ -222,6 +243,7 @@ def _load_settings() -> Settings:
         model_trainer=model_trainer,
         model_deploy=model_deploy,
         ai_pipeline_runtime=ai_pipeline_runtime,
+        training_code_runtime=training_code_runtime,
     )
 
 

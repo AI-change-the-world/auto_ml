@@ -5,10 +5,12 @@ from uuid import uuid4
 from io import BytesIO
 from zipfile import ZipFile
 import json
+from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from app import app
+from app import app, require_registration_authorization
 
 
 PACKAGE_SHA256 = "a" * 64
@@ -140,6 +142,19 @@ class ContractApiTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["mode"], "contract_validation_only")
         self.assertFalse(response.json()["execution_enabled"])
+
+    def test_registration_token_is_optional_locally_and_required_when_configured(self) -> None:
+        with patch("app.load_training_code_runtime_config", return_value={}):
+            require_registration_authorization()
+
+        with patch("app.load_training_code_runtime_config", return_value={"token": "runtime-token"}):
+            with self.assertRaises(HTTPException) as missing:
+                require_registration_authorization()
+            self.assertEqual(missing.exception.status_code, 401)
+
+            with self.assertRaises(HTTPException):
+                require_registration_authorization("Bearer wrong-token")
+            require_registration_authorization("Bearer runtime-token")
 
     def test_accepts_valid_package_contract(self) -> None:
         response = self.client.post("/v1/contracts/package/validate", json=package_manifest())

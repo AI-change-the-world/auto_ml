@@ -46,6 +46,7 @@ class ModelPackageRegistrationResult:
 class DatasetSnapshotRegistration:
     source_manifest: TrainingDatasetSourceManifest
     object: S3ObjectReference
+    created: bool
 
 
 class TrainingPackageRegistry:
@@ -216,9 +217,14 @@ class TrainingPackageRegistry:
             f"training-code-runtime/dataset-snapshots/{digest}.json",
             payload,
         )
-        if not await self.storage.exists(reference):
+        created = not await self.storage.exists(reference)
+        if created:
             await self.storage.write(reference, payload)
-        return DatasetSnapshotRegistration(source_manifest=snapshot_manifest, object=reference)
+        return DatasetSnapshotRegistration(
+            source_manifest=snapshot_manifest,
+            object=reference,
+            created=created,
+        )
 
     async def _pin_object(self, reference: S3ObjectReference) -> S3ObjectReference:
         content = await self.storage.read(reference)

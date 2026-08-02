@@ -19,6 +19,8 @@ from app.utils.annotation_record_storage import (
 )
 from app.utils.http_client import HttpClient
 from app.utils.s3_delegate import get_s3_delegate
+from .training_dataset_registration import TrainingDatasetSnapshotRegistrar
+from .training_dataset_snapshot import TrainingDatasetSnapshotBuilder
 from . import crud
 from .schemas import (
     TaskCreate,
@@ -31,6 +33,11 @@ from .schemas import (
     TaskConfigPayload,
     TrainingHistoryCandidateResponse,
     TrainingHistoryQuery,
+    TrainingDatasetSnapshotPreviewRequest,
+    TrainingDatasetSnapshotPreviewResponse,
+    TrainingDatasetSnapshotRegisterRequest,
+    TrainingDatasetSnapshotRegistrationResponse,
+    TrainingDatasetSnapshotManifest,
 )
 
 STALE_TASK_STATUSES = {TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.POST_PROCESS}
@@ -40,6 +47,7 @@ DEFAULT_STALE_TIMEOUT_SECONDS = 2 * 60 * 60
 class TaskService:
     def __init__(self):
         self.s3 = get_s3_delegate()
+        self._dataset_snapshot_builder = TrainingDatasetSnapshotBuilder()
         self._publisher = None
         self._trainer_client = None
         self._trainer_client_base_url = None
@@ -261,6 +269,66 @@ class TaskService:
             if model.task_id
         ]
 
+    async def preview_training_dataset_snapshot(
+        self,
+        db: AsyncSession,
+        data: TrainingDatasetSnapshotPreviewRequest,
+    ) -> TrainingDatasetSnapshotPreviewResponse:
+        """Build the future worker input manifest without writing or queuing anything."""
+        if data.task_type == TaskType.POSE:
+            raise BadRequestException("pose task is not supported yet")
+        if data.task_type not in {TaskType.DETECTION, TaskType.CLASSIFICATION, TaskType.SEGMENTATION}:
+            raise BadRequestException(f"unsupported task_type: {data.task_type}")
+        manifest, source_count = await self._build_training_dataset_snapshot_manifest(
+            db, data
+        )
+        return TrainingDatasetSnapshotPreviewResponse(
+            manifest=manifest,
+            source_count=source_count,
+            sample_count=len(manifest.items),
+            registration_enabled=self._training_code_runtime_registration_enabled(),
+        )
+
+    async def register_training_dataset_snapshot(
+        self,
+        db: AsyncSession,
+        data: TrainingDatasetSnapshotRegisterRequest,
+    ) -> TrainingDatasetSnapshotRegistrationResponse:
+        """Pin source objects through the experimental runtime; never dispatch a task."""
+        settings = get_settings().training_code_runtime
+        if not settings.enabled or not settings.base_url.strip():
+            raise BadRequestException("training code runtime dataset registration is disabled")
+        manifest, source_count = await self._build_training_dataset_snapshot_manifest(db, data)
+        registrar = TrainingDatasetSnapshotRegistrar(
+            base_url=settings.base_url,
+            timeout=settings.timeout,
+            token=settings.token,
+        )
+        return await registrar.register(manifest, source_count=source_count)
+
+    async def _build_training_dataset_snapshot_manifest(
+        self,
+        db: AsyncSession,
+        data: TrainingDatasetSnapshotPreviewRequest,
+    ) -> tuple[TrainingDatasetSnapshotManifest, int]:
+        resolved_sources = await self._resolve_and_validate_sources(
+            db,
+            data,
+            include_annotation_content=False,
+        )
+        manifest = TrainingDatasetSnapshotManifest.model_validate(
+            self._dataset_snapshot_builder.build(
+                task_type=data.task_type,
+                sources=resolved_sources,
+            )
+        )
+        return manifest, len(resolved_sources)
+
+    @staticmethod
+    def _training_code_runtime_registration_enabled() -> bool:
+        settings = get_settings().training_code_runtime
+        return bool(settings.enabled and settings.base_url.strip())
+
     async def delete_task(self, db: AsyncSession, task_id: int) -> bool:
         task = await crud.get_task_by_id(db, task_id)
         if not task:
@@ -300,7 +368,13 @@ class TaskService:
                 message=str(e),
             )
 
-    async def _resolve_and_validate_sources(self, db: AsyncSession, data: TaskCreate) -> list[dict[str, Any]]:
+    async def _resolve_and_validate_sources(
+        self,
+        db: AsyncSession,
+        data: TaskCreate,
+        *,
+        include_annotation_content: bool = True,
+    ) -> list[dict[str, Any]]:
         raw_sources = data.sources or []
         if not raw_sources:
             if data.dataset_id is None or data.annotation_id is None:
@@ -361,7 +435,12 @@ class TaskService:
             elif classes != normalized_classes:
                 raise BadRequestException("all sources must share the same normalized classes")
 
-            samples = await self._build_training_samples(db, dataset_id, annotation_id)
+            samples = await self._build_training_samples(
+                db,
+                dataset_id,
+                annotation_id,
+                include_annotation_content=include_annotation_content,
+            )
             if not samples:
                 raise BadRequestException(
                     f"training source dataset_id={dataset_id}, annotation_id={annotation_id} has no asset-backed annotated samples"
@@ -385,6 +464,8 @@ class TaskService:
         db: AsyncSession,
         dataset_id: int,
         annotation_id: int,
+        *,
+        include_annotation_content: bool = True,
     ) -> list[dict[str, Any]]:
         sample_result = await db.execute(
             select(SampleItem)
@@ -436,12 +517,16 @@ class TaskService:
         if not prepared_samples:
             return []
 
-        record_contents = await asyncio.gather(
-            *(
-                self._load_record_content(record.annotation_type, record.content)
-                for _, record, _ in prepared_samples
+        if include_annotation_content:
+            record_contents = await asyncio.gather(
+                *(
+                    self._load_record_content(record.annotation_type, record.content)
+                    for _, record, _ in prepared_samples
+                )
             )
-        )
+        else:
+            # Snapshot preview only needs persisted object keys, never bytes.
+            record_contents = [{} for _ in prepared_samples]
 
         samples: list[dict[str, Any]] = []
         for (item, record, asset), content in zip(prepared_samples, record_contents):
@@ -464,6 +549,9 @@ class TaskService:
                     "id": record.id,
                     "annotation_type": record.annotation_type,
                     "status": record.status,
+                    # Existing trainer ignores this extra field; the snapshot
+                    # preview uses it to preserve the actual annotations key.
+                    "storage_path": record.content,
                     "content": content,
                 },
             })

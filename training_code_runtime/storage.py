@@ -76,6 +76,11 @@ def load_s3_storage_settings() -> S3StorageSettings:
     )
 
 
+def load_training_code_runtime_config() -> dict:
+    """Return the runtime's Nacos-owned configuration section."""
+    return _config_section(_load_platform_config(), "training-code-runtime")
+
+
 def _load_platform_config() -> dict:
     """Read the same Nacos-provided mapping used by sandbox-backed services.
 

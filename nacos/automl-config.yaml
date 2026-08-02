@@ -68,6 +68,14 @@ ai-pipeline-runtime:
   timeout: 120
   default_profile: assist_default
 
+# Experimental only. Edit this block in Nacos to opt in; it is not part of
+# the default Compose deployment and never dispatches training tasks.
+training-code-runtime:
+  enabled: false
+  base_url: ""
+  timeout: 120
+  token: ""
+
 task_stale_timeout_seconds: ${TASK_STALE_TIMEOUT_SECONDS}
 
 logging:

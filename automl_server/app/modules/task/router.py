@@ -17,6 +17,10 @@ from .schemas import (
     TrainerStatusResponse,
     TrainingHistoryCandidateResponse,
     TrainingHistoryQuery,
+    TrainingDatasetSnapshotPreviewRequest,
+    TrainingDatasetSnapshotPreviewResponse,
+    TrainingDatasetSnapshotRegisterRequest,
+    TrainingDatasetSnapshotRegistrationResponse,
 )
 from .service import get_task_service, TaskService
 from .stream import StreamEvent, get_task_stream_hub
@@ -63,6 +67,36 @@ async def get_training_history(
 ):
     result = await service.get_training_history_candidates(db, data)
     return Result.ok(result)
+
+
+@router.post(
+    "/training-dataset-snapshot/preview",
+    response_model=Result[TrainingDatasetSnapshotPreviewResponse],
+    summary="预览实验训练数据快照",
+)
+async def preview_training_dataset_snapshot(
+    data: TrainingDatasetSnapshotPreviewRequest,
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    """Resolve existing samples to S3 references without creating a task or MQ message."""
+    result = await service.preview_training_dataset_snapshot(db, data)
+    return Result.ok(result, "Training dataset snapshot previewed")
+
+
+@router.post(
+    "/training-dataset-snapshot/register",
+    response_model=Result[TrainingDatasetSnapshotRegistrationResponse],
+    summary="登记实验训练数据快照",
+)
+async def register_training_dataset_snapshot(
+    data: TrainingDatasetSnapshotRegisterRequest,
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    """Explicitly pin S3 source objects; no task, MQ message, or code execution follows."""
+    result = await service.register_training_dataset_snapshot(db, data)
+    return Result.ok(result, "Training dataset snapshot registered")
 
 
 @router.get("/trainer/status", response_model=Result[TrainerStatusResponse], summary="获取训练服务状态")

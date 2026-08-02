@@ -164,10 +164,15 @@ class TrainingRegistryTest(unittest.TestCase):
             items=[{"item_id": "cat-1", "split": "train", "media": image_ref}],
         )
         snapshot = asyncio.run(registry.register_dataset_snapshot(source_manifest))
+        self.assertTrue(snapshot.created)
         self.assertEqual(snapshot.object.bucket, StorageBucket.DEFAULT)
         self.assertIn(("default", snapshot.object.object_key), storage.objects)
         self.assertEqual(snapshot.source_manifest.items[0].media.sha256, image_ref.sha256)
         self.assertEqual(snapshot.source_manifest.items[0].media.size_bytes, len(image))
+
+        repeated_snapshot = asyncio.run(registry.register_dataset_snapshot(source_manifest))
+        self.assertFalse(repeated_snapshot.created)
+        self.assertEqual(repeated_snapshot.object, snapshot.object)
 
         model_ref = content_reference(StorageBucket.MODELS, "models/imported.pt", b"model")
         asyncio.run(storage.write(model_ref, b"model"))

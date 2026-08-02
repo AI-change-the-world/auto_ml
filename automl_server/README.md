@@ -67,6 +67,27 @@ automl_server/
 - `ai_pipeline_runtime`：AI 能力运行时
 - `ai_pipeline_sandbox`：批量标注脚本执行服务
 
+## 实验训练数据快照
+
+`POST /task/training-dataset-snapshot/preview` 是给
+`training_code_runtime` 准备的只读预览接口。它复用现有的训练数据源
+校验，输出 `training-dataset-source-manifest/v1`：数据集资产映射到
+datasets bucket，已持久化标注记录映射到 annotations bucket。
+
+该接口当前不会读取 S3 对象正文、创建训练任务、写入数据库或发布 MQ。
+返回的 manifest 尚未固定对象哈希；后续由实验运行时的
+`/v1/registrations/dataset-snapshots` 使用 OpenDAL 校验内容并登记为不可变
+快照。它拒绝未声明字段及重复的“数据集 + 标注”来源，避免预览把同一
+样本集重复交给未来运行时；旧的 `POST /task/train` 与 `model_trainer` 流程
+完全不变。
+
+只有在 Nacos 的 `AUTO_ML_CONFIG` 中显式配置 `training-code-runtime` 的
+`enabled`、`base_url`、`timeout` 和可选 `token` 后，
+`POST /task/training-dataset-snapshot/register` 才会调用实验运行时，读取对象
+并返回固定 SHA-256 的快照引用。`token` 以 Bearer Token 传给运行时。登记
+相同的对象版本是幂等的（`created=false`）；对象内容变化会生成新的快照。
+登记本身仍不会创建任务、写主库、发布 MQ 或执行训练代码。
+
 ## 服务通信
 
 - 训练：

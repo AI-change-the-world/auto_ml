@@ -1,9 +1,10 @@
 """HTTP contract validation service for the exploratory training-code runtime."""
 from __future__ import annotations
 
-from typing import Any
+import secrets
+from typing import Annotated, Any
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from admission import (
@@ -34,7 +35,7 @@ from package_validation import (
     validate_package_archive,
 )
 from registry import PackageRegistryError, TrainingPackageRegistry
-from storage import OpenDalS3Storage
+from storage import OpenDalS3Storage, load_training_code_runtime_config
 
 
 SERVICE_NAME = "training-code-runtime"
@@ -187,10 +188,24 @@ def get_package_registry() -> TrainingPackageRegistry:
     return TrainingPackageRegistry(OpenDalS3Storage())
 
 
+def require_registration_authorization(
+    authorization: Annotated[str | None, Header()] = None,
+) -> None:
+    """Protect state-changing registry calls when an internal token is configured."""
+    config = load_training_code_runtime_config()
+    expected_token = str(config.get("token", "") or "").strip()
+    if not expected_token:
+        return
+    expected_header = f"Bearer {expected_token}"
+    if authorization is None or not secrets.compare_digest(authorization, expected_header):
+        raise HTTPException(status_code=401, detail="invalid training code runtime registration token")
+
+
 @app.post("/v1/registrations/packages")
 async def register_package(
     archive: bytes = Body(media_type="application/zip"),
     archive_name: str = "training-package.zip",
+    _: None = Depends(require_registration_authorization),
 ) -> dict[str, Any]:
     """Store a validated code package as an immutable S3-backed release.
 
@@ -214,6 +229,7 @@ async def register_package(
 async def register_model_package(
     archive: bytes = Body(media_type="application/zip"),
     archive_name: str = "training-model-package.zip",
+    _: None = Depends(require_registration_authorization),
 ) -> dict[str, Any]:
     """Import a manifest-declared base-model ZIP into immutable models objects."""
     try:
@@ -230,14 +246,17 @@ async def register_model_package(
 
 
 @app.post("/v1/registrations/dataset-snapshots")
-async def register_dataset_snapshot(manifest: TrainingDatasetSourceManifest) -> dict[str, Any]:
+async def register_dataset_snapshot(
+    manifest: TrainingDatasetSourceManifest,
+    _: None = Depends(require_registration_authorization),
+) -> dict[str, Any]:
     """Persist a resolved existing-platform S3 source list by digest."""
     try:
         registration = await get_package_registry().register_dataset_snapshot(manifest)
     except PackageRegistryError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {
-        "created": True,
+        "created": registration.created,
         "registration": {
             "source_manifest": registration.source_manifest.model_dump(mode="json"),
             "object": registration.object.model_dump(mode="json"),

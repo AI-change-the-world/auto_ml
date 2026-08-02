@@ -1,7 +1,7 @@
 """任务 Schema"""
 from datetime import datetime
-from typing import Optional, List, Literal
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any, Optional, List, Literal
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class TaskSourceItem(BaseModel):
@@ -27,6 +27,136 @@ class TaskCreate(BaseModel):
     annotation_id: Optional[int] = None
     sources: Optional[List[TaskSourceItem]] = None
     config: Optional[str] = Field(default=None, description="配置 JSON")
+
+
+class TrainingDatasetSnapshotSourceItem(BaseModel):
+    """Exact source selector accepted by the experimental snapshot preview."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dataset_id: int = Field(gt=0)
+    annotation_id: int = Field(gt=0)
+
+
+class TrainingDatasetSnapshotPreviewRequest(BaseModel):
+    """Read-only source selection for the exploratory training runtime."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_type: Literal[0, 1, 2] = Field(default=0, description="0=检测, 1=分类, 2=分割")
+    dataset_id: Optional[int] = None
+    annotation_id: Optional[int] = None
+    sources: Optional[List[TrainingDatasetSnapshotSourceItem]] = None
+
+    @model_validator(mode="after")
+    def validate_source_selector(self) -> "TrainingDatasetSnapshotPreviewRequest":
+        has_direct_source = self.dataset_id is not None or self.annotation_id is not None
+        if self.sources is not None:
+            if not self.sources:
+                raise ValueError("sources must not be empty when provided")
+            if has_direct_source:
+                raise ValueError("sources cannot be combined with dataset_id or annotation_id")
+            source_ids = {(item.dataset_id, item.annotation_id) for item in self.sources}
+            if len(source_ids) != len(self.sources):
+                raise ValueError("sources must not repeat the same dataset_id and annotation_id")
+            return self
+        if self.dataset_id is None or self.annotation_id is None:
+            raise ValueError("dataset_id and annotation_id are required when sources is omitted")
+        if self.dataset_id <= 0 or self.annotation_id <= 0:
+            raise ValueError("dataset_id and annotation_id must be positive integers")
+        return self
+
+
+class TrainingDatasetSnapshotRegisterRequest(TrainingDatasetSnapshotPreviewRequest):
+    """Explicit opt-in to pin a previewed source manifest through the runtime."""
+
+
+class TrainingDatasetSnapshotMediaReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bucket: Literal["datasets"]
+    object_key: str = Field(min_length=1)
+    sha256: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    size_bytes: Optional[int] = Field(default=None, ge=0)
+
+
+class TrainingDatasetSnapshotAnnotationReference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    bucket: Literal["annotations"]
+    object_key: str = Field(min_length=1)
+    sha256: Optional[str] = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    size_bytes: Optional[int] = Field(default=None, ge=0)
+
+
+class TrainingDatasetSnapshotItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: str = Field(min_length=1, max_length=256)
+    split: Literal["train", "val", "test", "unspecified"] = "unspecified"
+    media: TrainingDatasetSnapshotMediaReference
+    annotation: TrainingDatasetSnapshotAnnotationReference
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class TrainingDatasetSnapshotManifest(BaseModel):
+    """Unpinned S3 source manifest returned by the read-only preview."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    protocol_version: Literal["training-dataset-source-manifest/v1"]
+    task_kind: Literal["detection", "classification", "segmentation"]
+    data_modalities: List[Literal["image"]] = Field(min_length=1, max_length=1)
+    annotation_kinds: List[Literal["detection", "classification", "segmentation"]] = Field(
+        min_length=1,
+        max_length=1,
+    )
+    class_names: List[str] = Field(min_length=1)
+    items: List[TrainingDatasetSnapshotItem] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_task_shape(self) -> "TrainingDatasetSnapshotManifest":
+        expected_annotation_kind = self.task_kind
+        if self.data_modalities != ["image"]:
+            raise ValueError("data_modalities must contain only image")
+        if self.annotation_kinds != [expected_annotation_kind]:
+            raise ValueError("annotation_kinds must match task_kind")
+        if len(self.class_names) != len(set(self.class_names)) or any(not name.strip() for name in self.class_names):
+            raise ValueError("class_names must contain unique non-empty values")
+        item_ids = [item.item_id for item in self.items]
+        if len(item_ids) != len(set(item_ids)):
+            raise ValueError("items must not contain duplicate item_id values")
+        return self
+
+
+class TrainingDatasetSnapshotPreviewResponse(BaseModel):
+    """No S3 read/write or task dispatch happens while producing this preview."""
+
+    manifest: TrainingDatasetSnapshotManifest
+    source_count: int = Field(gt=0)
+    sample_count: int = Field(gt=0)
+    registration_enabled: bool = False
+
+
+class TrainingDatasetSnapshotObjectReference(BaseModel):
+    """Immutable source-manifest object written by the experimental runtime."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bucket: Literal["default"]
+    object_key: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    size_bytes: int = Field(ge=0)
+
+
+class TrainingDatasetSnapshotRegistrationResponse(BaseModel):
+    """Pinned snapshot returned after the runtime has read and hashed every input."""
+
+    manifest: TrainingDatasetSnapshotManifest
+    object: TrainingDatasetSnapshotObjectReference
+    created: bool
+    source_count: int = Field(gt=0)
+    sample_count: int = Field(gt=0)
 
 
 class TaskResponse(BaseModel):
