@@ -1,0 +1,34 @@
+{
+  "protocol_version": "training-code-package/v1",
+  "key": "pytorch-image-classifier",
+  "version": "1.0.0",
+  "name": "PyTorch Image Classifier",
+  "description": "An example package for the training-code contract.",
+  "runtime": {
+    "id": "pytorch-2.5-cu124",
+    "kind": "platform_managed"
+  },
+  "entrypoint": "train.py",
+  "entrypoint_symbol": "train",
+  "supported_tasks": [
+    {
+      "task_kind": "classification",
+      "data_modalities": ["image"],
+      "annotation_kinds": ["classification"]
+    }
+  ],
+  "parameters_schema": {
+    "type": "object",
+    "properties": {
+      "epochs": {"type": "integer", "minimum": 1, "default": 10},
+      "learning_rate": {"type": "number", "exclusiveMinimum": 0, "default": 0.001}
+    }
+  },
+  "output_contract": {
+    "artifacts": [
+      {"role": "model", "formats": ["onnx"], "required": true, "deployable": true},
+      {"role": "checkpoint", "formats": ["pt"], "required": false, "deployable": false}
+    ],
+    "requires_model_metadata": true
+  }
+}

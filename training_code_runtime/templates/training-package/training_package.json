@@ -1,0 +1,32 @@
+{
+  "protocol_version": "training-code-package/v1",
+  "key": "training-package-template",
+  "version": "1.0.0",
+  "name": "Training Package Template",
+  "description": "Copy this package as a starting point for a platform-approved training backend.",
+  "runtime": {
+    "id": "pytorch-2.5-cu124",
+    "kind": "platform_managed"
+  },
+  "entrypoint": "train.py",
+  "entrypoint_symbol": "train",
+  "supported_tasks": [
+    {
+      "task_kind": "classification",
+      "data_modalities": ["image"],
+      "annotation_kinds": ["classification"]
+    }
+  ],
+  "parameters_schema": {
+    "type": "object",
+    "properties": {
+      "epochs": {"type": "integer", "minimum": 1, "default": 10}
+    }
+  },
+  "output_contract": {
+    "artifacts": [
+      {"role": "model", "formats": ["onnx"], "required": true, "deployable": true}
+    ],
+    "requires_model_metadata": true
+  }
+}

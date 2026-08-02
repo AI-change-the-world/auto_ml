@@ -70,6 +70,7 @@ flowchart LR
 | `model_deploy` | 部署与推理服务，管理模型运行时 | [README](./model_deploy/readme.md) |
 | `ai_pipeline_runtime` | AI 能力运行时，负责图像理解、草稿标注、白框图相关能力 | [README](./ai_pipeline_runtime/readme.md) |
 | `ai_pipeline_sandbox` | 批量标注脚本执行沙箱，负责 ZIP 脚本运行、依赖安装和结果回传 | [README](./ai_pipeline_sandbox/README.md) |
+| `training_code_runtime` | 实验性训练代码运行时；当前仅验证版本化训练包、输入输出和 MQ 契约，不执行代码 | [README](./training_code_runtime/README.md) |
 
 补充示例：
 
@@ -93,6 +94,7 @@ auto_ml/
 ├── model_deploy/
 ├── ai_pipeline_runtime/
 ├── ai_pipeline_sandbox/
+├── training_code_runtime/  # 实验性；尚未替换 model_trainer
 ├── mysql/
 ├── nacos/
 ├── readme/
