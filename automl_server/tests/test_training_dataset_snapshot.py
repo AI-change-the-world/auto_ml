@@ -18,8 +18,8 @@ MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 TrainingDatasetSnapshotBuilder = MODULE.TrainingDatasetSnapshotBuilder
 
-RUNTIME_CONTRACTS_PATH = Path(__file__).resolve().parents[2] / "training_code_runtime" / "contracts.py"
-RUNTIME_SPEC = importlib.util.spec_from_file_location("training_runtime_contracts_test_module", RUNTIME_CONTRACTS_PATH)
+RUNTIME_CONTRACTS_PATH = Path(__file__).resolve().parents[2] / "model_training_runtime" / "contracts.py"
+RUNTIME_SPEC = importlib.util.spec_from_file_location("model_training_runtime_contracts_test_module", RUNTIME_CONTRACTS_PATH)
 if RUNTIME_SPEC is None or RUNTIME_SPEC.loader is None:
     raise RuntimeError("unable to load training runtime contracts")
 RUNTIME_MODULE = importlib.util.module_from_spec(RUNTIME_SPEC)
@@ -228,7 +228,7 @@ class TrainingDatasetSnapshotBuilderTest(unittest.TestCase):
         }
         response = types.SimpleNamespace(status_code=200, json=lambda: payload)
         registrar = TrainingDatasetSnapshotRegistrar(
-            base_url="http://training-code-runtime:8012",
+            base_url="http://model-training-runtime:8012",
             timeout=30,
             token="runtime-token",
         )

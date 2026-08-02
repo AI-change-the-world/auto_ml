@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 
 WORKDIR /app
 
@@ -10,6 +10,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN groupadd --gid "${RUNTIME_GID}" runtime \
     && useradd --uid "${RUNTIME_UID}" --gid "${RUNTIME_GID}" --create-home --shell /usr/sbin/nologin runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple

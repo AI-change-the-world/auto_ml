@@ -1,4 +1,4 @@
-"""Platform-managed runtime selection; intentionally no venv or pip support."""
+"""Platform-managed runtime selection for the in-service training worker."""
 from __future__ import annotations
 
 import os
@@ -19,12 +19,12 @@ class ManagedRuntimeError(RuntimeExecutionError):
     pass
 
 
-class PlatformRuntimeManager:
-    """Resolves prebuilt, platform-controlled runtimes for a task workspace.
+class TrainingRuntimeManager:
+    """Resolves an allowlisted Python environment owned by this service.
 
-    A package selects only a registry key. The registry is created by service
-    configuration or the worker image; this manager never accepts package
-    dependencies, creates a venv, or invokes pip.
+    A package selects only a runtime key. Dependencies are installed into the
+    service image or a platform-created environment; package ZIPs cannot
+    choose an executable or install dependencies at task time.
     """
 
     def __init__(
@@ -48,13 +48,6 @@ class PlatformRuntimeManager:
                 "RuntimeUnavailable",
                 f"platform runtime `{runtime_id}` has no executable at {python_executable}",
             )
-        if not runtime.image_digest.startswith("sha256:") or len(runtime.image_digest) != 71:
-            raise self._error(
-                "resolve_runtime",
-                "InvalidRuntimeDigest",
-                f"platform runtime `{runtime_id}` has an invalid immutable image digest",
-            )
-
         task_root = task_root.resolve()
         home_dir = task_root / "home"
         temp_dir = task_root / "tmp"
@@ -62,13 +55,7 @@ class PlatformRuntimeManager:
             directory.mkdir(parents=True, exist_ok=True)
         environment = self._build_environment(home_dir, temp_dir, python_executable)
         self._emit("resolve_runtime", f"Using platform-managed runtime `{runtime_id}`")
-        logger.info(
-            "Prepared managed training runtime: runtime_id=%s image=%s digest=%s task_root=%s",
-            runtime.runtime_id,
-            runtime.image_reference,
-            runtime.image_digest,
-            task_root,
-        )
+        logger.info("Prepared in-service training runtime: runtime_id=%s task_root=%s", runtime.runtime_id, task_root)
         return PreparedRuntime(
             runtime=runtime,
             task_root=task_root,
@@ -128,9 +115,13 @@ class PlatformRuntimeManager:
         return ManagedRuntimeError(
             message,
             {
-                "source": "training_code_runtime",
+                "source": "model_training_runtime",
                 "stage": stage,
                 "exception_type": error_type,
                 "message": message,
             },
         )
+
+
+# Compatibility for the internal foundation tests and callers during the rename.
+PlatformRuntimeManager = TrainingRuntimeManager

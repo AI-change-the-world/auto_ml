@@ -4,4 +4,4 @@ from __future__ import annotations
 import logging
 
 
-logger = logging.getLogger("training_code_runtime.runtime")
+logger = logging.getLogger("model_training_runtime.runtime")

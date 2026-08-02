@@ -203,7 +203,10 @@ def _load_settings() -> Settings:
         )),
     )
 
-    training_code_runtime_nacos = nacos_data.get("training-code-runtime", {})
+    training_code_runtime_nacos = nacos_data.get(
+        "model-training-runtime",
+        nacos_data.get("training-code-runtime", {}),
+    )
     if not isinstance(training_code_runtime_nacos, dict):
         training_code_runtime_nacos = {}
     training_code_runtime = TrainingCodeRuntimeConfig(

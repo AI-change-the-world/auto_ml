@@ -228,3 +228,8 @@ nacos-data/
 .pnpm-store/
 
 *.zip
+
+# A small, deterministic release artifact for the platform-managed Ultralytics
+# training-package example is intentionally versioned.
+!model_training_runtime/examples/ultralytics-detection/dist/
+!model_training_runtime/examples/ultralytics-detection/dist/ultralytics-detection-1.0.0.zip

@@ -1,8 +1,8 @@
 """Dormant package runner based on the sandbox's line-oriented runner pattern.
 
-This file is not reachable from the HTTP service and is not wired to MQ. It is
-tested directly so the package entrypoint and event protocol are stable before
-controlled execution is enabled.
+This file is invoked by the HTTP service's bounded subprocess executor. It is
+not wired to MQ yet; the same runner protocol will be reused when a queue
+consumer is introduced.
 """
 from __future__ import annotations
 

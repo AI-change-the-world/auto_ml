@@ -69,12 +69,16 @@ ai-pipeline-runtime:
   default_profile: assist_default
 
 # Experimental only. Edit this block in Nacos to opt in; it is not part of
-# the default Compose deployment and never dispatches training tasks.
-training-code-runtime:
+# the default Compose deployment and never dispatches production trainer tasks.
+model-training-runtime:
   enabled: false
   base_url: ""
   timeout: 120
   token: ""
+  execution:
+    enabled: false
+    runtime_ids:
+      - ultralytics-8.3.0-pytorch-2.5-cu124
 
 task_stale_timeout_seconds: ${TASK_STALE_TIMEOUT_SECONDS}
 

@@ -61,7 +61,9 @@ def load_s3_storage_settings() -> S3StorageSettings:
     """
     config = _load_platform_config()
     storage = _config_section(config, "local-s3-config")
-    training = _config_section(config, "training-code-runtime")
+    training = _config_section(config, "model-training-runtime") or _config_section(
+        config, "training-code-runtime"
+    )
     training_storage = _config_section(training, "storage")
     sections = (training_storage, storage)
     return S3StorageSettings(
@@ -76,9 +78,16 @@ def load_s3_storage_settings() -> S3StorageSettings:
     )
 
 
-def load_training_code_runtime_config() -> dict:
-    """Return the runtime's Nacos-owned configuration section."""
-    return _config_section(_load_platform_config(), "training-code-runtime")
+def load_model_training_runtime_config() -> dict:
+    """Return the service's Nacos-owned configuration section."""
+    config = _load_platform_config()
+    return _config_section(config, "model-training-runtime") or _config_section(
+        config, "training-code-runtime"
+    )
+
+
+# Compatibility for the previous exploratory service name.
+load_training_code_runtime_config = load_model_training_runtime_config
 
 
 def _load_platform_config() -> dict:
@@ -147,7 +156,7 @@ class OpenDalS3Storage:
         except ModuleNotFoundError as exc:
             raise ObjectStorageError(
                 "opendal is required for S3-backed training package registration; "
-                "install training_code_runtime requirements"
+                "install model_training_runtime requirements"
             ) from exc
         self._operators = {
             bucket: opendal.AsyncOperator("s3", bucket=self._bucket_name(bucket), **operator_kwargs)

@@ -228,7 +228,7 @@ def _process_error(stage: str, exception_type: str, message: str, **extra: objec
     return RuntimeProcessError(
         message,
         {
-            "source": "training_code_runtime",
+            "source": "model_training_runtime",
             "stage": stage,
             "exception_type": exception_type,
             "message": message,

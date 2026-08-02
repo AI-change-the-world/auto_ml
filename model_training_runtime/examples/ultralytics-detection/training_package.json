@@ -1,0 +1,55 @@
+{
+  "protocol_version": "training-code-package/v1",
+  "key": "ultralytics-detection",
+  "version": "1.0.0",
+  "name": "Ultralytics Detection",
+  "description": "A platform-managed Ultralytics detection package using the pinned dataset snapshot contract.",
+  "runtime": {
+    "id": "ultralytics-8.3.0-pytorch-2.5-cu124",
+    "kind": "platform_managed"
+  },
+  "entrypoint": "train.py",
+  "entrypoint_symbol": "train",
+  "supported_tasks": [
+    {
+      "task_kind": "detection",
+      "data_modalities": ["image"],
+      "annotation_kinds": ["detection"]
+    }
+  ],
+  "parameters_schema": {
+    "type": "object",
+    "properties": {
+      "epochs": {"type": "integer", "minimum": 1, "maximum": 10000},
+      "imgsz": {"type": "integer", "minimum": 32, "maximum": 4096},
+      "batch": {"type": "integer", "minimum": -1, "maximum": 1024},
+      "workers": {"type": "integer", "minimum": 0, "maximum": 64},
+      "val_fraction": {"type": "number", "minimum": 0, "maximum": 0.5},
+      "export_onnx": {"type": "boolean"},
+      "onnx_dynamic": {"type": "boolean"},
+      "onnx_simplify": {"type": "boolean"},
+      "seed": {"type": "integer", "minimum": 0},
+      "optimizer": {"type": "string", "minLength": 1, "maxLength": 32},
+      "patience": {"type": "integer", "minimum": 0, "maximum": 10000},
+      "lr0": {"type": "number", "exclusiveMinimum": 0},
+      "weight_decay": {"type": "number", "minimum": 0}
+    },
+    "additionalProperties": false
+  },
+  "model_input_contract": {
+    "required": true,
+    "framework": {"id": "ultralytics", "version": "8.3.0"},
+    "formats": ["pt"],
+    "modes": ["initialize", "resume"],
+    "require_matching_task_kind": true,
+    "require_matching_class_names_for_resume": true
+  },
+  "output_contract": {
+    "artifacts": [
+      {"role": "model", "formats": ["pt"], "required": true, "deployable": true},
+      {"role": "checkpoint", "formats": ["pt"], "required": true, "deployable": false},
+      {"role": "model", "formats": ["onnx"], "required": false, "deployable": false}
+    ],
+    "requires_model_metadata": true
+  }
+}

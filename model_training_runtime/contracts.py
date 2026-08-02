@@ -789,7 +789,7 @@ class TrainingResult(ContractModel):
 
 
 class TrainingCodeSubmission(ContractModel):
-    """Future MQ payload; the worker creates local workspace paths after consuming it."""
+    """Immutable execution submission shared by HTTP now and MQ later."""
 
     protocol_version: Literal[SUBMISSION_PROTOCOL_VERSION]
     message_id: UUID

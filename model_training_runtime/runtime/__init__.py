@@ -1,12 +1,14 @@
-"""Reusable, non-business-specific foundation for training-code execution.
-
-The modules are deliberately not connected to HTTP or MQ yet. They provide the
-same execution primitives that the future training worker will need without
-bringing batch-annotation behavior into this service.
-"""
+"""Reusable foundation for the in-service model training worker."""
 from .archive import TrainingArchiveError, extract_training_package, validate_archive_members
-from .environment import ManagedRuntimeError, PlatformRuntimeManager
+from .environment import ManagedRuntimeError, PlatformRuntimeManager, TrainingRuntimeManager
 from .errors import RuntimeExecutionError
+from .executor import (
+    ExecutionLaunch,
+    LocalSubprocessExecutor,
+    ServiceSubprocessExecutor,
+    TrainingExecutor,
+    TrainingExecutorError,
+)
 from .models import (
     ManagedRuntimeSpec,
     PreparedRuntime,
@@ -21,11 +23,15 @@ from .protocol import EVENT_PREFIX, LOG_PREFIX, RESULT_PREFIX
 
 __all__ = [
     "EVENT_PREFIX",
+    "ExecutionLaunch",
+    "LocalSubprocessExecutor",
+    "ServiceSubprocessExecutor",
     "LOG_PREFIX",
     "RESULT_PREFIX",
     "ManagedRuntimeError",
     "ManagedRuntimeSpec",
     "PlatformRuntimeManager",
+    "TrainingRuntimeManager",
     "PreparedRuntime",
     "ProcessResult",
     "RunnerMessage",
@@ -34,6 +40,8 @@ __all__ = [
     "RuntimeExecutionSettings",
     "RuntimeProcessError",
     "TrainingArchiveError",
+    "TrainingExecutor",
+    "TrainingExecutorError",
     "build_resource_limit_command",
     "extract_training_package",
     "parse_runner_line",

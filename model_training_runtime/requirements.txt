@@ -5,3 +5,5 @@ jsonschema==4.23.0
 opendal==0.46.0
 nacos-sdk-python==2.0.9
 PyYAML==6.0.2
+ultralytics==8.3.0
+onnx==1.17.0

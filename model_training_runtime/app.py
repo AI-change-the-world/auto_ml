@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import secrets
-from typing import Annotated, Any
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+from typing import Annotated, Any, Literal
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from admission import (
     ContractAdmissionError,
@@ -13,11 +17,13 @@ from admission import (
     validate_package_manifest,
     validate_result_admission,
 )
+from coordinator import ExecutionCoordinator, ExecutionCoordinatorError
 from contracts import (
     DATASET_PROTOCOL_VERSION,
     DATASET_SOURCE_PROTOCOL_VERSION,
     EVENT_PROTOCOL_VERSION,
     EXECUTION_PROTOCOL_VERSION,
+    MODEL_PACKAGE_PROTOCOL_VERSION,
     PACKAGE_PROTOCOL_VERSION,
     RESULT_PROTOCOL_VERSION,
     SUBMISSION_PROTOCOL_VERSION,
@@ -26,19 +32,28 @@ from contracts import (
     TrainingDatasetSourceManifest,
     TrainingExecutionRequest,
     TrainingEvent,
+    TrainingModelPackageManifest,
     TrainingPackageManifest,
     TrainingResult,
 )
 from package_validation import (
+    ArchiveValidationReport,
+    ModelPackageArchiveValidationReport,
     PackageArchiveValidationError,
     validate_model_package_archive,
     validate_package_archive,
 )
 from registry import PackageRegistryError, TrainingPackageRegistry
-from storage import OpenDalS3Storage, load_training_code_runtime_config
+from runtime import (
+    ManagedRuntimeSpec,
+    RuntimeExecutionSettings,
+    ServiceSubprocessExecutor,
+    TrainingRuntimeManager,
+)
+from storage import OpenDalS3Storage, load_model_training_runtime_config
 
 
-SERVICE_NAME = "training-code-runtime"
+SERVICE_NAME = "model-training-runtime"
 SERVICE_VERSION = "0.1.0-experimental"
 
 
@@ -61,6 +76,42 @@ class ResultAdmissionRequest(ExecutionAdmissionRequest):
     result: TrainingResult
 
 
+class ArchiveInspectionMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    file_count: int = Field(ge=0)
+    uncompressed_bytes: int = Field(ge=0)
+
+
+class TrainingCodePackageInspectionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["training_code_package"]
+    valid: Literal[True] = True
+    archive: ArchiveInspectionMetadata
+    configuration: TrainingPackageManifest
+
+
+class TrainingModelPackageInspectionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["training_model_package"]
+    valid: Literal[True] = True
+    archive: ArchiveInspectionMetadata
+    configuration: TrainingModelPackageManifest
+
+
+class DirectExecutionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    execution_id: str
+    result: TrainingResult
+    events: list[dict[str, Any]]
+    logs: list[dict[str, Any]]
+    workspace_cleaned: bool = True
+
+
 def validated_response(contract: str, value: Any) -> ValidationResponse:
     return ValidationResponse(
         contract=contract,
@@ -68,11 +119,29 @@ def validated_response(contract: str, value: Any) -> ValidationResponse:
     )
 
 
+def archive_inspection_response(
+    *,
+    kind: str,
+    report: ArchiveValidationReport | ModelPackageArchiveValidationReport,
+) -> dict[str, Any]:
+    """Return the validated manifest in a stable, presentation-oriented envelope."""
+    return {
+        "kind": kind,
+        "valid": True,
+        "archive": {
+            "sha256": report.sha256,
+            "file_count": report.file_count,
+            "uncompressed_bytes": report.uncompressed_bytes,
+        },
+        "configuration": report.manifest.model_dump(mode="json"),
+    }
+
+
 app = FastAPI(
-    title="Training Code Runtime",
+    title="Model Training Runtime",
     description=(
-        "Experimental contract service. It validates versioned training-code "
-        "contracts only; it does not execute user code or consume training jobs."
+        "Experimental in-service model training runtime. It validates versioned "
+        "training packages and can execute approved packages in a bounded subprocess."
     ),
     version=SERVICE_VERSION,
 )
@@ -80,12 +149,15 @@ app = FastAPI(
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
+    config = load_model_training_runtime_config()
+    execution_config = config.get("execution") if isinstance(config.get("execution"), dict) else {}
+    execution_enabled = execution_config.get("enabled") is True
     return {
         "status": "ok",
         "service": SERVICE_NAME,
         "version": SERVICE_VERSION,
-        "mode": "contract_validation_only",
-        "execution_enabled": False,
+        "mode": "in_service_execution" if execution_enabled else "contract_validation_only",
+        "execution_enabled": execution_enabled,
         "mq_consumer_enabled": False,
     }
 
@@ -99,6 +171,7 @@ async def list_contracts() -> dict[str, Any]:
             "package": PACKAGE_PROTOCOL_VERSION,
             "dataset_manifest": DATASET_PROTOCOL_VERSION,
             "dataset_source_manifest": DATASET_SOURCE_PROTOCOL_VERSION,
+            "model_package": MODEL_PACKAGE_PROTOCOL_VERSION,
             "execution": EXECUTION_PROTOCOL_VERSION,
             "event": EVENT_PROTOCOL_VERSION,
             "result": RESULT_PROTOCOL_VERSION,
@@ -125,6 +198,23 @@ async def validate_package_archive_endpoint(
     return {"valid": True, **report.as_dict()}
 
 
+@app.post(
+    "/v1/packages/archive/inspect",
+    response_model=TrainingCodePackageInspectionResponse,
+)
+async def inspect_package_archive_endpoint(
+    archive: bytes = Body(media_type="application/zip"),
+) -> TrainingCodePackageInspectionResponse:
+    """Read validated package configuration without importing or returning package code."""
+    try:
+        report = validate_package_archive(archive)
+    except PackageArchiveValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return TrainingCodePackageInspectionResponse(
+        **archive_inspection_response(kind="training_code_package", report=report)
+    )
+
+
 @app.post("/v1/model-packages/archive/validate")
 async def validate_model_package_archive_endpoint(
     archive: bytes = Body(media_type="application/zip"),
@@ -135,6 +225,23 @@ async def validate_model_package_archive_endpoint(
     except PackageArchiveValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"valid": True, **report.as_dict()}
+
+
+@app.post(
+    "/v1/model-packages/archive/inspect",
+    response_model=TrainingModelPackageInspectionResponse,
+)
+async def inspect_model_package_archive_endpoint(
+    archive: bytes = Body(media_type="application/zip"),
+) -> TrainingModelPackageInspectionResponse:
+    """Read validated model-package configuration without deserializing model bytes."""
+    try:
+        report = validate_model_package_archive(archive)
+    except PackageArchiveValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return TrainingModelPackageInspectionResponse(
+        **archive_inspection_response(kind="training_model_package", report=report)
+    )
 
 
 @app.post("/v1/contracts/dataset-manifest/validate", response_model=ValidationResponse)
@@ -192,13 +299,90 @@ def require_registration_authorization(
     authorization: Annotated[str | None, Header()] = None,
 ) -> None:
     """Protect state-changing registry calls when an internal token is configured."""
-    config = load_training_code_runtime_config()
+    config = load_model_training_runtime_config()
     expected_token = str(config.get("token", "") or "").strip()
     if not expected_token:
         return
     expected_header = f"Bearer {expected_token}"
     if authorization is None or not secrets.compare_digest(authorization, expected_header):
-        raise HTTPException(status_code=401, detail="invalid training code runtime registration token")
+        raise HTTPException(status_code=401, detail="invalid model training runtime registration token")
+
+
+def get_training_coordinator() -> tuple[ExecutionCoordinator, Path]:
+    """Build the first in-service executor from Nacos-owned runtime settings."""
+    config = load_model_training_runtime_config()
+    execution_config = config.get("execution") if isinstance(config.get("execution"), dict) else {}
+    if execution_config.get("enabled") is not True:
+        raise HTTPException(
+            status_code=503,
+            detail="in-service training execution is disabled by model-training-runtime.execution.enabled",
+        )
+
+    runtime_ids = execution_config.get(
+        "runtime_ids",
+        ["ultralytics-8.3.0-pytorch-2.5-cu124", "python-host"],
+    )
+    if isinstance(runtime_ids, str):
+        runtime_ids = [runtime_ids]
+    if not isinstance(runtime_ids, list) or not all(isinstance(value, str) and value.strip() for value in runtime_ids):
+        raise HTTPException(status_code=503, detail="training runtime execution.runtime_ids is invalid")
+
+    python_executable = Path(str(execution_config.get("python_executable") or sys.executable)).resolve()
+    workspace_root = Path(
+        str(
+            execution_config.get(
+                "workspace_root",
+                Path(tempfile.gettempdir()) / "model-training-runtime" / "workspaces",
+            )
+        )
+    ).resolve()
+    settings = RuntimeExecutionSettings(
+        workspace_root=workspace_root,
+        idle_timeout_seconds=int(execution_config.get("idle_timeout_seconds", 180)),
+        max_output_bytes=int(execution_config.get("max_output_bytes", 2 * 1024 * 1024)),
+        max_processes=int(execution_config.get("max_processes", 32)),
+        process_fsize_bytes=int(execution_config.get("process_fsize_bytes", 50 * 1024 * 1024)),
+        process_nofile=int(execution_config.get("process_nofile", 512)),
+    )
+    runtimes = [
+        ManagedRuntimeSpec(runtime_id=runtime_id.strip(), python_executable=python_executable)
+        for runtime_id in runtime_ids
+    ]
+    coordinator = ExecutionCoordinator(
+        OpenDalS3Storage(),
+        TrainingRuntimeManager(settings, runtimes),
+        executor=ServiceSubprocessExecutor(),
+    )
+    return coordinator, workspace_root
+
+
+@app.post("/v1/executions/run", response_model=DirectExecutionResponse)
+async def run_training_execution(
+    submission: TrainingCodeSubmission,
+    _: None = Depends(require_registration_authorization),
+) -> DirectExecutionResponse:
+    """Run one registered training package directly inside this service.
+
+    This synchronous HTTP path is intentionally experimental. It exercises the
+    same coordinator, runner, S3 snapshot materialization, and result protocol
+    that a later MQ consumer can call without introducing a second container.
+    """
+    coordinator, workspace_root = get_training_coordinator()
+    try:
+        outcome = await coordinator.execute(submission)
+        return DirectExecutionResponse(
+            execution_id=str(outcome.execution.execution_id),
+            result=outcome.result,
+            events=list(outcome.events),
+            logs=list(outcome.logs),
+        )
+    except ExecutionCoordinatorError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": str(exc), "error_detail": exc.error_detail},
+        ) from exc
+    finally:
+        shutil.rmtree(workspace_root / str(submission.execution_id), ignore_errors=True)
 
 
 @app.post("/v1/registrations/packages")

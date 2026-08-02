@@ -17,17 +17,15 @@ class ProcessResult:
 
 @dataclass(frozen=True)
 class ManagedRuntimeSpec:
-    """A platform-owned immutable runtime, never supplied by package code."""
+    """A platform-owned Python environment inside the training service."""
 
     runtime_id: str
-    image_reference: str
-    image_digest: str
     python_executable: Path
 
 
 @dataclass(frozen=True)
 class RuntimeExecutionSettings:
-    """Process and workspace constraints applied by the later execution worker."""
+    """Process and workspace constraints applied by the training service."""
 
     workspace_root: Path
     idle_timeout_seconds: int = 180

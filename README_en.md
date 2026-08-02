@@ -55,7 +55,7 @@ flowchart LR
 | `model_deploy` | Deployment and inference service that manages runtime instances | [README](./model_deploy/readme.md) |
 | `ai_pipeline_runtime` | AI capability runtime for image understanding, draft annotation, and white-overlay related flows | [README](./ai_pipeline_runtime/readme.md) |
 | `ai_pipeline_sandbox` | Batch annotation script sandbox for ZIP execution, dependency install, and result callbacks | [README](./ai_pipeline_sandbox/README.md) |
-| `training_code_runtime` | Experimental training-code runtime; currently validates versioned package, I/O, and MQ contracts without executing code | [README](./training_code_runtime/README.md) |
+| `model_training_runtime` | Experimental model training runtime; executes registered packages in one service with contract, data materialization, event, and result validation, and does not replace `model_trainer` yet | [README](./model_training_runtime/README.md) |
 
 Additional example:
 
@@ -94,7 +94,7 @@ auto_ml/
 ├── model_deploy/
 ├── ai_pipeline_runtime/
 ├── ai_pipeline_sandbox/
-├── training_code_runtime/  # Experimental; does not replace model_trainer yet
+├── model_training_runtime/  # Experimental; direct in-service execution, does not replace model_trainer yet
 ├── mysql/
 ├── nacos/
 ├── readme/

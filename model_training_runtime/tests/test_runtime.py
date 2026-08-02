@@ -31,8 +31,6 @@ from runtime import (
 def managed_runtime() -> ManagedRuntimeSpec:
     return ManagedRuntimeSpec(
         runtime_id="python-test-runtime",
-        image_reference="registry.example/python-test:1",
-        image_digest="sha256:" + "a" * 64,
         python_executable=Path(sys.executable),
     )
 
