@@ -90,8 +90,8 @@ class TrainingRuntimeManager:
 
     @staticmethod
     def _build_environment(home_dir: Path, temp_dir: Path, python_executable: Path) -> dict[str, str]:
+        """Create an execution environment without service credentials."""
         environment = {
-            **os.environ,
             "HOME": str(home_dir),
             "XDG_CACHE_HOME": str(home_dir / ".cache"),
             "XDG_CONFIG_HOME": str(home_dir / ".config"),
@@ -101,9 +101,17 @@ class TrainingRuntimeManager:
             "PYTHONNOUSERSITE": "1",
             "PATH": f"{python_executable.parent}{os.pathsep}{os.environ.get('PATH', '')}",
         }
-        for key in tuple(environment):
-            if key == "VIRTUAL_ENV" or key.startswith("PIP_"):
-                environment.pop(key, None)
+        for key in (
+            "LANG",
+            "LC_ALL",
+            "LD_LIBRARY_PATH",
+            "CUDA_HOME",
+            "CUDA_VISIBLE_DEVICES",
+            "NVIDIA_VISIBLE_DEVICES",
+        ):
+            value = os.environ.get(key)
+            if value:
+                environment[key] = value
         return environment
 
     def _emit(self, stage: str, message: str) -> None:

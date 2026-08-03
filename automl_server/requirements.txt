@@ -24,6 +24,7 @@ openai==1.109.1
 
 # 数据验证
 pydantic==2.10.4
+jsonschema==4.23.0
 cryptography==46.0.5
 
 # 文件上传

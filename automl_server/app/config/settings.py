@@ -5,13 +5,17 @@
 import os
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from loguru import logger
 
 from .nacos_config_center import get_config_center
 from app import __version__
 
 _last_nacos_log_keys: Optional[tuple[str, ...]] = None
+DEFAULT_TRAINING_RUNTIME_IDS = [
+    "ultralytics-8.3.0-pytorch-2.5-cu124",
+    "pytorch-2.5-cu124",
+]
 
 
 class DatabaseConfig(BaseModel):
@@ -60,6 +64,11 @@ class TrainingCodeRuntimeConfig(BaseModel):
     base_url: str = ""
     timeout: int = 120
     token: str = ""
+    execution_enabled: bool = False
+    execution_runtime_ids: list[str] = Field(
+        default_factory=lambda: list(DEFAULT_TRAINING_RUNTIME_IDS)
+    )
+    allow_script_managed_data: bool = False
 
 
 class Settings(BaseModel):
@@ -186,12 +195,31 @@ def _load_settings() -> Settings:
     )
     if not isinstance(training_code_runtime_nacos, dict):
         training_code_runtime_nacos = {}
+    training_code_runtime_execution = training_code_runtime_nacos.get("execution", {})
+    if not isinstance(training_code_runtime_execution, dict):
+        training_code_runtime_execution = {}
+    runtime_ids = training_code_runtime_execution.get(
+        "runtime_ids", DEFAULT_TRAINING_RUNTIME_IDS
+    )
+    if isinstance(runtime_ids, str):
+        runtime_ids = [runtime_ids]
+    if not isinstance(runtime_ids, list):
+        runtime_ids = []
     training_code_runtime = TrainingCodeRuntimeConfig(
         # This experimental integration is centrally managed through Nacos.
         enabled=training_code_runtime_nacos.get("enabled", False),
         base_url=str(training_code_runtime_nacos.get("base_url", "") or ""),
         timeout=training_code_runtime_nacos.get("timeout", 120),
         token=str(training_code_runtime_nacos.get("token", "") or ""),
+        execution_enabled=training_code_runtime_execution.get("enabled", False),
+        execution_runtime_ids=[
+            str(runtime_id).strip()
+            for runtime_id in runtime_ids
+            if isinstance(runtime_id, str) and runtime_id.strip()
+        ],
+        allow_script_managed_data=bool(
+            training_code_runtime_nacos.get("allow_script_managed_data", False)
+        ),
     )
 
     task_stale_timeout_seconds = int(

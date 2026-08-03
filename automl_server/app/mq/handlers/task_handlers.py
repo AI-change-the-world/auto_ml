@@ -10,6 +10,7 @@ from sqlalchemy import update
 from app.common.constants import TaskStatus
 from app.config.database import AsyncSessionLocal
 from app.db.models import Task, TaskLog
+from app.db.models import TrainingRuntimeExecution
 from app.mq.messages import TaskStatusMessage, TaskLogMessage
 from app.modules.task.service import TaskService
 from app.modules.task.stream import StreamEvent, get_task_stream_hub
@@ -45,11 +46,37 @@ async def handle_task_status_update(message: TaskStatusMessage):
                 .values(**update_data)
             )
             await session.execute(stmt)
+
+            extra_data = message.extra_data if isinstance(message.extra_data, dict) else {}
+            if extra_data.get("backend") == "training_code_runtime":
+                execution_values = {
+                    "status": _runtime_execution_status(message.status),
+                    "updated_at": datetime.now(),
+                }
+                if message.status == TaskStatus.FAILED.value:
+                    execution_values["error_message"] = message.message
+                elif message.status == TaskStatus.COMPLETED.value:
+                    execution_values["result_json"] = json.dumps(extra_data, ensure_ascii=False)
+                    execution_values["error_message"] = None
+                execution_filter = [
+                    TrainingRuntimeExecution.task_id == message.task_id,
+                    TrainingRuntimeExecution.is_deleted == False,
+                ]
+                execution_id = extra_data.get("execution_id")
+                if isinstance(execution_id, str) and execution_id:
+                    execution_filter.append(TrainingRuntimeExecution.execution_id == execution_id)
+                await session.execute(
+                    update(TrainingRuntimeExecution)
+                    .where(*execution_filter)
+                    .values(**execution_values)
+                )
             await session.commit()
 
             task = await session.get(Task, message.task_id)
             if task is not None:
-                task_payload = TaskService()._serialize_task(task).model_dump(mode="json")
+                task_payload = (
+                    await TaskService()._serialize_task(session, task)
+                ).model_dump(mode="json")
                 await get_task_stream_hub().publish(
                     StreamEvent(
                         event="task_upsert",
@@ -67,6 +94,16 @@ async def handle_task_status_update(message: TaskStatusMessage):
             logger.error(f"Failed to update task status: {e}")
             await session.rollback()
             raise
+
+
+def _runtime_execution_status(status: int) -> str:
+    if status == TaskStatus.RUNNING.value:
+        return "running"
+    if status == TaskStatus.COMPLETED.value:
+        return "succeeded"
+    if status == TaskStatus.FAILED.value:
+        return "failed"
+    return "queued"
 
 
 async def handle_task_log(message: TaskLogMessage):

@@ -1,4 +1,4 @@
-"""Bounded subprocess execution shared by future training worker stages."""
+"""Bounded subprocess execution shared by training worker stages."""
 from __future__ import annotations
 
 import codecs

@@ -28,10 +28,13 @@ from contracts import (
     RESULT_PROTOCOL_VERSION,
     SUBMISSION_PROTOCOL_VERSION,
     TrainingCodeSubmission,
+    CheckpointEvent,
+    LogEvent,
+    MetricEvent,
+    PhaseEvent,
     TrainingDatasetManifest,
     TrainingDatasetSourceManifest,
     TrainingExecutionRequest,
-    TrainingEvent,
     TrainingModelPackageManifest,
     TrainingPackageManifest,
     TrainingResult,
@@ -51,6 +54,8 @@ from runtime import (
     TrainingRuntimeManager,
 )
 from storage import OpenDalS3Storage, load_model_training_runtime_config
+from artifacts import PersistedArtifact, persist_execution_artifacts
+from execution_policy import ExecutionPolicyError, validate_execution_policy
 
 
 SERVICE_NAME = "model-training-runtime"
@@ -109,6 +114,7 @@ class DirectExecutionResponse(BaseModel):
     result: TrainingResult
     events: list[dict[str, Any]]
     logs: list[dict[str, Any]]
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
     workspace_cleaned: bool = True
 
 
@@ -158,7 +164,7 @@ async def health() -> dict[str, Any]:
         "version": SERVICE_VERSION,
         "mode": "in_service_execution" if execution_enabled else "contract_validation_only",
         "execution_enabled": execution_enabled,
-        "mq_consumer_enabled": False,
+        "mq_consumer_enabled": execution_enabled,
     }
 
 
@@ -268,7 +274,12 @@ async def validate_execution_admission_endpoint(request: ExecutionAdmissionReque
 
 
 @app.post("/v1/contracts/event/validate", response_model=ValidationResponse)
-async def validate_event(event: TrainingEvent) -> ValidationResponse:
+async def validate_event(
+    event: Annotated[
+        PhaseEvent | LogEvent | MetricEvent | CheckpointEvent,
+        Body(discriminator="event_type"),
+    ],
+) -> ValidationResponse:
     return validated_response(EVENT_PROTOCOL_VERSION, event)
 
 
@@ -320,7 +331,7 @@ def get_training_coordinator() -> tuple[ExecutionCoordinator, Path]:
 
     runtime_ids = execution_config.get(
         "runtime_ids",
-        ["ultralytics-8.3.0-pytorch-2.5-cu124", "python-host"],
+        ["ultralytics-8.3.0-pytorch-2.5-cu124", "pytorch-2.5-cu124"],
     )
     if isinstance(runtime_ids, str):
         runtime_ids = [runtime_ids]
@@ -363,18 +374,34 @@ async def run_training_execution(
 ) -> DirectExecutionResponse:
     """Run one registered training package directly inside this service.
 
-    This synchronous HTTP path is intentionally experimental. It exercises the
+    This synchronous HTTP path is intentionally diagnostic. It exercises the
     same coordinator, runner, S3 snapshot materialization, and result protocol
-    that a later MQ consumer can call without introducing a second container.
+    used by the dedicated MQ worker.
     """
+    config = load_model_training_runtime_config()
+    try:
+        validate_execution_policy(submission, config)
+    except ExecutionPolicyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     coordinator, workspace_root = get_training_coordinator()
     try:
         outcome = await coordinator.execute(submission)
+        try:
+            persisted = await persist_execution_artifacts(coordinator.storage, outcome)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "message": "training result artifacts could not be persisted",
+                    "error_type": exc.__class__.__name__,
+                },
+            ) from exc
         return DirectExecutionResponse(
             execution_id=str(outcome.execution.execution_id),
             result=outcome.result,
             events=list(outcome.events),
             logs=list(outcome.logs),
+            artifacts=[_persisted_artifact_payload(item) for item in persisted],
         )
     except ExecutionCoordinatorError as exc:
         raise HTTPException(
@@ -383,6 +410,13 @@ async def run_training_execution(
         ) from exc
     finally:
         shutil.rmtree(workspace_root / str(submission.execution_id), ignore_errors=True)
+
+
+def _persisted_artifact_payload(item: PersistedArtifact) -> dict[str, Any]:
+    return {
+        "artifact": item.artifact.model_dump(mode="json"),
+        "object": item.object.model_dump(mode="json"),
+    }
 
 
 @app.post("/v1/registrations/packages")

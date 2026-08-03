@@ -93,6 +93,7 @@ class TrainingRuntimeCatalogService:
             package_size_bytes=registration.archive.size_bytes,
             package_file_name=registration.package_file_name,
             supported_tasks_json=self._dump(manifest.supported_tasks),
+            input_modes_json=self._dump(manifest.input_modes),
             parameters_schema_json=self._dump(manifest.parameters_schema),
             model_input_contract_json=(
                 self._dump(manifest.model_input_contract)
@@ -228,6 +229,7 @@ class TrainingRuntimeCatalogService:
             package_size_bytes=row.package_size_bytes,
             package_file_name=row.package_file_name,
             supported_tasks=self._load(row.supported_tasks_json, []),
+            input_modes=self._load(row.input_modes_json, ["platform_dataset"]),
             parameters_schema=self._load(row.parameters_schema_json, {}),
             model_input_contract=self._load(row.model_input_contract_json, None),
             output_contract=self._load(row.output_contract_json, {}),

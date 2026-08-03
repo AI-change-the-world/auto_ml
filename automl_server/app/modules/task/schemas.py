@@ -29,6 +29,66 @@ class TaskCreate(BaseModel):
     config: Optional[str] = Field(default=None, description="配置 JSON")
 
 
+class RuntimeTrainingResources(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device: Literal["cpu", "cuda"] = "cpu"
+    gpu_count: int = Field(default=0, ge=0, le=64)
+    cpu_cores: float = Field(default=1, gt=0, le=256)
+    memory_bytes: int = Field(default=1024 * 1024 * 1024, gt=0)
+    timeout_seconds: int = Field(default=3600, gt=0, le=7 * 24 * 60 * 60)
+
+    @model_validator(mode="after")
+    def validate_device(self) -> "RuntimeTrainingResources":
+        if self.device == "cuda" and self.gpu_count < 1:
+            raise ValueError("cuda execution requires gpu_count to be at least 1")
+        if self.device != "cuda" and self.gpu_count:
+            raise ValueError("gpu_count must be 0 unless device is cuda")
+        return self
+
+
+class RuntimeScriptTaskCreate(BaseModel):
+    """Control-plane request that becomes one immutable training-code-submit/v1."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code_package_id: int = Field(gt=0)
+    task_type: Literal[0, 1, 2] = Field(default=0)
+    input_mode: Literal["platform_dataset", "script_managed"] = "platform_dataset"
+    dataset_id: Optional[int] = Field(default=None, gt=0)
+    annotation_id: Optional[int] = Field(default=None, gt=0)
+    sources: Optional[List[TaskSourceItem]] = None
+    class_names: List[str] = Field(default_factory=list, max_length=10000)
+    data_modalities: List[str] = Field(default_factory=lambda: ["image"], min_length=1, max_length=8)
+    annotation_kinds: List[str] = Field(default_factory=list, max_length=16)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    resources: RuntimeTrainingResources = Field(default_factory=RuntimeTrainingResources)
+    model_package_id: Optional[int] = Field(default=None, gt=0)
+    model_input_mode: Literal["initialize", "resume"] = "initialize"
+
+    @model_validator(mode="after")
+    def validate_selected_input_mode(self) -> "RuntimeScriptTaskCreate":
+        has_direct_source = self.dataset_id is not None or self.annotation_id is not None
+        if self.input_mode == "platform_dataset":
+            if self.sources:
+                if has_direct_source:
+                    raise ValueError("sources cannot be combined with dataset_id or annotation_id")
+                pairs = {(source.dataset_id, source.annotation_id) for source in self.sources}
+                if len(pairs) != len(self.sources):
+                    raise ValueError("sources must not repeat the same dataset and annotation")
+            elif self.dataset_id is None or self.annotation_id is None:
+                raise ValueError("platform_dataset requires dataset_id and annotation_id or sources")
+        elif has_direct_source or self.sources:
+            raise ValueError("script_managed input must not include datasets or annotations")
+        if self.input_mode == "script_managed":
+            normalized = [item.strip() for item in self.class_names]
+            if not normalized or any(not item for item in normalized) or len(normalized) != len(set(normalized)):
+                raise ValueError("script_managed input requires unique non-empty class_names")
+        if self.model_package_id is None and self.model_input_mode != "initialize":
+            raise ValueError("model_input_mode=resume requires model_package_id")
+        return self
+
+
 class TrainingDatasetSnapshotSourceItem(BaseModel):
     """Exact source selector accepted by the experimental snapshot preview."""
 

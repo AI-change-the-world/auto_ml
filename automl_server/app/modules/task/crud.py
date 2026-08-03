@@ -1,6 +1,6 @@
 """任务 CRUD"""
 from typing import List, Optional
-from sqlalchemy import select, update, func, and_, case
+from sqlalchemy import select, update, func, and_, case, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Task, TaskLog, TaskSource, BaseModels, AvailableModel
 
@@ -148,6 +148,13 @@ async def get_training_history_candidates(
             TaskSource.is_deleted == False,
             Task.task_type == task_type,
             Task.status == 3,
+            or_(
+                Task.config.is_(None),
+                ~or_(
+                    Task.config.like('%"training_backend":"model_training_runtime"%'),
+                    Task.config.like('%"training_backend": "model_training_runtime"%'),
+                ),
+            ),
             AvailableModel.model_type.in_(model_types),
             AvailableModel.model_path.is_not(None),
             AvailableModel.model_path != "",

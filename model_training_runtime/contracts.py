@@ -93,6 +93,13 @@ class StorageBucket(str, Enum):
     ANNOTATIONS = "annotations"
 
 
+class TrainingDataInputMode(str, Enum):
+    """The platform-approved source from which a package receives training data."""
+
+    PLATFORM_DATASET = "platform_dataset"
+    SCRIPT_MANAGED = "script_managed"
+
+
 class S3ObjectReference(ContractModel):
     """A platform-owned OpenDAL/S3 object, never an arbitrary URL or path."""
 
@@ -239,6 +246,11 @@ class TrainingPackageManifest(ContractModel):
     entrypoint: str
     entrypoint_symbol: Literal["train"] = "train"
     supported_tasks: list[SupportedTask] = Field(min_length=1, max_length=32)
+    input_modes: list[TrainingDataInputMode] = Field(
+        default_factory=lambda: [TrainingDataInputMode.PLATFORM_DATASET],
+        min_length=1,
+        max_length=2,
+    )
     parameters_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
     model_input_contract: ModelInputContract | None = None
     output_contract: PackageOutputContract
@@ -272,6 +284,13 @@ class TrainingPackageManifest(ContractModel):
             raise ValueError("must be a JSON Schema object with root type 'object'")
         if not isinstance(value.get("properties", {}), dict):
             raise ValueError("properties must be an object when provided")
+        return value
+
+    @field_validator("input_modes")
+    @classmethod
+    def reject_duplicate_input_modes(cls, value: list[TrainingDataInputMode]) -> list[TrainingDataInputMode]:
+        if len(value) != len(set(value)):
+            raise ValueError("must not contain duplicate input modes")
         return value
 
 
@@ -346,7 +365,7 @@ class TrainingDatasetManifest(ContractModel):
     data_modalities: list[str] = Field(min_length=1, max_length=8)
     annotation_kinds: list[str] = Field(default_factory=list, max_length=16)
     class_names: list[str] = Field(default_factory=list, max_length=10000)
-    items: list[DatasetItem] = Field(min_length=1, max_length=10_000_000)
+    items: list[DatasetItem] = Field(default_factory=list, max_length=10_000_000)
 
     @field_validator("task_kind")
     @classmethod
@@ -422,7 +441,7 @@ class ExecutionWorkspace(ContractModel):
 
 
 class ResourceAllocation(ContractModel):
-    device: Literal["cpu", "cuda", "mps"] = "cpu"
+    device: Literal["cpu", "cuda"] = "cpu"
     gpu_count: int = Field(default=0, ge=0, le=64)
     cpu_cores: float = Field(default=1, gt=0, le=256)
     memory_bytes: int = Field(default=1024 * 1024 * 1024, gt=0)
@@ -588,6 +607,7 @@ class TrainingExecutionRequest(ContractModel):
     runtime: PackageRuntime
     workspace: ExecutionWorkspace
     dataset: TrainingDatasetManifest
+    input_mode: TrainingDataInputMode = TrainingDataInputMode.PLATFORM_DATASET
     parameters: dict[str, Any] = Field(default_factory=dict)
     resources: ResourceAllocation
     model_input: ModelInputReference | None = None
@@ -797,7 +817,9 @@ class TrainingCodeSubmission(ContractModel):
     task: TaskReference
     package: ResolvedPackage
     package_archive: S3ObjectReference
-    dataset_source_snapshot: S3ObjectReference
+    input_mode: TrainingDataInputMode = TrainingDataInputMode.PLATFORM_DATASET
+    dataset_source_snapshot: S3ObjectReference | None = None
+    script_dataset: TrainingDatasetManifest | None = None
     runtime: PackageRuntime
     parameters: dict[str, Any] = Field(default_factory=dict)
     resources: ResourceAllocation
@@ -807,12 +829,26 @@ class TrainingCodeSubmission(ContractModel):
     def restrict_submission_object_buckets(self) -> "TrainingCodeSubmission":
         if self.package_archive.bucket != StorageBucket.DEFAULT:
             raise ValueError("package_archive must reference the default package bucket")
-        if self.dataset_source_snapshot.bucket != StorageBucket.DEFAULT:
-            raise ValueError("dataset_source_snapshot must reference the default manifest bucket")
-        for label, reference in (
-            ("package_archive", self.package_archive),
-            ("dataset_source_snapshot", self.dataset_source_snapshot),
-        ):
+        if self.input_mode == TrainingDataInputMode.PLATFORM_DATASET:
+            if self.dataset_source_snapshot is None:
+                raise ValueError("platform_dataset input requires dataset_source_snapshot")
+            if self.script_dataset is not None:
+                raise ValueError("platform_dataset input must not include script_dataset")
+            if self.dataset_source_snapshot.bucket != StorageBucket.DEFAULT:
+                raise ValueError("dataset_source_snapshot must reference the default manifest bucket")
+        else:
+            if self.script_dataset is None:
+                raise ValueError("script_managed input requires script_dataset")
+            if self.dataset_source_snapshot is not None:
+                raise ValueError("script_managed input must not include dataset_source_snapshot")
+            if self.script_dataset.task_kind != self.task.task_kind:
+                raise ValueError("script_dataset.task_kind must match task.task_kind")
+            if self.script_dataset.items:
+                raise ValueError("script_managed dataset must not contain platform materialized items")
+        references = [("package_archive", self.package_archive)]
+        if self.dataset_source_snapshot is not None:
+            references.append(("dataset_source_snapshot", self.dataset_source_snapshot))
+        for label, reference in references:
             if reference.sha256 is None or reference.size_bytes is None:
                 raise ValueError(f"{label} must include immutable SHA-256 and size_bytes")
         return self

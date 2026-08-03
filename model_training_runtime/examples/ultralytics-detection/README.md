@@ -9,8 +9,8 @@ flow:
 - `train`, `val`, and deterministic fallback splits are converted to the
   Ultralytics `images/*` and `labels/*` layout;
 - the selected `.pt` model input is loaded from `context["model_input_path"]`;
-- `best.pt` is the deployable model and `last.pt` is the resumable checkpoint;
-- `export_onnx=true` additionally writes a non-deployable `best.onnx` artifact.
+- `best.pt` is retained as a custom-training initialization artifact and `last.pt` is the resumable checkpoint;
+- `export_onnx=true` writes the deployable `best.onnx` artifact for the existing detection inference runtime.
 
 The package intentionally contains no dependency file. The service image owns
 the pinned Ultralytics/PyTorch dependencies and exposes the runtime id

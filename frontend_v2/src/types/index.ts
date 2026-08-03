@@ -149,6 +149,12 @@ export type {
   AiPipelineBatchRunCreateRequest,
 } from './batchAnnotation';
 export type {
+  RuntimeScriptTaskCreate,
+  RuntimeTrainingResources,
+} from './task';
+export type {
+  TrainingRuntimeCodePackage,
+  TrainingRuntimeCodePackageImportResponse,
   TrainingRuntimeModelPackage,
   TrainingRuntimeModelPackageImportResponse,
 } from './trainingRuntime';

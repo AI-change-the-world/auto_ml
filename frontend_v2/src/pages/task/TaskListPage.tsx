@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { message, Spin, Modal, Select, InputNumber, Switch, Tooltip, Collapse } from 'antd';
+import { message, Spin, Modal, Select, Input, InputNumber, Switch, Tooltip, Collapse } from 'antd';
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask, getTrainingHistoryCandidates } from '../../api/task';
+import { listTasks, createRuntimeScriptTask, createTrainTask, getBaseModels, getTrainerStatus, deleteTask, getTrainingHistoryCandidates } from '../../api/task';
+import { listTrainingRuntimeCodePackages, listTrainingRuntimeModelPackages } from '../../api/trainingRuntime';
 import { subscribeTaskStream } from '../../api/taskStream';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
@@ -19,7 +20,9 @@ import type {
   TaskSourceItem,
   TaskSourceResponse,
   TrainingHistoryCandidateResponse,
+  RuntimeScriptTaskCreate,
 } from '../../types/task';
+import type { TrainingRuntimeCodePackage, TrainingRuntimeModelPackage } from '../../types/trainingRuntime';
 import type { Dataset } from '../../types/dataset';
 import { AnnotationType, type AnnotationProject } from '../../types/annotation';
 import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
@@ -36,6 +39,8 @@ const statusStyles: Record<string, { bg: string; fg: string }> = {
 
 type DetectionMode = 'bbox' | 'obb';
 type TrainingEngine = 'ultralytics-yolo';
+type TrainingBackend = 'builtin' | 'runtime_script';
+type RuntimeInputMode = 'platform_dataset' | 'script_managed';
 
 const DEFAULT_TRAIN_CONFIG: TrainingConfigPayload = {
   name: '',
@@ -124,22 +129,42 @@ const TaskListPage: React.FC = () => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
   const [baseModels, setBaseModels] = useState<BaseModelResponse[]>([]);
+  const [runtimeCodePackages, setRuntimeCodePackages] = useState<TrainingRuntimeCodePackage[]>([]);
+  const [runtimeModelPackages, setRuntimeModelPackages] = useState<TrainingRuntimeModelPackage[]>([]);
   const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
   const [historyCandidates, setHistoryCandidates] = useState<TrainingHistoryCandidateResponse[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [form, setForm] = useState<{
+    backend: TrainingBackend;
     task_type: number;
     sources: TaskSourceItem[];
     detection_mode: DetectionMode;
     train_config: TrainingConfigPayload;
+    runtime_code_package_id?: number;
+    runtime_model_package_id?: number;
+    runtime_model_input_mode: 'initialize' | 'resume';
+    runtime_input_mode: RuntimeInputMode;
+    runtime_class_names: string;
+    runtime_parameters: string;
+    runtime_timeout_seconds: number;
   }>({
+    backend: 'builtin',
     task_type: 0,
     sources: [{ dataset_id: 0, annotation_id: 0 }],
     detection_mode: 'bbox',
     train_config: DEFAULT_TRAIN_CONFIG,
+    runtime_model_input_mode: 'initialize',
+    runtime_input_mode: 'platform_dataset',
+    runtime_class_names: '',
+    runtime_parameters: '{}',
+    runtime_timeout_seconds: 3600,
   });
   const [streamVersion, setStreamVersion] = useState(0);
   const availableDevices = trainerStatus?.available_devices?.length ? trainerStatus.available_devices : ['cpu'];
+  const reportedRuntimeDevices = availableDevices.filter(
+    (device): device is 'cpu' | 'cuda' => device === 'cpu' || device === 'cuda',
+  );
+  const runtimeAvailableDevices = reportedRuntimeDevices.length ? reportedRuntimeDevices : ['cpu'];
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -237,14 +262,84 @@ const TaskListPage: React.FC = () => {
     setCreateOpen(true);
     setHistoryCandidates([]);
     try {
-      const [d, a, b] = await Promise.all([listDatasets(1, 100), listAnnotations(1, 100), getBaseModels()]);
+      const [d, a, b, codePackages, modelPackages] = await Promise.all([
+        listDatasets(1, 100),
+        listAnnotations(1, 100),
+        getBaseModels(),
+        listTrainingRuntimeCodePackages(false),
+        listTrainingRuntimeModelPackages(false),
+      ]);
       if (d) setDatasets(d.items);
       if (a) setAnnotations(a.items);
       if (b) setBaseModels(Array.isArray(b) ? b : []);
+      setRuntimeCodePackages(codePackages);
+      setRuntimeModelPackages(modelPackages);
     } catch { }
   };
 
   const handleCreate = async () => {
+    if (form.backend === 'runtime_script') {
+      if (!form.runtime_code_package_id) { message.warning(t('pleaseSelectRuntimeCodePackage')); return; }
+      const selectedPackage = runtimeCodePackages.find((item) => item.id === form.runtime_code_package_id);
+      if (!selectedPackage) { message.warning(t('pleaseSelectRuntimeCodePackage')); return; }
+      if (form.runtime_input_mode === 'platform_dataset') {
+        if (form.sources.length === 0) { message.warning(t('pleaseAddSource')); return; }
+        if (form.sources.some((source) => !source.dataset_id)) { message.warning(t('pleaseSelectDataset')); return; }
+        if (form.sources.some((source) => !source.annotation_id)) { message.warning(t('pleaseSelectAnnotation')); return; }
+      }
+      let parameters: Record<string, unknown> = {};
+      try {
+        const parsed = JSON.parse(form.runtime_parameters || '{}');
+        if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error();
+        parameters = parsed as Record<string, unknown>;
+      } catch {
+        message.warning(t('runtimeParametersInvalid'));
+        return;
+      }
+      const classNames = form.runtime_class_names.split(',').map((value) => value.trim()).filter(Boolean);
+      if (form.runtime_input_mode === 'script_managed' && classNames.length === 0) {
+        message.warning(t('runtimeClassNamesRequired'));
+        return;
+      }
+      setCreating(true);
+      try {
+        const [firstSource] = form.sources;
+        const data: RuntimeScriptTaskCreate = {
+          code_package_id: selectedPackage.id,
+          task_type: form.task_type as 0 | 1 | 2,
+          input_mode: form.runtime_input_mode,
+          ...(form.runtime_input_mode === 'platform_dataset' ? {
+            dataset_id: firstSource?.dataset_id,
+            annotation_id: firstSource?.annotation_id,
+            sources: form.sources,
+          } : {
+            class_names: classNames,
+            data_modalities: ['image'],
+            annotation_kinds: [],
+          }),
+          parameters,
+          resources: {
+            device: form.train_config.device as 'cpu' | 'cuda',
+            gpu_count: form.train_config.device === 'cuda' ? 1 : 0,
+            cpu_cores: 1,
+            memory_bytes: 1024 * 1024 * 1024,
+            timeout_seconds: form.runtime_timeout_seconds,
+          },
+          ...(form.runtime_model_package_id ? {
+            model_package_id: form.runtime_model_package_id,
+            model_input_mode: form.runtime_model_input_mode,
+          } : {}),
+        };
+        await createRuntimeScriptTask(data);
+        message.success(tc('msg.createSuccess'));
+        emitTasksChanged();
+        setCreateOpen(false);
+        resetTrainingForm();
+        fetchTasks();
+      } catch { message.error(tc('msg.createFailed')); }
+      finally { setCreating(false); }
+      return;
+    }
     if (form.sources.length === 0) { message.warning(t('pleaseAddSource')); return; }
     if (form.sources.some((source) => !source.dataset_id)) { message.warning(t('pleaseSelectDataset')); return; }
     if (form.sources.some((source) => !source.annotation_id)) { message.warning(t('pleaseSelectAnnotation')); return; }
@@ -267,16 +362,26 @@ const TaskListPage: React.FC = () => {
       message.success(tc('msg.createSuccess'));
       emitTasksChanged();
       setCreateOpen(false);
-      setForm({
-        task_type: 0,
-        sources: [{ dataset_id: 0, annotation_id: 0 }],
-        detection_mode: 'bbox',
-        train_config: DEFAULT_TRAIN_CONFIG,
-      });
+      resetTrainingForm();
       setHistoryCandidates([]);
       fetchTasks();
     } catch { message.error(tc('msg.createFailed')); }
     finally { setCreating(false); }
+  };
+
+  const resetTrainingForm = () => {
+    setForm({
+      backend: 'builtin',
+      task_type: 0,
+      sources: [{ dataset_id: 0, annotation_id: 0 }],
+      detection_mode: 'bbox',
+      train_config: DEFAULT_TRAIN_CONFIG,
+      runtime_model_input_mode: 'initialize',
+      runtime_input_mode: 'platform_dataset',
+      runtime_class_names: '',
+      runtime_parameters: '{}',
+      runtime_timeout_seconds: 3600,
+    });
   };
 
   const handleDeleteTask = (event: React.MouseEvent, taskId: number) => {
@@ -690,6 +795,42 @@ const TaskListPage: React.FC = () => {
         styles={{ body: { maxHeight: '72vh', overflowY: 'auto', paddingTop: 16 } }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('trainingBackend')}</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {([
+                ['builtin', t('builtinTraining')],
+                ['runtime_script', t('runtimeScriptTraining')],
+              ] as Array<[TrainingBackend, string]>).map(([backend, label]) => (
+                <button
+                  key={backend}
+                  className="button-text"
+                  type="button"
+                  onClick={() => setForm((previous) => ({
+                    ...previous,
+                    backend,
+                    train_config: backend === 'runtime_script'
+                      && !runtimeAvailableDevices.some((device) => device === previous.train_config.device)
+                      ? { ...previous.train_config, device: runtimeAvailableDevices[0] }
+                      : previous.train_config,
+                  }))}
+                  style={{
+                    padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
+                    border: form.backend === backend ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                    background: form.backend === backend ? '#eef2ff' : '#fff',
+                    color: form.backend === backend ? '#4f6ef7' : '#666',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="caption-text" style={{ color: '#6b7280', marginTop: 6 }}>
+              {form.backend === 'builtin' ? t('builtinTrainingHint') : t('runtimeScriptTrainingHint')}
+            </div>
+          </div>
+          {form.backend === 'builtin' ? (
+            <>
           <div>
             <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('taskType')}</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1309,6 +1450,167 @@ const TaskListPage: React.FC = () => {
                 {t('trainingEngineDesc')}
               </div>
             </div>
+          )}
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('taskType')}</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[0, 1, 2].map((taskType) => (
+                    <button
+                      key={taskType}
+                      className="button-text"
+                      type="button"
+                      onClick={() => handleTaskTypeChange(taskType)}
+                      style={{
+                        padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
+                        border: form.task_type === taskType ? '1px solid #4f6ef7' : '1px solid #e5e5e5',
+                        background: form.task_type === taskType ? '#eef2ff' : '#fff',
+                        color: form.task_type === taskType ? '#4f6ef7' : '#666',
+                      }}
+                    >
+                      {typeLabels[taskType]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeCodePackage')}</label>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder={t('selectRuntimeCodePackage')}
+                  value={form.runtime_code_package_id}
+                  onChange={(value) => {
+                    const nextPackage = runtimeCodePackages.find((item) => item.id === value);
+                    setForm((previous) => ({
+                      ...previous,
+                      runtime_code_package_id: value,
+                      runtime_input_mode: nextPackage?.input_modes.includes(previous.runtime_input_mode)
+                        ? previous.runtime_input_mode
+                        : (nextPackage?.input_modes[0] || 'platform_dataset'),
+                    }));
+                  }}
+                  options={runtimeCodePackages
+                    .filter((item) => item.supported_tasks.some((task) => task.task_kind === (form.task_type === 0 ? 'detection' : form.task_type === 1 ? 'classification' : 'segmentation')))
+                    .map((item) => ({ label: `${item.name} · ${item.package_key} v${item.version}`, value: item.id }))}
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </div>
+              {(() => {
+                const selectedPackage = runtimeCodePackages.find((item) => item.id === form.runtime_code_package_id);
+                const inputModes = selectedPackage?.input_modes || [];
+                return inputModes.length > 0 ? (
+                  <div>
+                    <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeInputMode')}</label>
+                    <Select
+                      style={{ width: '100%' }}
+                      value={form.runtime_input_mode}
+                      onChange={(value) => setForm((previous) => ({ ...previous, runtime_input_mode: value }))}
+                      options={inputModes.map((mode) => ({ label: t(`runtimeInputModeOption.${mode}`), value: mode }))}
+                    />
+                  </div>
+                ) : null;
+              })()}
+              {form.runtime_input_mode === 'platform_dataset' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('dataset')}</label>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder={t('selectDataset')}
+                      value={form.sources[0]?.dataset_id || undefined}
+                      onChange={(value) => updateSource(0, 'dataset_id', value)}
+                      options={datasets.map((dataset) => ({ label: dataset.name, value: dataset.id }))}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('annotationOptional')}</label>
+                    <Select
+                      style={{ width: '100%' }}
+                      placeholder={t('selectAnnotation')}
+                      value={form.sources[0]?.annotation_id || undefined}
+                      onChange={(value) => updateSource(0, 'annotation_id', value)}
+                      options={getAnnotationOptions(form.sources[0]?.dataset_id)}
+                      showSearch
+                      optionFilterProp="label"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeClassNames')}</label>
+                  <Input
+                    value={form.runtime_class_names}
+                    onChange={(event) => setForm((previous) => ({ ...previous, runtime_class_names: event.target.value }))}
+                    placeholder={t('runtimeClassNamesPlaceholder')}
+                  />
+                  <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>{t('runtimeScriptDataHint')}</div>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeModelPackage')}</label>
+                  <Select
+                    allowClear
+                    style={{ width: '100%' }}
+                    placeholder={t('runtimeModelPackageOptional')}
+                    value={form.runtime_model_package_id}
+                    onChange={(value) => setForm((previous) => ({ ...previous, runtime_model_package_id: value }))}
+                    options={runtimeModelPackages
+                      .filter((item) => item.task_kind === (form.task_type === 0 ? 'detection' : form.task_type === 1 ? 'classification' : 'segmentation'))
+                      .map((item) => ({ label: `${item.name} · .${item.artifact_format}`, value: item.id }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeModelInputMode')}</label>
+                  <Select
+                    style={{ width: '100%' }}
+                    disabled={!form.runtime_model_package_id}
+                    value={form.runtime_model_input_mode}
+                    onChange={(value) => setForm((previous) => ({ ...previous, runtime_model_input_mode: value }))}
+                    options={[
+                      { label: t('runtimeModelInitialize'), value: 'initialize' },
+                      { label: t('runtimeModelResume'), value: 'resume' },
+                    ]}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('device')}</label>
+                  <Select
+                    style={{ width: '100%' }}
+                    value={form.train_config.device}
+                    onChange={(value) => updateTrainConfig('device', value)}
+                    options={runtimeAvailableDevices.map((device) => ({ label: formatDeviceLabel(device), value: device }))}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeTimeout')}</label>
+                  <InputNumber
+                    min={1}
+                    max={604800}
+                    style={{ width: '100%' }}
+                    value={form.runtime_timeout_seconds}
+                    onChange={(value) => setForm((previous) => ({ ...previous, runtime_timeout_seconds: Number(value || 3600) }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeParameters')}</label>
+                <Input.TextArea
+                  rows={6}
+                  value={form.runtime_parameters}
+                  onChange={(event) => setForm((previous) => ({ ...previous, runtime_parameters: event.target.value }))}
+                  placeholder="{}"
+                />
+                <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>{t('runtimeParametersHint')}</div>
+              </div>
+            </>
           )}
         </div>
       </Modal>

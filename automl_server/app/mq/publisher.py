@@ -86,6 +86,15 @@ class MessagePublisher:
                     exchange=self.config.exchange_name,
                     routing_key=self.config.pipeline_batch_execute_routing_key,
                 )
+                channel.queue_declare(
+                    queue=self.config.training_code_execute_queue,
+                    durable=True,
+                )
+                channel.queue_bind(
+                    queue=self.config.training_code_execute_queue,
+                    exchange=self.config.exchange_name,
+                    routing_key=self.config.training_code_execute_routing_key,
+                )
                 # Confirm mode makes a publish wait for the broker acknowledgement.
                 # Combined with mandatory=True below, an unbound routing key raises
                 # instead of being silently discarded by RabbitMQ.
@@ -218,6 +227,29 @@ class MessagePublisher:
             raise request.error
         logger.info(
             f"Published training task: task_id={payload.get('task_id')}, routing_key={self.config.trainer_task_routing_key}"
+        )
+
+    def publish_training_code_execution(self, payload: Dict[str, Any]):
+        """Publish a frozen custom-script execution to its dedicated worker."""
+        body = json.dumps(payload, ensure_ascii=False, allow_nan=False)
+        request = PublishRequest(
+            routing_key=self.config.training_code_execute_routing_key,
+            body=body,
+            done=threading.Event(),
+        )
+        self._publish_queue.put(request)
+        if not request.done.wait(timeout=max(5, int(os.getenv("MQ_PUBLISH_TIMEOUT", "30")))):
+            raise TimeoutError(
+                "Timed out publishing custom training execution: "
+                f"task_id={payload.get('task', {}).get('task_id')}"
+            )
+        if request.error is not None:
+            raise request.error
+        logger.info(
+            "Published custom training execution: task_id=%s execution_id=%s routing_key=%s",
+            payload.get("task", {}).get("task_id"),
+            payload.get("execution_id"),
+            self.config.training_code_execute_routing_key,
         )
 
     def publish_pipeline_batch_execute(self, payload: Dict[str, Any]):

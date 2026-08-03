@@ -1,72 +1,76 @@
 # 内置训练与自定义训练脚本共存方案
 
-## 已确认的边界
+## 当前实现
 
-| 用户选择的内容 | 训练后端 | 是否进入 `model_trainer` |
-| --- | --- | --- |
-| 内置基础模型、数据集、标注集与现有 Ultralytics 参数 | `model_trainer` | 是 |
-| 用户上传的训练脚本 ZIP、运行时模型 ZIP、数据集、标注集与脚本参数 | `model_training_runtime` | 否 |
+| 用户选择 | 训练后端 | 队列 | 能否部署推理 |
+| --- | --- | --- | --- |
+| 内置基础模型、数据集、标注集 | `model_trainer` | `trainer.task.queue` | 保持现有逻辑 |
+| 上传的训练脚本 ZIP、可选模型 ZIP、平台数据集/标注集 | `model_training_runtime` | `training.code.execute` | 仅合规 ONNX |
+| 上传的训练脚本 ZIP、脚本自行下载或生成数据 | `model_training_runtime` | `training.code.execute` | 仅合规 ONNX |
 
-训练脚本 ZIP 声明的是运行逻辑，不是旧训练器能够加载的“模型”。即使它
-包含 Ultralytics 代码或 `.pt` 文件，也不得写入 `base_models`，不得出现在
-旧训练弹窗的基础模型下拉框，也不得投递到现有 `trainer.task.queue`。
+训练脚本 ZIP 是运行逻辑，不是旧训练器的基础模型。因此它不进入 `base_models`，
+也不会出现在内置训练的模型选择中。运行时模型 ZIP 是自定义脚本的可选输入，
+同样不交给 `model_trainer`。
 
-## 第一阶段：运行时包目录（已实现）
+自定义脚本产生的检查点也不会出现在内置训练的“历史继续训练”候选中；它只能由
+兼容的自定义脚本作为初始化模型或恢复检查点再次选择。
 
-`automl_server` 新增独立的目录 API：
+## 用户操作
 
-- `POST /training-runtime/code-packages/import`：将含 `training_package.json`
-  的 ZIP 交给 runtime 校验、不可变存储和登记。
-- `POST /training-runtime/model-packages/import`：将含
-  `training_model_package.json` 的 ZIP 交给 runtime 处理初始化权重和可选
-  可恢复检查点。
-- `GET /training-runtime/code-packages` 与
-  `GET /training-runtime/model-packages`：仅供未来的“自定义脚本训练”模式选择。
+在“模型管理”的外部页签导入：
 
-主服务将 runtime 返回的 digest、对象路径、框架、模型输入约束、参数
-schema 和产物约束持久化到专用的 `training_runtime_code_package` 与
-`training_runtime_model_package` 表中。它们不关联 `base_models`；导入不会
-创建训练任务、发布 MQ 消息或执行脚本。
+- **训练脚本包**：根目录包含 `training_package.json` 和 `train.py`，声明
+  运行时、支持任务、参数、输入模式和输出产物。
+- **初始化模型包**：根目录包含 `training_model_package.json`，提供自定义
+  脚本可选的初始化权重或可恢复检查点。
 
-先执行 `mysql/migrations/20260803_add_training_runtime_catalog.sql`，并配置
-`AUTO_ML_CONFIG.model-training-runtime` 的 `enabled`、`base_url` 和可选
-`token`。目录导入会复用 runtime 的受控 ZIP 校验，而不在控制面解压或执行
-用户代码。
+在训练任务弹窗选择“自定义脚本训练”后：
 
-## 后续实施顺序
+- `platform_dataset`：提交数据集 ID 与标注集 ID 给主服务。主服务解析、校验
+  并冻结为对象存储快照；脚本不获取数据库 ID 或 S3 凭据。
+- `script_managed`：不提交数据集或标注集 ID，只提交类别、模态和脚本参数；
+  脚本自行获取数据。例如提供的 PyTorch 猫狗示例会下载 CIFAR-10。
 
-1. 增加独立的“自定义脚本训练”入口（页面/表单），默认仍进入内置训练。
-   该入口只展示运行时脚本包和运行时模型包；旧训练页不变化。
-2. 新建 `training_backend=code_package` 的任务记录，持久化选择的包版本、
-   digest、模型输入模式、数据集来源、资源申请和脚本参数快照。不要复用
-   legacy `Task` 的 `config` 来隐式判断后端。
-3. 创建任务时复用已有的数据源解析，调用
-   `/task/training-dataset-snapshot/register` 得到不可变数据快照；根据脚本
-   `model_input_contract` 校验模型的框架、格式、任务类型、类别与
-   initialize/resume 模式。
-4. 由专用生产 worker 消费独立 routing key，并构造
-   `training-code-submit/v1`。worker 按 `execution_id` 幂等领取任务、限制
-   并发/资源、支持取消与重试，并将事件、日志和最终状态回写主服务。
-5. 验证并登记 runtime 产物为可部署模型；仅在产物适配现有部署协议时写入
-   `AvailableModel`。这与输入的运行时模型包目录是两件事。
+运行时只接受 `cpu` 和 `cuda`。脚本包声明的 `runtime.id` 必须出现在 Nacos
+`execution.runtime_ids` 白名单中，主服务和 worker 都会在执行前校验。
 
-### 自定义训练提交的数据边界
+主服务创建 `Task` 与 `training_runtime_execution`，冻结
+`training-code-submit/v1` 后投递专用队列。runtime worker 执行
+`train(context, report)`，回写日志、运行状态和终态结果；验证后的产物会先持久化，
+再清理单次工作目录。
 
-自定义训练表单可以像内置训练一样让用户选择 `dataset_id` 与
-`annotation_id`（或多个来源），但这些 ID 只提交给 `automl_server` 用于
-权限校验、查询当前数据与创建平台任务记录。主服务必须将选择解析成数据集
-和标注 bucket 的对象引用，再登记为带 SHA-256 与大小的不可变
-`dataset_source_snapshot`。
+## 推理边界
 
-最终投递给 runtime worker 的 `training-code-submit/v1` 不包含
-`dataset_id` 或 `annotation_id`。它包含：平台 `task.task_id`、已登记脚本包
-的 key/version/SHA-256 与 archive 引用、`dataset_source_snapshot` 的对象
-引用、runtime ID、已校验的脚本参数和资源配置，以及可选的运行时模型产物
-引用。用户脚本只能读取 worker 物化后的数据，不读取数据库，也不获得 S3
-凭据。
+成功脚本包只能将声明为 `deployable: true` 的 ONNX 模型登记为 `AvailableModel`。
+当前只接受与现有分类或检测推理模板兼容的任务类型。`.pt` 权重和训练检查点可以
+作为后续自定义训练输入，但不能直接进入部署列表。
+
+## 启用条件
+
+自定义训练默认关闭。Nacos 中需同时设置：
+
+```yaml
+model-training-runtime:
+  enabled: true
+  base_url: http://model-training-runtime:8012
+  allow_script_managed_data: false
+  execution:
+    enabled: true
+    runtime_ids:
+      - ultralytics-8.3.0-pytorch-2.5-cu124
+      - pytorch-2.5-cu124
+```
+
+`script_managed` 还要求 `allow_script_managed_data: true`。该开关只控制平台
+入口与 worker 校验，不等同于网络隔离：需要下载数据的脚本必须通过容器/网络策略
+显式允许所需出站地址；普通平台数据集训练应保持无出站访问。
 
 ## 当前限制
 
-runtime 目前的 `/v1/executions/run` 是同步的实验验证接口，不能用于长时间
-生产训练。目录登记已可用，但“自定义脚本训练”任务在专用异步 worker 和
-完整生命周期实现之前不应开放创建。内置训练不需要迁移或停机。
+- 用户脚本在 runtime 容器的受限子进程中执行，带超时、输出、进程、内存和文件
+  限制，但这不是多租户安全边界。生产环境应进一步使用隔离容器或 Job，并配置
+  CPU/GPU 配额和 egress allowlist。
+- 自定义训练尚未提供取消协议；运行中的自定义任务不能删除，避免错误调用旧
+  `model_trainer` 的取消接口。
+- worker 使用 `prefetch=1` 串行消费；多并发和 GPU 调度应在引入 Job 调度器时
+  明确实现。

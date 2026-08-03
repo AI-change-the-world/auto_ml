@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 from contracts import EVENT_PROTOCOL_VERSION, RESULT_PROTOCOL_VERSION
@@ -78,6 +79,28 @@ class TrainingRuntimeFoundationTest(unittest.TestCase):
         with self.assertRaises(ManagedRuntimeError) as raised:
             manager.prepare(task_root=task_root, runtime_id="not-registered")
         self.assertEqual(raised.exception.error_detail["exception_type"], "UnsupportedRuntime")
+
+    def test_runtime_environment_does_not_expose_worker_credentials(self) -> None:
+        workspace_root = self.root / "workspaces"
+        manager = PlatformRuntimeManager(
+            RuntimeExecutionSettings(workspace_root=workspace_root),
+            [managed_runtime()],
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "S3_SECRET_KEY": "must-not-reach-training-code",
+                "RABBITMQ_PASSWORD": "must-not-reach-training-code",
+                "NACOS_TOKEN": "must-not-reach-training-code",
+            },
+        ):
+            prepared = manager.prepare(
+                task_root=workspace_root / "credential-test",
+                runtime_id="python-test-runtime",
+            )
+        self.assertNotIn("S3_SECRET_KEY", prepared.environment)
+        self.assertNotIn("RABBITMQ_PASSWORD", prepared.environment)
+        self.assertNotIn("NACOS_TOKEN", prepared.environment)
 
     def test_rejects_workspace_escape(self) -> None:
         settings = RuntimeExecutionSettings(workspace_root=self.root / "workspaces")

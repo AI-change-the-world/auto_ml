@@ -3,14 +3,21 @@ import asyncio
 from datetime import datetime
 import json
 from typing import Any, List, Optional
+from uuid import uuid4
 from loguru import logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from jsonschema import Draft202012Validator, SchemaError
 from app.common.exceptions import NotFoundException, BadRequestException, AppException
 from app.common.constants import TaskStatus, TaskType, AnnotationType, DataType
 from app.config.settings import get_settings
 from app.db.models import Task
 from app.db.models import Dataset, Annotation, Asset, SampleItem, AnnotationRecord, AvailableModel
+from app.db.models import (
+    TrainingRuntimeCodePackage,
+    TrainingRuntimeExecution,
+    TrainingRuntimeModelPackage,
+)
 from app.mq.publisher import get_publisher
 from app.utils.annotation_classes import parse_annotation_classes
 from app.utils.annotation_record_storage import (
@@ -24,6 +31,7 @@ from .training_dataset_snapshot import TrainingDatasetSnapshotBuilder
 from . import crud
 from .schemas import (
     TaskCreate,
+    RuntimeScriptTaskCreate,
     TaskResponse,
     TaskLogResponse,
     BaseModelResponse,
@@ -170,6 +178,197 @@ class TaskService:
                 message=f"Failed to queue training task: {e}",
                 data=(await self._serialize_task(db, task)).model_dump(mode="json"),
             )
+
+        return await self._serialize_task(db, task)
+
+    async def create_runtime_script_task(
+        self,
+        db: AsyncSession,
+        data: RuntimeScriptTaskCreate,
+    ) -> TaskResponse:
+        """Queue a user package on the dedicated runtime worker.
+
+        All catalog references, S3 inputs, parameters, and resources are copied
+        into the submitted contract before publishing. The worker therefore
+        never needs a database connection or legacy trainer configuration.
+        """
+        settings = get_settings().training_code_runtime
+        if not settings.enabled or not settings.base_url.strip() or not settings.execution_enabled:
+            raise BadRequestException("custom training script execution is disabled")
+        if data.input_mode == "script_managed" and not settings.allow_script_managed_data:
+            raise BadRequestException("script-managed training data is disabled by platform policy")
+
+        package = await db.scalar(
+            select(TrainingRuntimeCodePackage).where(
+                TrainingRuntimeCodePackage.id == data.code_package_id,
+                TrainingRuntimeCodePackage.is_deleted == False,
+                TrainingRuntimeCodePackage.enabled == True,
+            )
+        )
+        if package is None:
+            raise NotFoundException(f"training code package {data.code_package_id} not found")
+        if package.runtime_id not in settings.execution_runtime_ids:
+            raise BadRequestException(
+                f"training runtime `{package.runtime_id}` is not enabled for execution"
+            )
+        declared_input_modes = self._load_json(package.input_modes_json, ["platform_dataset"])
+        if data.input_mode not in declared_input_modes:
+            raise BadRequestException(
+                f"training code package {data.code_package_id} does not support `{data.input_mode}` input"
+            )
+
+        task_kind, default_annotation_kind = self._runtime_task_metadata(data.task_type)
+        supported_tasks = self._load_json(package.supported_tasks_json, [])
+        self._validate_runtime_parameters(
+            self._load_json(package.parameters_schema_json, {}),
+            data.parameters,
+        )
+        self._validate_runtime_package_task(
+            supported_tasks=supported_tasks,
+            task_kind=task_kind,
+            data_modalities=data.data_modalities,
+            annotation_kinds=(
+                [default_annotation_kind] if data.input_mode == "platform_dataset" else data.annotation_kinds
+            ),
+        )
+
+        resolved_sources: list[dict[str, Any]] = []
+        snapshot = None
+        if data.input_mode == "platform_dataset":
+            resolved_sources = await self._resolve_and_validate_sources(
+                db,
+                data,
+                include_annotation_content=False,
+            )
+            source_manifest = TrainingDatasetSnapshotManifest.model_validate(
+                self._dataset_snapshot_builder.build(
+                    task_type=data.task_type,
+                    sources=resolved_sources,
+                )
+            )
+            snapshot = await TrainingDatasetSnapshotRegistrar(
+                base_url=settings.base_url,
+                timeout=settings.timeout,
+                token=settings.token,
+            ).register(source_manifest, source_count=len(resolved_sources))
+            class_names = snapshot.manifest.class_names
+            data_modalities = snapshot.manifest.data_modalities
+            annotation_kinds = snapshot.manifest.annotation_kinds
+        else:
+            class_names = self._normalize_runtime_class_names(data.class_names)
+            data_modalities = self._normalize_runtime_strings(data.data_modalities, "data_modalities")
+            annotation_kinds = self._normalize_runtime_strings(data.annotation_kinds, "annotation_kinds")
+
+        model_input = await self._resolve_runtime_model_input(
+            db,
+            package=package,
+            model_package_id=data.model_package_id,
+            requested_mode=data.model_input_mode,
+            task_kind=task_kind,
+            class_names=class_names,
+        )
+        primary_source = resolved_sources[0] if resolved_sources else None
+        execution_id = str(uuid4())
+        task_config = {
+            "training_backend": "model_training_runtime",
+            "execution_id": execution_id,
+            "code_package": {
+                "id": package.id,
+                "key": package.package_key,
+                "version": package.version,
+                "sha256": package.package_sha256,
+            },
+            "input_mode": data.input_mode,
+            "parameters": data.parameters,
+            "resources": data.resources.model_dump(mode="json"),
+            "model_package_id": data.model_package_id,
+            "model_input_mode": data.model_input_mode if model_input is not None else None,
+        }
+        task = await crud.create_task(
+            db,
+            task_type=data.task_type,
+            dataset_id=primary_source["dataset_id"] if primary_source else None,
+            annotation_id=primary_source["annotation_id"] if primary_source else None,
+            config=json.dumps(task_config, ensure_ascii=False, sort_keys=True),
+            status=TaskStatus.PENDING.value,
+        )
+        if resolved_sources:
+            await crud.create_task_sources(
+                db,
+                task_id=task.id,
+                sources=[
+                    {
+                        "dataset_id": source["dataset_id"],
+                        "annotation_id": source["annotation_id"],
+                        "source_order": source["source_order"],
+                        "source_name": source["source_name"],
+                    }
+                    for source in resolved_sources
+                ],
+            )
+
+        submission = {
+            "protocol_version": "training-code-submit/v1",
+            "message_id": str(uuid4()),
+            "execution_id": execution_id,
+            "task": {"task_id": task.id, "task_kind": task_kind},
+            "package": {
+                "key": package.package_key,
+                "version": package.version,
+                "sha256": package.package_sha256,
+            },
+            "package_archive": {
+                "bucket": "default",
+                "object_key": package.package_object_key,
+                "sha256": package.package_sha256,
+                "size_bytes": package.package_size_bytes,
+            },
+            "input_mode": data.input_mode,
+            "runtime": {"id": package.runtime_id, "kind": "platform_managed"},
+            "parameters": data.parameters,
+            "resources": data.resources.model_dump(mode="json"),
+        }
+        if snapshot is not None:
+            submission["dataset_source_snapshot"] = snapshot.object.model_dump(mode="json")
+        else:
+            submission["script_dataset"] = {
+                "protocol_version": "training-dataset-manifest/v1",
+                "task_kind": task_kind,
+                "data_modalities": data_modalities,
+                "annotation_kinds": annotation_kinds,
+                "class_names": class_names,
+                "items": [],
+            }
+        if model_input is not None:
+            submission["model_input"] = model_input
+        execution = TrainingRuntimeExecution(
+            task_id=task.id,
+            execution_id=execution_id,
+            code_package_id=package.id,
+            model_package_id=data.model_package_id,
+            input_mode=data.input_mode,
+            submission_json=json.dumps(submission, ensure_ascii=False, sort_keys=True),
+            status="queued",
+        )
+        db.add(execution)
+        await db.commit()
+        await db.refresh(task)
+
+        try:
+            await asyncio.to_thread(self.publisher.publish_training_code_execution, submission)
+            logger.info("Custom training task %s queued: execution_id=%s", task.id, execution_id)
+        except Exception as exc:
+            task.status = TaskStatus.FAILED.value
+            task.error_message = str(exc)
+            execution.status = "failed"
+            execution.error_message = str(exc)
+            db.add_all([task, execution])
+            await db.commit()
+            raise AppException(
+                code=503,
+                message=f"Failed to queue custom training task: {exc}",
+                data=(await self._serialize_task(db, task)).model_dump(mode="json"),
+            ) from exc
 
         return await self._serialize_task(db, task)
 
@@ -325,6 +524,156 @@ class TaskService:
         return manifest, len(resolved_sources)
 
     @staticmethod
+    def _runtime_task_metadata(task_type: int) -> tuple[str, str]:
+        mapping = {
+            TaskType.DETECTION: ("detection", "detection"),
+            TaskType.CLASSIFICATION: ("classification", "classification"),
+            TaskType.SEGMENTATION: ("segmentation", "segmentation"),
+        }
+        metadata = mapping.get(task_type)
+        if metadata is None:
+            raise BadRequestException(f"unsupported custom training task_type: {task_type}")
+        return metadata
+
+    @staticmethod
+    def _load_json(value: str | None, fallback: Any) -> Any:
+        if not value:
+            return fallback
+        try:
+            return json.loads(value)
+        except (TypeError, json.JSONDecodeError):
+            return fallback
+
+    @staticmethod
+    def _normalize_runtime_strings(values: list[str], field_name: str) -> list[str]:
+        normalized = [str(value).strip() for value in values]
+        if not normalized or any(not value for value in normalized) or len(normalized) != len(set(normalized)):
+            raise BadRequestException(f"{field_name} must contain unique non-empty values")
+        return normalized
+
+    def _normalize_runtime_class_names(self, values: list[str]) -> list[str]:
+        return self._normalize_runtime_strings(values, "class_names")
+
+    @staticmethod
+    def _validate_runtime_package_task(
+        *,
+        supported_tasks: Any,
+        task_kind: str,
+        data_modalities: list[str],
+        annotation_kinds: list[str],
+    ) -> None:
+        if not isinstance(supported_tasks, list):
+            raise BadRequestException("training code package has invalid supported task metadata")
+        for supported in supported_tasks:
+            if not isinstance(supported, dict) or supported.get("task_kind") != task_kind:
+                continue
+            supported_modalities = supported.get("data_modalities")
+            supported_annotations = supported.get("annotation_kinds")
+            if (
+                isinstance(supported_modalities, list)
+                and isinstance(supported_annotations, list)
+                and set(data_modalities).issubset(set(supported_modalities))
+                and set(annotation_kinds).issubset(set(supported_annotations))
+            ):
+                return
+        raise BadRequestException(
+            "training code package does not support the selected task type, modalities, or annotations"
+        )
+
+    @staticmethod
+    def _validate_runtime_parameters(schema: Any, parameters: dict[str, Any]) -> None:
+        if not isinstance(schema, dict):
+            raise BadRequestException("training code package has invalid parameter schema")
+        try:
+            validator = Draft202012Validator(schema)
+        except SchemaError as exc:
+            raise BadRequestException(f"training code package has invalid parameter schema: {exc.message}") from exc
+        errors = sorted(validator.iter_errors(parameters), key=lambda error: list(error.absolute_path))
+        if not errors:
+            return
+        error = errors[0]
+        location = "$parameters"
+        for part in error.absolute_path:
+            location += f"[{part!r}]" if isinstance(part, int) else f".{part}"
+        raise BadRequestException(f"parameters violate package schema at {location}: {error.message}")
+
+    async def _resolve_runtime_model_input(
+        self,
+        db: AsyncSession,
+        *,
+        package: TrainingRuntimeCodePackage,
+        model_package_id: int | None,
+        requested_mode: str,
+        task_kind: str,
+        class_names: list[str],
+    ) -> dict[str, Any] | None:
+        contract = self._load_json(package.model_input_contract_json, None)
+        if model_package_id is None:
+            if isinstance(contract, dict) and contract.get("required") is True:
+                raise BadRequestException("the selected training code package requires a model package")
+            return None
+        if not isinstance(contract, dict):
+            raise BadRequestException("the selected training code package does not accept a model package")
+        model_package = await db.scalar(
+            select(TrainingRuntimeModelPackage).where(
+                TrainingRuntimeModelPackage.id == model_package_id,
+                TrainingRuntimeModelPackage.is_deleted == False,
+                TrainingRuntimeModelPackage.enabled == True,
+            )
+        )
+        if model_package is None:
+            raise NotFoundException(f"training model package {model_package_id} not found")
+        modes = contract.get("modes") if isinstance(contract.get("modes"), list) else []
+        if requested_mode not in modes:
+            raise BadRequestException("the selected training code package does not support this model input mode")
+        framework = contract.get("framework") if isinstance(contract.get("framework"), dict) else {}
+        if framework.get("id") != model_package.framework_id or framework.get("version") != model_package.framework_version:
+            raise BadRequestException("model package framework does not match the training code package")
+        allowed_formats = contract.get("formats") if isinstance(contract.get("formats"), list) else []
+        if model_package.artifact_format not in allowed_formats:
+            raise BadRequestException("model package format is not accepted by the training code package")
+        if contract.get("require_matching_task_kind", True) and model_package.task_kind != task_kind:
+            raise BadRequestException("model package task type does not match the custom training task")
+        package_class_names = self._load_json(model_package.class_names_json, [])
+        if requested_mode == "resume":
+            if not model_package.resume_object_key or not model_package.resume_sha256 or model_package.resume_size_bytes is None:
+                raise BadRequestException("selected model package does not provide a resumable checkpoint")
+            if contract.get("require_matching_class_names_for_resume", True) and package_class_names != class_names:
+                raise BadRequestException("resume checkpoint class names do not match this training task")
+            object_reference = {
+                "bucket": "models",
+                "object_key": model_package.resume_object_key,
+                "sha256": model_package.resume_sha256,
+                "size_bytes": model_package.resume_size_bytes,
+            }
+            resume_supported = True
+        else:
+            object_reference = {
+                "bucket": "models",
+                "object_key": model_package.initialize_object_key,
+                "sha256": model_package.initialize_sha256,
+                "size_bytes": model_package.initialize_size_bytes,
+            }
+            resume_supported = False
+        return {
+            "mode": requested_mode,
+            "artifact": {
+                "source": "uploaded_model_package",
+                "object": object_reference,
+                "format": model_package.artifact_format,
+                "task_kind": model_package.task_kind,
+                "class_names": package_class_names,
+                "display_name": model_package.name,
+                "framework": {
+                    "id": model_package.framework_id,
+                    "version": model_package.framework_version,
+                },
+                "resume_supported": resume_supported,
+                "metadata": self._load_json(model_package.metadata_json, {}),
+            },
+        }
+
+    @staticmethod
     def _training_code_runtime_registration_enabled() -> bool:
         settings = get_settings().training_code_runtime
         return bool(settings.enabled and settings.base_url.strip())
@@ -334,6 +683,11 @@ class TaskService:
         if not task:
             raise NotFoundException(f"Task {task_id} not found")
         if task.status in {TaskStatus.PENDING.value, TaskStatus.RUNNING.value, TaskStatus.POST_PROCESS.value}:
+            config = self._load_json(task.config, {})
+            if config.get("training_backend") == "model_training_runtime":
+                raise BadRequestException(
+                    "custom training tasks cannot be deleted while running; cancellation is not available yet"
+                )
             await self._cancel_trainer_task(task_id)
         deleted = await crud.delete_task(db, task_id)
         await db.commit()

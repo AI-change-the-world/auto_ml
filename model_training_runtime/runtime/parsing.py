@@ -1,4 +1,4 @@
-"""Strict parsing for the dormant runner's line-oriented protocol."""
+"""Strict parsing for the training runner's line-oriented protocol."""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,7 @@ from .protocol import EVENT_PREFIX, LOG_PREFIX, RESULT_PREFIX
 
 
 class RunnerProtocolError(ValueError):
-    """A runner output line cannot be accepted by the future worker."""
+    """A runner output line cannot be accepted by the training worker."""
 
 
 def parse_runner_line(line: str) -> RunnerMessage | None:

@@ -93,7 +93,7 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
     shutil.copy2(last_source, output_dir / "last.pt")
 
     artifacts: list[dict[str, Any]] = [
-        {"path": "best.pt", "role": "model", "format": "pt", "deployable": True},
+        {"path": "best.pt", "role": "model", "format": "pt", "deployable": False},
         {"path": "last.pt", "role": "checkpoint", "format": "pt", "deployable": False},
     ]
     if bool(parameters.get("export_onnx", False)):
@@ -108,7 +108,7 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
         if not exported_path.is_file():
             raise FileNotFoundError(f"Ultralytics did not produce ONNX output: {exported_path}")
         shutil.copy2(exported_path, output_dir / "best.onnx")
-        artifacts.append({"path": "best.onnx", "role": "model", "format": "onnx", "deployable": False})
+        artifacts.append({"path": "best.onnx", "role": "model", "format": "onnx", "deployable": True})
 
     report(event_type="phase", phase="export", message="writing model and resumable checkpoint artifacts")
     return {

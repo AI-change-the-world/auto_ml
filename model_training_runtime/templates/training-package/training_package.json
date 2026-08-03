@@ -17,6 +17,7 @@
       "annotation_kinds": ["classification"]
     }
   ],
+  "input_modes": ["platform_dataset"],
   "parameters_schema": {
     "type": "object",
     "properties": {

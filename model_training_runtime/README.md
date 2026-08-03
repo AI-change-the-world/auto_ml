@@ -1,35 +1,39 @@
 # Model Training Runtime (Experimental)
 
-`model_training_runtime` is an exploratory, in-service training worker for
-versioned training-code packages. It is designed to become a more extensible
-replacement path for `model_trainer`, but it does not change the production
-trainer or its queue yet.
+`model_training_runtime` executes versioned user training-code packages on a
+dedicated worker. It coexists with `model_trainer`: built-in training is
+unchanged, while user-uploaded scripts take the runtime path.
 
-The first executable path keeps the FastAPI service, runner, bounded
-subprocess, OpenDAL input materialization, and framework dependencies in one
-service. This deliberately validates the training design end to end before
-introducing another worker container or a separate job scheduler.
+The runtime keeps the FastAPI service, runner, bounded subprocess, OpenDAL
+input materialization, and framework dependencies in one image. Compose runs a
+separate worker container that consumes only the dedicated custom-training
+queue; it never consumes the legacy trainer queue.
 
 ## Current Scope
 
-The HTTP API provides validation, immutable registration, ZIP configuration
-inspection, and an explicitly enabled direct execution path:
+The HTTP API and worker provide validation, immutable registration, ZIP
+configuration inspection, and explicitly enabled execution:
 
 - validates `training_package.json` against `training-code-package/v1`
-- validates dataset manifests, execution requests, JSONL events, final results, and the future MQ submission payload
+- validates dataset manifests, execution requests, JSONL events, final results, and the MQ submission payload
 - validates training-code ZIPs and model-package ZIPs: root manifests, referenced members, path traversal, duplicate members, symlinks, and archive size limits
 - provides read-only ZIP configuration inspection for a future package-management UI; inspection returns only a validated manifest and archive metadata, never source code or model/checkpoint bytes
 - can register validated code releases, model packages, and dataset source snapshots as immutable objects through the platform's existing OpenDAL S3 configuration
-- can execute one registered `training-code-submit/v1` request in the service process when Nacos enables `model-training-runtime.execution.enabled`
+- consumes immutable `training-code-submit/v1` messages from `training.code.execute` when Nacos enables `model-training-runtime.execution.enabled`
+- persists verified output artifacts before deleting the workspace
+- returns task status/log updates and registers only compatible deployable ONNX outputs
 
 The service contains the runtime foundation, runner, execution coordinator,
 and code-package templates. The coordinator materializes immutable dataset and
 model inputs, creates a task workspace, launches the package in a bounded
 subprocess, parses runner protocol output, and verifies the terminal result.
-The direct endpoint cleans the task workspace after the result is returned;
-artifacts are not yet registered as production model releases.
+The direct endpoint and the worker clean each workspace after verified artifacts
+are persisted. The worker uses existing task lifecycle messages, and only
+deployable ONNX artifacts matching existing inference templates are registered.
 
-It must not be used for production training or be pointed at the existing `trainer.task.queue`.
+It must not be pointed at the existing `trainer.task.queue`. Production use
+requires platform-managed package approval, container/job isolation, and an
+egress policy appropriate for submitted code.
 
 ## Replacement Plan
 
@@ -37,7 +41,7 @@ It must not be used for production training or be pointed at the existing `train
 
 1. contract stability: a platform-owned sample package and an external-framework package validate and have approved versioned examples
 2. direct execution: the in-service coordinator, bounded subprocess, cancellation, logs, events, and GPU resource policy are verified
-3. artifact handling: artifact checks, temporary upload credentials, model registration, and deployment compatibility checks are implemented
+3. artifact handling: verified artifacts are stored and compatible deployable ONNX is registered
 4. shadow mode: the same non-production jobs run through both paths and outputs/events are compared
 5. cutover: `automl_server` explicitly submits selected tasks to a dedicated routing key; only then can a task type move away from `model_trainer`
 
@@ -49,8 +53,10 @@ Static package validation is a correctness check, not a security boundary. The
 direct execution phase accepts platform-approved packages only. It uses a
 task-local workspace, a bounded subprocess, and service-owned Python
 dependencies; ZIP packages cannot install dependencies or choose an executable.
-Arbitrary user code and stronger filesystem/network isolation remain later
-security decisions.
+Arbitrary user code still needs stronger filesystem/network isolation in a
+multi-tenant deployment. `script_managed` data is disabled until Nacos sets
+`allow_script_managed_data: true`; that application switch is not a network
+boundary, so production deployments must also enforce an egress allowlist.
 
 Dependencies are selected through `runtime.id`, which names an allowlisted
 Python environment already installed in this service. Ultralytics is currently
@@ -71,7 +77,7 @@ with training-specific names and policy:
 | `process.py`, `limits.py` | Output-bounded process tree control and optional Linux `prlimit` defense-in-depth limits | Defined and test-covered; no app path calls it. |
 | `protocol.py`, `parsing.py` | Parses prefixed runner event/log/result lines | Defined and test-covered. |
 | `executor.py` | Execution-backend contract and service subprocess implementation | `ServiceSubprocessExecutor` is used by the direct endpoint; the old local executor remains a test helper. |
-| `coordinator.py` | Materializes pinned inputs, builds a private workspace, invokes the runner, and verifies the terminal outcome | Used by the direct endpoint; artifact persistence and MQ lifecycle are later steps. |
+| `coordinator.py` | Materializes pinned inputs, builds a private workspace, invokes the runner, and verifies the terminal outcome | Used by the direct endpoint and dedicated worker. |
 
 The deliberate difference from `ai_pipeline_sandbox/runtime/environment.py` is
 that training packages cannot provide `.env`, `requirements.txt`, local wheels,
@@ -95,7 +101,7 @@ All contracts are versioned and reject unknown fields. Version 1 defines:
 | Execution request | `training-execution/v1` | runtime -> package | Carries task, resolved package digest, workspace paths, parameters, resources, and optional materialized model input. |
 | Event | `training-event/v1` | package -> runtime | JSONL progress: phase, log, metric, or checkpoint. `sequence` is monotonic per execution. |
 | Result | `training-result/v1` | package -> runtime | `result.json` states terminal outcome, metrics, artifacts, model metadata, and errors. |
-| MQ submission | `training-code-submit/v1` | future producer -> runtime | Immutable MQ payload that refers to package and dataset objects by key and SHA-256. |
+| MQ submission | `training-code-submit/v1` | control plane -> runtime worker | Immutable MQ payload that refers to package and dataset objects by key and SHA-256. |
 
 The coordinator invokes the package function `train(context, report)` through
 the in-service subprocess executor. A future container executor can invoke the
@@ -105,8 +111,8 @@ runtime-owned output directory. The runner, rather than package code,
 calculates artifact size and SHA-256, writes `result.json`, and emits the
 terminal result.
 
-The dormant runner's stdout protocol mirrors the Sandbox pattern and is for the
-future worker only:
+The runner's stdout protocol mirrors the Sandbox pattern and is consumed by the
+dedicated worker:
 
 ```text
 __AUTO_ML_TRAINING_EVENT__={...}
@@ -134,8 +140,8 @@ before this service has any MQ or execution wiring.
 - If required by the package, model metadata is mandatory and must carry exactly the task kind and class names from the dataset manifest.
 
 `POST /v1/admission/execution/validate` accepts `{ "manifest", "execution" }`.
-`POST /v1/admission/result/validate` additionally accepts `result`. The dormant
-Runner applies result admission itself whenever a future worker includes the
+`POST /v1/admission/result/validate` additionally accepts `result`. The runner
+applies result admission itself whenever the worker includes the
 resolved `package_manifest` in its private execution context. This optional
 field is runtime-internal; external producers should submit only a package
 reference and digest.
@@ -150,14 +156,14 @@ my-training-package.zip
 ```
 
 The included [template](./templates/training-package/README.md) provides a
-runnable boilerplate package with a placeholder export. The original
-[PyTorch example](./examples/pytorch-image-classifier/training_package.json)
-remains manifest-only, but the
+runnable boilerplate package. The
+[PyTorch cat/dog example](./examples/pytorch-image-classifier/README.md) is a
+real script-managed example: it downloads CIFAR-10, trains a small classifier,
+and exports deployable ONNX. The
 [Ultralytics detection example](./examples/ultralytics-detection/README.md)
-is a real package: it adapts the materialized platform dataset, trains a
-selected `.pt` model, emits metrics, and produces a deployable `best.pt` plus
-a resumable `last.pt`. Its deterministic code ZIP builder and model-package
-ZIP builder are included with the example.
+adapts a materialized platform dataset, trains a selected `.pt` model, emits
+metrics, and produces model/checkpoint artifacts. Both examples include a
+deterministic ZIP builder.
 
 Ultralytics belongs to the platform service image, not to a submitted package.
 Its pinned dependencies are in [requirements.txt](./requirements.txt), and the
@@ -165,7 +171,7 @@ runtime id is `ultralytics-8.3.0-pytorch-2.5-cu124`.
 
 ### Dataset and Model Inputs
 
-The future producer continues to resolve datasets from the current platform
+For `platform_dataset`, the control plane resolves datasets from the current platform
 models exactly as `model_trainer` does today: assets come from the datasets
 bucket and annotation records from the annotations bucket. It submits a
 `training-dataset-source-manifest/v1` to
@@ -206,10 +212,18 @@ runtime catalogs through `/training-runtime/code-packages/import` and
 they must only be selected by a future custom-script training task, never by
 `model_trainer`.
 
-When a future package finishes, it may publish a checkpoint artifact plus
-`model.resume_checkpoint_path`. The eventual artifact-registration worker can
-then register it as `previous_execution` and offer it as the next task's
-resumable model input. That worker is intentionally not wired yet.
+Every declared output is stored below
+`training-code-runtime/executions/<execution_id>/...`. Checkpoints remain
+training artifacts. Only a declared deployable ONNX model compatible with an
+existing detection or classification inference template enters `AvailableModel`.
+
+`script_managed` is for packages that own their data acquisition or generation.
+The submission deliberately has no dataset/annotation IDs and scripts receive
+an empty dataset item list plus declared modalities and class order. The mode
+is rejected unless Nacos enables `allow_script_managed_data: true`. That switch
+is not a network boundary: packages that download data need a container- or
+network-level egress allowlist, and packages that do not need network access
+should run with egress disabled.
 
 ## Direct Execution API
 
@@ -230,24 +244,25 @@ model-training-runtime:
 ```
 
 The endpoint performs package digest verification, dataset/model materializing,
-admission checks, runner execution, event/result validation, and workspace
-cleanup in one request. It returns result metadata, events, and logs. It does
-not yet upload produced artifacts as a registered model or acknowledge an MQ
-message; that is the next lifecycle step.
+admission checks, runner execution, event/result validation, artifact
+persistence, and workspace cleanup in one request. It returns result metadata,
+events, logs, and immutable artifact references. Normal training should use
+the asynchronous worker rather than this diagnostic endpoint.
 
-## MQ Reservation
+## MQ Worker
 
-No MQ queue is declared or consumed by this service today. The contract is prepared now so the later worker wiring does not require a message redesign.
-
-When controlled execution is approved, use dedicated infrastructure rather than the legacy trainer queue:
+The worker uses dedicated infrastructure rather than the legacy trainer queue:
 
 | Purpose | Queue | Routing key | Contract |
 | --- | --- | --- | --- |
 | Submit code-training execution | `training.code.execute` | `training.code.execute` | `training-code-submit/v1` |
-| Runtime event | `training.code.event` | `training.code.event` | `training-event/v1` |
-| Terminal runtime result | `training.code.result` | `training.code.result` | `training-result/v1` |
+| Runtime task lifecycle | existing `task.log` / `task.status.update` | existing keys | platform task lifecycle |
+| Deployable ONNX registration | existing `model.registered` | existing key | platform model lifecycle |
 
-The eventual worker will acknowledge the submission only after persisting/claiming an idempotent `execution_id`. `message_id` identifies a delivery attempt; `execution_id` identifies the logical run. Event and result consumers must deduplicate on those identifiers.
+The control plane stores each immutable submission in `training_runtime_execution`.
+Task and execution IDs are unique; the worker uses `prefetch=1`, updates queued,
+running, succeeded, and failed states through the normal task-status messages,
+and includes the execution ID for deduplication.
 
 ## HTTP Validation API
 
@@ -304,9 +319,35 @@ python -m uvicorn app:app --reload --port 8012
 python -m unittest discover -s tests -v
 ```
 
-The direct execution endpoint invokes `runner.py` as a bounded subprocess. MQ
-integration and production artifact persistence remain intentionally deferred.
+The direct execution endpoint and MQ worker both invoke `runner.py` as a bounded
+subprocess. Compose includes the `model-training-runtime` API service and the
+separate `model-training-runtime-worker`; both are inert until the Nacos block
+below is explicitly enabled.
 
-Compose integration is intentionally deferred until the service is stable. Run it
-locally or through an explicit temporary deployment only; do not add it to the
-default platform compose stack yet.
+## Enabling Execution
+
+Set this Nacos configuration only after the runtime image, required framework
+dependencies, storage access, and isolation policy are ready:
+
+```yaml
+model-training-runtime:
+  enabled: true
+  base_url: http://model-training-runtime:8012
+  allow_script_managed_data: false
+  execution:
+    enabled: true
+    runtime_ids:
+      - ultralytics-8.3.0-pytorch-2.5-cu124
+      - pytorch-2.5-cu124
+```
+
+Keep `allow_script_managed_data` false for normal platform-dataset training. To
+run the CIFAR-10 cat/dog example, enable it only together with an explicit
+egress policy that permits the required download host.
+
+
+
+## Development
+```
+uvicorn app:app --host 0.0.0.0 --port 8012
+```

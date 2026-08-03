@@ -35,6 +35,11 @@ class RuntimeCodePackageManifest(BaseModel):
     entrypoint: str = Field(min_length=1, max_length=512)
     entrypoint_symbol: Literal["train"] = "train"
     supported_tasks: list[dict[str, Any]] = Field(min_length=1, max_length=32)
+    input_modes: list[Literal["platform_dataset", "script_managed"]] = Field(
+        default_factory=lambda: ["platform_dataset"],
+        min_length=1,
+        max_length=2,
+    )
     parameters_schema: dict[str, Any]
     model_input_contract: dict[str, Any] | None = None
     output_contract: dict[str, Any]
@@ -112,6 +117,7 @@ class TrainingRuntimeCodePackageResponse(BaseModel):
     package_size_bytes: int
     package_file_name: str
     supported_tasks: list[dict[str, Any]]
+    input_modes: list[Literal["platform_dataset", "script_managed"]]
     parameters_schema: dict[str, Any]
     model_input_contract: dict[str, Any] | None = None
     output_contract: dict[str, Any]

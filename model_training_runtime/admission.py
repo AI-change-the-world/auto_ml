@@ -1,4 +1,4 @@
-"""Semantic admission checks shared by future upload, worker, and MQ paths."""
+"""Semantic admission checks shared by package upload, worker, and MQ paths."""
 from __future__ import annotations
 
 from pathlib import PurePosixPath
@@ -30,6 +30,10 @@ def validate_execution_admission(
         raise ContractAdmissionError("execution.package key and version must match the package manifest")
     if manifest.runtime != execution.runtime:
         raise ContractAdmissionError("execution.runtime must match the package manifest runtime")
+    if execution.input_mode not in manifest.input_modes:
+        raise ContractAdmissionError(
+            f"package does not declare input_mode `{execution.input_mode.value}`"
+        )
     _validate_workspace(execution)
     _validate_supported_task(manifest, execution)
     _validate_parameters(manifest, execution.parameters)

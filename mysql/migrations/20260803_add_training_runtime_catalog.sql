@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `training_runtime_code_package` (
   `package_size_bytes` BIGINT NOT NULL COMMENT 'ZIP 大小',
   `package_file_name` VARCHAR(255) NOT NULL COMMENT '上传文件名',
   `supported_tasks_json` LONGTEXT NOT NULL COMMENT '支持任务声明 JSON',
+  `input_modes_json` LONGTEXT NOT NULL COMMENT '训练数据输入模式 JSON',
   `parameters_schema_json` LONGTEXT NOT NULL COMMENT '脚本参数 Schema JSON',
   `model_input_contract_json` LONGTEXT DEFAULT NULL COMMENT '模型输入约束 JSON',
   `output_contract_json` LONGTEXT NOT NULL COMMENT '产物输出约束 JSON',

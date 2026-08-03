@@ -1,8 +1,7 @@
-"""Dormant package runner based on the sandbox's line-oriented runner pattern.
+"""Training package runner based on the sandbox's line-oriented protocol.
 
-This file is invoked by the HTTP service's bounded subprocess executor. It is
-not wired to MQ yet; the same runner protocol will be reused when a queue
-consumer is introduced.
+Both the HTTP diagnostic endpoint and the dedicated MQ worker invoke this
+runner through the bounded subprocess executor.
 """
 from __future__ import annotations
 

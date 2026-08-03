@@ -1,11 +1,15 @@
 {
   "modelManagementTitle": "模型管理",
-  "modelManagementSubtitle": "统一查看内置模型与外部模型包",
+  "modelManagementSubtitle": "统一查看内置模型、训练脚本包与外部模型包",
   "builtinTab": "内置模型",
   "externalTab": "外部模型",
   "builtinHint": "内置模型来自 base_models，仅供当前 model_trainer 训练流程选择。当前页面只读，不支持上传或修改。",
-  "externalHint": "外部模型包由 model_training_runtime 验证和存储，只会提供给后续自定义脚本训练；不会进入内置模型列表或由 model_trainer 执行。",
+  "externalHint": "训练脚本包定义训练流程，模型包提供可选初始化权重或断点恢复检查点。两者只提供给自定义脚本训练；不会进入内置模型列表或由 model_trainer 执行。",
+  "codePackagesTitle": "训练脚本包",
+  "modelPackagesTitle": "初始化模型包",
+  "importCodePackage": "导入训练脚本包",
   "importModelPackage": "导入模型包",
+  "noCodePackages": "暂无训练脚本包",
   "noExternalModels": "暂无外部模型包",
   "packageMeta": "{{fileName}} · {{size}} · {{createdAt}}",
   "resumeAvailable": "支持断点恢复",
@@ -18,6 +22,7 @@
   "loadFailed": "加载训练资源失败",
   "importFailed": "导入训练资源失败",
   "modelImportSuccess": "已登记外部模型包「{{name}}」",
+  "codeImportSuccess": "已登记训练脚本包「{{name}}」",
   "alreadyRegistered": "「{{name}}」已存在，已复用已登记版本",
   "category": {
     "all": "全部",
@@ -26,5 +31,9 @@
     "segmentation": "分割",
     "pose": "姿态",
     "other": "其他"
+  },
+  "inputMode": {
+    "platform_dataset": "平台数据集",
+    "script_managed": "脚本自管数据"
   }
 }

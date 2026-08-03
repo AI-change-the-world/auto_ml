@@ -12,6 +12,7 @@ from package_validation import validate_model_package_archive, validate_package_
 
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "ultralytics-detection"
+PYTORCH_EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples" / "pytorch-image-classifier"
 
 
 def load_example_module():
@@ -24,6 +25,19 @@ def load_example_module():
 
 
 class UltralyticsExampleTest(unittest.TestCase):
+    def test_pytorch_classifier_builder_produces_valid_runnable_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "pytorch-image-classifier.zip"
+            subprocess.run(
+                [sys.executable, str(PYTORCH_EXAMPLE_DIR / "build_package_zip.py"), str(output)],
+                check=True,
+            )
+            report = validate_package_archive(output.read_bytes())
+            self.assertEqual(report.manifest.key, "pytorch-image-classifier")
+            self.assertIn("script_managed", [mode.value for mode in report.manifest.input_modes])
+            with ZipFile(output) as archive:
+                self.assertEqual(set(archive.namelist()), {"training_package.json", "train.py"})
+
     def test_code_package_builder_produces_valid_dependency_free_archive(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             output = Path(temp_dir) / "ultralytics-detection.zip"

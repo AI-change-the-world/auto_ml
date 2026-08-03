@@ -1,4 +1,4 @@
-"""Standard-library logger shared by dormant runtime modules."""
+"""Standard-library logger shared by training runtime modules."""
 from __future__ import annotations
 
 import logging

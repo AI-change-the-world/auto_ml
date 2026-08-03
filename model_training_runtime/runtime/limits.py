@@ -1,4 +1,4 @@
-"""Optional Linux resource-limit command construction for future task workers."""
+"""Optional Linux resource-limit command construction for task workers."""
 from __future__ import annotations
 
 import os

@@ -21,6 +21,30 @@ export interface TaskCreate {
   config?: string;
 }
 
+export interface RuntimeTrainingResources {
+  device: 'cpu' | 'cuda';
+  gpu_count: number;
+  cpu_cores: number;
+  memory_bytes: number;
+  timeout_seconds: number;
+}
+
+export interface RuntimeScriptTaskCreate {
+  code_package_id: number;
+  task_type: 0 | 1 | 2;
+  input_mode: 'platform_dataset' | 'script_managed';
+  dataset_id?: number;
+  annotation_id?: number;
+  sources?: TaskSourceItem[];
+  class_names?: string[];
+  data_modalities?: string[];
+  annotation_kinds?: string[];
+  parameters?: Record<string, unknown>;
+  resources?: RuntimeTrainingResources;
+  model_package_id?: number;
+  model_input_mode?: 'initialize' | 'resume';
+}
+
 export interface TrainingConfigPayload {
   name?: string;
   epoch: number;

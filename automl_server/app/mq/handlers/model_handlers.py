@@ -5,11 +5,11 @@ import json
 from datetime import datetime
 
 from loguru import logger
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import AsyncSessionLocal
-from app.db.models import AvailableModel
+from app.db.models import AvailableModel, TrainingRuntimeExecution
 from app.mq.messages import ModelRegisteredMessage, ModelDeployedMessage, ModelUndeployedMessage
 
 
@@ -24,6 +24,22 @@ async def handle_model_registered(message: ModelRegisteredMessage):
 
     async with AsyncSessionLocal() as session:
         try:
+            execution_id = str(model_info.get("execution_id") or "").strip()
+            if execution_id:
+                execution = await session.scalar(
+                    select(TrainingRuntimeExecution).where(
+                        TrainingRuntimeExecution.task_id == message.task_id,
+                        TrainingRuntimeExecution.execution_id == execution_id,
+                        TrainingRuntimeExecution.is_deleted == False,
+                    )
+                )
+                if execution is not None and execution.model_registered:
+                    logger.info(
+                        "Custom runtime model already registered: task_id=%s execution_id=%s",
+                        message.task_id,
+                        execution_id,
+                    )
+                    return
             # 创建可用模型记录
             model = AvailableModel(
                 name=(
@@ -39,8 +55,19 @@ async def handle_model_registered(message: ModelRegisteredMessage):
                 dataset_id=model_info.get("dataset_id"),
                 task_id=message.task_id,
                 loss=model_info.get("loss"),
+                runtime_template=model_info.get("runtime_template"),
             )
             session.add(model)
+            if execution_id:
+                await session.execute(
+                    update(TrainingRuntimeExecution)
+                    .where(
+                        TrainingRuntimeExecution.task_id == message.task_id,
+                        TrainingRuntimeExecution.execution_id == execution_id,
+                        TrainingRuntimeExecution.is_deleted == False,
+                    )
+                    .values(model_registered=True)
+                )
             await session.commit()
 
             logger.info(

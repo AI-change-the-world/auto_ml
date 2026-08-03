@@ -194,6 +194,7 @@ class ContractApiTest(unittest.TestCase):
             (workspace_root / execution_id).mkdir()
             fake_coordinator = SimpleNamespace(
                 runtime_manager=SimpleNamespace(settings=SimpleNamespace(workspace_root=workspace_root)),
+                storage=SimpleNamespace(),
                 execute=lambda _: None,
             )
 
@@ -207,8 +208,15 @@ class ContractApiTest(unittest.TestCase):
 
             fake_coordinator.execute = execute
             with patch("app.get_training_coordinator", return_value=(fake_coordinator, workspace_root)):
-                with patch("app.load_model_training_runtime_config", return_value={}):
-                    response = self.client.post("/v1/executions/run", json=submission)
+                with patch(
+                    "app.load_model_training_runtime_config",
+                    return_value={
+                        "enabled": True,
+                        "execution": {"enabled": True, "runtime_ids": ["python-host"]},
+                    },
+                ):
+                    with patch("app.persist_execution_artifacts", return_value=()):
+                        response = self.client.post("/v1/executions/run", json=submission)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["result"]["status"], "succeeded")
         self.assertEqual(response.json()["events"][0]["phase"], "prepare")

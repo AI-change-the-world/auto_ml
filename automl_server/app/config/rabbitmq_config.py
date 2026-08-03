@@ -30,6 +30,7 @@ class RabbitMQConfig(BaseModel):
     model_undeployed_queue: str = "auto_ml.model.undeployed"
     heartbeat_queue: str = "auto_ml.heartbeat"
     trainer_task_queue: str = "trainer.task.queue"
+    training_code_execute_queue: str = "training.code.execute"
     assist_rpc_queue: str = "auto_ml.assist.rpc"
     pipeline_batch_execute_queue: str = "auto_ml.pipeline.batch.execute"
     pipeline_batch_progress_queue: str = "auto_ml.pipeline.batch.progress"
@@ -42,6 +43,7 @@ class RabbitMQConfig(BaseModel):
     model_deployed_routing_key: str = "model.deployed"
     model_undeployed_routing_key: str = "model.undeployed"
     trainer_task_routing_key: str = "trainer.task.submit"
+    training_code_execute_routing_key: str = "training.code.execute"
     assist_rpc_routing_key: str = "assist.rpc.request"
     pipeline_batch_execute_routing_key: str = "pipeline.batch.execute"
     pipeline_batch_progress_routing_key: str = "pipeline.batch.progress"
@@ -88,6 +90,8 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
                 mq, "queues", "heartbeat", "heartbeat_queue", "auto_ml.heartbeat"),
             trainer_task_queue=_get_mq_nested_value(
                 mq, "queues", "trainer_task", "trainer_task_queue", "trainer.task.queue"),
+            training_code_execute_queue=_get_mq_nested_value(
+                mq, "queues", "training_code_execute", "training_code_execute_queue", "training.code.execute"),
             assist_rpc_queue=_get_mq_nested_value(
                 mq, "queues", "assist_rpc", "assist_rpc_queue", "auto_ml.assist.rpc"),
             pipeline_batch_execute_queue=_get_mq_nested_value(
@@ -108,6 +112,8 @@ def _load_mq_from_nacos() -> RabbitMQConfig:
                 mq, "routing_keys", "model_undeployed", "model_undeployed_routing_key", "model.undeployed"),
             trainer_task_routing_key=_get_mq_nested_value(
                 mq, "routing_keys", "trainer_task", "trainer_task_routing_key", "trainer.task.submit"),
+            training_code_execute_routing_key=_get_mq_nested_value(
+                mq, "routing_keys", "training_code_execute", "training_code_execute_routing_key", "training.code.execute"),
             assist_rpc_routing_key=_get_mq_nested_value(
                 mq, "routing_keys", "assist_rpc", "assist_rpc_routing_key", "assist.rpc.request"),
             pipeline_batch_execute_routing_key=_get_mq_nested_value(
@@ -139,6 +145,7 @@ def _load_mq_from_env() -> RabbitMQConfig:
         model_undeployed_queue=os.getenv("MODEL_UNDEPLOYED_QUEUE", "auto_ml.model.undeployed"),
         heartbeat_queue=os.getenv("HEARTBEAT_QUEUE", "auto_ml.heartbeat"),
         trainer_task_queue=os.getenv("TRAINER_TASK_QUEUE", "trainer.task.queue"),
+        training_code_execute_queue=os.getenv("TRAINING_CODE_EXECUTE_QUEUE", "training.code.execute"),
         assist_rpc_queue=os.getenv("ASSIST_RPC_QUEUE", "auto_ml.assist.rpc"),
         pipeline_batch_execute_queue=os.getenv("PIPELINE_BATCH_EXECUTE_QUEUE", "auto_ml.pipeline.batch.execute"),
         pipeline_batch_progress_queue=os.getenv("PIPELINE_BATCH_PROGRESS_QUEUE", "auto_ml.pipeline.batch.progress"),
@@ -149,6 +156,7 @@ def _load_mq_from_env() -> RabbitMQConfig:
         model_deployed_routing_key=os.getenv("MODEL_DEPLOYED_ROUTING_KEY", "model.deployed"),
         model_undeployed_routing_key=os.getenv("MODEL_UNDEPLOYED_ROUTING_KEY", "model.undeployed"),
         trainer_task_routing_key=os.getenv("TRAINER_TASK_ROUTING_KEY", "trainer.task.submit"),
+        training_code_execute_routing_key=os.getenv("TRAINING_CODE_EXECUTE_ROUTING_KEY", "training.code.execute"),
         assist_rpc_routing_key=os.getenv("ASSIST_RPC_ROUTING_KEY", "assist.rpc.request"),
         pipeline_batch_execute_routing_key=os.getenv("PIPELINE_BATCH_EXECUTE_ROUTING_KEY", "pipeline.batch.execute"),
         pipeline_batch_progress_routing_key=os.getenv("PIPELINE_BATCH_PROGRESS_ROUTING_KEY", "pipeline.batch.progress"),

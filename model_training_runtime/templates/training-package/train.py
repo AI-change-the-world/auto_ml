@@ -1,6 +1,6 @@
 """Training-package boilerplate.
 
-The dormant runtime will call `train(context, report)`. Do not call platform
+The runtime calls `train(context, report)`. Do not call platform
 APIs here: all input is materialized under `context['workspace']['input_dir']`.
 """
 from __future__ import annotations

@@ -23,6 +23,7 @@ class TrainingRuntimeCodePackage(BaseEntity):
     package_size_bytes = Column(BigInteger, nullable=False, comment="ZIP 大小")
     package_file_name = Column(String(255), nullable=False, comment="上传文件名")
     supported_tasks_json = Column(Text, nullable=False, comment="支持任务声明 JSON")
+    input_modes_json = Column(Text, nullable=False, comment="训练数据输入模式 JSON")
     parameters_schema_json = Column(Text, nullable=False, comment="脚本参数 Schema JSON")
     model_input_contract_json = Column(Text, nullable=True, comment="模型输入约束 JSON")
     output_contract_json = Column(Text, nullable=False, comment="产物输出约束 JSON")
@@ -52,3 +53,20 @@ class TrainingRuntimeModelPackage(BaseEntity):
     resume_size_bytes = Column(BigInteger, nullable=True, comment="可恢复检查点大小")
     metadata_json = Column(Text, nullable=False, comment="扩展元数据 JSON")
     enabled = Column(Boolean, nullable=False, default=True, comment="是否允许在自定义训练中选择")
+
+
+class TrainingRuntimeExecution(BaseEntity):
+    """Immutable custom-script submission and its worker lifecycle."""
+
+    __tablename__ = "training_runtime_execution"
+
+    task_id = Column(BigInteger, nullable=False, unique=True, comment="平台训练任务ID")
+    execution_id = Column(String(36), nullable=False, unique=True, comment="运行执行ID")
+    code_package_id = Column(BigInteger, nullable=False, comment="训练脚本包ID")
+    model_package_id = Column(BigInteger, nullable=True, comment="可选输入模型包ID")
+    input_mode = Column(String(32), nullable=False, comment="数据输入模式")
+    submission_json = Column(Text, nullable=False, comment="不可变训练提交 JSON")
+    status = Column(String(32), nullable=False, default="queued", comment="运行时执行状态")
+    result_json = Column(Text, nullable=True, comment="训练结果和产物 JSON")
+    error_message = Column(Text, nullable=True, comment="执行错误")
+    model_registered = Column(Boolean, nullable=False, default=False, comment="可部署模型是否已登记")

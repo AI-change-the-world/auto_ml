@@ -10,6 +10,7 @@ from app.common.sse import create_sse_response
 from app.config.database import get_db
 from .schemas import (
     TaskCreate,
+    RuntimeScriptTaskCreate,
     TaskResponse,
     TaskLogResponse,
     BaseModelResponse,
@@ -36,6 +37,20 @@ async def create_train_task(
 ):
     result = await service.create_task(db, data)
     return Result.ok(result, "Training task created")
+
+
+@router.post(
+    "/runtime-script",
+    response_model=Result[TaskResponse],
+    summary="创建自定义训练脚本任务",
+)
+async def create_runtime_script_task(
+    data: RuntimeScriptTaskCreate,
+    db: AsyncSession = Depends(get_db),
+    service: TaskService = Depends(get_task_service),
+):
+    result = await service.create_runtime_script_task(db, data)
+    return Result.ok(result, "Custom training script task created")
 
 
 @router.get("/list", response_model=Result[PageResult[TaskResponse]], summary="查询任务列表")

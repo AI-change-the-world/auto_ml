@@ -23,6 +23,7 @@ from contracts import (
     EXECUTION_PROTOCOL_VERSION,
     ExecutionWorkspace,
     TrainingCodeSubmission,
+    TrainingDataInputMode,
     TrainingDatasetSourceManifest,
     TrainingExecutionRequest,
     TrainingPackageManifest,
@@ -132,7 +133,6 @@ class ExecutionCoordinator:
         manifest = report.manifest
         self._verify_submission_package(submission, manifest, report.sha256)
 
-        source_manifest = await self._load_source_snapshot(submission)
         code_dir = task_root / "code"
         input_dir = task_root / "input"
         output_dir = task_root / "output"
@@ -141,7 +141,22 @@ class ExecutionCoordinator:
         archive_path = task_root / "package.zip"
         archive_path.write_bytes(archive_bytes)
         extract_training_package(archive_path, code_dir)
-        dataset = await DatasetMaterializer(self.storage).materialize(source_manifest, input_dir)
+        if submission.input_mode == TrainingDataInputMode.PLATFORM_DATASET:
+            source_manifest = await self._load_source_snapshot(submission)
+            dataset = await DatasetMaterializer(self.storage).materialize(source_manifest, input_dir)
+        else:
+            dataset = submission.script_dataset
+            if dataset is None:
+                raise self._error(
+                    "resolve_script_dataset",
+                    "MissingScriptDataset",
+                    "script_managed execution is missing its dataset declaration",
+                )
+            input_dir.mkdir(parents=True, exist_ok=True)
+            (input_dir / "dataset-manifest.json").write_text(
+                dataset.model_dump_json(indent=2) + "\n",
+                encoding="utf-8",
+            )
 
         model_input_path: Path | None = None
         if submission.model_input is not None:
@@ -205,6 +220,12 @@ class ExecutionCoordinator:
         self,
         submission: TrainingCodeSubmission,
     ) -> TrainingDatasetSourceManifest:
+        if submission.dataset_source_snapshot is None:
+            raise self._error(
+                "resolve_dataset_snapshot",
+                "MissingDatasetSnapshot",
+                "platform_dataset execution is missing its source snapshot",
+            )
         try:
             payload = await self.storage.read(submission.dataset_source_snapshot)
             return TrainingDatasetSourceManifest.model_validate_json(payload)
@@ -269,6 +290,7 @@ class ExecutionCoordinator:
             runtime=submission.runtime,
             workspace=workspace,
             dataset=dataset,
+            input_mode=submission.input_mode,
             parameters=submission.parameters,
             resources=submission.resources,
             model_input=submission.model_input,

@@ -3,6 +3,7 @@ import type {
   Result,
   PageResult,
   TaskCreate,
+  RuntimeScriptTaskCreate,
   TaskResponse,
   TaskLogResponse,
   BaseModelResponse,
@@ -14,6 +15,11 @@ import type {
 /** 创建训练任务 */
 export async function createTrainTask(data: TaskCreate) {
   const res = await apiClient.post<Result<TaskResponse>>('/task/train', data);
+  return res.data.data;
+}
+
+export async function createRuntimeScriptTask(data: RuntimeScriptTaskCreate) {
+  const res = await apiClient.post<Result<TaskResponse>>('/task/runtime-script', data);
   return res.data.data;
 }
 

@@ -33,6 +33,7 @@ rabbitmq:
     model_deployed: auto_ml.model.deployed
     model_undeployed: auto_ml.model.undeployed
     trainer_task: trainer.task.queue
+    training_code_execute: training.code.execute
     assist_rpc: auto_ml.assist.rpc
     pipeline_batch_execute: auto_ml.pipeline.batch.execute
     pipeline_batch_progress: auto_ml.pipeline.batch.progress
@@ -44,6 +45,7 @@ rabbitmq:
     model_deployed: model.deployed
     model_undeployed: model.undeployed
     trainer_task: trainer.task.submit
+    training_code_execute: training.code.execute
     assist_rpc: assist.rpc.request
     pipeline_batch_execute: pipeline.batch.execute
     pipeline_batch_progress: pipeline.batch.progress
@@ -75,10 +77,12 @@ model-training-runtime:
   base_url: ""
   timeout: 120
   token: ""
+  allow_script_managed_data: false
   execution:
     enabled: false
     runtime_ids:
       - ultralytics-8.3.0-pytorch-2.5-cu124
+      - pytorch-2.5-cu124
 
 task_stale_timeout_seconds: ${TASK_STALE_TIMEOUT_SECONDS}
 
