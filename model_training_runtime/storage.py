@@ -80,7 +80,7 @@ def load_s3_storage_settings() -> S3StorageSettings:
 
 def load_model_training_runtime_config() -> dict:
     """Return the service's Nacos-owned configuration section."""
-    config = _load_platform_config()
+    config = load_platform_config()
     return _config_section(config, "model-training-runtime") or _config_section(
         config, "training-code-runtime"
     )
@@ -88,6 +88,11 @@ def load_model_training_runtime_config() -> dict:
 
 # Compatibility for the previous exploratory service name.
 load_training_code_runtime_config = load_model_training_runtime_config
+
+
+def load_platform_config() -> dict:
+    """Return the complete platform configuration shared by platform services."""
+    return _load_platform_config()
 
 
 def _load_platform_config() -> dict:
@@ -119,6 +124,7 @@ def _load_nacos_config_directly() -> dict:
         client = nacos.NacosClient(
             os.getenv("NACOS_SERVER_ADDR", "127.0.0.1:8848"),
             namespace=os.getenv("NACOS_NAMESPACE", "public"),
+            logDir=os.getenv("NACOS_LOG_DIR", "/tmp/model_training_runtime/nacos"),
         )
         raw_config = client.get_config(
             os.getenv("NACOS_DATA_ID", "AUTO_ML_CONFIG"),

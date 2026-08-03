@@ -1,9 +1,9 @@
 {
   "protocol_version": "training-code-package/v1",
   "key": "pytorch-smoke-classifier",
-  "version": "1.0.1",
-  "name": "PyTorch Smoke Classifier",
-  "description": "Offline smoke-test classifier using generated binary samples and a small PyTorch network.",
+  "version": "1.1.0",
+  "name": "PyTorch Deployable Smoke Classifier",
+  "description": "Offline smoke-test image classifier using generated binary image samples and a deployable ONNX export.",
   "runtime": {
     "id": "pytorch-2.5-cu124",
     "kind": "platform_managed"
@@ -52,11 +52,17 @@
     "artifacts": [
       {
         "role": "model",
-        "formats": ["pt"],
+        "formats": ["onnx"],
         "required": true,
+        "deployable": true
+      },
+      {
+        "role": "checkpoint",
+        "formats": ["pt"],
+        "required": false,
         "deployable": false
       }
     ],
-    "requires_model_metadata": false
+    "requires_model_metadata": true
   }
 }

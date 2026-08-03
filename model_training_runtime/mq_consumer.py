@@ -1,4 +1,4 @@
-"""Dedicated RabbitMQ worker for immutable custom training submissions."""
+"""RabbitMQ consumer owned by the model training runtime service."""
 from __future__ import annotations
 
 import asyncio
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pika
-from loguru import logger
+from pika.exceptions import ProbableAuthenticationError
 from pydantic import ValidationError
 
 from artifacts import PersistedArtifact, persist_execution_artifacts
@@ -24,7 +24,12 @@ from runtime import (
     ServiceSubprocessExecutor,
     TrainingRuntimeManager,
 )
-from storage import OpenDalS3Storage, load_model_training_runtime_config
+from storage import (
+    OpenDalS3Storage,
+    load_model_training_runtime_config,
+    load_platform_config,
+)
+from runtime.logging_utils import logger
 
 
 SERVICE_NAME = "model-training-runtime"
@@ -34,8 +39,46 @@ TASK_COMPLETED = 3
 TASK_FAILED = 4
 
 
-class TrainingCodeWorker:
-    """Consumes only ``training.code.execute``; it never touches legacy queues."""
+def _section(payload: dict[str, Any], key: str) -> dict[str, Any]:
+    value = payload.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _configured_value(
+    sections: tuple[dict[str, Any], ...],
+    key: str,
+    environment_name: str,
+    fallback: str,
+) -> str:
+    for section in sections:
+        value = section.get(key)
+        if value is not None and value != "":
+            return str(value)
+    return os.getenv(environment_name, fallback)
+
+
+def _queue_or_routing_value(
+    runtime_mq: dict[str, Any],
+    shared_mq: dict[str, Any],
+    section_name: str,
+    key: str,
+    flat_key: str,
+    environment_name: str,
+    fallback: str,
+) -> str:
+    for mq in (runtime_mq, shared_mq):
+        nested = _section(mq, section_name)
+        value = nested.get(key)
+        if value is not None and value != "":
+            return str(value)
+        value = mq.get(flat_key)
+        if value is not None and value != "":
+            return str(value)
+    return os.getenv(environment_name, fallback)
+
+
+class TrainingCodeConsumer:
+    """Consumes only ``training.code.execute`` for the running Runtime API."""
 
     def __init__(self) -> None:
         self._stop_event = threading.Event()
@@ -49,6 +92,10 @@ class TrainingCodeWorker:
     def active_executions(self) -> int:
         with self._active_lock:
             return self._active_executions
+
+    @property
+    def is_running(self) -> bool:
+        return bool(self._thread and self._thread.is_alive())
 
     @property
     def is_connected(self) -> bool:
@@ -65,49 +112,103 @@ class TrainingCodeWorker:
         self._stop_event.clear()
         self._thread = threading.Thread(
             target=self._consume_loop,
-            name="model-training-runtime-worker",
+            name="model-training-runtime-mq-consumer",
             daemon=True,
         )
         self._thread.start()
 
     def stop(self) -> None:
         self._stop_event.set()
-        self._close()
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=5)
-        self._thread = None
+        thread = self._thread
+        if thread and thread.is_alive():
+            thread.join(timeout=5)
+        if not thread or not thread.is_alive():
+            self._thread = None
 
     def _settings(self) -> dict[str, Any]:
-        config = load_model_training_runtime_config()
-        mq = config.get("rabbitmq") if isinstance(config.get("rabbitmq"), dict) else {}
+        platform_config = load_platform_config()
+        runtime_config = _section(platform_config, "model-training-runtime") or _section(
+            platform_config,
+            "training-code-runtime",
+        )
+        runtime_mq = _section(runtime_config, "rabbitmq")
+        mq = _section(platform_config, "rabbitmq")
         return {
-            "host": str(mq.get("host") or os.getenv("RABBITMQ_HOST", "localhost")),
-            "port": int(mq.get("port") or os.getenv("RABBITMQ_PORT", "5672")),
-            "username": str(mq.get("username") or os.getenv("RABBITMQ_USER", "guest")),
-            "password": str(mq.get("password") or os.getenv("RABBITMQ_PASSWORD", "guest")),
-            "virtual_host": str(mq.get("virtual_host") or os.getenv("RABBITMQ_VHOST", "/")),
-            "exchange": str(mq.get("exchange_name") or os.getenv("RABBITMQ_EXCHANGE", "auto_ml_exchange")),
-            "exchange_type": str(mq.get("exchange_type") or os.getenv("RABBITMQ_EXCHANGE_TYPE", "topic")),
-            "execute_queue": str(mq.get("training_code_execute_queue") or os.getenv("TRAINING_CODE_EXECUTE_QUEUE", "training.code.execute")),
-            "execute_routing_key": str(mq.get("training_code_execute_routing_key") or os.getenv("TRAINING_CODE_EXECUTE_ROUTING_KEY", "training.code.execute")),
-            "task_status_routing_key": str(mq.get("task_status_routing_key") or os.getenv("TASK_STATUS_ROUTING_KEY", "task.status.update")),
-            "task_log_routing_key": str(mq.get("task_log_routing_key") or os.getenv("TASK_LOG_ROUTING_KEY", "task.log")),
-            "model_registered_routing_key": str(mq.get("model_registered_routing_key") or os.getenv("MODEL_REGISTERED_ROUTING_KEY", "model.registered")),
+            "host": _configured_value((runtime_mq, mq), "host", "RABBITMQ_HOST", "localhost"),
+            "port": int(_configured_value((runtime_mq, mq), "port", "RABBITMQ_PORT", "5672")),
+            "username": _configured_value((runtime_mq, mq), "username", "RABBITMQ_USER", "guest"),
+            "password": _configured_value((runtime_mq, mq), "password", "RABBITMQ_PASSWORD", "guest"),
+            "virtual_host": _configured_value((runtime_mq, mq), "virtual_host", "RABBITMQ_VHOST", "/"),
+            "exchange": _configured_value((runtime_mq, mq), "exchange_name", "RABBITMQ_EXCHANGE", "auto_ml_exchange"),
+            "exchange_type": _configured_value((runtime_mq, mq), "exchange_type", "RABBITMQ_EXCHANGE_TYPE", "topic"),
+            "execute_queue": _queue_or_routing_value(
+                runtime_mq,
+                mq,
+                "queues",
+                "training_code_execute",
+                "training_code_execute_queue",
+                "TRAINING_CODE_EXECUTE_QUEUE",
+                "training.code.execute",
+            ),
+            "execute_routing_key": _queue_or_routing_value(
+                runtime_mq,
+                mq,
+                "routing_keys",
+                "training_code_execute",
+                "training_code_execute_routing_key",
+                "TRAINING_CODE_EXECUTE_ROUTING_KEY",
+                "training.code.execute",
+            ),
+            "task_status_routing_key": _queue_or_routing_value(
+                runtime_mq,
+                mq,
+                "routing_keys",
+                "task_status",
+                "task_status_routing_key",
+                "TASK_STATUS_ROUTING_KEY",
+                "task.status.update",
+            ),
+            "task_log_routing_key": _queue_or_routing_value(
+                runtime_mq,
+                mq,
+                "routing_keys",
+                "task_log",
+                "task_log_routing_key",
+                "TASK_LOG_ROUTING_KEY",
+                "task.log",
+            ),
+            "model_registered_routing_key": _queue_or_routing_value(
+                runtime_mq,
+                mq,
+                "routing_keys",
+                "model_registered",
+                "model_registered_routing_key",
+                "MODEL_REGISTERED_ROUTING_KEY",
+                "model.registered",
+            ),
         }
 
     def _connect(self):
         settings = self._settings()
         credentials = pika.PlainCredentials(settings["username"], settings["password"])
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(
-                host=settings["host"],
-                port=settings["port"],
-                virtual_host=settings["virtual_host"],
-                credentials=credentials,
-                heartbeat=60,
-                blocked_connection_timeout=300,
+        try:
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(
+                    host=settings["host"],
+                    port=settings["port"],
+                    virtual_host=settings["virtual_host"],
+                    credentials=credentials,
+                    heartbeat=60,
+                    blocked_connection_timeout=300,
+                )
             )
-        )
+        except ProbableAuthenticationError as exc:
+            raise RuntimeError(
+                "RabbitMQ authentication was refused for "
+                f"host={settings['host']} port={settings['port']} "
+                f"username={settings['username']} vhost={settings['virtual_host']}; "
+                "check the shared Nacos `rabbitmq` configuration or RABBITMQ_* environment variables"
+            ) from exc
         channel = connection.channel()
         channel.exchange_declare(
             exchange=settings["exchange"],
@@ -134,12 +235,12 @@ class TrainingCodeWorker:
                     on_message_callback=self._on_message,
                     auto_ack=False,
                 )
-                logger.info("Training code worker is consuming queue=%s", settings["execute_queue"])
+                logger.info("Training code consumer is consuming queue=%s", settings["execute_queue"])
                 while not self._stop_event.is_set():
                     connection.process_data_events(time_limit=1)
             except Exception:
                 if not self._stop_event.is_set():
-                    logger.opt(exception=True).warning("Training code worker connection failed; retrying")
+                    logger.warning("Training code consumer connection failed; retrying", exc_info=True)
                     time.sleep(2)
             finally:
                 self._close()
@@ -199,7 +300,7 @@ class TrainingCodeWorker:
             RuntimeError,
         ) as exc:
             task_id = _task_id_from_payload(payload)
-            logger.opt(exception=True).error("Custom training execution failed: task_id=%s", task_id)
+            logger.error("Custom training execution failed: task_id=%s", task_id, exc_info=True)
             if task_id is not None:
                 self._publish_status(
                     task_id,
@@ -210,7 +311,7 @@ class TrainingCodeWorker:
                 self._publish_log(task_id, f"[runtime] {exc}", "ERROR")
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except Exception:
-            logger.opt(exception=True).exception("Unexpected custom training worker failure")
+            logger.exception("Unexpected custom training consumer failure")
             channel.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
         finally:
             with self._active_lock:
@@ -300,7 +401,7 @@ class TrainingCodeWorker:
         )
         if selected is None or outcome.result.model is None:
             return
-        runtime_template = _runtime_template(outcome.result.model.task_kind)
+        runtime_template = _runtime_template(outcome.result.model)
         if runtime_template is None:
             self._publish_log(
                 task_id,
@@ -432,21 +533,11 @@ def _result_message(result: dict[str, Any]) -> str:
     return str(error.get("message") if isinstance(error, dict) else "custom training failed")
 
 
-def _runtime_template(task_kind: str) -> str | None:
+def _runtime_template(model) -> str | None:
+    task_kind = model.task_kind
+    framework_id = model.framework.id
     if task_kind in {"detection", "detection_bbox", "detection_obb"}:
         return "ultralytics_detection"
     if task_kind == "classification":
-        return "ultralytics_classification"
+        return "ultralytics_classification" if framework_id == "ultralytics" else "onnx_classification"
     return None
-
-
-if __name__ == "__main__":
-    worker = TrainingCodeWorker()
-    worker.start()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        worker.stop()

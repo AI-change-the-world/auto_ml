@@ -7,10 +7,10 @@ network access. It trains a tiny PyTorch model for five epochs by default.
 Build the uploadable ZIP:
 
 ```bash
-python build_package_zip.py ./dist/pytorch-smoke-classifier-1.0.1.zip
+python build_package_zip.py ./dist/pytorch-smoke-classifier-1.1.0.zip
 ```
 
-Upload `dist/pytorch-smoke-classifier-1.0.1.zip` from **模型管理 → 自定义模型**.
+Upload `dist/pytorch-smoke-classifier-1.1.0.zip` from **模型管理 → 自定义模型**.
 When creating the training task, select **自定义脚本训练** and set:
 
 - Data input mode: `脚本自行准备数据`
@@ -18,6 +18,8 @@ When creating the training task, select **自定义脚本训练** and set:
 - Device: `cpu`
 - Script parameters: `{}`
 
-The package writes `smoke-model.pt` as a non-deployable `model` artifact. The
-runtime verifies it and persists it automatically in the configured S3 models
-bucket. It does not create an inference model or require ONNX.
+The package writes a deployable `smoke-model.onnx` plus a resumable
+`smoke-model.pt` checkpoint. The Runtime stores both in the configured S3
+models bucket and registers the ONNX output in **部署** after training succeeds.
+The deployment uses the `onnx_classification` inference template, so any RGB
+image can be used to test the generated `negative` / `positive` classifier.

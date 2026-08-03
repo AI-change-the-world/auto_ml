@@ -551,7 +551,7 @@ class DeployService:
         return str(value)
 
     def _resolve_model_type_from_template(self, template: str) -> str:
-        if template == "ultralytics_classification":
+        if template in {"ultralytics_classification", "onnx_classification"}:
             return "classification"
         return "detection"
 

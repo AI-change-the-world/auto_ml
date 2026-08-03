@@ -1,4 +1,4 @@
-"""Offline five-epoch PyTorch smoke test for the custom training runtime."""
+"""Offline, deployable five-epoch PyTorch image-classification smoke test."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,11 +21,12 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
     device = _resolve_device(context["resources"], torch)
     torch.manual_seed(seed)
 
-    report(event_type="phase", phase="prepare", message="generating offline binary classification samples")
-    features, labels = _synthetic_binary_samples(sample_count, torch)
-    features = features.to(device)
+    image_size = 16
+    report(event_type="phase", phase="prepare", message="generating offline binary image classification samples")
+    images, labels = _synthetic_binary_images(sample_count, image_size, torch)
+    images = images.to(device)
     labels = labels.to(device)
-    model = nn.Sequential(nn.Linear(2, 8), nn.ReLU(), nn.Linear(8, 2)).to(device)
+    model = _tiny_image_classifier(nn).to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
     loss_function = nn.CrossEntropyLoss()
 
@@ -35,7 +36,7 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
     for epoch in range(epochs):
         model.train()
         optimizer.zero_grad(set_to_none=True)
-        logits = model(features)
+        logits = model(images)
         loss = loss_function(logits, labels)
         loss.backward()
         optimizer.step()
@@ -51,36 +52,70 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
 
     output_dir = Path(context["workspace"]["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
-    model_path = output_dir / "smoke-model.pt"
+    checkpoint_path = output_dir / "smoke-model.pt"
     torch.save(
         {
             "model_state": model.cpu().state_dict(),
             "class_names": class_names,
-            "input_features": 2,
+            "image_size": image_size,
             "smoke_test": True,
         },
-        model_path,
+        checkpoint_path,
     )
-    report(event_type="phase", phase="complete", message="saved smoke-model.pt for S3 persistence")
+    model.eval()
+    onnx_path = output_dir / "smoke-model.onnx"
+    example_input = torch.zeros(1, 3, image_size, image_size, device=device)
+    with torch.no_grad():
+        torch.onnx.export(
+            model,
+            example_input,
+            onnx_path,
+            input_names=["images"],
+            output_names=["probabilities"],
+            dynamic_axes={"images": {0: "batch"}, "probabilities": {0: "batch"}},
+            opset_version=17,
+        )
+    report(event_type="phase", phase="complete", message="exported deployable smoke-model.onnx and checkpoint")
 
     return {
         "summary": f"offline smoke classifier completed {epochs} epochs with {sample_count} generated samples",
         "metrics": {"train_loss": final_loss, "train_accuracy": final_accuracy},
         "artifacts": [
-            {"path": "smoke-model.pt", "role": "model", "format": "pt", "deployable": False}
+            {"path": "smoke-model.onnx", "role": "model", "format": "onnx", "deployable": True},
+            {"path": "smoke-model.pt", "role": "checkpoint", "format": "pt", "deployable": False},
         ],
+        "model": {
+            "task_kind": "classification",
+            "class_names": class_names,
+            "framework": {"id": "pytorch", "version": "2.5"},
+            "resume_checkpoint_path": "smoke-model.pt",
+            "preprocessing": {"resize": [image_size, image_size], "scale": "0_1", "layout": "NCHW"},
+        },
     }
 
 
-def _synthetic_binary_samples(sample_count: int, torch):
+def _synthetic_binary_images(sample_count: int, image_size: int, torch):
     negative_count = sample_count // 2
     positive_count = sample_count - negative_count
-    negative = torch.randn(negative_count, 2) * 0.45 - 1.0
-    positive = torch.randn(positive_count, 2) * 0.45 + 1.0
-    features = torch.cat((negative, positive))
+    negative = torch.rand(negative_count, 3, image_size, image_size) * 0.25
+    positive = torch.rand(positive_count, 3, image_size, image_size) * 0.25
+    negative[:, 2, image_size // 4 : image_size * 3 // 4, image_size // 4 : image_size * 3 // 4] += 0.75
+    positive[:, 0, image_size // 4 : image_size * 3 // 4, image_size // 4 : image_size * 3 // 4] += 0.75
+    images = torch.cat((negative, positive))
     labels = torch.cat((torch.zeros(negative_count, dtype=torch.long), torch.ones(positive_count, dtype=torch.long)))
     order = torch.randperm(sample_count)
-    return features[order], labels[order]
+    return images[order], labels[order]
+
+
+def _tiny_image_classifier(nn):
+    return nn.Sequential(
+        nn.Conv2d(3, 8, kernel_size=3, padding=1),
+        nn.ReLU(),
+        nn.AdaptiveAvgPool2d((1, 1)),
+        nn.Flatten(),
+        nn.Linear(8, 2),
+        nn.Softmax(dim=1),
+    )
 
 
 def _resolve_device(resources: dict[str, Any], torch):

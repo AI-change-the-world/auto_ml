@@ -421,30 +421,6 @@ services:
       timeout: 10s
       retries: 5
 
-  model-training-runtime-worker:
-    image: model-training-runtime:latest
-    container_name: model-training-runtime-worker
-    restart: unless-stopped
-    command: ["python", "mq_worker.py"]
-    depends_on:
-      model-training-runtime:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      nacos-init:
-        condition: service_completed_successfully
-    environment:
-      <<: [*nacos-env, *rabbitmq-env, *minio-env]
-      S3_DATASETS_BUCKET: auto-ml-datasets
-      S3_MODELS_BUCKET: auto-ml-models
-      S3_ANNOTATIONS_BUCKET: auto-ml-annotations
-    networks:
-      - auto-ml-network
-    security_opt:
-      - no-new-privileges:true
-
   frontend:
     build:
       context: ./frontend_v2

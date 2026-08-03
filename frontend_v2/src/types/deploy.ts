@@ -114,7 +114,7 @@ export interface OnnxIoTensorSignature {
 
 export interface UploadOnnxModelRequest {
   name: string;
-  template: 'ultralytics_detection' | 'ultralytics_classification';
+  template: 'ultralytics_detection' | 'ultralytics_classification' | 'onnx_classification';
   class_names: string;
   file: File;
 }

@@ -5,6 +5,7 @@ import secrets
 import shutil
 import sys
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -56,6 +57,8 @@ from runtime import (
 from storage import OpenDalS3Storage, load_model_training_runtime_config
 from artifacts import PersistedArtifact, persist_execution_artifacts
 from execution_policy import ExecutionPolicyError, validate_execution_policy
+from mq_consumer import TrainingCodeConsumer
+from runtime.logging_utils import logger
 
 
 SERVICE_NAME = "model-training-runtime"
@@ -143,6 +146,28 @@ def archive_inspection_response(
     }
 
 
+def _execution_is_enabled(config: dict[str, Any]) -> bool:
+    execution = config.get("execution")
+    return config.get("enabled") is True and isinstance(execution, dict) and execution.get("enabled") is True
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Start and stop the custom-training MQ consumer with this API service."""
+    consumer = TrainingCodeConsumer()
+    application.state.training_code_consumer = consumer
+    if _execution_is_enabled(load_model_training_runtime_config()):
+        consumer.start()
+        logger.info("Training code MQ consumer started with the Runtime service")
+    else:
+        logger.info("Training code MQ consumer is disabled by configuration")
+    try:
+        yield
+    finally:
+        consumer.stop()
+        application.state.training_code_consumer = None
+
+
 app = FastAPI(
     title="Model Training Runtime",
     description=(
@@ -150,14 +175,15 @@ app = FastAPI(
         "training packages and can execute approved packages in a bounded subprocess."
     ),
     version=SERVICE_VERSION,
+    lifespan=lifespan,
 )
 
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
     config = load_model_training_runtime_config()
-    execution_config = config.get("execution") if isinstance(config.get("execution"), dict) else {}
-    execution_enabled = execution_config.get("enabled") is True
+    execution_enabled = _execution_is_enabled(config)
+    consumer = getattr(app.state, "training_code_consumer", None)
     return {
         "status": "ok",
         "service": SERVICE_NAME,
@@ -165,6 +191,9 @@ async def health() -> dict[str, Any]:
         "mode": "in_service_execution" if execution_enabled else "contract_validation_only",
         "execution_enabled": execution_enabled,
         "mq_consumer_enabled": execution_enabled,
+        "mq_consumer_running": bool(consumer and consumer.is_running),
+        "mq_consumer_connected": bool(consumer and consumer.is_connected),
+        "mq_consumer_active_executions": consumer.active_executions if consumer else 0,
     }
 
 
@@ -376,7 +405,7 @@ async def run_training_execution(
 
     This synchronous HTTP path is intentionally diagnostic. It exercises the
     same coordinator, runner, S3 snapshot materialization, and result protocol
-    used by the dedicated MQ worker.
+    used by the service-owned MQ consumer.
     """
     config = load_model_training_runtime_config()
     try:

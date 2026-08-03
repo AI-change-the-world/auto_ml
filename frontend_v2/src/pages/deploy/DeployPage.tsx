@@ -47,7 +47,7 @@ type ApiEndpointInfo = {
 
 type OnnxTemplateOption = {
   label: string;
-  value: 'ultralytics_detection' | 'ultralytics_classification';
+  value: 'ultralytics_detection' | 'ultralytics_classification' | 'onnx_classification';
   taskKind: string;
   desc: string;
 };
@@ -249,7 +249,7 @@ const DeployPage: React.FC = () => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadSubmitting, setUploadSubmitting] = useState(false);
   const [uploadName, setUploadName] = useState('');
-  const [uploadTemplate, setUploadTemplate] = useState<'ultralytics_detection' | 'ultralytics_classification'>('ultralytics_detection');
+  const [uploadTemplate, setUploadTemplate] = useState<'ultralytics_detection' | 'ultralytics_classification' | 'onnx_classification'>('ultralytics_detection');
   const [uploadClassNames, setUploadClassNames] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadedSignature, setUploadedSignature] = useState<{ input: OnnxIoTensorSignature[]; output: OnnxIoTensorSignature[] } | null>(null);
@@ -289,6 +289,12 @@ const DeployPage: React.FC = () => {
       value: 'ultralytics_classification',
       taskKind: 'classification',
       desc: t('onnxTemplateClassificationDesc', { defaultValue: '适用于 Ultralytics 导出的分类 ONNX。' }),
+    },
+    {
+      label: t('onnxTemplateGenericClassification', { defaultValue: 'Generic ONNX Classification' }),
+      value: 'onnx_classification',
+      taskKind: 'classification',
+      desc: t('onnxTemplateGenericClassificationDesc', { defaultValue: '适用于输出类别概率的通用 ONNX 图像分类模型。' }),
     },
   ]), [t]);
   const activeUploadTemplate = useMemo(

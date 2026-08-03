@@ -1,17 +1,17 @@
 # Model Training Runtime (Experimental)
 
-`model_training_runtime` executes versioned user training-code packages on a
-dedicated worker. It coexists with `model_trainer`: built-in training is
+`model_training_runtime` executes versioned user training-code packages in its
+own service process. It coexists with `model_trainer`: built-in training is
 unchanged, while user-uploaded scripts take the runtime path.
 
-The runtime keeps the FastAPI service, runner, bounded subprocess, OpenDAL
-input materialization, and framework dependencies in one image. Compose runs a
-separate worker container that consumes only the dedicated custom-training
-queue; it never consumes the legacy trainer queue.
+The runtime keeps the FastAPI service, RabbitMQ consumer, runner, bounded
+subprocess, OpenDAL input materialization, and framework dependencies in one
+image. Starting `uvicorn app:app` starts the dedicated custom-training consumer
+as part of the same service; it never consumes the legacy trainer queue.
 
 ## Current Scope
 
-The HTTP API and worker provide validation, immutable registration, ZIP
+The HTTP API and its MQ consumer provide validation, immutable registration, ZIP
 configuration inspection, and explicitly enabled execution:
 
 - validates `training_package.json` against `training-code-package/v1`
@@ -27,8 +27,8 @@ The service contains the runtime foundation, runner, execution coordinator,
 and code-package templates. The coordinator materializes immutable dataset and
 model inputs, creates a task workspace, launches the package in a bounded
 subprocess, parses runner protocol output, and verifies the terminal result.
-The direct endpoint and the worker clean each workspace after verified artifacts
-are persisted. The worker uses existing task lifecycle messages, and only
+The direct endpoint and the MQ consumer clean each workspace after verified artifacts
+are persisted. The consumer uses existing task lifecycle messages, and only
 deployable ONNX artifacts matching existing inference templates are registered.
 
 It must not be pointed at the existing `trainer.task.queue`. Production use
@@ -45,7 +45,7 @@ egress policy appropriate for submitted code.
 4. shadow mode: the same non-production jobs run through both paths and outputs/events are compared
 5. cutover: `automl_server` explicitly submits selected tasks to a dedicated routing key; only then can a task type move away from `model_trainer`
 
-The old and new workers must never consume the same training task queue. Cutover is controlled at the producer, task type, or explicitly selected training backend.
+The legacy trainer and Runtime service must never consume the same training task queue. Cutover is controlled at the producer, task type, or explicitly selected training backend.
 
 ## Security Position
 
@@ -77,7 +77,7 @@ with training-specific names and policy:
 | `process.py`, `limits.py` | Output-bounded process tree control and optional Linux `prlimit` defense-in-depth limits | Defined and test-covered; no app path calls it. |
 | `protocol.py`, `parsing.py` | Parses prefixed runner event/log/result lines | Defined and test-covered. |
 | `executor.py` | Execution-backend contract and service subprocess implementation | `ServiceSubprocessExecutor` is used by the direct endpoint; the old local executor remains a test helper. |
-| `coordinator.py` | Materializes pinned inputs, builds a private workspace, invokes the runner, and verifies the terminal outcome | Used by the direct endpoint and dedicated worker. |
+| `coordinator.py` | Materializes pinned inputs, builds a private workspace, invokes the runner, and verifies the terminal outcome | Used by the direct endpoint and service-owned MQ consumer. |
 
 The deliberate difference from `ai_pipeline_sandbox/runtime/environment.py` is
 that training packages cannot provide `.env`, `requirements.txt`, local wheels,
@@ -95,13 +95,13 @@ All contracts are versioned and reject unknown fields. Version 1 defines:
 | Contract | Version | Direction | Purpose |
 | --- | --- | --- | --- |
 | Package manifest | `training-code-package/v1` | ZIP -> runtime | Declares code entrypoint, supported tasks, platform runtime, parameter schema, and expected artifacts. |
-| Dataset source manifest | `training-dataset-source-manifest/v1` | platform task resolver -> registry | Pins the existing dataset and annotation S3 object paths before workers run. |
+| Dataset source manifest | `training-dataset-source-manifest/v1` | platform task resolver -> registry | Pins the existing dataset and annotation S3 object paths before execution begins. |
 | Dataset manifest | `training-dataset-manifest/v1` | materializer -> package | Lists local files materialized from that immutable S3 source snapshot. Package code must not call the platform API to rediscover data. |
 | Model package manifest | `training-model-package/v1` | model ZIP -> registry | Declares the initialization artifact plus an optional fully resumable checkpoint, framework identity, task kind, class order, and format. |
 | Execution request | `training-execution/v1` | runtime -> package | Carries task, resolved package digest, workspace paths, parameters, resources, and optional materialized model input. |
 | Event | `training-event/v1` | package -> runtime | JSONL progress: phase, log, metric, or checkpoint. `sequence` is monotonic per execution. |
 | Result | `training-result/v1` | package -> runtime | `result.json` states terminal outcome, metrics, artifacts, model metadata, and errors. |
-| MQ submission | `training-code-submit/v1` | control plane -> runtime worker | Immutable MQ payload that refers to package and dataset objects by key and SHA-256. |
+| MQ submission | `training-code-submit/v1` | control plane -> runtime service | Immutable MQ payload that refers to package and dataset objects by key and SHA-256. |
 
 The coordinator invokes the package function `train(context, report)` through
 the in-service subprocess executor. A future container executor can invoke the
@@ -112,7 +112,7 @@ calculates artifact size and SHA-256, writes `result.json`, and emits the
 terminal result.
 
 The runner's stdout protocol mirrors the Sandbox pattern and is consumed by the
-dedicated worker:
+service-owned MQ consumer:
 
 ```text
 __AUTO_ML_TRAINING_EVENT__={...}
@@ -142,7 +142,7 @@ before this service has any MQ or execution wiring.
 
 `POST /v1/admission/execution/validate` accepts `{ "manifest", "execution" }`.
 `POST /v1/admission/result/validate` additionally accepts `result`. The runner
-applies result admission itself whenever the worker includes the
+applies result admission itself whenever the MQ consumer includes the
 resolved `package_manifest` in its private execution context. This optional
 field is runtime-internal; external producers should submit only a package
 reference and digest.
@@ -161,6 +161,9 @@ runnable boilerplate package. The
 [PyTorch cat/dog example](./examples/pytorch-image-classifier/README.md) is a
 real script-managed example: it downloads CIFAR-10, trains a small classifier,
 and exports deployable ONNX. The
+[offline PyTorch smoke classifier](./examples/pytorch-smoke-classifier/README.md)
+needs neither a dataset nor network access, exports deployable ONNX, and is the
+quickest end-to-end registration and deployment check. The
 [Ultralytics detection example](./examples/ultralytics-detection/README.md)
 adapts a materialized platform dataset, trains a selected `.pt` model, emits
 metrics, and produces model/checkpoint artifacts. Both examples include a
@@ -178,7 +181,7 @@ bucket and annotation records from the annotations bucket. It submits a
 `training-dataset-source-manifest/v1` to
 `POST /v1/registrations/dataset-snapshots`; registration reads each object
 through OpenDAL, records its SHA-256 and size, and stores an immutable source
-manifest in the default bucket. The worker later reads only that snapshot and
+manifest in the default bucket. The MQ consumer later reads only that snapshot and
 materializes files under its task-local `input_dir`.
 
 The control plane currently exposes the prerequisite read-only preview at
@@ -248,11 +251,11 @@ The endpoint performs package digest verification, dataset/model materializing,
 admission checks, runner execution, event/result validation, artifact
 persistence, and workspace cleanup in one request. It returns result metadata,
 events, logs, and immutable artifact references. Normal training should use
-the asynchronous worker rather than this diagnostic endpoint.
+the asynchronous MQ submission path rather than this diagnostic endpoint.
 
-## MQ Worker
+## MQ Consumer
 
-The worker uses dedicated infrastructure rather than the legacy trainer queue:
+The Runtime service itself consumes dedicated infrastructure rather than the legacy trainer queue:
 
 | Purpose | Queue | Routing key | Contract |
 | --- | --- | --- | --- |
@@ -261,7 +264,7 @@ The worker uses dedicated infrastructure rather than the legacy trainer queue:
 | Deployable ONNX registration | existing `model.registered` | existing key | platform model lifecycle |
 
 The control plane stores each immutable submission in `training_runtime_execution`.
-Task and execution IDs are unique; the worker uses `prefetch=1`, updates queued,
+Task and execution IDs are unique; the service consumer uses `prefetch=1`, updates queued,
 running, succeeded, and failed states through the normal task-status messages,
 and includes the execution ID for deduplication.
 
@@ -316,14 +319,13 @@ Run locally:
 ```bash
 cd model_training_runtime
 python -m pip install -r requirements.txt
-python -m uvicorn app:app --reload --port 8012
+python -m uvicorn app:app --host 0.0.0.0 --port 8012
 python -m unittest discover -s tests -v
 ```
 
-The direct execution endpoint and MQ worker both invoke `runner.py` as a bounded
-subprocess. Compose includes the `model-training-runtime` API service and the
-separate `model-training-runtime-worker`; both are inert until the Nacos block
-below is explicitly enabled.
+The direct execution endpoint and service-owned MQ consumer both invoke `runner.py`
+as a bounded subprocess. One `model-training-runtime` service is started; its
+consumer is inactive until the Nacos block below is explicitly enabled.
 
 ## Enabling Execution
 

@@ -157,7 +157,11 @@ class DeploymentDetailResponse(BaseModel):
 
 class UploadOnnxModelRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="模型名称")
-    template: Literal["ultralytics_detection", "ultralytics_classification"] = Field(
+    template: Literal[
+        "ultralytics_detection",
+        "ultralytics_classification",
+        "onnx_classification",
+    ] = Field(
         ...,
         description="推理模板",
     )
