@@ -44,7 +44,11 @@ class MemoryObjectStorage:
         return (reference.bucket.value, reference.object_key) in self.objects
 
 
-def package_archive(version: str = "1.0.0") -> bytes:
+def package_archive(
+    version: str = "1.0.0",
+    *,
+    include_bundled_weight: bool = False,
+) -> bytes:
     manifest = {
         "protocol_version": "training-code-package/v1",
         "key": "registry-test-package",
@@ -65,6 +69,8 @@ def package_archive(version: str = "1.0.0") -> bytes:
     with ZipFile(archive, "w") as bundle:
         bundle.writestr("training_package.json", json.dumps(manifest))
         bundle.writestr("train.py", "def train(context, report): return {}\n")
+        if include_bundled_weight:
+            bundle.writestr("weights/initial.pt", b"initial weights")
     return archive.getvalue()
 
 
@@ -118,6 +124,18 @@ class TrainingRegistryTest(unittest.TestCase):
                     archive_bytes=package_archive() + b"different-bytes",
                 )
             )
+
+    def test_registers_package_with_bundled_weight(self) -> None:
+        storage = MemoryObjectStorage()
+        registry = TrainingPackageRegistry(storage)
+        outcome = asyncio.run(
+            registry.register_package(
+                archive_name="bundled-initial-model.zip",
+                archive_bytes=package_archive(include_bundled_weight=True),
+            )
+        )
+        with ZipFile(BytesIO(storage.objects[("default", outcome.registration.archive.object_key)])) as archive:
+            self.assertEqual(archive.read("weights/initial.pt"), b"initial weights")
 
     def test_registers_model_package_with_distinct_initialize_and_resume_inputs(self) -> None:
         storage = MemoryObjectStorage()

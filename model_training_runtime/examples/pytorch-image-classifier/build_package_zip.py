@@ -18,6 +18,14 @@ def build(output_path: Path) -> Path:
             info.compress_type = ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
             archive.writestr(info, (PACKAGE_DIR / name).read_bytes())
+        weights_dir = PACKAGE_DIR / "weights"
+        if weights_dir.is_dir():
+            for weight_path in sorted(path for path in weights_dir.rglob("*") if path.is_file()):
+                relative_path = weight_path.relative_to(PACKAGE_DIR).as_posix()
+                info = ZipInfo(relative_path, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = ZIP_DEFLATED
+                info.external_attr = 0o100644 << 16
+                archive.writestr(info, weight_path.read_bytes())
     return output_path
 
 

@@ -11,7 +11,7 @@ from .logging_utils import logger
 
 
 TRAINING_ARCHIVE_MAX_FILES = 5_000
-TRAINING_ARCHIVE_MAX_UNPACKED_BYTES = 250 * 1024 * 1024
+TRAINING_ARCHIVE_MAX_UNPACKED_BYTES = 512 * 1024 * 1024
 FORBIDDEN_PACKAGE_FILES = {".env", "requirements.txt", "requirements.in"}
 
 

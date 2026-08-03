@@ -72,19 +72,6 @@
     },
     "additionalProperties": false
   },
-  "model_input_contract": {
-    "framework": {
-      "id": "pytorch",
-      "version": "2.5"
-    },
-    "formats": [
-      "pt"
-    ],
-    "modes": [
-      "initialize",
-      "resume"
-    ]
-  },
   "output_contract": {
     "artifacts": [
       {

@@ -4,7 +4,7 @@ import { message, Spin, Modal, Select, Input, InputNumber, Switch, Tooltip, Coll
 import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createRuntimeScriptTask, createTrainTask, getBaseModels, getTrainerStatus, deleteTask, getTrainingHistoryCandidates } from '../../api/task';
-import { listTrainingRuntimeCodePackages, listTrainingRuntimeModelPackages } from '../../api/trainingRuntime';
+import { listTrainingRuntimeCodePackages } from '../../api/trainingRuntime';
 import { subscribeTaskStream } from '../../api/taskStream';
 import { listDatasets } from '../../api/dataset';
 import { listAnnotations } from '../../api/annotation';
@@ -22,7 +22,7 @@ import type {
   TrainingHistoryCandidateResponse,
   RuntimeScriptTaskCreate,
 } from '../../types/task';
-import type { TrainingRuntimeCodePackage, TrainingRuntimeModelPackage } from '../../types/trainingRuntime';
+import type { TrainingRuntimeCodePackage } from '../../types/trainingRuntime';
 import type { Dataset } from '../../types/dataset';
 import { AnnotationType, type AnnotationProject } from '../../types/annotation';
 import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task';
@@ -130,7 +130,6 @@ const TaskListPage: React.FC = () => {
   const [annotations, setAnnotations] = useState<AnnotationProject[]>([]);
   const [baseModels, setBaseModels] = useState<BaseModelResponse[]>([]);
   const [runtimeCodePackages, setRuntimeCodePackages] = useState<TrainingRuntimeCodePackage[]>([]);
-  const [runtimeModelPackages, setRuntimeModelPackages] = useState<TrainingRuntimeModelPackage[]>([]);
   const [trainerStatus, setTrainerStatus] = useState<TrainerStatusResponse | null>(null);
   const [historyCandidates, setHistoryCandidates] = useState<TrainingHistoryCandidateResponse[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -141,8 +140,6 @@ const TaskListPage: React.FC = () => {
     detection_mode: DetectionMode;
     train_config: TrainingConfigPayload;
     runtime_code_package_id?: number;
-    runtime_model_package_id?: number;
-    runtime_model_input_mode: 'initialize' | 'resume';
     runtime_input_mode: RuntimeInputMode;
     runtime_class_names: string;
     runtime_parameters: string;
@@ -153,7 +150,6 @@ const TaskListPage: React.FC = () => {
     sources: [{ dataset_id: 0, annotation_id: 0 }],
     detection_mode: 'bbox',
     train_config: DEFAULT_TRAIN_CONFIG,
-    runtime_model_input_mode: 'initialize',
     runtime_input_mode: 'platform_dataset',
     runtime_class_names: '',
     runtime_parameters: '{}',
@@ -262,18 +258,16 @@ const TaskListPage: React.FC = () => {
     setCreateOpen(true);
     setHistoryCandidates([]);
     try {
-      const [d, a, b, codePackages, modelPackages] = await Promise.all([
+      const [d, a, b, codePackages] = await Promise.all([
         listDatasets(1, 100),
         listAnnotations(1, 100),
         getBaseModels(),
         listTrainingRuntimeCodePackages(false),
-        listTrainingRuntimeModelPackages(false),
       ]);
       if (d) setDatasets(d.items);
       if (a) setAnnotations(a.items);
       if (b) setBaseModels(Array.isArray(b) ? b : []);
       setRuntimeCodePackages(codePackages);
-      setRuntimeModelPackages(modelPackages);
     } catch { }
   };
 
@@ -325,10 +319,6 @@ const TaskListPage: React.FC = () => {
             memory_bytes: 1024 * 1024 * 1024,
             timeout_seconds: form.runtime_timeout_seconds,
           },
-          ...(form.runtime_model_package_id ? {
-            model_package_id: form.runtime_model_package_id,
-            model_input_mode: form.runtime_model_input_mode,
-          } : {}),
         };
         await createRuntimeScriptTask(data);
         message.success(tc('msg.createSuccess'));
@@ -376,7 +366,6 @@ const TaskListPage: React.FC = () => {
       sources: [{ dataset_id: 0, annotation_id: 0 }],
       detection_mode: 'bbox',
       train_config: DEFAULT_TRAIN_CONFIG,
-      runtime_model_input_mode: 'initialize',
       runtime_input_mode: 'platform_dataset',
       runtime_class_names: '',
       runtime_parameters: '{}',
@@ -1551,34 +1540,6 @@ const TaskListPage: React.FC = () => {
                   <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>{t('runtimeScriptDataHint')}</div>
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeModelPackage')}</label>
-                  <Select
-                    allowClear
-                    style={{ width: '100%' }}
-                    placeholder={t('runtimeModelPackageOptional')}
-                    value={form.runtime_model_package_id}
-                    onChange={(value) => setForm((previous) => ({ ...previous, runtime_model_package_id: value }))}
-                    options={runtimeModelPackages
-                      .filter((item) => item.task_kind === (form.task_type === 0 ? 'detection' : form.task_type === 1 ? 'classification' : 'segmentation'))
-                      .map((item) => ({ label: `${item.name} · .${item.artifact_format}`, value: item.id }))}
-                  />
-                </div>
-                <div>
-                  <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeModelInputMode')}</label>
-                  <Select
-                    style={{ width: '100%' }}
-                    disabled={!form.runtime_model_package_id}
-                    value={form.runtime_model_input_mode}
-                    onChange={(value) => setForm((previous) => ({ ...previous, runtime_model_input_mode: value }))}
-                    options={[
-                      { label: t('runtimeModelInitialize'), value: 'initialize' },
-                      { label: t('runtimeModelResume'), value: 'resume' },
-                    ]}
-                  />
-                </div>
-              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('device')}</label>

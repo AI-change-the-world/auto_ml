@@ -58,7 +58,7 @@ def train(context: dict[str, Any], report: Callable[..., None]) -> dict[str, Any
 
     device = _resolve_device(context["resources"], torch)
     model = _tiny_image_classifier(len(class_names), nn).to(device)
-    _load_model_input(model, context.get("model_input_path"), device, torch)
+    _load_bundled_initial_weights(model, device, torch)
     optimizer = torch.optim.Adam(model.parameters(), lr=float(parameters.get("learning_rate", 0.001)))
     loss_function = nn.CrossEntropyLoss()
     loader = DataLoader(dataset, batch_size=min(batch_size, len(dataset)), shuffle=True, num_workers=num_workers)
@@ -222,13 +222,14 @@ def _resolve_device(resources: dict[str, Any], torch):
     return torch.device("cpu")
 
 
-def _load_model_input(model, model_input_path: Any, device, torch) -> None:
-    if not isinstance(model_input_path, str) or not model_input_path.strip():
+def _load_bundled_initial_weights(model, device, torch) -> None:
+    model_path = Path(__file__).resolve().parent / "weights" / "initial.pt"
+    if not model_path.is_file():
         return
-    payload = torch.load(model_input_path, map_location=device, weights_only=False)
+    payload = torch.load(model_path, map_location=device, weights_only=False)
     state = payload.get("model_state") if isinstance(payload, dict) else payload
     if not isinstance(state, dict):
-        raise ValueError("selected model input is not a compatible PyTorch state dictionary")
+        raise ValueError("bundled initial weight is not a compatible PyTorch state dictionary")
     model.load_state_dict(state)
 
 

@@ -7,14 +7,11 @@ import { useTranslation } from 'react-i18next';
 import { getBaseModels } from '../../api/task';
 import {
   importTrainingRuntimeCodePackage,
-  importTrainingRuntimeModelPackage,
   listTrainingRuntimeCodePackages,
-  listTrainingRuntimeModelPackages,
 } from '../../api/trainingRuntime';
 import type {
   BaseModelResponse,
   TrainingRuntimeCodePackage,
-  TrainingRuntimeModelPackage,
 } from '../../types';
 
 const { Text } = Typography;
@@ -60,26 +57,22 @@ const ModelManagementPage: React.FC = () => {
   const { t } = useTranslation('trainingRuntime');
   const { t: common } = useTranslation('common');
   const codeFileInputRef = useRef<HTMLInputElement>(null);
-  const modelFileInputRef = useRef<HTMLInputElement>(null);
   const [activeSource, setActiveSource] = useState<SourceTab>('builtin');
   const [category, setCategory] = useState<ModelCategory>('all');
   const [builtinModels, setBuiltinModels] = useState<BaseModelResponse[]>([]);
   const [externalCodePackages, setExternalCodePackages] = useState<TrainingRuntimeCodePackage[]>([]);
-  const [externalModels, setExternalModels] = useState<TrainingRuntimeModelPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
   const loadModels = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextBuiltinModels, nextCodePackages, nextExternalModels] = await Promise.all([
+      const [nextBuiltinModels, nextCodePackages] = await Promise.all([
         getBaseModels(),
         listTrainingRuntimeCodePackages(),
-        listTrainingRuntimeModelPackages(),
       ]);
       setBuiltinModels(nextBuiltinModels);
       setExternalCodePackages(nextCodePackages);
-      setExternalModels(nextExternalModels);
     } catch (error) {
       message.error(getErrorMessage(error, t('loadFailed')));
     } finally {
@@ -95,9 +88,12 @@ const ModelManagementPage: React.FC = () => {
     () => builtinModels.filter((model) => category === 'all' || getModelCategory(model.model_type) === category),
     [builtinModels, category],
   );
-  const visibleExternalModels = useMemo(
-    () => externalModels.filter((model) => category === 'all' || getModelCategory(model.task_kind) === category),
-    [externalModels, category],
+  const visibleCustomModels = useMemo(
+    () => externalCodePackages.filter((model) => (
+      category === 'all'
+      || model.supported_tasks.some((task) => getModelCategory(task.task_kind) === category)
+    )),
+    [externalCodePackages, category],
   );
 
   const handleImportCodePackage = async (file: File) => {
@@ -110,28 +106,7 @@ const ModelManagementPage: React.FC = () => {
       const result = await importTrainingRuntimeCodePackage(file);
       message.success(
         result.catalog_created
-          ? t('codeImportSuccess', { name: result.package.name })
-          : t('alreadyRegistered', { name: result.package.name }),
-      );
-      await loadModels();
-    } catch (error) {
-      message.error(getErrorMessage(error, t('importFailed')));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleImportModelPackage = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.zip')) {
-      message.warning(t('zipRequired'));
-      return;
-    }
-    setUploading(true);
-    try {
-      const result = await importTrainingRuntimeModelPackage(file);
-      message.success(
-        result.catalog_created
-          ? t('modelImportSuccess', { name: result.package.name })
+          ? t('customModelImportSuccess', { name: result.package.name })
           : t('alreadyRegistered', { name: result.package.name }),
       );
       await loadModels();
@@ -192,10 +167,10 @@ const ModelManagementPage: React.FC = () => {
         <Text type="secondary">{t('externalHint')}</Text>
       </Card>
       {categoryBar}
-      <Card size="small" title={t('codePackagesTitle')} style={{ marginBottom: 16 }}>
-        {externalCodePackages.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('noCodePackages')} /> : (
+      <Card size="small" title={t('customModelsTitle')}>
+        {visibleCustomModels.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('noCustomModels')} /> : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-            {externalCodePackages.map((item) => (
+            {visibleCustomModels.map((item) => (
               <Card key={item.id} size="small">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                   <div style={{ minWidth: 0 }}>
@@ -221,36 +196,6 @@ const ModelManagementPage: React.FC = () => {
           </div>
         )}
       </Card>
-      <Card size="small" title={t('modelPackagesTitle')}>
-      {visibleExternalModels.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('noExternalModels')} /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
-          {visibleExternalModels.map((model) => (
-            <Card key={model.id} size="small">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, color: '#1f2937' }}>{model.name}</div>
-                  <Text type="secondary" ellipsis style={{ display: 'block' }}>
-                    {model.framework_id} {model.framework_version} · .{model.artifact_format}
-                  </Text>
-                </div>
-                <Tag color="purple">{t(`category.${getModelCategory(model.task_kind)}`)}</Tag>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
-                <Tag>{t('classCount', { count: model.class_names.length })}</Tag>
-                {model.has_resume_checkpoint ? <Tag color="green">{t('resumeAvailable')}</Tag> : null}
-              </div>
-              <Text type="secondary" style={{ display: 'block', marginTop: 10, fontSize: 12 }}>
-                {t('packageMeta', {
-                  fileName: model.package_file_name,
-                  size: formatByteSize(model.package_size_bytes),
-                  createdAt: dayjs(model.created_at).format('YYYY-MM-DD HH:mm'),
-                })}
-              </Text>
-            </Card>
-          ))}
-        </div>
-      )}
-      </Card>
     </div>
   );
 
@@ -269,14 +214,9 @@ const ModelManagementPage: React.FC = () => {
             {common('action.refresh')}
           </Button>
           {activeSource === 'external' ? (
-            <>
-              <Button icon={<UploadOutlined />} loading={uploading} onClick={() => codeFileInputRef.current?.click()}>
-                {t('importCodePackage')}
-              </Button>
-              <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={() => modelFileInputRef.current?.click()}>
-                {t('importModelPackage')}
-              </Button>
-            </>
+            <Button type="primary" icon={<UploadOutlined />} loading={uploading} onClick={() => codeFileInputRef.current?.click()}>
+              {t('importCustomModel')}
+            </Button>
           ) : null}
         </div>
       </div>
@@ -292,18 +232,6 @@ const ModelManagementPage: React.FC = () => {
           if (file) void handleImportCodePackage(file);
         }}
       />
-      <input
-        ref={modelFileInputRef}
-        hidden
-        type="file"
-        accept=".zip,application/zip"
-        onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
-          event.currentTarget.value = '';
-          if (file) void handleImportModelPackage(file);
-        }}
-      />
-
       <Tabs
         className="settings-section-tabs"
         activeKey={activeSource}

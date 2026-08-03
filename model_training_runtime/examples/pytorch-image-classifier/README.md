@@ -22,9 +22,14 @@ Build the uploadable ZIP:
 python build_package_zip.py ./dist/pytorch-image-classifier-1.0.0.zip
 ```
 
-Import that ZIP from **模型管理 → 外部模型 → 训练脚本包**, then choose **自定义脚本
-训练** when creating a training task. For a fast smoke test, use:
+Import that ZIP from **模型管理 → 自定义模型**, then choose **自定义脚本训练** when
+creating a training task. For a fast smoke test, use:
 
 ```json
 {"epochs": 1, "max_samples": 128, "batch_size": 32}
 ```
+
+To start from a pre-trained `.pt` weight, include it in the same ZIP (for
+example `weights/initial.pt`) and load it from `train.py` using a path relative
+to `__file__`. The example checks that exact optional path automatically; do
+not upload it as a separate model package or add a manifest field.

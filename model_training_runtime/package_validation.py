@@ -13,9 +13,9 @@ from contracts import TrainingPackageManifest
 from runtime.archive import TrainingArchiveError, validate_archive_members
 
 
-MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_ARCHIVE_FILES = 5_000
-MAX_UNCOMPRESSED_BYTES = 250 * 1024 * 1024
+MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
 MAX_MODEL_PACKAGE_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_MODEL_PACKAGE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
 MANIFEST_FILE = "training_package.json"
@@ -81,7 +81,6 @@ def validate_package_archive(archive: bytes) -> ArchiveValidationReport:
                 raise PackageArchiveValidationError(
                     f"manifest entrypoint `{manifest.entrypoint}` is not a regular file in the archive"
                 )
-
             return ArchiveValidationReport(
                 sha256=hashlib.sha256(archive).hexdigest(),
                 file_count=len(file_names),

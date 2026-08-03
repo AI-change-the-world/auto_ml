@@ -8,11 +8,15 @@ The `train(context, report)` entrypoint may be synchronous or async. It writes
 artifacts below `context["workspace"]["output_dir"]` and returns a completion
 object. The runner owns artifact checksum/size calculation and `result.json`.
 
-If this package declares `model_input_contract`, the worker materializes the
-selected immutable model input below `context["workspace"]["input_dir"]` and
-passes its path in `context["model_input_path"]`. Use `context["model_input"]`
-to distinguish `initialize` from `resume`; only a model-package checkpoint
-explicitly registered as resumable may use `resume`.
+To bundle optional initial weights with this custom model, place the file in
+the ZIP, for example `weights/initial.pt`. The runner extracts the whole ZIP
+into the code directory, so `train.py` can load it with
+`Path(__file__).resolve().parent / "weights" / "initial.pt"`. Omit the file
+to train from scratch.
+
+There is no manifest field or second upload for bundled weights: the script
+owns the relative path and decides whether to load it. This keeps a script and
+its compatible weights as one immutable custom-model version.
 
 When returning `model`, include its `framework` identity. To allow a completed
 run to become a future resume source, return `resume_checkpoint_path` pointing

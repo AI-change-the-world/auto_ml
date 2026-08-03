@@ -73,6 +73,7 @@ def package_archive(
     invalid_event: bool = False,
     malformed_protocol: bool = False,
     accepts_model_input: bool = False,
+    bundled_weight: bool = False,
 ) -> bytes:
     manifest = {
         "protocol_version": "training-code-package/v1",
@@ -111,6 +112,7 @@ def package_archive(
             "def train(context, report):",
             "    print('__AUTO_ML_TRAINING_EVENT__=not-json')" if malformed_protocol else "    pass",
             f"    {event_line}",
+            "    assert (Path(__file__).parent / 'weights' / 'initial.pt').read_bytes() == b'bundled initial weights'" if bundled_weight else "    pass",
             "    Path(context['workspace']['output_dir'], 'model.onnx').write_bytes(b'model')",
             "    return {",
             "        'summary': 'completed',",
@@ -129,6 +131,8 @@ def package_archive(
     with ZipFile(archive, "w") as bundle:
         bundle.writestr("training_package.json", json.dumps(manifest))
         bundle.writestr("train.py", train)
+        if bundled_weight:
+            bundle.writestr("weights/initial.pt", b"bundled initial weights")
     return archive.getvalue()
 
 
@@ -162,6 +166,7 @@ class ExecutionCoordinatorTest(unittest.TestCase):
         invalid_event: bool = False,
         malformed_protocol: bool = False,
         include_model_input: bool = False,
+        bundled_weight: bool = False,
     ) -> TrainingCodeSubmission:
         registry = TrainingPackageRegistry(storage)
         package = asyncio.run(
@@ -171,6 +176,7 @@ class ExecutionCoordinatorTest(unittest.TestCase):
                     invalid_event=invalid_event,
                     malformed_protocol=malformed_protocol,
                     accepts_model_input=include_model_input,
+                    bundled_weight=bundled_weight,
                 ),
             )
         ).registration
@@ -253,6 +259,15 @@ class ExecutionCoordinatorTest(unittest.TestCase):
             model_path = outcome.workspace_root / "input" / "model-input" / "initial.pt"
             self.assertEqual(model_path.read_bytes(), b"initial weights")
         self.assertEqual(outcome.execution.model_input_path, "/workspace/input/model-input/initial.pt")
+
+    def test_makes_bundled_weight_available_relative_to_script(self) -> None:
+        storage = MemoryObjectStorage()
+        submission = self._submission(storage, bundled_weight=True)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            outcome = asyncio.run(self._coordinator(storage, Path(temp_dir) / "workspaces").execute(submission))
+            bundled_weight = outcome.workspace_root / "code" / "weights" / "initial.pt"
+            self.assertEqual(bundled_weight.read_bytes(), b"bundled initial weights")
+        self.assertEqual(outcome.result.status, "succeeded")
 
     def test_accepts_a_replaceable_executor(self) -> None:
         storage = MemoryObjectStorage()

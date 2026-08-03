@@ -24,11 +24,6 @@
       "epochs": {"type": "integer", "minimum": 1, "default": 10}
     }
   },
-  "model_input_contract": {
-    "framework": {"id": "pytorch", "version": "2.5"},
-    "formats": ["pt"],
-    "modes": ["initialize", "resume"]
-  },
   "output_contract": {
     "artifacts": [
       {"role": "model", "formats": ["onnx"], "required": true, "deployable": true}
