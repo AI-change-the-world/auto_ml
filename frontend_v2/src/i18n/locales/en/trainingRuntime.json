@@ -1,0 +1,30 @@
+{
+  "modelManagementTitle": "Model Management",
+  "modelManagementSubtitle": "View built-in models and external model packages in one place",
+  "builtinTab": "Built-in Models",
+  "externalTab": "External Models",
+  "builtinHint": "Built-in models come from base_models and are only selectable by the current model_trainer flow. This tab is read-only.",
+  "externalHint": "External model packages are validated and stored by model_training_runtime. They are only for future custom-script training and never enter the built-in list or execute through model_trainer.",
+  "importModelPackage": "Import Model Package",
+  "noExternalModels": "No external model packages",
+  "packageMeta": "{{fileName}} · {{size}} · {{createdAt}}",
+  "resumeAvailable": "Resumable",
+  "classCount": "{{count}} classes",
+  "unknownTask": "Undeclared task type",
+  "noDescription": "No description",
+  "builtinModelId": "Base model ID #{{id}}",
+  "noBuiltinModels": "No built-in base models",
+  "zipRequired": "Please select a ZIP file",
+  "loadFailed": "Failed to load training resources",
+  "importFailed": "Failed to import training resources",
+  "modelImportSuccess": "Registered external model package \"{{name}}\"",
+  "alreadyRegistered": "\"{{name}}\" already exists; reused the registered release",
+  "category": {
+    "all": "All",
+    "detection": "Detection",
+    "classification": "Classification",
+    "segmentation": "Segmentation",
+    "pose": "Pose",
+    "other": "Other"
+  }
+}

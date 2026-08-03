@@ -1,0 +1,30 @@
+{
+  "modelManagementTitle": "模型管理",
+  "modelManagementSubtitle": "统一查看内置模型与外部模型包",
+  "builtinTab": "内置模型",
+  "externalTab": "外部模型",
+  "builtinHint": "内置模型来自 base_models，仅供当前 model_trainer 训练流程选择。当前页面只读，不支持上传或修改。",
+  "externalHint": "外部模型包由 model_training_runtime 验证和存储，只会提供给后续自定义脚本训练；不会进入内置模型列表或由 model_trainer 执行。",
+  "importModelPackage": "导入模型包",
+  "noExternalModels": "暂无外部模型包",
+  "packageMeta": "{{fileName}} · {{size}} · {{createdAt}}",
+  "resumeAvailable": "支持断点恢复",
+  "classCount": "{{count}} 个类别",
+  "unknownTask": "未声明任务类型",
+  "noDescription": "暂无描述",
+  "builtinModelId": "基础模型 ID #{{id}}",
+  "noBuiltinModels": "暂无内置基础模型",
+  "zipRequired": "请选择 ZIP 文件",
+  "loadFailed": "加载训练资源失败",
+  "importFailed": "导入训练资源失败",
+  "modelImportSuccess": "已登记外部模型包「{{name}}」",
+  "alreadyRegistered": "「{{name}}」已存在，已复用已登记版本",
+  "category": {
+    "all": "全部",
+    "detection": "检测",
+    "classification": "分类",
+    "segmentation": "分割",
+    "pose": "姿态",
+    "other": "其他"
+  }
+}

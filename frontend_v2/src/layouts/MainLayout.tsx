@@ -7,6 +7,7 @@ import {
   CloudServerOutlined,
   CommentOutlined,
   DashboardOutlined,
+  DatabaseOutlined,
   DeploymentUnitOutlined,
   DownOutlined,
   EditOutlined,
@@ -363,6 +364,7 @@ const MainLayout: React.FC = () => {
     if (location.pathname.startsWith('/batch-annotation/runs')) return '批量标注任务';
     if (location.pathname.startsWith('/annotations')) return t('nav.annotation');
     if (location.pathname.startsWith('/tasks')) return t('nav.training');
+    if (location.pathname.startsWith('/models')) return t('nav.modelManagement');
     if (location.pathname.startsWith('/deploy')) return t('nav.deploy');
     if (location.pathname.startsWith('/ai-pipeline')) return t('nav.aiPipeline');
     if (location.pathname.startsWith('/settings')) return t('nav.settings');
@@ -419,6 +421,7 @@ const MainLayout: React.FC = () => {
             { key: '/', icon: <DashboardOutlined className="text-[18px]" />, label: t('nav.home'), tour: 'nav-home' },
             { key: '/ai-pipeline', icon: <DeploymentUnitOutlined className="text-[18px]" />, label: t('nav.aiPipeline') },
             { key: '/batch-annotation/tools', icon: <ToolOutlined className="text-[18px]" />, label: '批量标注工具' },
+            { key: '/models', icon: <DatabaseOutlined className="text-[18px]" />, label: t('nav.modelManagement') },
           ].map((item) => {
             const active = isActive(item.key);
             return (

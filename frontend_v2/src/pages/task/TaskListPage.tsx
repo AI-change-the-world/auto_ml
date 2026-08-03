@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { message, Spin, Modal, Select, InputNumber, Switch, Tooltip, Collapse } from 'antd';
-import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, ExperimentOutlined, ReloadOutlined, ClockCircleOutlined, RightOutlined, DeleteOutlined, InfoCircleOutlined, DatabaseOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { listTasks, createTrainTask, getBaseModels, getTrainerStatus, deleteTask, getTrainingHistoryCandidates } from '../../api/task';
 import { subscribeTaskStream } from '../../api/taskStream';
@@ -556,6 +556,7 @@ const TaskListPage: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="button-text" onClick={handleManualRefresh} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', color: '#666', cursor: 'pointer' }}><ReloadOutlined /> {tc('action.refresh')}</button>
+          <button className="button-text" onClick={() => navigate('/models')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', color: '#666', cursor: 'pointer' }}><DatabaseOutlined /> {t('modelManagement')}</button>
           <button className="button-text" onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 16px', background: '#4f6ef7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}><PlusOutlined /> {t('createTask')}</button>
         </div>
       </div>

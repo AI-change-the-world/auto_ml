@@ -2,6 +2,7 @@
     "title": "Training Tasks",
     "subtitle": "Manage model training tasks",
     "createTask": "New Training",
+    "modelManagement": "Model Management",
     "createTitle": "Create Training Task",
     "deleteTitle": "Delete Task",
     "empty": "No tasks yet",

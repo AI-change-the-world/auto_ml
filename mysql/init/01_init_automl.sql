@@ -185,6 +185,60 @@ CREATE TABLE IF NOT EXISTS `base_models` (
     UNIQUE KEY `uk_base_models_name` (`name`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '基础模型';
 
+CREATE TABLE IF NOT EXISTS `training_runtime_code_package` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+    `package_key` VARCHAR(128) NOT NULL COMMENT '训练脚本标识',
+    `version` VARCHAR(64) NOT NULL COMMENT '训练脚本版本',
+    `name` VARCHAR(255) NOT NULL COMMENT '展示名称',
+    `description` TEXT DEFAULT NULL COMMENT '描述',
+    `runtime_id` VARCHAR(128) NOT NULL COMMENT '平台托管运行时标识',
+    `entrypoint` VARCHAR(512) NOT NULL COMMENT 'ZIP 内训练入口',
+    `package_object_key` VARCHAR(512) NOT NULL COMMENT '不可变 ZIP 对象路径',
+    `package_sha256` VARCHAR(64) NOT NULL COMMENT 'ZIP SHA-256',
+    `package_size_bytes` BIGINT NOT NULL COMMENT 'ZIP 大小',
+    `package_file_name` VARCHAR(255) NOT NULL COMMENT '上传文件名',
+    `supported_tasks_json` LONGTEXT NOT NULL COMMENT '支持任务声明 JSON',
+    `parameters_schema_json` LONGTEXT NOT NULL COMMENT '脚本参数 Schema JSON',
+    `model_input_contract_json` LONGTEXT DEFAULT NULL COMMENT '模型输入约束 JSON',
+    `output_contract_json` LONGTEXT NOT NULL COMMENT '产物输出约束 JSON',
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否允许创建新训练任务',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_training_runtime_code_package_release` (`package_key`, `version`),
+    KEY `idx_training_runtime_code_package_enabled` (`enabled`, `created_at`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '自定义训练脚本包目录';
+
+CREATE TABLE IF NOT EXISTS `training_runtime_model_package` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '逻辑删除标记',
+    `name` VARCHAR(255) NOT NULL COMMENT '展示名称',
+    `package_object_key` VARCHAR(512) NOT NULL COMMENT '原始 ZIP 对象路径',
+    `package_sha256` VARCHAR(64) NOT NULL COMMENT '原始 ZIP SHA-256',
+    `package_size_bytes` BIGINT NOT NULL COMMENT '原始 ZIP 大小',
+    `package_file_name` VARCHAR(255) NOT NULL COMMENT '上传文件名',
+    `task_kind` VARCHAR(64) NOT NULL COMMENT '任务类型',
+    `class_names_json` LONGTEXT NOT NULL COMMENT '类别顺序 JSON',
+    `framework_id` VARCHAR(128) NOT NULL COMMENT '训练框架标识',
+    `framework_version` VARCHAR(128) NOT NULL COMMENT '训练框架版本',
+    `artifact_format` VARCHAR(64) NOT NULL COMMENT '初始化产物格式',
+    `initialize_object_key` VARCHAR(512) NOT NULL COMMENT '初始化权重对象路径',
+    `initialize_sha256` VARCHAR(64) NOT NULL COMMENT '初始化权重 SHA-256',
+    `initialize_size_bytes` BIGINT NOT NULL COMMENT '初始化权重大小',
+    `resume_object_key` VARCHAR(512) DEFAULT NULL COMMENT '可恢复检查点对象路径',
+    `resume_sha256` VARCHAR(64) DEFAULT NULL COMMENT '可恢复检查点 SHA-256',
+    `resume_size_bytes` BIGINT DEFAULT NULL COMMENT '可恢复检查点大小',
+    `metadata_json` LONGTEXT NOT NULL COMMENT '扩展元数据 JSON',
+    `enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否允许在自定义训练中选择',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_training_runtime_model_package_sha256` (`package_sha256`),
+    KEY `idx_training_runtime_model_package_enabled` (`enabled`, `created_at`),
+    KEY `idx_training_runtime_model_package_task_kind` (`task_kind`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '自定义训练模型包目录';
+
 CREATE TABLE IF NOT EXISTS `available_model` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `name` VARCHAR(255) DEFAULT NULL COMMENT '模型名称',

@@ -17,7 +17,8 @@
         "search": "Search...",
         "exampleDataset": "Example Dataset",
         "exampleProject": "Example Project",
-        "datasets": "Datasets"
+        "datasets": "Datasets",
+        "modelManagement": "Model Management"
     },
     "assistant": {
         "entry": "Workbench assistant",

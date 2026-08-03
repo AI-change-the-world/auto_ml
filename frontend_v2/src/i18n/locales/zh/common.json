@@ -17,7 +17,8 @@
         "search": "搜索...",
         "exampleDataset": "示例数据集",
         "exampleProject": "示例项目",
-        "datasets": "数据集"
+        "datasets": "数据集",
+        "modelManagement": "模型管理"
     },
     "assistant": {
         "entry": "工作台助手",

@@ -60,6 +60,7 @@ async def init_db():
             AiPipelineRun, AiPipelineRunStep, AiPipelineArtifact, AiPipelineEventLog,
             AiPipelineBatchRun, AiPipelineBatchRunItem, AiPipelineBatchRunEvent,
             AiPipelineBatchBuiltinScriptSetting,
+            TrainingRuntimeCodePackage, TrainingRuntimeModelPackage,
         )
         # 创建所有表
         await conn.run_sync(Base.metadata.create_all)

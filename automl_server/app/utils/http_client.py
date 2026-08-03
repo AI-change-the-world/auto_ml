@@ -30,7 +30,7 @@ class HttpClient:
         path: str,
         *,
         params: Dict[str, Any] = None,
-        data: Dict[str, Any] = None,
+        data: Any = None,
         json: Dict[str, Any] = None,
         headers: Dict[str, str] = None,
         files: Dict[str, Any] = None,
@@ -66,7 +66,7 @@ class HttpClient:
         path: str,
         *,
         params: Dict[str, Any] = None,
-        data: Dict[str, Any] = None,
+        data: Any = None,
         json: Dict[str, Any] = None,
         headers: Dict[str, str] = None,
         files: Dict[str, Any] = None,
@@ -128,10 +128,11 @@ class HttpClient:
     async def post(
         self,
         path: str,
-        data: Dict[str, Any] = None,
+        data: Any = None,
         json: Dict[str, Any] = None,
         headers: Dict[str, str] = None,
-        files: Dict[str, Any] = None
+        files: Dict[str, Any] = None,
+        params: Dict[str, Any] = None,
     ) -> Response:
         """POST 请求"""
         return await self._request(
@@ -141,6 +142,7 @@ class HttpClient:
             json=json,
             headers=headers,
             files=files,
+            params=params,
         )
 
     async def put(

@@ -2,6 +2,7 @@
     "title": "训练任务",
     "subtitle": "管理模型训练任务",
     "createTask": "创建训练",
+    "modelManagement": "模型管理",
     "createTitle": "创建训练任务",
     "deleteTitle": "删除任务",
     "empty": "暂无任务",

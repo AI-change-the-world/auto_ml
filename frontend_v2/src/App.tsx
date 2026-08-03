@@ -30,6 +30,7 @@ import DpoReferenceChoiceAnnotationPage from './pages/annotation/dpo/DpoReferenc
 import DpoMultiTurnAnnotationPage from './pages/annotation/dpo/DpoMultiTurnAnnotationPage';
 import TaskListPage from './pages/task/TaskListPage';
 import TaskDetailPage from './pages/task/TaskDetailPage';
+import ModelManagementPage from './pages/model/ModelManagementPage';
 import DeployPage from './pages/deploy/DeployPage';
 import DeployDetailPage from './pages/deploy/DeployDetailPage';
 import SettingsPage from './pages/settings/SettingsPage';
@@ -74,6 +75,9 @@ const App: React.FC = () => {
             <Route path="/annotations/:annotationId/ai-pipeline" element={<AnnotationAiPipelinePage />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskDetailPage />} />
+            <Route path="/models" element={<ModelManagementPage />} />
+            <Route path="/training-models/builtin" element={<Navigate to="/models" replace />} />
+            <Route path="/training-resources" element={<Navigate to="/models" replace />} />
             <Route path="/deploy" element={<DeployPage />} />
             <Route path="/deploy/:id" element={<DeployDetailPage />} />
             <Route path="/settings" element={<SettingsPage />} />

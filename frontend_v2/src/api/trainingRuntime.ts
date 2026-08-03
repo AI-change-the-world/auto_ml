@@ -1,0 +1,25 @@
+import apiClient from './client';
+import type {
+  Result,
+  TrainingRuntimeModelPackage,
+  TrainingRuntimeModelPackageImportResponse,
+} from '../types';
+
+export async function listTrainingRuntimeModelPackages(includeDisabled = true) {
+  const response = await apiClient.get<Result<TrainingRuntimeModelPackage[]>>(
+    '/training-runtime/model-packages',
+    { params: { include_disabled: includeDisabled } },
+  );
+  return response.data.data ?? [];
+}
+
+export async function importTrainingRuntimeModelPackage(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiClient.post<Result<TrainingRuntimeModelPackageImportResponse>>(
+    '/training-runtime/model-packages/import',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000 },
+  );
+  return response.data.data;
+}

@@ -187,7 +187,7 @@ registrations of the same resolved content return the same immutable snapshot
 with `created: false`. When the same Nacos block configures `token`, all
 registry write endpoints require its `Authorization: Bearer ...` value.
 
-For imported base models and incremental training, upload a ZIP following the
+For custom-script model inputs and incremental training, upload a ZIP following the
 [model-package template](./templates/model-package/README.md). The registry
 stores the original ZIP and each declared selected artifact in the existing
 models bucket. A normal weight is returned as an `initialize` input. A ZIP may
@@ -199,6 +199,12 @@ task kind, and class order checks explicit.
 Model-package imports currently use an in-memory HTTP body and are deliberately
 capped at 512 MiB compressed and uncompressed. Larger imports need the next
 phase's scoped direct-to-S3 upload flow rather than an unbounded API request.
+
+The control plane registers code packages and model packages in its separate
+runtime catalogs through `/training-runtime/code-packages/import` and
+`/training-runtime/model-packages/import`. Those catalogs are not `base_models`:
+they must only be selected by a future custom-script training task, never by
+`model_trainer`.
 
 When a future package finishes, it may publish a checkpoint artifact plus
 `model.resume_checkpoint_path`. The eventual artifact-registration worker can

@@ -148,6 +148,10 @@ export type {
   AiPipelineBatchRunStreamEnvelope,
   AiPipelineBatchRunCreateRequest,
 } from './batchAnnotation';
+export type {
+  TrainingRuntimeModelPackage,
+  TrainingRuntimeModelPackageImportResponse,
+} from './trainingRuntime';
 export type { ToolModelCreate, ToolModelResponse } from './tool';
 export type {
   AiPipelineTemplateListItem,

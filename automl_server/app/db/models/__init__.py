@@ -22,6 +22,7 @@ from .batch_annotation import (
     AiPipelineBatchScript,
     AiPipelineBatchBuiltinScriptSetting,
 )
+from .training_runtime import TrainingRuntimeCodePackage, TrainingRuntimeModelPackage
 
 __all__ = [
     "BaseEntity",
@@ -43,4 +44,6 @@ __all__ = [
     "AiPipelineBatchRunEvent",
     "AiPipelineBatchScript",
     "AiPipelineBatchBuiltinScriptSetting",
+    "TrainingRuntimeCodePackage",
+    "TrainingRuntimeModelPackage",
 ]

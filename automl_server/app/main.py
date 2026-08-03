@@ -8,6 +8,7 @@ from app.modules.home import router as home_router
 from app.modules.deploy import router as deploy_router
 from app.modules.inference import router as inference_router
 from app.modules.task import router as task_router
+from app.modules.training_runtime import router as training_runtime_router
 from app.modules.ai_pipeline import router as ai_pipeline_router
 from app.modules.assistant import router as assistant_router
 from app.modules.annotation import router as annotation_router
@@ -329,6 +330,7 @@ app.include_router(annotation_router)
 app.include_router(ai_pipeline_router)
 app.include_router(assistant_router)
 app.include_router(task_router)
+app.include_router(training_runtime_router)
 app.include_router(deploy_router)
 app.include_router(inference_router)
 app.include_router(home_router)
