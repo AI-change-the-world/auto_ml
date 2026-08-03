@@ -3,7 +3,6 @@
 优先从 Nacos 获取，回退到环境变量
 """
 import os
-import re
 from typing import Optional
 
 from pydantic import BaseModel
@@ -95,33 +94,11 @@ def _load_from_nacos(nacos_config: NacosConfig) -> dict:
 
 
 def _extract_db_config(nacos_data: dict) -> dict:
-    """兼容 db 与 spring.datasource 两种结构"""
+    """从 Nacos 的 db 配置中提取数据库连接信息"""
     db_config = nacos_data.get("db")
     if isinstance(db_config, dict) and db_config:
         return db_config
-
-    datasource = nacos_data.get("spring", {}).get("datasource", {})
-    if not isinstance(datasource, dict) or not datasource:
-        return {}
-
-    jdbc_url = datasource.get("url", "")
-    match = re.match(
-        r"^jdbc:mysql://(?P<host>[^:/?#]+)(?::(?P<port>\d+))?/(?P<database>[^?]+)",
-        jdbc_url,
-    )
-    parsed = {}
-    if match:
-        parsed = {
-            "host": match.group("host"),
-            "port": int(match.group("port") or 3306),
-            "database": match.group("database"),
-        }
-
-    if datasource.get("username"):
-        parsed["username"] = datasource["username"]
-    if datasource.get("password"):
-        parsed["password"] = datasource["password"]
-    return parsed
+    return {}
 
 
 def _load_settings() -> Settings:
