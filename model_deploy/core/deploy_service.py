@@ -156,10 +156,20 @@ class DeployService:
         return value
 
     def _local_model_path(self, model_id: int, model_path: str, model_format: str) -> str:
+        """Use the immutable object key as part of the cache identity.
+
+        Platform database IDs can be reused after a local database reset. A
+        cache file named only after ``model_id`` can therefore load a previous,
+        unrelated ONNX file under a newly registered model record.
+        """
         suffix = PurePosixPath(model_path).suffix.lower()
         if not suffix:
             suffix = f".{model_format}"
-        return os.path.join(self.config.model_cache_dir, f"model_{model_id}{suffix}")
+        object_digest = hashlib.sha256(model_path.encode("utf-8")).hexdigest()[:16]
+        return os.path.join(
+            self.config.model_cache_dir,
+            f"model_{model_id}_{object_digest}{suffix}",
+        )
 
     def _get_running_deployment(self, model_id: int) -> Optional[Dict[str, Any]]:
         """获取正在运行的部署"""

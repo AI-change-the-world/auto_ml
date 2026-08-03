@@ -71,6 +71,7 @@ class RuntimeInstance:
             self.status = "starting"
             session = ort.InferenceSession(self.model_path, providers=providers)
             input_meta = session.get_inputs()[0]
+            self._validate_classification_output_signature(session.get_outputs()[0].shape)
 
             with self._lock:
                 self.session = session
@@ -370,6 +371,28 @@ class RuntimeInstance:
         img_array = np.expand_dims(img_array, axis=0)
         return img_array
 
+    def _validate_classification_output_signature(self, output_shape: List[Any]) -> None:
+        """Reject a detection ONNX before it can be misreported as classification."""
+        if self.task_kind != "classification":
+            return
+        if len(output_shape) != 2:
+            raise RuntimeError(
+                "Classification deployment requires an ONNX output shaped "
+                f"[batch, classes], but received {output_shape}. "
+                "The cached artifact does not match this model; redeploy after refreshing model_deploy."
+            )
+        class_count = output_shape[1]
+        if (
+            self.class_names
+            and isinstance(class_count, int)
+            and class_count != len(self.class_names)
+        ):
+            raise RuntimeError(
+                "Classification ONNX output class count does not match the registered class names: "
+                f"output={class_count}, registered={len(self.class_names)}. "
+                "The cached artifact does not match this model; redeploy after refreshing model_deploy."
+            )
+
     def _postprocess_detections(
         self,
         outputs: List[np.ndarray],
@@ -547,6 +570,11 @@ class RuntimeInstance:
                 "accepted": False,
                 "top_scores": [],
             }
+        if self.class_names and predictions.size != len(self.class_names):
+            raise RuntimeError(
+                "Classification output class count does not match the registered class names: "
+                f"output={predictions.size}, registered={len(self.class_names)}"
+            )
 
         class_id = int(np.argmax(predictions))
         confidence = float(predictions[class_id])

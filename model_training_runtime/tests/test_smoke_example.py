@@ -8,6 +8,9 @@ import unittest
 from pathlib import Path
 from uuid import uuid4
 
+import numpy as np
+import onnxruntime as ort
+
 from contracts import TrainingResult
 from runner import RESULT_PREFIX
 
@@ -55,6 +58,16 @@ class DeployableSmokeExampleTest(unittest.TestCase):
             self.assertEqual(result.artifacts[0].format, "onnx")
             self.assertTrue(result.artifacts[0].deployable)
             self.assertTrue((output_dir / "smoke-model.onnx").is_file())
+            session = ort.InferenceSession(
+                str(output_dir / "smoke-model.onnx"),
+                providers=["CPUExecutionProvider"],
+            )
+            output = session.run(
+                None,
+                {"images": np.zeros((1, 3, 16, 16), dtype=np.float32)},
+            )[0]
+            self.assertEqual(output.shape, (1, 2))
+            self.assertAlmostEqual(float(output.sum()), 1.0, places=5)
             self.assertEqual(
                 json.loads(result_line[len(RESULT_PREFIX) :])["artifacts"][0]["path"],
                 "smoke-model.onnx",
