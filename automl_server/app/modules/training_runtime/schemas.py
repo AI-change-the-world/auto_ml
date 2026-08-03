@@ -128,6 +128,12 @@ class TrainingRuntimeCodePackageResponse(BaseModel):
     updated_at: datetime
 
 
+class TrainingRuntimeCodePackageUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
+
+
 class TrainingRuntimeModelPackageResponse(BaseModel):
     id: int
     name: str

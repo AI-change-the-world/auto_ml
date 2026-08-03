@@ -23,3 +23,25 @@ export async function importTrainingRuntimeCodePackage(file: File) {
   );
   return response.data.data;
 }
+
+export async function getTrainingRuntimeCodePackage(packageId: number) {
+  const response = await apiClient.get<Result<TrainingRuntimeCodePackage>>(
+    `/training-runtime/code-packages/${packageId}`,
+  );
+  return response.data.data;
+}
+
+export async function updateTrainingRuntimeCodePackage(packageId: number, data: { enabled: boolean }) {
+  const response = await apiClient.patch<Result<TrainingRuntimeCodePackage>>(
+    `/training-runtime/code-packages/${packageId}`,
+    data,
+  );
+  return response.data.data;
+}
+
+export async function deleteTrainingRuntimeCodePackage(packageId: number) {
+  const response = await apiClient.delete<Result<unknown>>(
+    `/training-runtime/code-packages/${packageId}`,
+  );
+  return response.data;
+}

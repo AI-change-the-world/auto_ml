@@ -8,6 +8,7 @@ from app.config.database import get_db
 from .schemas import (
     TrainingRuntimeCodePackageImportResponse,
     TrainingRuntimeCodePackageResponse,
+    TrainingRuntimeCodePackageUpdate,
     TrainingRuntimeModelPackageImportResponse,
     TrainingRuntimeModelPackageResponse,
 )
@@ -46,6 +47,50 @@ async def import_code_package(
         archive_bytes=await file.read(),
     )
     return Result.ok(result, "Training code package imported")
+
+
+@router.get(
+    "/code-packages/{package_id}",
+    response_model=Result[TrainingRuntimeCodePackageResponse],
+    summary="获取自定义训练脚本包详情",
+)
+async def get_code_package(
+    package_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: TrainingRuntimeCatalogService = Depends(get_training_runtime_catalog_service),
+):
+    return Result.ok(await service.get_code_package(db, package_id))
+
+
+@router.patch(
+    "/code-packages/{package_id}",
+    response_model=Result[TrainingRuntimeCodePackageResponse],
+    summary="更新自定义训练脚本包状态",
+)
+async def update_code_package(
+    package_id: int,
+    data: TrainingRuntimeCodePackageUpdate,
+    db: AsyncSession = Depends(get_db),
+    service: TrainingRuntimeCatalogService = Depends(get_training_runtime_catalog_service),
+):
+    return Result.ok(
+        await service.update_code_package(db, package_id, data),
+        "Training code package updated",
+    )
+
+
+@router.delete(
+    "/code-packages/{package_id}",
+    response_model=Result,
+    summary="删除自定义训练脚本包",
+)
+async def delete_code_package(
+    package_id: int,
+    db: AsyncSession = Depends(get_db),
+    service: TrainingRuntimeCatalogService = Depends(get_training_runtime_catalog_service),
+):
+    await service.delete_code_package(db, package_id)
+    return Result.ok(message="Training code package deleted")
 
 
 @router.get(

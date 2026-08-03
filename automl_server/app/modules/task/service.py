@@ -271,7 +271,10 @@ class TaskService:
             else:
                 class_names = self._normalize_runtime_class_names(data.class_names)
             data_modalities = self._normalize_runtime_strings(data.data_modalities, "data_modalities")
-            annotation_kinds = self._normalize_runtime_strings(data.annotation_kinds, "annotation_kinds")
+            annotation_kinds = self._normalize_runtime_optional_strings(
+                data.annotation_kinds,
+                "annotation_kinds",
+            )
 
         model_input = await self._resolve_runtime_model_input(
             db,
@@ -567,6 +570,12 @@ class TaskService:
 
     def _normalize_runtime_class_names(self, values: list[str]) -> list[str]:
         return self._normalize_runtime_strings(values, "class_names")
+
+    @staticmethod
+    def _normalize_runtime_optional_strings(values: list[str], field_name: str) -> list[str]:
+        if not values:
+            return []
+        return TaskService._normalize_runtime_strings(values, field_name)
 
     @staticmethod
     def _validate_runtime_package_task(

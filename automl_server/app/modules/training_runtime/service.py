@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common.exceptions import BadRequestException
+from app.common.exceptions import NotFoundException
 from app.config.settings import get_settings
 from app.db.models import TrainingRuntimeCodePackage, TrainingRuntimeModelPackage
 
@@ -15,6 +16,7 @@ from .registration import TrainingRuntimeRegistrar
 from .schemas import (
     TrainingRuntimeCodePackageImportResponse,
     TrainingRuntimeCodePackageResponse,
+    TrainingRuntimeCodePackageUpdate,
     TrainingRuntimeModelPackageImportResponse,
     TrainingRuntimeModelPackageResponse,
 )
@@ -72,6 +74,11 @@ class TrainingRuntimeCatalogService:
                     f"training package `{manifest.key}` version `{manifest.version}` "
                     "already exists with a different archive digest"
                 )
+            if existing.is_deleted or not existing.enabled:
+                existing.enabled = True
+                existing.is_deleted = False
+                await db.commit()
+                await db.refresh(existing)
             return TrainingRuntimeCodePackageImportResponse(
                 package=self._serialize_code_package(existing),
                 registration_created=registration_result.created,
@@ -111,6 +118,37 @@ class TrainingRuntimeCatalogService:
             registration_created=registration_result.created,
             catalog_created=True,
         )
+
+    async def get_code_package(
+        self,
+        db: AsyncSession,
+        package_id: int,
+    ) -> TrainingRuntimeCodePackageResponse:
+        return self._serialize_code_package(
+            await self._get_code_package(db, package_id)
+        )
+
+    async def update_code_package(
+        self,
+        db: AsyncSession,
+        package_id: int,
+        data: TrainingRuntimeCodePackageUpdate,
+    ) -> TrainingRuntimeCodePackageResponse:
+        package = await self._get_code_package(db, package_id)
+        package.enabled = data.enabled
+        await db.commit()
+        await db.refresh(package)
+        return self._serialize_code_package(package)
+
+    async def delete_code_package(
+        self,
+        db: AsyncSession,
+        package_id: int,
+    ) -> None:
+        package = await self._get_code_package(db, package_id)
+        package.enabled = False
+        package.is_deleted = True
+        await db.commit()
 
     async def list_model_packages(
         self,
@@ -200,6 +238,21 @@ class TrainingRuntimeCatalogService:
             timeout=settings.timeout,
             token=settings.token,
         )
+
+    @staticmethod
+    async def _get_code_package(
+        db: AsyncSession,
+        package_id: int,
+    ) -> TrainingRuntimeCodePackage:
+        package = await db.scalar(
+            select(TrainingRuntimeCodePackage).where(
+                TrainingRuntimeCodePackage.id == package_id,
+                TrainingRuntimeCodePackage.is_deleted == False,
+            )
+        )
+        if package is None:
+            raise NotFoundException(f"training code package {package_id} not found")
+        return package
 
     @staticmethod
     def _dump(value: Any) -> str:

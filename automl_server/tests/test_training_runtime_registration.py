@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 
 
 RUNTIME_MODULE_DIR = Path(__file__).resolve().parents[1] / "app" / "modules" / "training_runtime"
+TASK_SCHEMAS_PATH = Path(__file__).resolve().parents[1] / "app" / "modules" / "task" / "schemas.py"
 PACKAGE_NAME = "app.modules.training_runtime"
 package = types.ModuleType(PACKAGE_NAME)
 package.__path__ = [str(RUNTIME_MODULE_DIR)]
@@ -23,6 +24,17 @@ if SCHEMAS_SPEC is None or SCHEMAS_SPEC.loader is None:
 SCHEMAS_MODULE = importlib.util.module_from_spec(SCHEMAS_SPEC)
 sys.modules[SCHEMAS_SPEC.name] = SCHEMAS_MODULE
 SCHEMAS_SPEC.loader.exec_module(SCHEMAS_MODULE)
+
+TASK_SCHEMAS_SPEC = importlib.util.spec_from_file_location(
+    "runtime_task_schemas_test_module",
+    TASK_SCHEMAS_PATH,
+)
+if TASK_SCHEMAS_SPEC is None or TASK_SCHEMAS_SPEC.loader is None:
+    raise RuntimeError("unable to load task schemas")
+TASK_SCHEMAS_MODULE = importlib.util.module_from_spec(TASK_SCHEMAS_SPEC)
+sys.modules[TASK_SCHEMAS_SPEC.name] = TASK_SCHEMAS_MODULE
+TASK_SCHEMAS_SPEC.loader.exec_module(TASK_SCHEMAS_MODULE)
+RuntimeScriptTaskCreate = TASK_SCHEMAS_MODULE.RuntimeScriptTaskCreate
 
 
 class _UnusedHttpClient:
@@ -172,6 +184,20 @@ class TrainingRuntimeRegistrarTest(unittest.TestCase):
             self.registrar._client.post.await_args.args[0],
             "/v1/registrations/model-packages",
         )
+
+
+class RuntimeScriptTaskRequestTest(unittest.TestCase):
+    def test_allows_empty_annotation_kinds_for_script_managed_data(self) -> None:
+        request = RuntimeScriptTaskCreate(
+            code_package_id=1,
+            task_type=1,
+            input_mode="script_managed",
+            class_names=["negative", "positive"],
+            data_modalities=["image"],
+            annotation_kinds=[],
+        )
+
+        self.assertEqual(request.annotation_kinds, [])
 
 
 if __name__ == "__main__":
