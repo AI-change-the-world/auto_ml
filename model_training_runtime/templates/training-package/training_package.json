@@ -18,6 +18,7 @@
     }
   ],
   "input_modes": ["platform_dataset"],
+  "class_names": [],
   "parameters_schema": {
     "type": "object",
     "properties": {

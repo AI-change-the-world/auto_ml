@@ -2,7 +2,7 @@
   "modelManagementTitle": "Model Management",
   "modelManagementSubtitle": "View built-in models and custom training models",
   "builtinTab": "Built-in Models",
-  "externalTab": "External Models",
+  "externalTab": "Custom Models",
   "builtinHint": "Built-in models come from base_models and are only selectable by the current model_trainer flow. This tab is read-only.",
   "externalHint": "One custom model ZIP contains the training script and optional initial weights. The script loads bundled weights through a ZIP-relative path; without weights, it trains from scratch. Custom models run only in model_training_runtime, never in model_trainer.",
   "customModelsTitle": "Custom Models",

@@ -40,6 +40,7 @@ class RuntimeCodePackageManifest(BaseModel):
         min_length=1,
         max_length=2,
     )
+    class_names: list[str] = Field(default_factory=list, max_length=10000)
     parameters_schema: dict[str, Any]
     model_input_contract: dict[str, Any] | None = None
     output_contract: dict[str, Any]
@@ -118,6 +119,7 @@ class TrainingRuntimeCodePackageResponse(BaseModel):
     package_file_name: str
     supported_tasks: list[dict[str, Any]]
     input_modes: list[Literal["platform_dataset", "script_managed"]]
+    class_names: list[str]
     parameters_schema: dict[str, Any]
     model_input_contract: dict[str, Any] | None = None
     output_contract: dict[str, Any]

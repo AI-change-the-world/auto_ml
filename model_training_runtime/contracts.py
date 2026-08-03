@@ -251,6 +251,7 @@ class TrainingPackageManifest(ContractModel):
         min_length=1,
         max_length=2,
     )
+    class_names: list[str] = Field(default_factory=list, max_length=10000)
     parameters_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
     model_input_contract: ModelInputContract | None = None
     output_contract: PackageOutputContract
@@ -285,6 +286,11 @@ class TrainingPackageManifest(ContractModel):
         if not isinstance(value.get("properties", {}), dict):
             raise ValueError("properties must be an object when provided")
         return value
+
+    @field_validator("class_names")
+    @classmethod
+    def validate_class_names(cls, value: list[str]) -> list[str]:
+        return _non_empty_unique_strings(value, "class_names")
 
     @field_validator("input_modes")
     @classmethod

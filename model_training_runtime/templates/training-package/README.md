@@ -1,8 +1,14 @@
 # Training Package Template
 
 Use `training_package.json` to declare a platform-managed runtime, supported
-tasks, parameters, and expected artifacts. Do not include `requirements.txt`:
+tasks, optional fixed `class_names`, parameters, and expected artifacts. Do not include `requirements.txt`:
 the platform selects an immutable runtime image using `runtime.id`.
+
+Leave `class_names` empty for a reusable package that receives labels from the
+selected platform dataset or the script-managed task form. Set a non-empty,
+ordered list only when this ZIP is intentionally limited to fixed categories;
+the platform then submits those categories automatically and rejects a dataset
+or task request with a different category order.
 
 The `train(context, report)` entrypoint may be synchronous or async. It writes
 artifacts below `context["workspace"]["output_dir"]` and returns a completion

@@ -78,6 +78,7 @@ class TrainingRuntimeRegistrarTest(unittest.TestCase):
                         "entrypoint": "train.py",
                         "entrypoint_symbol": "train",
                         "supported_tasks": [{"task_kind": "classification"}],
+                        "class_names": ["cat", "dog"],
                         "parameters_schema": {"type": "object", "properties": {}},
                         "output_contract": {"artifacts": []},
                     },
@@ -101,6 +102,7 @@ class TrainingRuntimeRegistrarTest(unittest.TestCase):
 
         self.assertTrue(result.created)
         self.assertEqual(result.registration.manifest.key, "custom-trainer")
+        self.assertEqual(result.registration.manifest.class_names, ["cat", "dog"])
         self.assertEqual(
             self.registrar._client.post.await_args.args[0],
             "/v1/registrations/packages",

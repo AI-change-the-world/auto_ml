@@ -57,6 +57,7 @@ def package_archive(
         "runtime": {"id": "pytorch-2.5-cu124"},
         "entrypoint": "train.py",
         "supported_tasks": [{"task_kind": "classification", "data_modalities": ["image"], "annotation_kinds": []}],
+        "class_names": ["cat", "dog"],
         "parameters_schema": {"type": "object", "properties": {}},
         "model_input_contract": {
             "framework": {"id": "pytorch", "version": "2.5"},
@@ -108,6 +109,7 @@ class TrainingRegistryTest(unittest.TestCase):
         self.assertTrue(first.created)
         self.assertFalse(repeated.created)
         self.assertEqual(first.registration.archive.sha256, repeated.registration.archive.sha256)
+        self.assertEqual(first.registration.manifest.class_names, ["cat", "dog"])
         self.assertIn(
             ("default", first.registration.archive.object_key),
             storage.objects,

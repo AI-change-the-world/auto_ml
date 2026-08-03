@@ -1,0 +1,62 @@
+{
+  "protocol_version": "training-code-package/v1",
+  "key": "pytorch-smoke-classifier",
+  "version": "1.0.1",
+  "name": "PyTorch Smoke Classifier",
+  "description": "Offline smoke-test classifier using generated binary samples and a small PyTorch network.",
+  "runtime": {
+    "id": "pytorch-2.5-cu124",
+    "kind": "platform_managed"
+  },
+  "entrypoint": "train.py",
+  "entrypoint_symbol": "train",
+  "supported_tasks": [
+    {
+      "task_kind": "classification",
+      "data_modalities": ["image"],
+      "annotation_kinds": []
+    }
+  ],
+  "input_modes": ["script_managed"],
+  "class_names": ["negative", "positive"],
+  "parameters_schema": {
+    "type": "object",
+    "properties": {
+      "epochs": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 5
+      },
+      "sample_count": {
+        "type": "integer",
+        "minimum": 32,
+        "maximum": 4096,
+        "default": 256
+      },
+      "learning_rate": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1,
+        "default": 0.05
+      },
+      "seed": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 42
+      }
+    },
+    "additionalProperties": false
+  },
+  "output_contract": {
+    "artifacts": [
+      {
+        "role": "model",
+        "formats": ["pt"],
+        "required": true,
+        "deployable": false
+      }
+    ],
+    "requires_model_metadata": false
+  }
+}

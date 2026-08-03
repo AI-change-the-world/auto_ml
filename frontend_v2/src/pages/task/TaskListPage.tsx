@@ -29,6 +29,13 @@ import { TaskStatus, TaskStatusLabels, TaskStatusColors } from '../../types/task
 import { useTranslation } from 'react-i18next';
 import { emitTasksChanged } from '../../utils/projectEvents';
 import { getTaskDeleteConfirmEnabled } from '../../utils/localSettings';
+import {
+  buildRuntimeParameterDefaults,
+  getRuntimeParameterFields,
+  isStructuredRuntimeParameter,
+  normalizeRuntimeParameters,
+  type RuntimeParameterValues,
+} from '../../utils/trainingRuntimeSchema';
 
 const statusStyles: Record<string, { bg: string; fg: string }> = {
   default: { bg: '#f5f5f5', fg: '#888' },
@@ -142,7 +149,7 @@ const TaskListPage: React.FC = () => {
     runtime_code_package_id?: number;
     runtime_input_mode: RuntimeInputMode;
     runtime_class_names: string;
-    runtime_parameters: string;
+    runtime_parameters: RuntimeParameterValues;
     runtime_timeout_seconds: number;
   }>({
     backend: 'builtin',
@@ -152,7 +159,7 @@ const TaskListPage: React.FC = () => {
     train_config: DEFAULT_TRAIN_CONFIG,
     runtime_input_mode: 'platform_dataset',
     runtime_class_names: '',
-    runtime_parameters: '{}',
+    runtime_parameters: {},
     runtime_timeout_seconds: 3600,
   });
   const [streamVersion, setStreamVersion] = useState(0);
@@ -161,6 +168,19 @@ const TaskListPage: React.FC = () => {
     (device): device is 'cpu' | 'cuda' => device === 'cpu' || device === 'cuda',
   );
   const runtimeAvailableDevices = reportedRuntimeDevices.length ? reportedRuntimeDevices : ['cpu'];
+  const selectedRuntimeCodePackage = runtimeCodePackages.find((item) => item.id === form.runtime_code_package_id);
+  const runtimeParameterFields = selectedRuntimeCodePackage
+    ? getRuntimeParameterFields(selectedRuntimeCodePackage.parameters_schema)
+    : [];
+
+  const updateRuntimeParameter = (key: string, value: unknown) => {
+    setForm((previous) => {
+      const parameters = { ...previous.runtime_parameters };
+      if (value === undefined) delete parameters[key];
+      else parameters[key] = value;
+      return { ...previous, runtime_parameters: parameters };
+    });
+  };
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -274,23 +294,26 @@ const TaskListPage: React.FC = () => {
   const handleCreate = async () => {
     if (form.backend === 'runtime_script') {
       if (!form.runtime_code_package_id) { message.warning(t('pleaseSelectRuntimeCodePackage')); return; }
-      const selectedPackage = runtimeCodePackages.find((item) => item.id === form.runtime_code_package_id);
+      const selectedPackage = selectedRuntimeCodePackage;
       if (!selectedPackage) { message.warning(t('pleaseSelectRuntimeCodePackage')); return; }
       if (form.runtime_input_mode === 'platform_dataset') {
         if (form.sources.length === 0) { message.warning(t('pleaseAddSource')); return; }
         if (form.sources.some((source) => !source.dataset_id)) { message.warning(t('pleaseSelectDataset')); return; }
         if (form.sources.some((source) => !source.annotation_id)) { message.warning(t('pleaseSelectAnnotation')); return; }
       }
-      let parameters: Record<string, unknown> = {};
-      try {
-        const parsed = JSON.parse(form.runtime_parameters || '{}');
-        if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') throw new Error();
-        parameters = parsed as Record<string, unknown>;
-      } catch {
-        message.warning(t('runtimeParametersInvalid'));
+      const parameterResult = normalizeRuntimeParameters(
+        selectedPackage.parameters_schema,
+        form.runtime_parameters,
+      );
+      if (parameterResult.error) {
+        const { field, kind } = parameterResult.error;
+        message.warning(t(`runtimeParameter${kind[0].toUpperCase()}${kind.slice(1)}`, { name: field.label }));
         return;
       }
-      const classNames = form.runtime_class_names.split(',').map((value) => value.trim()).filter(Boolean);
+      const parameters = parameterResult.parameters ?? {};
+      const classNames = selectedPackage.class_names.length
+        ? selectedPackage.class_names
+        : form.runtime_class_names.split(',').map((value) => value.trim()).filter(Boolean);
       if (form.runtime_input_mode === 'script_managed' && classNames.length === 0) {
         message.warning(t('runtimeClassNamesRequired'));
         return;
@@ -368,7 +391,7 @@ const TaskListPage: React.FC = () => {
       train_config: DEFAULT_TRAIN_CONFIG,
       runtime_input_mode: 'platform_dataset',
       runtime_class_names: '',
-      runtime_parameters: '{}',
+      runtime_parameters: {},
       runtime_timeout_seconds: 3600,
     });
   };
@@ -1478,6 +1501,10 @@ const TaskListPage: React.FC = () => {
                       runtime_input_mode: nextPackage?.input_modes.includes(previous.runtime_input_mode)
                         ? previous.runtime_input_mode
                         : (nextPackage?.input_modes[0] || 'platform_dataset'),
+                      runtime_parameters: nextPackage
+                        ? buildRuntimeParameterDefaults(nextPackage.parameters_schema)
+                        : {},
+                      runtime_class_names: nextPackage?.class_names.join(', ') || '',
                     }));
                   }}
                   options={runtimeCodePackages
@@ -1533,11 +1560,18 @@ const TaskListPage: React.FC = () => {
                 <div>
                   <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeClassNames')}</label>
                   <Input
-                    value={form.runtime_class_names}
+                    value={selectedRuntimeCodePackage?.class_names.length
+                      ? selectedRuntimeCodePackage.class_names.join(', ')
+                      : form.runtime_class_names}
+                    readOnly={Boolean(selectedRuntimeCodePackage?.class_names.length)}
                     onChange={(event) => setForm((previous) => ({ ...previous, runtime_class_names: event.target.value }))}
                     placeholder={t('runtimeClassNamesPlaceholder')}
                   />
-                  <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>{t('runtimeScriptDataHint')}</div>
+                  <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>
+                    {selectedRuntimeCodePackage?.class_names.length
+                      ? t('runtimeDeclaredClassNamesHint')
+                      : t('runtimeScriptDataHint')}
+                  </div>
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1562,14 +1596,74 @@ const TaskListPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>{t('runtimeParameters')}</label>
-                <Input.TextArea
-                  rows={6}
-                  value={form.runtime_parameters}
-                  onChange={(event) => setForm((previous) => ({ ...previous, runtime_parameters: event.target.value }))}
-                  placeholder="{}"
-                />
-                <div className="caption-text" style={{ color: '#9ca3af', marginTop: 4 }}>{t('runtimeParametersHint')}</div>
+                <label className="form-label" style={{ display: 'block', marginBottom: 8 }}>{t('runtimeParameters')}</label>
+                {selectedRuntimeCodePackage ? (
+                  runtimeParameterFields.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                      {runtimeParameterFields.map((field) => {
+                        const value = form.runtime_parameters[field.key];
+                        const placeholder = field.description || field.label;
+                        const minimum = field.minimum ?? field.exclusiveMinimum;
+                        const maximum = field.maximum ?? field.exclusiveMaximum;
+                        const isEnum = Boolean(field.enum?.length);
+                        return (
+                          <div key={field.key}>
+                            <label className="form-label" style={{ display: 'block', marginBottom: 4 }}>
+                              {renderParameterLabel(`${field.label}${field.required ? ' *' : ''}`, field.description)}
+                            </label>
+                            {isEnum ? (
+                              <Select
+                                allowClear={!field.required}
+                                style={{ width: '100%' }}
+                                value={value}
+                                placeholder={placeholder}
+                                onChange={(nextValue) => updateRuntimeParameter(field.key, nextValue)}
+                                options={field.enum?.map((option) => ({ label: String(option), value: option }))}
+                              />
+                            ) : field.type === 'boolean' ? (
+                              <Switch
+                                checked={value === true}
+                                onChange={(checked) => updateRuntimeParameter(field.key, checked)}
+                              />
+                            ) : field.type === 'number' || field.type === 'integer' ? (
+                              <InputNumber
+                                style={{ width: '100%' }}
+                                value={typeof value === 'number' ? value : undefined}
+                                min={minimum}
+                                max={maximum}
+                                precision={field.type === 'integer' ? 0 : undefined}
+                                step={field.type === 'integer' ? 1 : undefined}
+                                placeholder={placeholder}
+                                onChange={(nextValue) => updateRuntimeParameter(
+                                  field.key,
+                                  nextValue === null ? undefined : Number(nextValue),
+                                )}
+                              />
+                            ) : isStructuredRuntimeParameter(field) ? (
+                              <Input.TextArea
+                                rows={4}
+                                value={typeof value === 'string' ? value : JSON.stringify(value ?? null, null, 2)}
+                                placeholder={placeholder}
+                                onChange={(event) => updateRuntimeParameter(field.key, event.target.value)}
+                              />
+                            ) : (
+                              <Input
+                                value={typeof value === 'string' ? value : ''}
+                                placeholder={placeholder}
+                                onChange={(event) => updateRuntimeParameter(field.key, event.target.value)}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="caption-text" style={{ color: '#9ca3af' }}>{t('runtimeParametersEmpty')}</div>
+                  )
+                ) : (
+                  <div className="caption-text" style={{ color: '#9ca3af' }}>{t('runtimeParametersSelectModel')}</div>
+                )}
+                <div className="caption-text" style={{ color: '#9ca3af', marginTop: 8 }}>{t('runtimeParametersHint')}</div>
               </div>
             </>
           )}

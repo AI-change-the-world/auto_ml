@@ -17,6 +17,7 @@ export interface TrainingRuntimeCodePackage {
   package_file_name: string;
   supported_tasks: TrainingRuntimeSupportedTask[];
   input_modes: Array<'platform_dataset' | 'script_managed'>;
+  class_names: string[];
   parameters_schema: Record<string, unknown>;
   model_input_contract: Record<string, unknown> | null;
   output_contract: Record<string, unknown>;

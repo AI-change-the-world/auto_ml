@@ -2,7 +2,7 @@
   "modelManagementTitle": "模型管理",
   "modelManagementSubtitle": "统一查看内置模型与自定义训练模型",
   "builtinTab": "内置模型",
-  "externalTab": "外部模型",
+  "externalTab": "自定义模型",
   "builtinHint": "内置模型来自 base_models，仅供当前 model_trainer 训练流程选择。当前页面只读，不支持上传或修改。",
   "externalHint": "一个自定义模型 ZIP 同时包含训练脚本，以及可选的初始权重。脚本通过 ZIP 内相对路径加载该权重；未包含权重时便从零开始训练。自定义模型只由 model_training_runtime 执行，不会进入内置模型或 model_trainer。",
   "customModelsTitle": "自定义模型",

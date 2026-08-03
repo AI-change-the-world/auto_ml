@@ -82,8 +82,8 @@ class RuntimeScriptTaskCreate(BaseModel):
             raise ValueError("script_managed input must not include datasets or annotations")
         if self.input_mode == "script_managed":
             normalized = [item.strip() for item in self.class_names]
-            if not normalized or any(not item for item in normalized) or len(normalized) != len(set(normalized)):
-                raise ValueError("script_managed input requires unique non-empty class_names")
+            if normalized and (any(not item for item in normalized) or len(normalized) != len(set(normalized))):
+                raise ValueError("script_managed class_names must contain unique non-empty values")
         if self.model_package_id is None and self.model_input_mode != "initialize":
             raise ValueError("model_input_mode=resume requires model_package_id")
         return self

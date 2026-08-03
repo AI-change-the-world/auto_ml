@@ -131,6 +131,7 @@ and that its result fulfills the package declaration. Both validations happen
 before this service has any MQ or execution wiring.
 
 - `parameters_schema` must be a valid Draft 2020-12 JSON Schema with object root; execution parameters must satisfy it.
+- `class_names` is an optional fixed, ordered class list for a code ZIP. An empty list keeps the package reusable; a non-empty list is submitted automatically and must match the selected dataset or script-managed task.
 - Package key/version and `runtime` must match the resolved execution request.
 - The package must declare the execution task kind, data modalities, and annotation kinds.
 - `code_dir`, `input_dir`, and `output_dir` must be distinct children of the workspace; the dataset manifest and optional materialized model input live beneath `input_dir`.

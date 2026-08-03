@@ -216,6 +216,9 @@ class TaskService:
             raise BadRequestException(
                 f"training code package {data.code_package_id} does not support `{data.input_mode}` input"
             )
+        fixed_class_names = self._load_json(package.class_names_json, [])
+        if fixed_class_names:
+            fixed_class_names = self._normalize_runtime_class_names(fixed_class_names)
 
         task_kind, default_annotation_kind = self._runtime_task_metadata(data.task_type)
         supported_tasks = self._load_json(package.supported_tasks_json, [])
@@ -254,8 +257,19 @@ class TaskService:
             class_names = snapshot.manifest.class_names
             data_modalities = snapshot.manifest.data_modalities
             annotation_kinds = snapshot.manifest.annotation_kinds
+            if fixed_class_names and class_names != fixed_class_names:
+                raise BadRequestException(
+                    "platform dataset class_names must match the fixed class_names declared by the training code package"
+                )
         else:
-            class_names = self._normalize_runtime_class_names(data.class_names)
+            if fixed_class_names:
+                class_names = fixed_class_names
+                if data.class_names and self._normalize_runtime_class_names(data.class_names) != class_names:
+                    raise BadRequestException(
+                        "class_names must match the fixed class_names declared by the training code package"
+                    )
+            else:
+                class_names = self._normalize_runtime_class_names(data.class_names)
             data_modalities = self._normalize_runtime_strings(data.data_modalities, "data_modalities")
             annotation_kinds = self._normalize_runtime_strings(data.annotation_kinds, "annotation_kinds")
 

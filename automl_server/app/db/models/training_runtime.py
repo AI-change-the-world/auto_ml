@@ -24,6 +24,7 @@ class TrainingRuntimeCodePackage(BaseEntity):
     package_file_name = Column(String(255), nullable=False, comment="上传文件名")
     supported_tasks_json = Column(Text, nullable=False, comment="支持任务声明 JSON")
     input_modes_json = Column(Text, nullable=False, comment="训练数据输入模式 JSON")
+    class_names_json = Column(Text, nullable=False, comment="可选固定类别顺序 JSON")
     parameters_schema_json = Column(Text, nullable=False, comment="脚本参数 Schema JSON")
     model_input_contract_json = Column(Text, nullable=True, comment="模型输入约束 JSON")
     output_contract_json = Column(Text, nullable=False, comment="产物输出约束 JSON")
